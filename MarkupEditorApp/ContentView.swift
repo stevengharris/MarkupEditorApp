@@ -12,10 +12,10 @@ internal import UniformTypeIdentifiers
 struct ContentView: View {
     
     @ObservedObject var selectImage = MarkupEditor.selectImage
-    @State private var rawText = ""
+    @State private var currentHtml = ""
     @State private var documentPickerShowing: Bool = false
     @State private var rawShowing: Bool = false
-    @State private var demoHtml: String
+    @State private var initialHtml: String
     @State private var hasChanges = false
     @State private var currentFileURL: URL?
 
@@ -24,7 +24,7 @@ struct ContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $demoHtml, placeholder: "Add document content...", id: "Document")
+            MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Add document content...", id: "Document")
             if rawShowing {
                 VStack {
                     Divider()
@@ -37,7 +37,7 @@ struct ContentView: View {
                         Color(nsColor: NSColor.unemphasizedSelectedContentBackgroundColor)
                     )
                     ScrollView {
-                        Text(rawText)
+                        Text(currentHtml)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .font(Font.system(size: StyleContext.P.fontSize))
                             .padding([.top, .bottom, .leading, .trailing], 8)
@@ -76,12 +76,12 @@ struct ContentView: View {
     }
     
     init() {
-        _demoHtml = State(initialValue: "")
+        _initialHtml = State(initialValue: "")
     }
     
-    private func setRawText(_ handler: (()->Void)? = nil) {
+    private func setCurrentHtml(_ handler: (()->Void)? = nil) {
         MarkupEditor.selectedWebView?.getHtml { html in
-            rawText = html ?? ""
+            currentHtml = html ?? ""
             handler?()
         }
     }
@@ -126,7 +126,7 @@ struct ContentView: View {
         checkSave { [self] shouldProceed in
             guard shouldProceed else { return }
             MarkupEditor.selectedWebView?.emptyDocument {
-                setRawText()
+                setCurrentHtml()
             }
             currentFileURL = nil
             hasChanges = false
@@ -153,7 +153,7 @@ struct ContentView: View {
             MarkupEditor.selectedWebView?.setHtml(html)
             currentFileURL = url
             hasChanges = false
-            setRawText()
+            setCurrentHtml()
         } catch {
             let alert = NSAlert(error: error)
             alert.runModal()
@@ -197,18 +197,7 @@ struct ContentView: View {
         }
     }
     
-    // File operations
-    
-    func newDocument(handler: ((URL?)->Void)? = nil) {
-        MarkupEditor.selectedWebView?.emptyDocument() {
-            setRawText()
-        }
-    }
-
-    func existingDocument(handler: ((URL?)->Void)? = nil) {
-        documentPickerShowing.toggle()
-    }
-
+    /// Open the HTML view
     func rawDocument() {
         withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
     }
@@ -219,16 +208,15 @@ extension ContentView: MarkupDelegate {
     
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
-        setRawText(handler)
+        setCurrentHtml(handler)
     }
     
     func markupInput(_ view: MarkupWKWebView) {
         hasChanges = true
         // This is way too heavyweight, but it suits the purposes of the demo
         view.getSelectionState() { selectionState in
-            //Logger.coordinator.debug("* selectionChange")
             MarkupEditor.selectionState.reset(from: selectionState)
-            setRawText()
+            setCurrentHtml()
         }
     }
 
