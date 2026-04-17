@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */ = {isa = PBXBuildFile; productRef = AA7B99C22F9291B90085425B /* MarkupEditor */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AA7B99A52F9290E00085425B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = MarkupEditorApp;
 			packageProductDependencies = (
+				AA7B99C22F9291B90085425B /* MarkupEditor */,
 			);
 			productName = MarkupEditorApp;
 			productReference = AA7B99972F9290DF0085425B /* MarkupEditorApp.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = AA7B998E2F9290DF0085425B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA7B99C12F9291B90085425B /* XCLocalSwiftPackageReference "../MarkupEditor" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA7B99982F9290DF0085425B /* Products */;
 			projectDirPath = "";
@@ -400,9 +409,20 @@
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MarkupEditor;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -432,9 +452,20 @@
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MarkupEditor;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -573,6 +604,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA7B99C12F9291B90085425B /* XCLocalSwiftPackageReference "../MarkupEditor" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../MarkupEditor;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA7B99C22F9291B90085425B /* MarkupEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MarkupEditor;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA7B998F2F9290DF0085425B /* Project object */;
 }

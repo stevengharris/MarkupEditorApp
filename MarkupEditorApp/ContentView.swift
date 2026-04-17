@@ -6,16 +6,13 @@
 //
 
 import SwiftUI
+import MarkupEditor
 
 struct ContentView: View {
+    @State private var demoHtml: String = "<h1>Hello World</h1>"
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        MarkupEditorView(html: $demoHtml)
     }
 }
 
