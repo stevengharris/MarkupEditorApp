@@ -173,15 +173,12 @@ struct ContentView: View {
     }
 
     private func showSavePanel() {
-        guard let window = NSApplication.shared.keyWindow else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.html]
         panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.html"
-        panel.beginSheetModal(for: window) { response in
-            guard response == .OK, let url = panel.url else { return }
-            saveHtml(to: url)
-            currentFileURL = url
-        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        saveHtml(to: url)
+        currentFileURL = url
     }
 
     private func saveHtml(to url: URL) {

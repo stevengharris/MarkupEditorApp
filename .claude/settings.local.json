@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nx index *)",
+      "Bash(nx search *)",
+      "Bash(nx --version)",
+      "Bash(uv tool *)",
+      "Bash(nx hooks *)",
+      "Bash(nx collection *)",
+      "mcp__plugin_nx_nexus__search",
+      "mcp__plugin_nx_nexus__collection_list"
+    ]
+  }
+}
