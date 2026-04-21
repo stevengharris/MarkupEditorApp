@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var initialHtml: String
     @State private var hasChanges = false
     @State private var currentFileURL: URL?
+    @State private var activeDocumentType: DocumentType?
 
     /// The `markupConfiguration` holds onto the name of any userResourceFiles we set in init.
     private let markupConfiguration = MarkupWKWebViewConfiguration()
@@ -60,9 +61,13 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .menuShowHtml)) { _ in
             rawDocument()
         }
-        .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html], allowsMultipleSelection: false) { result in
+        // Note: fileImporter has no canChooseDirectories parameter; .htmd packages are presented
+        // as files by the system because the UTI conforms to com.apple.package. The NSOpenPanel
+        // in handleOpen() requires canChooseDirectories=true for the same reason — the two paths
+        // are intentionally asymmetric.
+        .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html, UTType("com.stevengharris.htmd")!], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
-                loadHtml(from: url)
+                openDocument(at: url)
             }
         }
         .fileImporter(isPresented: $selectImage.value, allowedContentTypes: MarkupEditor.supportedImageTypes, allowsMultipleSelection: false) { result in
@@ -79,6 +84,10 @@ struct ContentView: View {
         _initialHtml = State(initialValue: "")
     }
     
+    private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
+        fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
+    }
+
     private func setCurrentHtml(_ handler: (()->Void)? = nil) {
         MarkupEditor.selectedWebView?.getHtml { html in
             currentHtml = html ?? ""
@@ -137,34 +146,91 @@ struct ContentView: View {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.html]
+            panel.allowedContentTypes = [.html, UTType("com.stevengharris.htmd")!]
             panel.allowsMultipleSelection = false
-            panel.canChooseDirectories = false
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = true
             guard panel.runModal() == .OK, let url = panel.url else { return }
-            loadHtml(from: url)
+            openDocument(at: url)
         }
     }
 
-    private func loadHtml(from url: URL) {
+    private func openDocument(at url: URL) {
+        let ext = url.pathExtension.lowercased()
+        guard ext == "html" || ext == "htmd" else { return }
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
-            let html = try String(contentsOf: url, encoding: .utf8)
-            MarkupEditor.selectedWebView?.setHtml(html)
-            currentFileURL = url
-            hasChanges = false
-            setCurrentHtml()
+            switch ext {
+            case "htmd":
+                try openHtmd(at: url)
+            default:
+                try openHtml(at: url)
+            }
         } catch {
             let alert = NSAlert(error: error)
             alert.runModal()
         }
     }
 
+    private func openHtmd(at packageURL: URL) throws {
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        let indexURL = packageURL.appendingPathComponent("index.html")
+        guard FileManager.default.fileExists(atPath: indexURL.path) else {
+            throw DocumentOpenError.missingIndexHtml
+        }
+        let html = try String(contentsOf: indexURL, encoding: .utf8)
+        let copiedPaths = try copyPackageAssets(from: packageURL, to: baseUrl)
+        for src in localImageSrcs(in: html) {
+            guard copiedPaths.contains(src) else {
+                throw DocumentOpenError.missingPackageImage(src)
+            }
+        }
+        MarkupEditor.selectedWebView?.setHtml(html)
+        currentFileURL = packageURL
+        activeDocumentType = .htmd
+        hasChanges = false
+        setCurrentHtml()
+    }
+
+    private func openHtml(at fileURL: URL) throws {
+        let html = try String(contentsOf: fileURL, encoding: .utf8)
+        if let baseUrl = MarkupEditor.selectedWebView?.baseUrl {
+            let parentDir = fileURL.deletingLastPathComponent()
+            try copyImageAssets(srcs: localImageSrcs(in: html), from: parentDir, to: baseUrl, skipMissing: true)
+        }
+        MarkupEditor.selectedWebView?.setHtml(html)
+        currentFileURL = fileURL
+        activeDocumentType = .html
+        hasChanges = false
+        setCurrentHtml()
+    }
+
     private func handleSave() {
-        if let url = currentFileURL {
-            saveHtml(to: url)
-        } else {
+        guard let url = currentFileURL else {
             showSavePanel()
+            return
+        }
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        let docType = activeDocumentType ?? .html
+        getLocalImageSrcs { [self] srcs in
+            MarkupEditor.selectedWebView?.getHtml { html in
+                guard let html else { return }
+                do {
+                    switch docType {
+                    case .htmd:
+                        try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url, deleteOrphans: true)
+                        try html.write(to: url.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+                    case .html:
+                        try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
+                        try html.write(to: url, atomically: true, encoding: .utf8)
+                    }
+                    hasChanges = false
+                } catch {
+                    let alert = NSAlert(error: error)
+                    alert.runModal()
+                }
+            }
         }
     }
 
@@ -174,22 +240,29 @@ struct ContentView: View {
 
     private func showSavePanel() {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html]
+        panel.allowedContentTypes = [.html, UTType("com.stevengharris.htmd")!]
         panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.html"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        saveHtml(to: url)
-        currentFileURL = url
-    }
-
-    private func saveHtml(to url: URL) {
-        MarkupEditor.selectedWebView?.getHtml { html in
-            guard let html else { return }
-            do {
-                try html.write(to: url, atomically: true, encoding: .utf8)
-                hasChanges = false
-            } catch {
-                let alert = NSAlert(error: error)
-                alert.runModal()
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        let targetExt = url.pathExtension.lowercased()
+        guard targetExt == "html" || targetExt == "htmd" else { return }
+        getLocalImageSrcs { [self] srcs in
+            MarkupEditor.selectedWebView?.getHtml { html in
+                guard let html else { return }
+                do {
+                    switch targetExt {
+                    case "htmd":
+                        try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
+                    default:
+                        try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
+                    }
+                    currentFileURL = url
+                    activeDocumentType = targetExt == "htmd" ? .htmd : .html
+                    hasChanges = false
+                } catch {
+                    let alert = NSAlert(error: error)
+                    alert.runModal()
+                }
             }
         }
     }

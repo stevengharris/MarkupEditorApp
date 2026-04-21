@@ -1,0 +1,176 @@
+//
+//  DocumentOpener.swift
+//  MarkupEditorApp
+
+import Foundation
+import MarkupEditor
+
+// MARK: - Local image query
+
+protocol LocalImagesProvider {
+    func getLocalImages(handler: (([String]) -> Void)?)
+}
+
+extension MarkupWKWebView: LocalImagesProvider {}
+
+/// Calls `getLocalImages` on `provider` and delivers the result to `completion`.
+/// Delivers an empty array if `provider` is nil (no webview loaded).
+func fetchLocalImageSrcs(from provider: (any LocalImagesProvider)?, completion: @escaping ([String]) -> Void) {
+    guard let provider else {
+        completion([])
+        return
+    }
+    provider.getLocalImages(handler: completion)
+}
+
+// MARK: - Save sync
+
+/// Syncs image assets from `baseUrl` into `docDir`.
+/// Copies each src that is missing from `docDir`; skips srcs absent from `baseUrl`.
+/// When `deleteOrphans` is true, removes non-HTML files in `docDir` whose relative path
+/// is not present in `srcs` (used for .htmd saves to remove deleted images).
+func syncImageAssets(srcs: [String], baseUrl: URL, docDir: URL, deleteOrphans: Bool) throws {
+    let fm = FileManager.default
+    let srcSet = Set(srcs)
+    for src in srcs {
+        let dest = docDir.appendingPathComponent(src)
+        guard !fm.fileExists(atPath: dest.path) else { continue }
+        let source = baseUrl.appendingPathComponent(src)
+        guard fm.fileExists(atPath: source.path) else { continue }
+        let parent = dest.deletingLastPathComponent()
+        if !fm.fileExists(atPath: parent.path) {
+            try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+        }
+        try fm.copyItem(at: source, to: dest)
+    }
+    guard deleteOrphans else { return }
+    guard let enumerator = fm.enumerator(
+        at: docDir,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) else { return }
+    var docDirPath = docDir.path
+    if docDirPath.hasSuffix("/") { docDirPath.removeLast() }
+    for case let fileURL as URL in enumerator {
+        let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+        guard values.isRegularFile == true else { continue }
+        guard fileURL.pathExtension.lowercased() != "html" else { continue }
+        let relativePath = String(fileURL.path.dropFirst(docDirPath.count + 1))
+        if !srcSet.contains(relativePath) {
+            try fm.removeItem(at: fileURL)
+        }
+    }
+}
+
+// MARK: - Save As
+
+/// Creates a fresh .htmd package at `packageURL`, writes `html` to index.html,
+/// and copies each src from `baseUrl` into the package preserving relative paths.
+/// If a package already exists at `packageURL` it is replaced.
+func saveAsHtmd(srcs: [String], html: String, baseUrl: URL, to packageURL: URL) throws {
+    let fm = FileManager.default
+    if fm.fileExists(atPath: packageURL.path) {
+        try fm.removeItem(at: packageURL)
+    }
+    try fm.createDirectory(at: packageURL, withIntermediateDirectories: true)
+    try html.write(to: packageURL.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+    try copyImageAssets(srcs: srcs, from: baseUrl, to: packageURL, skipMissing: true)
+}
+
+/// Writes `html` to `fileURL` and copies each src from `baseUrl` alongside the file,
+/// preserving relative paths. Does not delete any existing files.
+func saveAsHtml(srcs: [String], html: String, baseUrl: URL, to fileURL: URL) throws {
+    try html.write(to: fileURL, atomically: true, encoding: .utf8)
+    let parentDir = fileURL.deletingLastPathComponent()
+    try copyImageAssets(srcs: srcs, from: baseUrl, to: parentDir, skipMissing: true)
+}
+
+// MARK: - Types
+
+enum DocumentType: Equatable { case html, htmd }
+
+enum DocumentOpenError: Error, Equatable {
+    case invalidExtension
+    case missingIndexHtml
+    case missingPackageImage(String)
+}
+
+/// Returns the literal `src` attribute values from `<img>` tags that are local relative paths.
+/// Excludes http://, https://, data:, //, and absolute paths starting with /.
+func localImageSrcs(in html: String) -> [String] {
+    let pattern = #"(?i)<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+    let nsHtml = html as NSString
+    let range = NSRange(location: 0, length: nsHtml.length)
+    return regex.matches(in: html, range: range).compactMap { match -> String? in
+        guard match.numberOfRanges > 1 else { return nil }
+        let srcRange = match.range(at: 1)
+        guard srcRange.location != NSNotFound else { return nil }
+        let src = nsHtml.substring(with: srcRange)
+        return isLocalRelativeSrc(src) ? src : nil
+    }
+}
+
+func isLocalRelativeSrc(_ src: String) -> Bool {
+    guard !src.isEmpty else { return false }
+    let lower = src.lowercased()
+    return !lower.hasPrefix("http://") &&
+           !lower.hasPrefix("https://") &&
+           !lower.hasPrefix("data:") &&
+           !lower.hasPrefix("//") &&
+           !lower.hasPrefix("/")
+}
+
+/// Copies `sourceDir/<src>` to `destDir/<src>` for each src, creating subdirectories as needed.
+/// When `skipMissing` is true, files absent from sourceDir are silently ignored.
+/// When false, a missing file throws `DocumentOpenError.missingPackageImage`.
+func copyImageAssets(srcs: [String], from sourceDir: URL, to destDir: URL, skipMissing: Bool) throws {
+    let fm = FileManager.default
+    for src in srcs {
+        let source = sourceDir.appendingPathComponent(src)
+        let dest = destDir.appendingPathComponent(src)
+        guard fm.fileExists(atPath: source.path) else {
+            if skipMissing { continue }
+            throw DocumentOpenError.missingPackageImage(src)
+        }
+        let parent = dest.deletingLastPathComponent()
+        if !fm.fileExists(atPath: parent.path) {
+            try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+        }
+        if fm.fileExists(atPath: dest.path) {
+            try fm.removeItem(at: dest)
+        }
+        try fm.copyItem(at: source, to: dest)
+    }
+}
+
+/// Copies all non-HTML files from `packageURL` to `destDir`, preserving relative paths.
+/// Returns the set of relative path strings that were copied.
+func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<String> {
+    let fm = FileManager.default
+    guard let enumerator = fm.enumerator(
+        at: packageURL,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+    var pkgPath = packageURL.path
+    if pkgPath.hasSuffix("/") { pkgPath.removeLast() }
+    var copied = Set<String>()
+    for case let fileURL as URL in enumerator {
+        let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+        guard values.isRegularFile == true else { continue }
+        guard fileURL.pathExtension.lowercased() != "html" else { continue }
+        let relativePath = String(fileURL.path.dropFirst(pkgPath.count + 1))
+        let dest = destDir.appendingPathComponent(relativePath)
+        let parent = dest.deletingLastPathComponent()
+        if !fm.fileExists(atPath: parent.path) {
+            try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+        }
+        if fm.fileExists(atPath: dest.path) {
+            try fm.removeItem(at: dest)
+        }
+        try fm.copyItem(at: fileURL, to: dest)
+        copied.insert(relativePath)
+    }
+    return copied
+}

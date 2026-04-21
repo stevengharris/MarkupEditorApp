@@ -33,9 +33,22 @@
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA7B99992F9290DF0085425B /* MarkupEditorApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */,
+			);
 			path = MarkupEditorApp;
 			sourceTree = "<group>";
 		};
@@ -47,6 +60,11 @@
 		AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MarkupEditorAppUITests;
+			sourceTree = "<group>";
+		};
+		AA9FB83D2F97D78F009F804F /* docs */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = docs;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -83,6 +101,7 @@
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
+				AA9FB83D2F97D78F009F804F /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -421,7 +440,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarkupEditorApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MarkupEditor;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -464,7 +484,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarkupEditorApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MarkupEditor;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
