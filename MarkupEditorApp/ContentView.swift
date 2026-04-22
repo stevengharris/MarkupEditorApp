@@ -9,6 +9,10 @@ import SwiftUI
 import MarkupEditor
 internal import UniformTypeIdentifiers
 
+private extension UTType {
+    static let htmd = UTType("com.stevengharris.htmd") ?? .data
+}
+
 struct ContentView: View {
     
     @ObservedObject var selectImage = MarkupEditor.selectImage
@@ -76,7 +80,7 @@ struct ContentView: View {
         // as files by the system because the UTI conforms to com.apple.package. The NSOpenPanel
         // in handleOpen() requires canChooseDirectories=true for the same reason — the two paths
         // are intentionally asymmetric.
-        .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html, UTType("com.stevengharris.htmd")!], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html, .htmd], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 openDocument(at: url)
             }
@@ -132,8 +136,7 @@ struct ContentView: View {
         let response = alert.runModal()
         switch response {
         case .alertFirstButtonReturn:
-            handleSave()
-            proceed(true)
+            handleSave { proceed(true) }
         case .alertSecondButtonReturn:
             hasChanges = false
             proceed(true)
@@ -157,7 +160,7 @@ struct ContentView: View {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.html, UTType("com.stevengharris.htmd")!]
+            panel.allowedContentTypes = [.html, .htmd]
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = true
             panel.canChooseFiles = true
@@ -168,7 +171,13 @@ struct ContentView: View {
 
     private func openDocument(at url: URL, handler: (()->Void)? = nil) {
         let ext = url.pathExtension.lowercased()
-        guard ext == "html" || ext == "htmd" else { return }
+        guard ext == "html" || ext == "htmd" else {
+            let alert = NSAlert()
+            alert.messageText = "Unsupported file type"
+            alert.informativeText = "Only .html and .htmd documents can be opened."
+            alert.runModal()
+            return
+        }
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -185,7 +194,9 @@ struct ContentView: View {
     }
 
     private func openHtmd(at packageURL: URL, handler: (()->Void)? = nil) throws {
-        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+            throw DocumentOpenError.noWebviewAvailable
+        }
         let indexURL = packageURL.appendingPathComponent("index.html")
         guard FileManager.default.fileExists(atPath: indexURL.path) else {
             throw DocumentOpenError.missingIndexHtml
@@ -217,16 +228,22 @@ struct ContentView: View {
         setCurrentHtml(handler)
     }
 
-    private func handleSave() {
+    private func handleSave(then completion: (()->Void)? = nil) {
         guard let url = currentFileURL else {
-            showSavePanel()
+            showSavePanel(then: completion)
             return
         }
-        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+            completion?()
+            return
+        }
         let docType = activeDocumentType ?? .html
         getLocalImageSrcs { [self] srcs in
             MarkupEditor.selectedWebView?.getHtml { html in
-                guard let html else { return }
+                guard let html else {
+                    completion?()
+                    return
+                }
                 do {
                     switch docType {
                     case .htmd:
@@ -237,9 +254,11 @@ struct ContentView: View {
                         try html.write(to: url, atomically: true, encoding: .utf8)
                     }
                     hasChanges = false
+                    completion?()
                 } catch {
                     let alert = NSAlert(error: error)
                     alert.runModal()
+                    completion?()
                 }
             }
         }
@@ -249,17 +268,29 @@ struct ContentView: View {
         showSavePanel()
     }
 
-    private func showSavePanel() {
+    private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html, UTType("com.stevengharris.htmd")!]
+        panel.allowedContentTypes = [.html, .htmd]
         panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.html"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            completion?()
+            return
+        }
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+            completion?()
+            return
+        }
         let targetExt = url.pathExtension.lowercased()
-        guard targetExt == "html" || targetExt == "htmd" else { return }
+        guard targetExt == "html" || targetExt == "htmd" else {
+            completion?()
+            return
+        }
         getLocalImageSrcs { [self] srcs in
             MarkupEditor.selectedWebView?.getHtml { html in
-                guard let html else { return }
+                guard let html else {
+                    completion?()
+                    return
+                }
                 do {
                     switch targetExt {
                     case "htmd":
@@ -270,9 +301,11 @@ struct ContentView: View {
                     currentFileURL = url
                     activeDocumentType = targetExt == "htmd" ? .htmd : .html
                     hasChanges = false
+                    completion?()
                 } catch {
                     let alert = NSAlert(error: error)
                     alert.runModal()
+                    completion?()
                 }
             }
         }

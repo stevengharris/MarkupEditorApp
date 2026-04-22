@@ -93,6 +93,7 @@ enum DocumentOpenError: Error, Equatable {
     case invalidExtension
     case missingIndexHtml
     case missingPackageImage(String)
+    case noWebviewAvailable
 }
 
 /// Returns the literal `src` attribute values from `<img>` tags that are local relative paths.
