@@ -28,7 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		AA7B99972F9290DF0085425B /* MarkupEditorApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditorApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -109,7 +109,7 @@
 		AA7B99982F9290DF0085425B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AA7B99972F9290DF0085425B /* MarkupEditorApp.app */,
+				AA7B99972F9290DF0085425B /* MarkupEditor.app */,
 				AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */,
 				AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */,
 			);
@@ -139,7 +139,7 @@
 				AA7B99C22F9291B90085425B /* MarkupEditor */,
 			);
 			productName = MarkupEditorApp;
-			productReference = AA7B99972F9290DF0085425B /* MarkupEditorApp.app */;
+			productReference = AA7B99972F9290DF0085425B /* MarkupEditor.app */;
 			productType = "com.apple.product-type.application";
 		};
 		AA7B99A32F9290E00085425B /* MarkupEditorAppTests */ = {
@@ -450,7 +450,8 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = MarkupEditorApp;
+				PRODUCT_NAME = MarkupEditor;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -494,7 +495,8 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = MarkupEditorApp;
+				PRODUCT_NAME = MarkupEditor;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

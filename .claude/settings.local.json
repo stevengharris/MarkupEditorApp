@@ -11,7 +11,8 @@
       "mcp__plugin_nx_nexus__collection_list",
       "mcp__serena__activate_project",
       "mcp__serena__search_for_pattern",
-      "mcp__memory-bank__memory_bank_write"
+      "mcp__memory-bank__memory_bank_write",
+      "WebSearch"
     ]
   },
   "enableAllProjectMcpServers": true,
