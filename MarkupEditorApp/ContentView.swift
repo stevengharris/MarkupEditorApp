@@ -61,6 +61,17 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .menuShowHtml)) { _ in
             rawDocument()
         }
+        .onOpenURL { url in
+            if MarkupEditor.selectedWebView != nil {
+                AppDelegate.pendingFinderURL = nil
+                checkSave { shouldProceed in
+                    guard shouldProceed else { return }
+                    openDocument(at: url)
+                }
+            } else {
+                AppDelegate.pendingFinderURL = url
+            }
+        }
         // Note: fileImporter has no canChooseDirectories parameter; .htmd packages are presented
         // as files by the system because the UTI conforms to com.apple.package. The NSOpenPanel
         // in handleOpen() requires canChooseDirectories=true for the same reason — the two paths
@@ -96,8 +107,8 @@ struct ContentView: View {
     }
     
     private func imageSelected(url: URL) {
-        guard let view = MarkupEditor.selectedWebView else { return }
-        markupImageToAdd(view, url: url)
+        guard let selectedWebView = MarkupEditor.selectedWebView else { return }
+        markupImageToAdd(selectedWebView, url: url)
     }
 
     // MARK: - File operations (driven by menu notifications on macOS)
@@ -155,7 +166,7 @@ struct ContentView: View {
         }
     }
 
-    private func openDocument(at url: URL) {
+    private func openDocument(at url: URL, handler: (()->Void)? = nil) {
         let ext = url.pathExtension.lowercased()
         guard ext == "html" || ext == "htmd" else { return }
         let accessing = url.startAccessingSecurityScopedResource()
@@ -163,9 +174,9 @@ struct ContentView: View {
         do {
             switch ext {
             case "htmd":
-                try openHtmd(at: url)
+                try openHtmd(at: url, handler: handler)
             default:
-                try openHtml(at: url)
+                try openHtml(at: url, handler: handler)
             }
         } catch {
             let alert = NSAlert(error: error)
@@ -173,7 +184,7 @@ struct ContentView: View {
         }
     }
 
-    private func openHtmd(at packageURL: URL) throws {
+    private func openHtmd(at packageURL: URL, handler: (()->Void)? = nil) throws {
         guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
         let indexURL = packageURL.appendingPathComponent("index.html")
         guard FileManager.default.fileExists(atPath: indexURL.path) else {
@@ -190,10 +201,10 @@ struct ContentView: View {
         currentFileURL = packageURL
         activeDocumentType = .htmd
         hasChanges = false
-        setCurrentHtml()
+        setCurrentHtml(handler)
     }
 
-    private func openHtml(at fileURL: URL) throws {
+    private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
         let html = try String(contentsOf: fileURL, encoding: .utf8)
         if let baseUrl = MarkupEditor.selectedWebView?.baseUrl {
             let parentDir = fileURL.deletingLastPathComponent()
@@ -203,7 +214,7 @@ struct ContentView: View {
         currentFileURL = fileURL
         activeDocumentType = .html
         hasChanges = false
-        setCurrentHtml()
+        setCurrentHtml(handler)
     }
 
     private func handleSave() {
@@ -278,7 +289,12 @@ extension ContentView: MarkupDelegate {
     
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
-        setCurrentHtml(handler)
+        if let url = AppDelegate.pendingFinderURL {
+            AppDelegate.pendingFinderURL = nil
+            openDocument(at: url, handler: handler)
+        } else {
+            setCurrentHtml(handler)
+        }
     }
     
     func markupInput(_ view: MarkupWKWebView) {
@@ -297,16 +313,6 @@ extension ContentView: MarkupDelegate {
     func markupSelectImage(_ view: MarkupWKWebView?) {
         selectImage.value.toggle()
     }
-    
-    /// Callback received after a local image has been added to the document.
-    ///
-    /// Note the URL will be to a copy of the image you identified, copied to the caches directory for the app.
-    /// You may want to copy this image to a proper storage location. For demo, I'm leaving the print statement
-    /// in to highlight what happened.
-    func markupImageAdded(url: URL) {
-        print("Image added from \(url.path)")
-    }
-
 
 }
 

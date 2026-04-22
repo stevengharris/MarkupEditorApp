@@ -11,6 +11,7 @@ import MarkupEditor
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var keymap: KeymapConfig?
+    static var pendingFinderURL: URL?
 
     /// Quit the app when the window is closed. Without this, SwiftUI keeps the
     /// process alive and `applicationDidFinishLaunching` won't fire on the next
@@ -18,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
-
+    
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
         // Set the menu early so it's available before SwiftUI creates its window.
@@ -458,3 +459,4 @@ extension Notification.Name {
     static let menuSaveAsDocument = Notification.Name("menuSaveAsDocument")
     static let menuShowHtml = Notification.Name("menuShowHtml")
 }
+

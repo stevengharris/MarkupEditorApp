@@ -13,7 +13,7 @@ struct MarkupEditorApp: App {
     
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
-        WindowGroup {
+        Window("MarkupEditor", id: "main") {
             ContentView()
         }
     }
