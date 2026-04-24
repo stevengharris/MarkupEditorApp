@@ -101,6 +101,9 @@ struct ContentView: View {
             }
         }
         .onDisappear { MarkupEditor.selectedWebView = nil }
+        .onChange(of: currentFileURL) { _, url in
+            NSApplication.shared.mainWindow?.title = url?.lastPathComponent ?? "MarkupEditor"
+        }
     }
     
     init() {
