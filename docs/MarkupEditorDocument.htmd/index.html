@@ -1,0 +1,30 @@
+<h1>The MarkupEditor Document</h1>
+
+<p>The MarkupEditor is an application for creating and editing HTML documents. As you edit the document, you may want to insert images from files you have available locally, or paste images into the document. When you do so, the image itself will be placed in a separate file that needs to be packaged with the HTML document. To handle this packaging problem, the MarkupEditor uses a custom <a href="https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/understanding_utis/understand_utis_intro/understand_utis_intro.html">Uniform Type Identifier</a> that defines an <em>htmd</em> package as a directory that contains a single .html file and the local resources it references. This package shows up on the file system as a single .htmd file, so you can copy and move the document along with the local resources it references as a single file.</p>
+
+<h2>Document Structure</h2>
+
+<ol>
+    <li>
+        <p>The htmd package <strong>must</strong> contain a single .html file at its <em>root</em> which we will refer to as the <em>root html</em>. By default, the root html will be index.html, but it can have any file name that has an html extension.</p>
+    </li>
+    <li>
+        <p>All image files identified in the root html using an <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img">HTML Image Embed element</a> <strong>should</strong> be present at the root or below of the htmd package. (Technically, the src element of a local image uses a <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Web_mechanics/What_is_a_URL#absolute_urls_vs._relative_urls">sub-resource URL</a>.)</p>
+    </li>
+    <li>
+        <p>Image files that are present in the root but which are not present in any HTML Image Embed element of the root html <strong>may</strong> be deleted. For example, to avoid unnecessary document bloat, the MarkupEditor app deletes all images at document save time that are not referenced within the root html.</p>
+    </li>
+    <li>
+        <p>The root <strong>may</strong> contain other MarkupEditor documents, with extension .htmd.</p>
+    </li>
+    <li>
+        <p>The root <strong>may</strong> contain XML metadata files, with extension .data.</p>
+    </li>
+    <li>
+        <p>The root <strong>may</strong> contain CSS files, with extension .css.</p>
+    </li>
+</ol>
+
+<h2>HTML &lt;-&gt; Markdown</h2>
+
+<p>The MarkupEditor HTML <a href="https://stevengharris.github.io/markupeditor-base/guide/index.html#accessing-the-markupeditor-api">content restrictions</a> mean that when you create or edit a MarkupEditor document, it can be exported to Markdown with no loss of content or formatting. Everything you write or format in the MarkupEditor will be present in the Markdown file in the Markdown-equivalent of the HTML. If you import that Markdown file back into the MarkupEditor, it will appear exactly as it did when you exported it. Thus, if you use the MarkupEditor to edit, you can always round-trip between what you see in the MarkupEditor and a Markdown form. When you see a .htmd file, you know that it is losslessly transformable between HTML and Markdown.</p>

@@ -16,7 +16,7 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 ## Architecture
 
 - **Entry point**: `MarkupEditorApp` (`@main`) wires up `AppDelegate` via `@NSApplicationDelegateAdaptor`
-- **Menu system**: `AppDelegate` builds the full `NSMenu` twice (in `willFinishLaunching` and `didFinishLaunching`) because SwiftUI strips custom menus between the two callbacks. This is intentional — do not simplify.
+- **Menu system**: `AppDelegate` builds the full `NSMenu` once, deferred to the next run loop iteration in `didFinishLaunching`. SwiftUI strips the menu between `willFinishLaunching` and `didFinishLaunching`, so the build is deferred. If an early menu is ever needed again, cache the result of `buildMenu()` rather than calling it twice.
 - **Menu → View communication**: Menu actions post `NotificationCenter` notifications (e.g. `.menuSaveDocument`). `ContentView` listens with `.onReceive`. Do not use AppKit delegates or callbacks directly into the view.
 - **Editor interaction**: All rich-text operations go through `MarkupEditor.selectedWebView` (a `MarkupWKWebView`). JavaScript commands use the `MU.*` namespace (e.g. `MU.insertTable()`).
 - **Image selection**: Driven by `MarkupEditor.selectImage` (`@ObservedObject`) toggling a `fileImporter`.
@@ -39,5 +39,4 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 ## Important Constraints
 
 - **Do not edit `.pbxproj` directly** while Xcode is open — Xcode must own project file changes. Use Xcode's Build Settings UI instead.
-- The double `buildMenu()` call in `AppDelegate` is required; SwiftUI strips the menu between `willFinishLaunching` and `didFinishLaunching`.
 - `MarkupEditor.allowLocalImages = true` and `MarkupEditor.isInspectable = true` are set at app init — change only if intentional.

@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var hasChanges = false
     @State private var currentFileURL: URL?
     @State private var activeDocumentType: DocumentType?
+    @State private var rootHtmlFilename: String = "index.html"
 
     /// The `markupConfiguration` holds onto the name of any userResourceFiles we set in init.
     private let markupConfiguration = MarkupWKWebViewConfiguration()
@@ -152,6 +153,7 @@ struct ContentView: View {
                 setCurrentHtml()
             }
             currentFileURL = nil
+            rootHtmlFilename = "index.html"
             hasChanges = false
         }
     }
@@ -197,11 +199,9 @@ struct ContentView: View {
         guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
             throw DocumentOpenError.noWebviewAvailable
         }
-        let indexURL = packageURL.appendingPathComponent("index.html")
-        guard FileManager.default.fileExists(atPath: indexURL.path) else {
-            throw DocumentOpenError.missingIndexHtml
-        }
-        let html = try String(contentsOf: indexURL, encoding: .utf8)
+        let rootHtmlURL = try findRootHTML(in: packageURL)
+        let html = try String(contentsOf: rootHtmlURL, encoding: .utf8)
+        rootHtmlFilename = rootHtmlURL.lastPathComponent
         let copiedPaths = try copyPackageAssets(from: packageURL, to: baseUrl)
         for src in localImageSrcs(in: html) {
             guard copiedPaths.contains(src) else {
@@ -248,7 +248,7 @@ struct ContentView: View {
                     switch docType {
                     case .htmd:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url, deleteOrphans: true)
-                        try html.write(to: url.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+                        try html.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
                     case .html:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
                         try html.write(to: url, atomically: true, encoding: .utf8)
@@ -271,7 +271,7 @@ struct ContentView: View {
     private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.html, .htmd]
-        panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.html"
+        panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.htmd"
         guard panel.runModal() == .OK, let url = panel.url else {
             completion?()
             return

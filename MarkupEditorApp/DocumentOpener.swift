@@ -54,7 +54,11 @@ func syncImageAssets(srcs: [String], baseUrl: URL, docDir: URL, deleteOrphans: B
     for case let fileURL as URL in enumerator {
         let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
         guard values.isRegularFile == true else { continue }
-        guard fileURL.pathExtension.lowercased() != "html" else { continue }
+        let ext = fileURL.pathExtension.lowercased()
+        guard ext != "html" else { continue }
+        // Preserve spec-defined non-image package files regardless of image-srcs list.
+        let preservedExtensions: Set<String> = ["data", "css", "htmd"]
+        guard !preservedExtensions.contains(ext) else { continue }
         let relativePath = String(fileURL.path.dropFirst(docDirPath.count + 1))
         if !srcSet.contains(relativePath) {
             try fm.removeItem(at: fileURL)
@@ -91,9 +95,23 @@ enum DocumentType: Equatable { case html, htmd }
 
 enum DocumentOpenError: Error, Equatable {
     case invalidExtension
-    case missingIndexHtml
+    case rootHtmlNotFound
+    case ambiguousRootHtml(Int)
     case missingPackageImage(String)
     case noWebviewAvailable
+}
+
+/// Returns the single .html file at the root of `packageURL`, or throws if there are zero or more than one.
+func findRootHTML(in packageURL: URL) throws -> URL {
+    let contents = try FileManager.default.contentsOfDirectory(
+        at: packageURL,
+        includingPropertiesForKeys: nil,
+        options: .skipsHiddenFiles
+    )
+    let htmlFiles = contents.filter { $0.pathExtension.lowercased() == "html" }
+    guard !htmlFiles.isEmpty else { throw DocumentOpenError.rootHtmlNotFound }
+    guard htmlFiles.count == 1 else { throw DocumentOpenError.ambiguousRootHtml(htmlFiles.count) }
+    return htmlFiles[0]
 }
 
 /// Returns the literal `src` attribute values from `<img>` tags that are local relative paths.
