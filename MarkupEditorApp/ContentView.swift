@@ -66,6 +66,13 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .menuShowHtml)) { _ in
             rawDocument()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
+            guard let url = notification.object as? URL else { return }
+            checkSave { shouldProceed in
+                guard shouldProceed else { return }
+                openDocument(at: url)
+            }
+        }
         .onOpenURL { url in
             if MarkupEditor.selectedWebView != nil {
                 AppDelegate.pendingFinderURL = nil
@@ -210,6 +217,7 @@ struct ContentView: View {
         }
         MarkupEditor.selectedWebView?.setHtml(html)
         currentFileURL = packageURL
+        NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         activeDocumentType = .htmd
         hasChanges = false
         setCurrentHtml(handler)
@@ -223,6 +231,7 @@ struct ContentView: View {
         }
         MarkupEditor.selectedWebView?.setHtml(html)
         currentFileURL = fileURL
+        NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
         activeDocumentType = .html
         hasChanges = false
         setCurrentHtml(handler)
@@ -299,6 +308,7 @@ struct ContentView: View {
                         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
                     }
                     currentFileURL = url
+                    NSDocumentController.shared.noteNewRecentDocumentURL(url)
                     activeDocumentType = targetExt == "htmd" ? .htmd : .html
                     hasChanges = false
                     completion?()

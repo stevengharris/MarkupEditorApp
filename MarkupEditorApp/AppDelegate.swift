@@ -11,6 +11,7 @@ import MarkupEditor
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var keymap: KeymapConfig?
+    private var openRecentMenu = NSMenu(title: "Open Recent")
     static var pendingFinderURL: URL?
 
     /// Quit the app when the window is closed. Without this, SwiftUI keeps the
@@ -62,6 +63,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(name: .menuShowHtml, object: nil)
     }
 
+    @objc private func openRecentDocument(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NotificationCenter.default.post(name: .menuOpenRecentDocument, object: url)
+    }
+
+    @objc private func clearRecentDocuments(_ sender: Any?) {
+        NSDocumentController.shared.clearRecentDocuments(nil)
+    }
+
     private func buildMenu() -> NSMenu {
         let mainMenu = NSMenu()
 
@@ -92,6 +102,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(NSMenuItem(title: "New", action: #selector(newDocument(_:)), keyEquivalent: "n"))
         fileMenu.addItem(NSMenuItem(title: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o"))
+        let openRecentItem = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
+        openRecentItem.submenu = openRecentMenu
+        openRecentMenu.delegate = self
+        fileMenu.addItem(openRecentItem)
         fileMenu.addItem(.separator())
         fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
         fileMenu.addItem(NSMenuItem(title: "Save", action: #selector(saveDocument(_:)), keyEquivalent: "s"))
@@ -446,11 +460,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === openRecentMenu else { return }
+        menu.removeAllItems()
+        let urls = NSDocumentController.shared.recentDocumentURLs
+        if urls.isEmpty {
+            let empty = NSMenuItem(title: "No Recent Documents", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            menu.addItem(empty)
+        } else {
+            for url in urls {
+                let item = NSMenuItem(
+                    title: url.lastPathComponent,
+                    action: #selector(openRecentDocument(_:)),
+                    keyEquivalent: ""
+                )
+                item.representedObject = url
+                item.target = self
+                menu.addItem(item)
+            }
+            menu.addItem(.separator())
+        }
+        let clearItem = NSMenuItem(
+            title: "Clear Menu",
+            action: #selector(clearRecentDocuments(_:)),
+            keyEquivalent: ""
+        )
+        clearItem.target = self
+        menu.addItem(clearItem)
+    }
+}
+
 extension Notification.Name {
     static let menuNewDocument = Notification.Name("menuNewDocument")
     static let menuOpenDocument = Notification.Name("menuOpenDocument")
     static let menuSaveDocument = Notification.Name("menuSaveDocument")
     static let menuSaveAsDocument = Notification.Name("menuSaveAsDocument")
     static let menuShowHtml = Notification.Name("menuShowHtml")
+    static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
 }
 
