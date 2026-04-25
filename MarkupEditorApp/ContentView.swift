@@ -105,8 +105,9 @@ struct ContentView: View {
             }
         }
         .onDisappear { MarkupEditor.selectedWebView = nil }
+        .toolbar(removing: .title)
         .toolbar {
-            ToolbarItem(placement: .principal) {
+            ToolbarItem(placement: .navigation) {
                 HStack(alignment: .bottom, spacing: 4) {
                     if let url = currentFileURL {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
@@ -116,8 +117,10 @@ struct ContentView: View {
                     Text(currentFileURL?.lastPathComponent ?? "MarkupEditor")
                         .font(.headline)
                 }
+                .allowsHitTesting(false)
             }
-            ToolbarItem(placement: .automatic) {
+            ToolbarSpacer(.flexible)
+            ToolbarItem(placement: .primaryAction) {
                 Button(action: { openSettings() }) {
                     Image(systemName: "gear")
                 }
