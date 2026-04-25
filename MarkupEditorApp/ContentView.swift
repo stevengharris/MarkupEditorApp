@@ -29,6 +29,7 @@ struct ContentView: View {
     private let markupConfiguration = MarkupWKWebViewConfiguration()
     
     var body: some View {
+        let _ = Self._printChanges()
         VStack(spacing: 0) {
             MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Add document content...", id: "Document")
             if rawShowing {
@@ -101,9 +102,6 @@ struct ContentView: View {
             }
         }
         .onDisappear { MarkupEditor.selectedWebView = nil }
-        .onChange(of: currentFileURL) { _, url in
-            NSApplication.shared.mainWindow?.title = url?.lastPathComponent ?? "MarkupEditor"
-        }
     }
     
     init() {
@@ -112,6 +110,10 @@ struct ContentView: View {
     
     private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
         fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
+    }
+
+    private func setWindowTitle(for url: URL?) {
+        NSApplication.shared.mainWindow?.title = url?.lastPathComponent ?? "MarkupEditor"
     }
 
     private func setCurrentHtml(_ handler: (()->Void)? = nil) {
@@ -163,6 +165,7 @@ struct ContentView: View {
                 setCurrentHtml()
             }
             currentFileURL = nil
+            setWindowTitle(for: nil)
             rootHtmlFilename = "index.html"
             hasChanges = false
         }
@@ -219,11 +222,14 @@ struct ContentView: View {
             }
         }
         MarkupEditor.selectedWebView?.setHtml(html)
-        currentFileURL = packageURL
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         activeDocumentType = .htmd
         hasChanges = false
-        setCurrentHtml(handler)
+        setCurrentHtml() {
+            currentFileURL = packageURL
+            setWindowTitle(for: packageURL)
+            handler?()
+        }
     }
 
     private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
@@ -233,11 +239,14 @@ struct ContentView: View {
             try copyImageAssets(srcs: localImageSrcs(in: html), from: parentDir, to: baseUrl, skipMissing: true)
         }
         MarkupEditor.selectedWebView?.setHtml(html)
-        currentFileURL = fileURL
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
         activeDocumentType = .html
         hasChanges = false
-        setCurrentHtml(handler)
+        setCurrentHtml() {
+            currentFileURL = fileURL
+            setWindowTitle(for: fileURL)
+            handler?()
+        }
     }
 
     private func handleSave(then completion: (()->Void)? = nil) {
@@ -312,6 +321,7 @@ struct ContentView: View {
                     }
                     currentFileURL = url
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
+                    setWindowTitle(for: url)
                     activeDocumentType = targetExt == "htmd" ? .htmd : .html
                     hasChanges = false
                     completion?()
