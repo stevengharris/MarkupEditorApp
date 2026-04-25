@@ -29,7 +29,6 @@ struct ContentView: View {
     private let markupConfiguration = MarkupWKWebViewConfiguration()
     
     var body: some View {
-        let _ = Self._printChanges()
         VStack(spacing: 0) {
             MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Add document content...", id: "Document")
             if rawShowing {
@@ -121,6 +120,7 @@ struct ContentView: View {
     private func setCurrentHtml(_ handler: (()->Void)? = nil) {
         MarkupEditor.selectedWebView?.getHtml { html in
             currentHtml = html ?? ""
+            initialHtml = currentHtml
             handler?()
         }
     }
