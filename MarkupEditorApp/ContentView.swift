@@ -129,8 +129,7 @@ struct ContentView: View {
         fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
     }
 
-    private func setWindowTitle(for url: URL?) {
-        NSApplication.shared.mainWindow?.title = url?.lastPathComponent ?? "MarkupEditor"
+    private func setRepresentedURL(_ url: URL?) {
         NSApplication.shared.mainWindow?.representedURL = url
     }
 
@@ -184,7 +183,7 @@ struct ContentView: View {
             }
             initialHtml = currentHtml
             currentFileURL = nil
-            setWindowTitle(for: nil)
+            setRepresentedURL(nil)
             rootHtmlFilename = "index.html"
             hasChanges = false
         }
@@ -247,7 +246,7 @@ struct ContentView: View {
         setCurrentHtml() {
             currentFileURL = packageURL
             initialHtml = currentHtml
-            setWindowTitle(for: packageURL)
+            setRepresentedURL(packageURL)
             handler?()
         }
     }
@@ -265,7 +264,7 @@ struct ContentView: View {
         setCurrentHtml() {
             initialHtml = currentHtml
             currentFileURL = fileURL
-            setWindowTitle(for: fileURL)
+            setRepresentedURL(fileURL)
             handler?()
         }
     }
@@ -348,7 +347,7 @@ struct ContentView: View {
                     }
                     currentFileURL = url
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
-                    setWindowTitle(for: url)
+                    setRepresentedURL(url)
                     activeDocumentType = targetExt == "htmd" ? .htmd : .html
                     hasChanges = false
                     completion?()
