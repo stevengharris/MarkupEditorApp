@@ -114,6 +114,7 @@ struct ContentView: View {
 
     private func setWindowTitle(for url: URL?) {
         NSApplication.shared.mainWindow?.title = url?.lastPathComponent ?? "MarkupEditor"
+        NSApplication.shared.mainWindow?.representedURL = url
     }
 
     private func setCurrentHtml(_ handler: (()->Void)? = nil) {
