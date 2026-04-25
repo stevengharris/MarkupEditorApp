@@ -102,11 +102,7 @@ struct ContentView: View {
             }
         }
         .onDisappear { MarkupEditor.selectedWebView = nil }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(currentFileURL?.lastPathComponent ?? "MarkupEditor")
-            }
-        }
+        .toolbar {}
     }
     
     init() {
