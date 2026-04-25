@@ -16,6 +16,10 @@ struct MarkupEditorApp: App {
         Window("MarkupEditor", id: "main") {
             ContentView()
         }
+        Settings {
+            Text("Settings placeholder")
+                .padding()
+        }
     }
     
     init() {

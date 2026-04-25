@@ -63,6 +63,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(name: .menuShowHtml, object: nil)
     }
 
+    @objc private func showSettings(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuShowSettings, object: nil)
+    }
+
     @objc private func openRecentDocument(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         NotificationCenter.default.post(name: .menuOpenRecentDocument, object: url)
@@ -92,6 +96,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(hideOthers)
         appMenu.addItem(NSMenuItem(title: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        appMenu.addItem(NSMenuItem(title: "Settings…", action: #selector(showSettings(_:)), keyEquivalent: ","))
         appMenu.addItem(.separator())
         appMenu.addItem(NSMenuItem(title: "Quit \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         appMenuItem.submenu = appMenu
@@ -502,5 +508,6 @@ extension Notification.Name {
     static let menuSaveAsDocument = Notification.Name("menuSaveAsDocument")
     static let menuShowHtml = Notification.Name("menuShowHtml")
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
+    static let menuShowSettings = Notification.Name("menuShowSettings")
 }
 

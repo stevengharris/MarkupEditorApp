@@ -15,6 +15,7 @@ private extension UTType {
 
 struct ContentView: View {
     
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject var selectImage = MarkupEditor.selectImage
     @State private var initialHtml = ""     // Used to create a MarkupEditorView w/initial content
     @State private var currentHtml = ""     // Used to display the raw HTML but avoid MarkupEditorView redrawing
@@ -66,6 +67,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .menuShowHtml)) { _ in
             handleShowHtml()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
+            openSettings()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
             guard let url = notification.object as? URL else { return }
             checkSave { shouldProceed in
@@ -101,7 +105,24 @@ struct ContentView: View {
             }
         }
         .onDisappear { MarkupEditor.selectedWebView = nil }
-        .toolbar {}
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(alignment: .bottom, spacing: 4) {
+                    if let url = currentFileURL {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                    }
+                    Text(currentFileURL?.lastPathComponent ?? "MarkupEditor")
+                        .font(.headline)
+                }
+            }
+            ToolbarItem(placement: .automatic) {
+                Button(action: { openSettings() }) {
+                    Image(systemName: "gear")
+                }
+            }
+        }
     }
     
     private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
