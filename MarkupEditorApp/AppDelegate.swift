@@ -478,6 +478,9 @@ extension AppDelegate: NSMenuDelegate {
                 )
                 item.representedObject = url
                 item.target = self
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                icon.size = NSSize(width: 16, height: 16)
+                item.image = icon
                 menu.addItem(item)
             }
             menu.addItem(.separator())
