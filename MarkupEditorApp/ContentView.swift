@@ -16,10 +16,10 @@ private extension UTType {
 struct ContentView: View {
     
     @ObservedObject var selectImage = MarkupEditor.selectImage
-    @State private var currentHtml = ""
+    @State private var initialHtml = ""     // Used to create a MarkupEditorView w/initial content
+    @State private var currentHtml = ""     // Used to display the raw HTML but avoid MarkupEditorView redrawing
     @State private var documentPickerShowing: Bool = false
     @State private var rawShowing: Bool = false
-    @State private var initialHtml: String
     @State private var hasChanges = false
     @State private var currentFileURL: URL?
     @State private var activeDocumentType: DocumentType?
@@ -64,7 +64,7 @@ struct ContentView: View {
             handleSaveAs()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowHtml)) { _ in
-            rawDocument()
+            handleShowHtml()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
             guard let url = notification.object as? URL else { return }
@@ -104,10 +104,6 @@ struct ContentView: View {
         .toolbar {}
     }
     
-    init() {
-        _initialHtml = State(initialValue: "")
-    }
-    
     private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
         fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
     }
@@ -120,7 +116,6 @@ struct ContentView: View {
     private func setCurrentHtml(_ handler: (()->Void)? = nil) {
         MarkupEditor.selectedWebView?.getHtml { html in
             currentHtml = html ?? ""
-            initialHtml = currentHtml
             handler?()
         }
     }
@@ -166,6 +161,7 @@ struct ContentView: View {
             MarkupEditor.selectedWebView?.emptyDocument {
                 setCurrentHtml()
             }
+            initialHtml = currentHtml
             currentFileURL = nil
             setWindowTitle(for: nil)
             rootHtmlFilename = "index.html"
@@ -229,6 +225,7 @@ struct ContentView: View {
         hasChanges = false
         setCurrentHtml() {
             currentFileURL = packageURL
+            initialHtml = currentHtml
             setWindowTitle(for: packageURL)
             handler?()
         }
@@ -245,6 +242,7 @@ struct ContentView: View {
         activeDocumentType = .html
         hasChanges = false
         setCurrentHtml() {
+            initialHtml = currentHtml
             currentFileURL = fileURL
             setWindowTitle(for: fileURL)
             handler?()
@@ -286,10 +284,16 @@ struct ContentView: View {
             }
         }
     }
+    
+    /// Open the HTML view
+    private func handleShowHtml() {
+        withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
+    }
 
     private func handleSaveAs() {
         showSavePanel()
     }
+
 
     private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
@@ -334,11 +338,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-    
-    /// Open the HTML view
-    func rawDocument() {
-        withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
     }
 
 }
