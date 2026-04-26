@@ -12,7 +12,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
-    static var pendingFinderURL: URL?
+    @MainActor static var pendingFinderURL: URL?
+
+    @MainActor static func consumePendingURL() -> URL? {
+        guard let url = pendingFinderURL else { return nil }
+        pendingFinderURL = nil
+        return url
+    }
 
     /// Quit the app when the window is closed. Without this, SwiftUI keeps the
     /// process alive and `applicationDidFinishLaunching` won't fire on the next

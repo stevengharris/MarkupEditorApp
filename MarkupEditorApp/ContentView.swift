@@ -369,8 +369,7 @@ extension ContentView: MarkupDelegate {
     
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
-        if let url = AppDelegate.pendingFinderURL {
-            AppDelegate.pendingFinderURL = nil
+        if let url = AppDelegate.consumePendingURL() {
             openDocument(at: url, handler: handler)
         } else {
             setCurrentHtml(handler)
