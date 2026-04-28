@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
-        keymap = KeymapConfig.standard()
+        keymap = KeymapConfig()         // Use app's keymapconfig.json
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -146,11 +146,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(findItem)
         editMenuItem.submenu = editMenu
 
-        // Format menu driven by toolbarconfig.json
-        var config = ToolbarConfig.markdown()
-        // For consistency with the original Mac Catalyst demo, add underscore back in,
-        // altho strictly speaking it ain't Markdown.
-        config.formatBar["underline"] = true
+        // Format menu driven by app's toolbarconfig.json
+        let config = ToolbarConfig()
         if let formatMenu = buildFormatMenu(from: config) {
             let formatMenuItem = NSMenuItem()
             formatMenuItem.submenu = formatMenu

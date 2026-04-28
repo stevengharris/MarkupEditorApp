@@ -49,6 +49,9 @@
 			exceptions = (
 				AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */,
 			);
+			explicitFolders = (
+				Resources/welcome.htmd,
+			);
 			path = MarkupEditorApp;
 			sourceTree = "<group>";
 		};
