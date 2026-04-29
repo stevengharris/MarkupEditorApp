@@ -148,6 +148,8 @@ struct KeymapSettingsView: View {
         if let json = config.asJSON() {
             keymapConfigJSON = json
             NotificationCenter.default.post(name: .settingsSaved, object: nil)
+        } else {
+            assertionFailure("KeymapConfig encoding failed unexpectedly")
         }
     }
 }

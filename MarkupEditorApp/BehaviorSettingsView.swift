@@ -35,6 +35,8 @@ struct BehaviorSettingsView: View {
         if let json = config.asJSON() {
             behaviorConfigJSON = json
             NotificationCenter.default.post(name: .settingsSaved, object: nil)
+        } else {
+            assertionFailure("BehaviorConfig encoding failed unexpectedly")
         }
     }
 

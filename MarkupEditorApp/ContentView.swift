@@ -13,6 +13,12 @@ private extension UTType {
     static let htmd = UTType("com.stevengharris.htmd") ?? .data
 }
 
+private enum ConfigKeys {
+    static let toolbar = "toolbarConfigJSON"
+    static let keymap = "keymapConfigJSON"
+    static let behavior = "behaviorConfigJSON"
+}
+
 struct ContentView: View {
     
     @Environment(\.openSettings) private var openSettings
@@ -26,9 +32,9 @@ struct ContentView: View {
     @State private var activeDocumentType: DocumentType?
     @State private var rootHtmlFilename: String = "index.html"
 
-    @AppStorage("toolbarConfigJSON") private var toolbarConfigJSON = ""
-    @AppStorage("keymapConfigJSON") private var keymapConfigJSON = ""
-    @AppStorage("behaviorConfigJSON") private var behaviorConfigJSON = ""
+    @AppStorage(ConfigKeys.toolbar) private var toolbarConfigJSON = ""
+    @AppStorage(ConfigKeys.keymap) private var keymapConfigJSON = ""
+    @AppStorage(ConfigKeys.behavior) private var behaviorConfigJSON = ""
     @State private var markupConfiguration = MarkupWKWebViewConfiguration()
     @State private var configVersion = 0
 
@@ -37,9 +43,9 @@ struct ContentView: View {
         // so stored overrides must be in markupConfiguration before the first render.
         let config = MarkupWKWebViewConfiguration()
         let defaults = UserDefaults.standard
-        config.toolbarConfig = ContentView.decodeConfig(ToolbarConfig.self, from: defaults.string(forKey: "toolbarConfigJSON") ?? "")
-        config.keymapConfig = ContentView.decodeConfig(KeymapConfig.self, from: defaults.string(forKey: "keymapConfigJSON") ?? "")
-        config.behaviorConfig = ContentView.decodeConfig(BehaviorConfig.self, from: defaults.string(forKey: "behaviorConfigJSON") ?? "")
+        config.toolbarConfig = ContentView.decodeConfig(ToolbarConfig.self, from: defaults.string(forKey: ConfigKeys.toolbar) ?? "")
+        config.keymapConfig = ContentView.decodeConfig(KeymapConfig.self, from: defaults.string(forKey: ConfigKeys.keymap) ?? "")
+        config.behaviorConfig = ContentView.decodeConfig(BehaviorConfig.self, from: defaults.string(forKey: ConfigKeys.behavior) ?? "")
         _markupConfiguration = State(initialValue: config)
     }
 
@@ -86,6 +92,10 @@ struct ContentView: View {
             openSettings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsSaved)) { _ in
+            // markupConfiguration is a reference type; mutate it first so the new
+            // MarkupEditorView created by the configVersion increment picks up the
+            // updated fields. Do not replace .id(configVersion) with a lighter
+            // mechanism without verifying that populateMarkupHtml runs on recreation.
             applyStoredConfigOverrides()
             MarkupEditor.selectedWebView?.getHtml { html in
                 self.initialHtml = html ?? ""

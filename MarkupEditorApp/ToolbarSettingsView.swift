@@ -60,6 +60,8 @@ struct ToolbarSettingsView: View {
         if let json = config.asJSON() {
             toolbarConfigJSON = json
             NotificationCenter.default.post(name: .settingsSaved, object: nil)
+        } else {
+            assertionFailure("ToolbarConfig encoding failed unexpectedly")
         }
     }
 
