@@ -36,6 +36,20 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 - Swift 5.0, SwiftUI, AppKit
 - Build via Xcode (use `BuildProject` tool or Xcode UI)
 
+## Code Navigation (Serena)
+
+Serena is configured for this project via `.mcp.json`. When Serena is connected, use its LSP-backed tools for symbol navigation rather than grep or full-file reads. Three codebases are in scope:
+
+| Codebase | Relative path from project root | Language |
+|----------|--------------------------------|----------|
+| MarkupEditorApp | `MarkupEditorApp/` | Swift |
+| MarkupEditor package | `../MarkupEditor/MarkupEditor/` | Swift |
+| markupeditor-base | `../../VSCodeProjects/markupeditor-base/src/` | JavaScript |
+
+All Serena index data is stored in `MarkupEditorApp/.serena/` — do not write index files to the sibling repos.
+
+Use Serena for: finding symbol definitions, listing callers, understanding type hierarchies, safe renames. Use grep for exact text or comment searches.
+
 ## Important Constraints
 
 - **Do not edit `.pbxproj` directly** while Xcode is open — Xcode must own project file changes. Use Xcode's Build Settings UI instead.
