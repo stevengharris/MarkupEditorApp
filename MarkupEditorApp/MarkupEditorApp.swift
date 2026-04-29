@@ -17,8 +17,7 @@ struct MarkupEditorApp: App {
             ContentView()
         }
         Settings {
-            Text("Settings placeholder")
-                .padding()
+            SettingsView()
         }
     }
     
