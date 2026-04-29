@@ -166,7 +166,7 @@ struct ContentView: View {
         markupConfiguration.behaviorConfig = Self.decodeConfig(BehaviorConfig.self, from: behaviorConfigJSON)
     }
 
-    private static func decodeConfig<T: Decodable>(_ type: T.Type, from json: String) -> T? {
+    static func decodeConfig<T: Decodable>(_ type: T.Type, from json: String) -> T? {
         guard !json.isEmpty, let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
