@@ -35,14 +35,15 @@ struct KeymapSettingsView: View {
     @State private var loaded = false
 
     private var conflicts: Set<String> {
-        var seen: [String: String] = [:]
+        var actionForSpec: [String: String] = [:]
         var duplicates: Set<String> = []
         for action in Self.actions {
-            for spec in (bindingStrings[action] ?? []) where !spec.isEmpty {
-                if seen[spec] != nil {
+            let unique = Set((bindingStrings[action] ?? []).filter { !$0.isEmpty })
+            for spec in unique {
+                if let prior = actionForSpec[spec], prior != action {
                     duplicates.insert(spec)
                 } else {
-                    seen[spec] = action
+                    actionForSpec[spec] = action
                 }
             }
         }
@@ -123,7 +124,11 @@ struct KeymapSettingsView: View {
             config = KeymapConfig.fromJSON(keymapConfigJSON)
         }
         for action in Self.actions {
-            let specs = (config.bindings[action] ?? []).map { $0.spec }
+            // KeyBinding.from(spec:) lowercases the key equivalent, so "Mod-K" and "Mod-k"
+            // both produce "Mod-k". Deduplicate while preserving order.
+            let rawSpecs = (config.bindings[action] ?? []).map { $0.spec }
+            var seen = Set<String>()
+            let specs = rawSpecs.filter { seen.insert($0).inserted }
             bindingStrings[action] = specs.isEmpty ? [""] : specs
         }
     }
