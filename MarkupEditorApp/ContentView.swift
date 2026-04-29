@@ -26,9 +26,23 @@ struct ContentView: View {
     @State private var activeDocumentType: DocumentType?
     @State private var rootHtmlFilename: String = "index.html"
 
+    @AppStorage("toolbarConfigJSON") private var toolbarConfigJSON = ""
+    @AppStorage("keymapConfigJSON") private var keymapConfigJSON = ""
+    @AppStorage("behaviorConfigJSON") private var behaviorConfigJSON = ""
     @State private var markupConfiguration = MarkupWKWebViewConfiguration()
     @State private var configVersion = 0
-    
+
+    init() {
+        // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
+        // so stored overrides must be in markupConfiguration before the first render.
+        let config = MarkupWKWebViewConfiguration()
+        let defaults = UserDefaults.standard
+        config.toolbarConfig = ContentView.decodeConfig(ToolbarConfig.self, from: defaults.string(forKey: "toolbarConfigJSON") ?? "")
+        config.keymapConfig = ContentView.decodeConfig(KeymapConfig.self, from: defaults.string(forKey: "keymapConfigJSON") ?? "")
+        config.behaviorConfig = ContentView.decodeConfig(BehaviorConfig.self, from: defaults.string(forKey: "behaviorConfigJSON") ?? "")
+        _markupConfiguration = State(initialValue: config)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Add document content...", id: "Document")
@@ -72,6 +86,7 @@ struct ContentView: View {
             openSettings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsSaved)) { _ in
+            applyStoredConfigOverrides()
             MarkupEditor.selectedWebView?.getHtml { html in
                 self.initialHtml = html ?? ""
                 self.configVersion += 1
@@ -135,6 +150,17 @@ struct ContentView: View {
         }
     }
     
+    private func applyStoredConfigOverrides() {
+        markupConfiguration.toolbarConfig = Self.decodeConfig(ToolbarConfig.self, from: toolbarConfigJSON)
+        markupConfiguration.keymapConfig = Self.decodeConfig(KeymapConfig.self, from: keymapConfigJSON)
+        markupConfiguration.behaviorConfig = Self.decodeConfig(BehaviorConfig.self, from: behaviorConfigJSON)
+    }
+
+    private static func decodeConfig<T: Decodable>(_ type: T.Type, from json: String) -> T? {
+        guard !json.isEmpty, let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
     private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
         fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
     }
