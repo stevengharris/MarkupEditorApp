@@ -512,5 +512,6 @@ extension Notification.Name {
     static let menuShowHtml = Notification.Name("menuShowHtml")
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
     static let menuShowSettings = Notification.Name("menuShowSettings")
+    static let settingsSaved = Notification.Name("settingsSaved")
 }
 

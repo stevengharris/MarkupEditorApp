@@ -26,12 +26,13 @@ struct ContentView: View {
     @State private var activeDocumentType: DocumentType?
     @State private var rootHtmlFilename: String = "index.html"
 
-    /// The `markupConfiguration` holds onto the name of any userResourceFiles we set in init.
-    private let markupConfiguration = MarkupWKWebViewConfiguration()
+    @State private var markupConfiguration = MarkupWKWebViewConfiguration()
+    @State private var configVersion = 0
     
     var body: some View {
         VStack(spacing: 0) {
             MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Add document content...", id: "Document")
+                .id(configVersion)
             if rawShowing {
                 VStack {
                     Divider()
@@ -69,6 +70,12 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
             openSettings()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .settingsSaved)) { _ in
+            MarkupEditor.selectedWebView?.getHtml { html in
+                self.initialHtml = html ?? ""
+                self.configVersion += 1
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
             guard let url = notification.object as? URL else { return }
