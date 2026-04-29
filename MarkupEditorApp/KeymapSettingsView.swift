@@ -157,7 +157,7 @@ private struct KeymapActionRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 ForEach(specs.indices, id: \.self) { idx in
                     HStack(spacing: 4) {
-                        TextField("e.g. Mod-b", text: Binding(
+                        TextField("", text: Binding(
                             get: { idx < specs.count ? specs[idx] : "" },
                             set: { if idx < specs.count { specs[idx] = $0 } }
                         ))
