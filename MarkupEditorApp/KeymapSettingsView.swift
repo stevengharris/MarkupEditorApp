@@ -32,6 +32,7 @@ struct KeymapSettingsView: View {
     @AppStorage("keymapConfigJSON") private var keymapConfigJSON: String = ""
     @State private var config = KeymapConfig()
     @State private var bindingStrings: [String: [String]] = [:]
+    @State private var loaded = false
 
     private var conflicts: Set<String> {
         var seen: [String: String] = [:]
@@ -116,6 +117,8 @@ struct KeymapSettingsView: View {
     }
 
     private func loadConfig() {
+        guard !loaded else { return }
+        loaded = true
         if !keymapConfigJSON.isEmpty {
             config = KeymapConfig.fromJSON(keymapConfigJSON)
         }
@@ -139,8 +142,8 @@ struct KeymapSettingsView: View {
         config.bindings = newBindings
         if let json = config.asJSON() {
             keymapConfigJSON = json
+            NotificationCenter.default.post(name: .settingsSaved, object: nil)
         }
-        NotificationCenter.default.post(name: .settingsSaved, object: nil)
     }
 }
 

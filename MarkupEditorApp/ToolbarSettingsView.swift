@@ -11,6 +11,7 @@ import MarkupEditor
 struct ToolbarSettingsView: View {
     @AppStorage("toolbarConfigJSON") private var toolbarConfigJSON: String = ""
     @State private var config = ToolbarConfig()
+    @State private var loaded = false
 
     var body: some View {
         Form {
@@ -47,6 +48,8 @@ struct ToolbarSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            guard !loaded else { return }
+            loaded = true
             if !toolbarConfigJSON.isEmpty {
                 config = ToolbarConfig.fromJSON(toolbarConfigJSON)
             }
@@ -56,8 +59,8 @@ struct ToolbarSettingsView: View {
     private func save() {
         if let json = config.asJSON() {
             toolbarConfigJSON = json
+            NotificationCenter.default.post(name: .settingsSaved, object: nil)
         }
-        NotificationCenter.default.post(name: .settingsSaved, object: nil)
     }
 
     private func visibility(_ key: String) -> Binding<Bool> {

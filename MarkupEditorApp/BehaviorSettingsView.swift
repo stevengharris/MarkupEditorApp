@@ -11,6 +11,7 @@ import MarkupEditor
 struct BehaviorSettingsView: View {
     @AppStorage("behaviorConfigJSON") private var behaviorConfigJSON: String = ""
     @State private var config = BehaviorConfig()
+    @State private var loaded = false
 
     var body: some View {
         Form {
@@ -22,6 +23,8 @@ struct BehaviorSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            guard !loaded else { return }
+            loaded = true
             if !behaviorConfigJSON.isEmpty {
                 config = BehaviorConfig.fromJSON(behaviorConfigJSON)
             }
@@ -31,8 +34,8 @@ struct BehaviorSettingsView: View {
     private func save() {
         if let json = config.asJSON() {
             behaviorConfigJSON = json
+            NotificationCenter.default.post(name: .settingsSaved, object: nil)
         }
-        NotificationCenter.default.post(name: .settingsSaved, object: nil)
     }
 
     private func behavior(_ keyPath: WritableKeyPath<BehaviorConfig, Bool>) -> Binding<Bool> {
