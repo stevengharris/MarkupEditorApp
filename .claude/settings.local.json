@@ -15,7 +15,10 @@
       "WebSearch",
       "mcp__serena__find_symbol",
       "mcp__serena__get_symbols_overview",
-      "mcp__serena__initial_instructions"
+      "mcp__serena__initial_instructions",
+      "Bash(mkdir -p ~/.claude/sessions/rdr006-settings)",
+      "Bash(cat)",
+      "mcp__serena__replace_content"
     ]
   },
   "enableAllProjectMcpServers": true,
