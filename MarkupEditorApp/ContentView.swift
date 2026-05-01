@@ -37,6 +37,8 @@ struct ContentView: View {
     @AppStorage(ConfigKeys.behavior) private var behaviorConfigJSON = ""
     @State private var markupConfiguration = MarkupWKWebViewConfiguration()
     @State private var configVersion = 0
+    @State private var editorToolbarVisible = true
+    @State private var settingsOpen = false
 
     init() {
         // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
@@ -89,6 +91,7 @@ struct ContentView: View {
             handleShowHtml()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
+            settingsOpen = true
             openSettings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsSaved)) { _ in
@@ -152,10 +155,31 @@ struct ContentView: View {
                 .allowsHitTesting(false)
             }
             ToolbarSpacer(.flexible)
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: { openSettings() }) {
-                    Image(systemName: "gear")
+            ToolbarItem {
+                Button(action: {
+                    editorToolbarVisible.toggle()
+                    MarkupEditor.selectedWebView?.setToolbarVisible(editorToolbarVisible)
+                }) {
+                    Image(systemName: editorToolbarVisible ? "rectangle.topthird.inset.filled" : "rectangle.topthird.inset")
                 }
+            }
+            if let url = currentFileURL {
+                ToolbarItem {
+                    ShareLink(item: url)
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: {
+                    settingsOpen = true
+                    openSettings()
+                }) {
+                    Image(systemName: settingsOpen ? "gearshape.fill" : "gearshape")
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
+            if let window = notification.object as? NSWindow, window != NSApp.mainWindow {
+                settingsOpen = false
             }
         }
     }
