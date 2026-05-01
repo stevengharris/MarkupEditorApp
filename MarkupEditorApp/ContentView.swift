@@ -160,7 +160,7 @@ struct ContentView: View {
                     editorToolbarVisible.toggle()
                     MarkupEditor.selectedWebView?.setToolbarVisible(editorToolbarVisible)
                 }) {
-                    Image(systemName: editorToolbarVisible ? "rectangle.topthird.inset.filled" : "rectangle.topthird.inset")
+                    Image(systemName: "inset.filled.topthird.rectangle")
                 }
             }
             if let url = currentFileURL {
@@ -173,7 +173,7 @@ struct ContentView: View {
                     settingsOpen = true
                     openSettings()
                 }) {
-                    Image(systemName: settingsOpen ? "gearshape.fill" : "gearshape")
+                    Image(systemName: "gearshape")
                 }
             }
         }
