@@ -142,6 +142,7 @@ struct ContentView: View {
         .onDisappear { MarkupEditor.selectedWebView = nil }
         .toolbar(removing: .title)
         .toolbar {
+            // Sidebar toggle: insert ToolbarItem(placement: .navigation) here when adding a sidebar.
             ToolbarItem(placement: .navigation) {
                 HStack(alignment: .bottom, spacing: 4) {
                     if let url = currentFileURL {
