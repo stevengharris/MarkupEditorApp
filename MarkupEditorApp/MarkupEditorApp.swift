@@ -14,7 +14,7 @@ struct MarkupEditorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
         Window("MarkupEditor", id: "main") {
-            ContentView()
+            MarkupDocumentView()
         }
         Settings {
             SettingsView()

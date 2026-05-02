@@ -13,6 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
     @MainActor static var pendingFinderURL: URL?
+    @MainActor static var docIcon: NSImage?
 
     @MainActor static func consumePendingURL() -> URL? {
         guard let url = pendingFinderURL else { return nil }
@@ -30,6 +31,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
         keymap = KeymapConfig()         // Use app's keymapconfig.json
+        if let bundleURL = Bundle.main.url(forResource: "markupeditor-doc", withExtension: "icns") {
+            Self.docIcon = NSImage(byReferencing: bundleURL)
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -46,7 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - File menu actions
     //
-    // Menu items post notifications that DemoContentView handles, so the view
+    // Menu items post notifications that MarkupDocumentView handles, so the view
     // owns document state (hasChanges, currentFileURL) and file I/O logic.
 
     @objc private func newDocument(_ sender: Any?) {
@@ -513,5 +517,6 @@ extension Notification.Name {
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
     static let menuShowSettings = Notification.Name("menuShowSettings")
     static let settingsSaved = Notification.Name("settingsSaved")
+    static let dismissSettings = Notification.Name("dismissSettings")
 }
 

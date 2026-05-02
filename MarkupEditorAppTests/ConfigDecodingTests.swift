@@ -7,7 +7,7 @@ import Foundation
 @testable import MarkupEditorApp
 import MarkupEditor
 
-// Tests for ContentView.decodeConfig — the persistence-critical path that reads
+// Tests for MarkupDocumentView.decodeConfig — the persistence-critical path that reads
 // @AppStorage JSON and injects it into MarkupWKWebViewConfiguration.
 //
 // The nil-return contract is load-bearing: nil means "no override stored, use
@@ -18,25 +18,25 @@ struct ConfigDecodingTests {
     // MARK: - Empty / missing input
 
     @Test func emptyStringReturnsNil() {
-        #expect(ContentView.decodeConfig(BehaviorConfig.self, from: "") == nil)
+        #expect(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: "") == nil)
     }
 
     @Test func emptyStringReturnsNilForKeymap() {
-        #expect(ContentView.decodeConfig(KeymapConfig.self, from: "") == nil)
+        #expect(MarkupDocumentView.decodeConfig(KeymapConfig.self, from: "") == nil)
     }
 
     // MARK: - Invalid JSON
 
     @Test func invalidJSONReturnsNil() {
-        #expect(ContentView.decodeConfig(BehaviorConfig.self, from: "not json") == nil)
+        #expect(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: "not json") == nil)
     }
 
     @Test func jsonStringInsteadOfObjectReturnsNil() {
-        #expect(ContentView.decodeConfig(BehaviorConfig.self, from: "\"just a string\"") == nil)
+        #expect(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: "\"just a string\"") == nil)
     }
 
     @Test func truncatedJSONReturnsNil() {
-        #expect(ContentView.decodeConfig(BehaviorConfig.self, from: "{\"focusAfterLoad\":") == nil)
+        #expect(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: "{\"focusAfterLoad\":") == nil)
     }
 
     // MARK: - Valid BehaviorConfig
@@ -45,7 +45,7 @@ struct ConfigDecodingTests {
         let json = """
         {"focusAfterLoad":true,"selectImage":false,"insertLink":true,"insertImage":true,"showStyle":false}
         """
-        let result = try #require(ContentView.decodeConfig(BehaviorConfig.self, from: json))
+        let result = try #require(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: json))
         #expect(result.focusAfterLoad == true)
         #expect(result.selectImage == false)
         #expect(result.insertLink == true)
@@ -58,7 +58,7 @@ struct ConfigDecodingTests {
         let json = """
         {"focusAfterLoad":true}
         """
-        #expect(ContentView.decodeConfig(BehaviorConfig.self, from: json) == nil)
+        #expect(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: json) == nil)
     }
 
     // MARK: - Valid KeymapConfig
@@ -67,14 +67,14 @@ struct ConfigDecodingTests {
         let json = """
         {"bold":"Mod-b","italic":"Mod-i"}
         """
-        let result = try #require(ContentView.decodeConfig(KeymapConfig.self, from: json))
+        let result = try #require(MarkupDocumentView.decodeConfig(KeymapConfig.self, from: json))
         #expect(result.bindings["bold"]?.first?.spec == "Mod-b")
         #expect(result.bindings["italic"]?.first?.spec == "Mod-i")
     }
 
     @Test func emptyKeymapObjectDecodes() throws {
         // KeymapConfig uses a custom decoder that iterates available keys, so {} is valid
-        let result = try #require(ContentView.decodeConfig(KeymapConfig.self, from: "{}"))
+        let result = try #require(MarkupDocumentView.decodeConfig(KeymapConfig.self, from: "{}"))
         #expect(result.bindings.isEmpty)
     }
 
@@ -82,7 +82,7 @@ struct ConfigDecodingTests {
         let json = """
         {"bold":["Mod-b","Ctrl-b"]}
         """
-        let result = try #require(ContentView.decodeConfig(KeymapConfig.self, from: json))
+        let result = try #require(MarkupDocumentView.decodeConfig(KeymapConfig.self, from: json))
         #expect(result.bindings["bold"]?.count == 2)
         #expect(result.bindings["bold"]?.first?.spec == "Mod-b")
     }
@@ -92,7 +92,7 @@ struct ConfigDecodingTests {
     @Test func nilOnFailureNotEmptyStruct() {
         // Confirm the return is nil (not an empty BehaviorConfig with all-false fields)
         // on a bad input. This guards against the wrong fix of returning .empty() instead.
-        let result = ContentView.decodeConfig(BehaviorConfig.self, from: "bad")
+        let result = MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: "bad")
         #expect(result == nil)
     }
 }

@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  MarkupDocumentView.swift
 //  MarkupEditorApp
 //
 //  Created by Steven Harris on 4/17/26.
@@ -19,7 +19,7 @@ private enum ConfigKeys {
     static let behavior = "behaviorConfigJSON"
 }
 
-struct ContentView: View {
+struct MarkupDocumentView: View {
     
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var selectImage = MarkupEditor.selectImage
@@ -38,16 +38,16 @@ struct ContentView: View {
     @State private var markupConfiguration = MarkupWKWebViewConfiguration()
     @State private var configVersion = 0
     @State private var editorToolbarVisible = true
-    @State private var settingsOpen = false
+    @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
 
     init() {
         // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
         // so stored overrides must be in markupConfiguration before the first render.
         let config = MarkupWKWebViewConfiguration()
         let defaults = UserDefaults.standard
-        config.toolbarConfig = ContentView.decodeConfig(ToolbarConfig.self, from: defaults.string(forKey: ConfigKeys.toolbar) ?? "")
-        config.keymapConfig = ContentView.decodeConfig(KeymapConfig.self, from: defaults.string(forKey: ConfigKeys.keymap) ?? "")
-        config.behaviorConfig = ContentView.decodeConfig(BehaviorConfig.self, from: defaults.string(forKey: ConfigKeys.behavior) ?? "")
+        config.toolbarConfig = MarkupDocumentView.decodeConfig(ToolbarConfig.self, from: defaults.string(forKey: ConfigKeys.toolbar) ?? "")
+        config.keymapConfig = MarkupDocumentView.decodeConfig(KeymapConfig.self, from: defaults.string(forKey: ConfigKeys.keymap) ?? "")
+        config.behaviorConfig = MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: defaults.string(forKey: ConfigKeys.behavior) ?? "")
         _markupConfiguration = State(initialValue: config)
     }
 
@@ -91,7 +91,6 @@ struct ContentView: View {
             handleShowHtml()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
-            settingsOpen = true
             openSettings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsSaved)) { _ in
@@ -111,6 +110,10 @@ struct ContentView: View {
                 guard shouldProceed else { return }
                 openDocument(at: url)
             }
+        }
+        // Dismiss the SettingsView when this one will close
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
+            NotificationCenter.default.post(name: .dismissSettings, object: nil)
         }
         .onOpenURL { url in
             if MarkupEditor.selectedWebView != nil {
@@ -140,48 +143,47 @@ struct ContentView: View {
             }
         }
         .onDisappear { MarkupEditor.selectedWebView = nil }
+        .toolbarRole(.editor)
         .toolbar(removing: .title)
         .toolbar {
             // Sidebar toggle: insert ToolbarItem(placement: .navigation) here when adding a sidebar.
             ToolbarItem(placement: .navigation) {
-                HStack(alignment: .bottom, spacing: 4) {
+                HStack(alignment: .center, spacing: 4) {
                     if let url = currentFileURL {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                             .resizable()
-                            .frame(width: 16, height: 16)
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
+                    } else if let nsImage = AppDelegate.docIcon {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
                     }
                     Text(currentFileURL?.lastPathComponent ?? "MarkupEditor")
-                        .font(.headline)
+                        .font(.title3)
                 }
                 .allowsHitTesting(false)
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarSpacer(.flexible)
-            ToolbarItem {
+            ToolbarItemGroup {
+                if let url = currentFileURL {
+                    ShareLink(item: url)
+                }
                 Button(action: {
                     editorToolbarVisible.toggle()
                     MarkupEditor.selectedWebView?.setToolbarVisible(editorToolbarVisible)
                 }) {
                     Image(systemName: "inset.filled.topthird.rectangle")
                 }
-            }
-            if let url = currentFileURL {
-                ToolbarItem {
-                    ShareLink(item: url)
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
                 Button(action: {
-                    settingsOpen = true
                     openSettings()
                 }) {
                     Image(systemName: "gearshape")
                 }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
-            if let window = notification.object as? NSWindow, window != NSApp.mainWindow {
-                settingsOpen = false
-            }
+            .sharedBackgroundVisibility(.hidden)
         }
     }
     
@@ -433,7 +435,7 @@ struct ContentView: View {
 
 }
 
-extension ContentView: MarkupDelegate {
+extension MarkupDocumentView: MarkupDelegate {
     
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
@@ -464,5 +466,5 @@ extension ContentView: MarkupDelegate {
 }
 
 #Preview {
-    ContentView()
+    MarkupDocumentView()
 }

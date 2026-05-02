@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         TabView {
             ToolbarSettingsView()
@@ -18,5 +19,8 @@ struct SettingsView: View {
                 .tabItem { Label("Behavior", systemImage: "gearshape.2") }
         }
         .frame(width: 500, height: 400)
+        .onReceive(NotificationCenter.default.publisher(for: .dismissSettings)) { notification in
+            dismiss()
+        }
     }
 }

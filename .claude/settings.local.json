@@ -18,7 +18,11 @@
       "mcp__serena__initial_instructions",
       "Bash(mkdir -p ~/.claude/sessions/rdr006-settings)",
       "Bash(cat)",
-      "mcp__serena__replace_content"
+      "mcp__serena__replace_content",
+      "mcp__serena__get_current_config",
+      "mcp__serena__list_dir",
+      "mcp__serena__read_file",
+      "mcp__serena__insert_after_symbol"
     ]
   },
   "enableAllProjectMcpServers": true,
