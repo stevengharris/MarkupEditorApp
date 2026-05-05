@@ -38,17 +38,19 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 
 ## Code Navigation (Serena)
 
-Serena is configured for this project via `.mcp.json`. When Serena is connected, use its LSP-backed tools for symbol navigation rather than grep or full-file reads. Three codebases are in scope:
+Serena is configured for this project via `.mcp.json`. When Serena is connected, use its LSP-backed tools for symbol navigation rather than grep or full-file reads. Four codebases are registered:
 
-| Codebase | Relative path from project root | Language |
-|----------|--------------------------------|----------|
-| MarkupEditorApp | `MarkupEditorApp/` | Swift |
-| MarkupEditor package | `../MarkupEditor/MarkupEditor/` | Swift |
-| markupeditor-base | `../../VSCodeProjects/markupeditor-base/src/` | JavaScript |
+| Codebase | Project name | Root path | Language |
+|----------|-------------|-----------|----------|
+| MarkupEditorApp | `MarkupEditorApp` | (this project) | Swift |
+| MarkupEditor package | `MarkupEditor` | `../MarkupEditor/` | Swift |
+| markupeditor-base | `markupeditor-base` | `../../VSCodeProjects/markupeditor-base/` | JavaScript |
 
-All Serena index data is stored in `MarkupEditorApp/.serena/` — do not write index files to the sibling repos.
+Serena project data is centralized at `~/.serena/projects/` — no `.serena` directory exists in any codebase directory. To navigate a sibling codebase, call `activate_project("<project name>")`.
 
 Use Serena for: finding symbol definitions, listing callers, understanding type hierarchies, safe renames. Use grep for exact text or comment searches.
+
+**Constraint**: `MarkupEditor` and `markupeditor-base` must not receive any commits, files, or directories that indicate Claude was used. Work on feature branches only; the user manually pushes.
 
 ## Important Constraints
 
