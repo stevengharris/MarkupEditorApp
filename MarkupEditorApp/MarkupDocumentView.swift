@@ -13,13 +13,10 @@ private extension UTType {
     static let htmd = UTType("com.stevengharris.htmd") ?? .data
 }
 
-private enum ConfigKeys {
-    static let toolbar = "toolbarConfigJSON"
-    static let keymap = "keymapConfigJSON"
-    static let behavior = "behaviorConfigJSON"
-}
-
 struct MarkupDocumentView: View {
+    
+    typealias ConfigKeys = AppConfig.ConfigKey
+    typealias ToggledState = AppConfig.ToggledState
     
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var selectImage = MarkupEditor.selectImage
@@ -35,21 +32,11 @@ struct MarkupDocumentView: View {
     @AppStorage(ConfigKeys.toolbar) private var toolbarConfigJSON = ""
     @AppStorage(ConfigKeys.keymap) private var keymapConfigJSON = ""
     @AppStorage(ConfigKeys.behavior) private var behaviorConfigJSON = ""
-    @State private var markupConfiguration = MarkupWKWebViewConfiguration()
-    @State private var configVersion = 0
-    @State private var editorToolbarVisible = true
+    @AppStorage(ConfigKeys.app) private var appConfigJSON = ""
+    @State private var markupConfiguration: MarkupWKWebViewConfiguration
+    @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
+    @State private var appConfig: AppConfig = AppConfig.fromDefaults()
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
-
-    init() {
-        // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
-        // so stored overrides must be in markupConfiguration before the first render.
-        let config = MarkupWKWebViewConfiguration()
-        let defaults = UserDefaults.standard
-        config.toolbarConfig = MarkupDocumentView.decodeConfig(ToolbarConfig.self, from: defaults.string(forKey: ConfigKeys.toolbar) ?? "")
-        config.keymapConfig = MarkupDocumentView.decodeConfig(KeymapConfig.self, from: defaults.string(forKey: ConfigKeys.keymap) ?? "")
-        config.behaviorConfig = MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: defaults.string(forKey: ConfigKeys.behavior) ?? "")
-        _markupConfiguration = State(initialValue: config)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -75,6 +62,17 @@ struct MarkupDocumentView: View {
                 }
             }
         }
+        .onChange(of: toolbarConfigJSON) { _, _ in
+            markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
+            self.configVersion += 1
+        }
+        .onChange(of: appConfigJSON) { _, _ in
+            appConfig = AppConfig.fromDefaults()
+            MarkupEditor.selectedWebView?.getHtml { html in
+                self.initialHtml = html ?? ""
+                self.configVersion += 1
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .menuNewDocument)) { _ in
             handleNew()
         }
@@ -92,17 +90,6 @@ struct MarkupDocumentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
             openSettings()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .settingsSaved)) { _ in
-            // markupConfiguration is a reference type; mutate it first so the new
-            // MarkupEditorView created by the configVersion increment picks up the
-            // updated fields. Do not replace .id(configVersion) with a lighter
-            // mechanism without verifying that populateMarkupHtml runs on recreation.
-            applyStoredConfigOverrides()
-            MarkupEditor.selectedWebView?.getHtml { html in
-                self.initialHtml = html ?? ""
-                self.configVersion += 1
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
             guard let url = notification.object as? URL else { return }
@@ -171,11 +158,33 @@ struct MarkupDocumentView: View {
                 if let url = currentFileURL {
                     ShareLink(item: url)
                 }
-                Button(action: {
-                    editorToolbarVisible.toggle()
-                    MarkupEditor.selectedWebView?.setToolbarVisible(editorToolbarVisible)
-                }) {
-                    Image(systemName: "inset.filled.topthird.rectangle")
+                if (appConfig.isToggled()) {
+                    // The button will only appear if the behavior is set to toggled. The behavior
+                    // can change from the BehaviorSettingsView, handled in .onChange(of: appConfigJSON) above.
+                    Button(action: {
+                        let newVisible = !toolbarVisible()
+                        // Toggle the appConfig setting
+                        appConfig.toggledState = newVisible ? ToggledState.visible.rawValue : ToggledState.hidden.rawValue
+                        // Then save it, which triggers the .onChange(of: appConfigJSON) above
+                        if let json = appConfig.asJSON(), json != appConfigJSON {
+                            appConfigJSON = json
+                        } else {
+                            assertionFailure("AppConfig encoding failed unexpectedly")
+                        }
+                        // Reset toolbarConfig inside of markupConfiguration so it displays properly initially
+                        var toolbarConfig = markupConfiguration.toolbarConfig
+                        toolbarConfig?.visibility["toolbar"] = newVisible
+                        markupConfiguration.toolbarConfig = toolbarConfig
+                        // Then save it, which triggers the .onChange(of: toolbarConfigJSON) above
+                        if let toolbarConfig, let json = toolbarConfig.asJSON(), json != toolbarConfig.asJSON() {
+                            toolbarConfigJSON = json
+                        } else {
+                            assertionFailure("ToolbarConfig encoding failed unexpectedly")
+                        }
+                        
+                    }) {
+                        Image(systemName: "inset.filled.topthird.rectangle")
+                    }
                 }
                 Button(action: {
                     openSettings()
@@ -183,8 +192,17 @@ struct MarkupDocumentView: View {
                     Image(systemName: "gearshape")
                 }
             }
-            .sharedBackgroundVisibility(.hidden)
         }
+    }
+    
+    init() {
+        // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
+        // so stored overrides must be in markupConfiguration before the first render.
+        let config = MarkupWKWebViewConfiguration()
+        config.toolbarConfig = ToolbarConfig.fromDefaults()
+        config.keymapConfig = KeymapConfig.fromDefaults()
+        config.behaviorConfig = BehaviorConfig.fromDefaults()
+        _markupConfiguration = State(initialValue: config)
     }
     
     private func applyStoredConfigOverrides() {
@@ -432,6 +450,10 @@ struct MarkupDocumentView: View {
             }
         }
     }
+    
+    func toolbarVisible() -> Bool {
+        !appConfig.isHidden()
+    }
 
 }
 
@@ -439,6 +461,7 @@ extension MarkupDocumentView: MarkupDelegate {
     
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
+        view.setToolbarVisible(toolbarVisible())
         if let url = AppDelegate.consumePendingURL() {
             openDocument(at: url, handler: handler)
         } else {

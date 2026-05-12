@@ -37,6 +37,23 @@
 		AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				docs/MarkupEditorDocument.htmd,
+				"docs/rdr-original/MarkupEditorDocument.html",
+				"docs/rdr-original/rdr-001.html",
+				"docs/rdr-original/rdr-003.html",
+				"docs/rdr-original/rdr-006.htmd",
+				"docs/rdr-original/uipolish.htmd",
+				"docs/rdr/RDR-001-use-htmd-for-markup-editor-document-format.md",
+				"docs/rdr/RDR-002-populate-html-from-htmd-when-double-clicking-in-finder.md",
+				"docs/rdr/RDR-003-adopt-formal-htmd-definition.md",
+				"docs/rdr/RDR-004-open-recent-menu.md",
+				"docs/rdr/RDR-005-app-toolbar.md",
+				"docs/rdr/RDR-006-settings-scene.md",
+				"docs/rdr/RDR-007-macos-toolbar-polish.md",
+				"docs/rdr/RDR-008-markupeditor-toolbar-polish.md",
+				"docs/rdr/RDR-009-settings-polish.md",
+				"docs/rdr/RDR-010-editor-polish.md",
+				docs/rdr/README.md,
 				Info.plist,
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
@@ -63,11 +80,6 @@
 		AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MarkupEditorAppUITests;
-			sourceTree = "<group>";
-		};
-		AA9FB83D2F97D78F009F804F /* docs */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = docs;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -104,7 +116,6 @@
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
-				AA9FB83D2F97D78F009F804F /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
 			sourceTree = "<group>";

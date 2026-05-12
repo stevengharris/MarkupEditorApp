@@ -30,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
-        keymap = KeymapConfig()         // Use app's keymapconfig.json
+        keymap = KeymapConfig.fromDefaults()         // Use app's keymapconfig.json
         if let bundleURL = Bundle.main.url(forResource: "markupeditor-doc", withExtension: "icns") {
             Self.docIcon = NSImage(byReferencing: bundleURL)
         }
@@ -151,7 +151,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
 
         // Format menu driven by app's toolbarconfig.json
-        let config = ToolbarConfig()
+        let config = ToolbarConfig.fromDefaults()
         if let formatMenu = buildFormatMenu(from: config) {
             let formatMenuItem = NSMenuItem()
             formatMenuItem.submenu = formatMenu
@@ -356,7 +356,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         addMenu.addItem(jsMenuItem(title: "Row Below", js: "MU.addRow(\"AFTER\")"))
         addMenu.addItem(jsMenuItem(title: "Column Before", js: "MU.addCol(\"BEFORE\")"))
         addMenu.addItem(jsMenuItem(title: "Column After", js: "MU.addCol(\"AFTER\")"))
-        if config.tableMenu["header"] == true {
+        if config.menus["tableHeader"] == true {
             addMenu.addItem(jsMenuItem(title: "Header", js: "MU.addHeader()"))
         }
         addItem.submenu = addMenu
@@ -372,7 +372,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         tableMenu.addItem(deleteItem)
 
         // Border submenu
-        if config.tableMenu["border"] == true {
+        if config.menus["tableBorder"] == true {
             let borderItem = NSMenuItem(title: "Border", action: nil, keyEquivalent: "")
             let borderMenu = NSMenu(title: "Border")
             borderMenu.addItem(jsMenuItem(title: "All", js: "MU.borderTable(\"cell\")"))
@@ -507,16 +507,3 @@ extension AppDelegate: NSMenuDelegate {
         menu.addItem(clearItem)
     }
 }
-
-extension Notification.Name {
-    static let menuNewDocument = Notification.Name("menuNewDocument")
-    static let menuOpenDocument = Notification.Name("menuOpenDocument")
-    static let menuSaveDocument = Notification.Name("menuSaveDocument")
-    static let menuSaveAsDocument = Notification.Name("menuSaveAsDocument")
-    static let menuShowHtml = Notification.Name("menuShowHtml")
-    static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
-    static let menuShowSettings = Notification.Name("menuShowSettings")
-    static let settingsSaved = Notification.Name("settingsSaved")
-    static let dismissSettings = Notification.Name("dismissSettings")
-}
-

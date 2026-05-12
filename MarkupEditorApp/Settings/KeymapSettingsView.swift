@@ -29,8 +29,8 @@ struct KeymapSettingsView: View {
         "search": "Search"
     ]
 
-    @AppStorage("keymapConfigJSON") private var keymapConfigJSON: String = ""
-    @State private var config = KeymapConfig()
+    @AppStorage(AppConfig.ConfigKey.keymap) private var keymapConfigJSON: String = ""
+    @State private var config = KeymapConfig.fromDefaults()
     @State private var bindingStrings: [String: [String]] = [:]
     @State private var loaded = false
 
@@ -120,9 +120,7 @@ struct KeymapSettingsView: View {
     private func loadConfig() {
         guard !loaded else { return }
         loaded = true
-        if !keymapConfigJSON.isEmpty {
-            config = KeymapConfig.fromJSON(keymapConfigJSON)
-        }
+        config = KeymapConfig.fromDefaults()
         for action in Self.actions {
             // KeyBinding.from(spec:) lowercases the key equivalent, so "Mod-K" and "Mod-k"
             // both produce "Mod-k". Deduplicate while preserving order.
@@ -145,9 +143,8 @@ struct KeymapSettingsView: View {
             }
         }
         config.bindings = newBindings
-        if let json = config.asJSON() {
+        if let json = config.asJSON(), keymapConfigJSON != json {
             keymapConfigJSON = json
-            NotificationCenter.default.post(name: .settingsSaved, object: nil)
         } else {
             assertionFailure("KeymapConfig encoding failed unexpectedly")
         }
@@ -192,5 +189,10 @@ private struct KeymapActionRow: View {
                 .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
+
+#Preview {
+    KeymapSettingsView()
 }

@@ -43,14 +43,13 @@ struct ConfigDecodingTests {
 
     @Test func validBehaviorConfigJSONDecodes() throws {
         let json = """
-        {"focusAfterLoad":true,"selectImage":false,"insertLink":true,"insertImage":true,"showStyle":false}
+        {"focusAfterLoad":true,"selectImage":false,"insertLink":true,"insertImage":true}
         """
         let result = try #require(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: json))
         #expect(result.focusAfterLoad == true)
         #expect(result.selectImage == false)
         #expect(result.insertLink == true)
         #expect(result.insertImage == true)
-        #expect(result.showStyle == false)
     }
 
     @Test func behaviorConfigMissingFieldReturnsNil() {

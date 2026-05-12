@@ -19,6 +19,8 @@ struct MarkupEditorApp: App {
         Settings {
             SettingsView()
         }
+        .defaultSize(width: 500, height: 400)
+        .windowResizability(.automatic)
     }
     
     init() {

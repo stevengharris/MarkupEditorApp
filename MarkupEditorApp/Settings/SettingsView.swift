@@ -11,16 +11,22 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         TabView {
-            ToolbarSettingsView()
-                .tabItem { Label("Toolbar", systemImage: "rectangle.topthird.inset.filled") }
-            KeymapSettingsView()
-                .tabItem { Label("Keymap", systemImage: "keyboard") }
-            BehaviorSettingsView()
-                .tabItem { Label("Behavior", systemImage: "gearshape.2") }
+            Tab("Toolbar", systemImage: "rectangle.topthird.inset.filled") {
+                ToolbarSettingsView()
+            }
+            Tab("Keymap", systemImage: "keyboard") {
+                KeymapSettingsView()
+            }
+            Tab("Behavior", systemImage: "gearshape.2") {
+                BehaviorSettingsView()
+            }
         }
-        .frame(width: 500, height: 400)
         .onReceive(NotificationCenter.default.publisher(for: .dismissSettings)) { notification in
             dismiss()
         }
     }
+}
+
+#Preview {
+    SettingsView()
 }
