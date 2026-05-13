@@ -40,7 +40,7 @@ struct MarkupDocumentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Add document content...", id: "Document")
+            MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Edit document...", id: "Document")
                 .id(configVersion)
             if rawShowing {
                 VStack {
@@ -64,12 +64,22 @@ struct MarkupDocumentView: View {
         }
         .onChange(of: toolbarConfigJSON) { _, _ in
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
-            self.configVersion += 1
+            MarkupEditor.selectedWebView?.getHtml { html in
+                self.initialHtml = html ?? ""   // Restore contents on redraw
+                self.configVersion += 1
+            }
         }
         .onChange(of: appConfigJSON) { _, _ in
             appConfig = AppConfig.fromDefaults()
             MarkupEditor.selectedWebView?.getHtml { html in
-                self.initialHtml = html ?? ""
+                self.initialHtml = html ?? ""   // Restore contents on redraw
+                self.configVersion += 1
+            }
+        }
+        .onChange(of: keymapConfigJSON) { _, _ in
+            markupConfiguration.keymapConfig = KeymapConfig.fromDefaults()
+            MarkupEditor.selectedWebView?.getHtml { html in
+                self.initialHtml = html ?? ""   // Restore contents on redraw
                 self.configVersion += 1
             }
         }

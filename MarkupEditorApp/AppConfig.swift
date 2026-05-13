@@ -116,12 +116,12 @@ extension KeymapConfig {
     
     static func fromDefaults() -> KeymapConfig {
         
-            let defaults = UserDefaults.standard
+        let defaults = UserDefaults.standard
         if let json = defaults.string(forKey: AppConfig.ConfigKey.keymap), let config = KeymapConfig.fromJSON(json) {
-                return config
-            } else {
-                return KeymapConfig()
-            }
+            return config
+        } else {
+            return KeymapConfig()
+        }
     }
 }
 
@@ -129,11 +129,11 @@ extension BehaviorConfig {
     
     static func fromDefaults() -> BehaviorConfig {
         
-            let defaults = UserDefaults.standard
+        let defaults = UserDefaults.standard
         if let json = defaults.string(forKey: AppConfig.ConfigKey.behavior), let config = BehaviorConfig.fromJSON(json) {
-                return config
-            } else {
-                return BehaviorConfig()
-            }
+            return config
+        } else {
+            return BehaviorConfig()
+        }
     }
 }

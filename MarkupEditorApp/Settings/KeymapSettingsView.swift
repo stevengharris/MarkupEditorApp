@@ -19,14 +19,14 @@ struct KeymapSettingsView: View {
     ]
 
     private static let actionLabels: [String: String] = [
-        "undo": "Undo", "redo": "Redo",
-        "link": "Link",
-        "p": "Normal", "h1": "H1", "h2": "H2", "h3": "H3", "h4": "H4", "h5": "H5", "h6": "H6",
-        "bullet": "Bullets", "number": "Numbers", "indent": "Indent", "outdent": "Outdent",
-        "bold": "Bold", "italic": "Italic", "underline": "Underline",
-        "strikethrough": "Strikethrough", "code": "Code",
-        "subscript": "Subscript", "superscript": "Superscript",
-        "search": "Search"
+        "undo": "Undo:", "redo": "Redo:",
+        "link": "Link:",
+        "p": "Normal:", "h1": "H1:", "h2": "H2:", "h3": "H3:", "h4": "H4:", "h5": "H5:", "h6": "H6:",
+        "bullet": "Bullets:", "number": "Numbers:", "indent": "Indent:", "outdent": "Outdent:",
+        "bold": "Bold:", "italic": "Italic:", "underline": "Underline:",
+        "strikethrough": "Strikethrough:", "code": "Code:",
+        "subscript": "Subscript:", "superscript": "Superscript:",
+        "search": "Search:"
     ]
 
     @AppStorage(AppConfig.ConfigKey.keymap) private var keymapConfigJSON: String = ""
@@ -51,59 +51,53 @@ struct KeymapSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            if !conflicts.isEmpty {
-                Section {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.yellow)
-                        Text("Binding conflict: \(conflicts.sorted().joined(separator: ", "))")
-                            .font(.caption)
-                    }
-                }
-            }
-            Section {
-                Text("Format: Mod-b (Cmd), Ctrl-b (Control), Shift-Mod-b (Cmd+Shift). First binding appears in menus. Press Return to apply.")
+        if !conflicts.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.yellow)
+                Text("Binding conflict: \(conflicts.sorted().joined(separator: ", "))")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-            Section("History") {
-                actionRow("undo")
-                actionRow("redo")
-            }
-            Section("Insert") {
-                actionRow("link")
-            }
-            Section("Style") {
-                actionRow("p")
-                actionRow("h1")
-                actionRow("h2")
-                actionRow("h3")
-                actionRow("h4")
-                actionRow("h5")
-                actionRow("h6")
-            }
-            Section("Lists") {
-                actionRow("bullet")
-                actionRow("number")
-                actionRow("indent")
-                actionRow("outdent")
-            }
-            Section("Formatting") {
-                actionRow("bold")
-                actionRow("italic")
-                actionRow("underline")
-                actionRow("strikethrough")
-                actionRow("code")
-                actionRow("subscript")
-                actionRow("superscript")
-            }
-            Section("Other") {
-                actionRow("search")
-            }
+            .padding()
         }
-        .formStyle(.grouped)
+        Text("A binding consists of modifiers and a key, separated by a minus sign. Modifiers are Ctrl(⌃), Alt(⌥), Mod(⌘), and Shift. Separate multiple bindings by a space. The first binding appears in menus. Press Return to apply changes.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding()
+        Form {
+            actionRow("undo")
+            actionRow("redo")
+            
+            actionRow("link")
+            
+            actionRow("p")
+            actionRow("h1")
+            actionRow("h2")
+            actionRow("h3")
+            actionRow("h4")
+            actionRow("h5")
+            actionRow("h6")
+            
+            actionRow("bullet")
+            actionRow("number")
+            
+            actionRow("indent")
+            actionRow("outdent")
+            
+            actionRow("bold")
+            actionRow("italic")
+            actionRow("underline")
+            actionRow("strikethrough")
+            actionRow("code")
+            actionRow("subscript")
+            actionRow("superscript")
+            
+            actionRow("search")
+        }
+        .formStyle(.columns)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)   // Fill parent
         .onAppear { loadConfig() }
+        Spacer()
     }
 
     private func actionRow(_ action: String) -> some View {
@@ -122,8 +116,6 @@ struct KeymapSettingsView: View {
         loaded = true
         config = KeymapConfig.fromDefaults()
         for action in Self.actions {
-            // KeyBinding.from(spec:) lowercases the key equivalent, so "Mod-K" and "Mod-k"
-            // both produce "Mod-k". Deduplicate while preserving order.
             let rawSpecs = (config.bindings[action] ?? []).map { $0.spec }
             var seen = Set<String>()
             let specs = rawSpecs.filter { seen.insert($0).inserted }
@@ -157,39 +149,23 @@ private struct KeymapActionRow: View {
     let onSave: () -> Void
 
     var body: some View {
+        
         LabeledContent(label) {
-            VStack(alignment: .trailing, spacing: 4) {
-                ForEach(specs.indices, id: \.self) { idx in
-                    HStack(spacing: 4) {
-                        TextField("", text: Binding(
-                            get: { idx < specs.count ? specs[idx] : "" },
-                            set: { if idx < specs.count { specs[idx] = $0 } }
-                        ))
-                        .onSubmit { onSave() }
-                        .frame(width: 140)
-                        if specs.count > 1 {
-                            Button {
-                                specs.remove(at: idx)
-                                onSave()
-                            } label: {
-                                Image(systemName: "minus.circle")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-                Button {
-                    specs.append("")
-                } label: {
-                    Label("Add", systemImage: "plus.circle")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
+            TextField("", text: keymapBinding())
+                .onSubmit { onSave() }
+                .frame(width: 160)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    func keymapBinding() -> Binding<String> {
+        Binding(
+            get: {
+                specs.joined(separator: " ")
+            },
+            set: {
+                let strings = $0.components(separatedBy: " ")
+                specs = strings
+            })
     }
 }
 
