@@ -22,7 +22,9 @@
       "mcp__serena__get_current_config",
       "mcp__serena__list_dir",
       "mcp__serena__read_file",
-      "mcp__serena__insert_after_symbol"
+      "mcp__serena__insert_after_symbol",
+      "mcp__serena__list_memories",
+      "mcp__serena__check_onboarding_performed"
     ]
   },
   "enableAllProjectMcpServers": true,
