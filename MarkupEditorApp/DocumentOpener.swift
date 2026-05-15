@@ -163,6 +163,27 @@ func copyImageAssets(srcs: [String], from sourceDir: URL, to destDir: URL, skipM
     }
 }
 
+/// Stores a security-scoped bookmark for the parent directory of `fileURL` in UserDefaults.
+/// Must be called while the sandbox already has access to that directory (e.g. via NSOpenPanel).
+/// Silently does nothing if a bookmark cannot be created.
+func storeParentDirBookmark(for fileURL: URL) {
+    let parentDir = fileURL.deletingLastPathComponent()
+    guard let data = try? parentDir.bookmarkData(
+        options: .withSecurityScope,
+        includingResourceValuesForKeys: nil,
+        relativeTo: nil
+    ) else { return }
+    UserDefaults.standard.set(data, forKey: "parentDirBookmark:\(fileURL.path)")
+}
+
+/// Resolves a previously stored security-scoped bookmark for the parent directory of `fileURL`.
+/// Returns the scoped URL ready for `startAccessingSecurityScopedResource()`, or nil if none stored.
+func resolveParentDirBookmark(for fileURL: URL) -> URL? {
+    guard let data = UserDefaults.standard.data(forKey: "parentDirBookmark:\(fileURL.path)") else { return nil }
+    var isStale = false
+    return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+}
+
 /// Copies all non-HTML files from `packageURL` to `destDir`, preserving relative paths.
 /// Returns the set of relative path strings that were copied.
 func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<String> {

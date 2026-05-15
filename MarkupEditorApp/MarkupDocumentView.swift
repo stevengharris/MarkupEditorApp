@@ -356,7 +356,17 @@ struct MarkupDocumentView: View {
         let html = try String(contentsOf: fileURL, encoding: .utf8)
         if let baseUrl = MarkupEditor.selectedWebView?.baseUrl {
             let parentDir = fileURL.deletingLastPathComponent()
-            try copyImageAssets(srcs: localImageSrcs(in: html), from: parentDir, to: baseUrl, skipMissing: true)
+            let srcs = localImageSrcs(in: html)
+            if !srcs.isEmpty {
+                // Open Recent provides a file-only security scope; resolve a stored parent-dir
+                // bookmark to regain directory access for image copying.
+                let scopedParent = resolveParentDirBookmark(for: fileURL)
+                let accessingScoped = scopedParent?.startAccessingSecurityScopedResource() ?? false
+                defer { if accessingScoped { scopedParent?.stopAccessingSecurityScopedResource() } }
+                try copyImageAssets(srcs: srcs, from: parentDir, to: baseUrl, skipMissing: true)
+                // Store/refresh the bookmark while we still have sandbox access to parentDir.
+                storeParentDirBookmark(for: fileURL)
+            }
         }
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
