@@ -77,7 +77,7 @@
         "append": null
     },
     "appearance": {
-        "accentColor": { "light": "green", "dark": "lightgreen" },
+        "accentColor": { "light": "blue", "dark": "lightblue" },
         "toolbarBg":   { "light": "rgba(250, 249, 246, 0.95)", "dark": "rgba(40, 40, 43, 0.9)" },
         "buttonBg":    { "light": "white", "dark": "black" },
         "borderColor": { "light": "lightgray", "dark": "gray" },
