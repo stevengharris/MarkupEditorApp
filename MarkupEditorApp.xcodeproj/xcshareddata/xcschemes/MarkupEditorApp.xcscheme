@@ -106,5 +106,23 @@
    <ArchiveAction
       buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Run Script"
+               scriptText = "# Make the built product available as an application&#10;echo &quot;*** Installing the archive into /Applications directory...&quot;&#10;SOURCE=&quot;$ARCHIVE_PATH/Products/Applications/$PRODUCT_NAME.app&quot;&#10;DEST=&quot;/Applications/$PRODUCT_NAME.app&quot;&#10;if [ -d &quot;$SOURCE&quot; ]; then&#10;    rm -rf &quot;$DEST&quot;&#10;    ditto &quot;$SOURCE&quot; &quot;$DEST&quot;&#10;    echo &quot;*** Installed to $DEST&quot;&#10;else&#10;    echo &quot;*** ERROR: app not found at $SOURCE&quot;&#10;fi&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "AA7B99962F9290DF0085425B"
+                     BuildableName = "MarkupEditor.app"
+                     BlueprintName = "MarkupEditorApp"
+                     ReferencedContainer = "container:MarkupEditorApp.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
    </ArchiveAction>
 </Scheme>

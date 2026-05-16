@@ -52,7 +52,6 @@
 			);
 			explicitFolders = (
 				docs,
-				Resources/welcome.htmd,
 			);
 			path = MarkupEditorApp;
 			sourceTree = "<group>";
