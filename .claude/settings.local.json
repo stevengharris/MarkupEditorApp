@@ -24,7 +24,36 @@
       "mcp__serena__read_file",
       "mcp__serena__insert_after_symbol",
       "mcp__serena__list_memories",
-      "mcp__serena__check_onboarding_performed"
+      "mcp__serena__check_onboarding_performed",
+      "Skill(nx:rdr-show)",
+      "Skill(nx:brainstorming-gate)",
+      "Skill(nx:strategic-planning)",
+      "Skill(nx:development)",
+      "mcp__serena__find_file",
+      "mcp__serena__replace_symbol_body",
+      "Skill(nx:review-code)",
+      "Skill(check)",
+      "Bash(mkdir -p ~/.claude/sessions/rdr008-toolbar-appearance)",
+      "mcp__serena__find_referencing_symbols",
+      "Skill(nx:rdr-close)",
+      "Skill(nx:debug)",
+      "Skill(nx:rdr-list)",
+      "Skill(nx:rdr-research)",
+      "Skill(nx:rdr-gate)",
+      "Skill(update-config)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); TOOL=$(echo \"$INPUT\" | jq -r '.tool_name // \"\"'); if [[ \"$TOOL\" == \"Bash\" ]]; then CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // \"\"'); if echo \"$CMD\" | grep -q 'grep' && echo \"$CMD\" | grep -q '\\.swift'; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SERENA REQUIRED: Use mcp__serena__search_for_pattern or mcp__serena__find_symbol instead of grep on Swift files.\"}}'; fi; elif [[ \"$TOOL\" == \"Read\" ]]; then FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // \"\"'); if [[ \"$FILE\" == *.swift ]]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SERENA REQUIRED: Use mcp__serena__read_file, mcp__serena__find_symbol, or mcp__serena__replace_symbol_body instead of Read on Swift files.\"}}'; fi; fi"
+          }
+        ]
+      }
     ]
   },
   "enableAllProjectMcpServers": true,
