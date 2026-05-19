@@ -86,6 +86,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSDocumentController.shared.clearRecentDocuments(nil)
     }
 
+#if DEBUG
+    @objc private func clearUserDefaults(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuClearUserDefaults, object: nil)
+    }
+#endif
+
     private func buildMenu() -> NSMenu {
         let mainMenu = NSMenu()
 
@@ -191,6 +197,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowMenu.addItem(NSMenuItem(title: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: ""))
         windowMenuItem.submenu = windowMenu
         NSApp.windowsMenu = windowMenu
+
+        // Develop menu (debug builds only)
+#if DEBUG
+        let developMenuItem = NSMenuItem()
+        let developMenu = NSMenu(title: "Develop")
+        developMenu.addItem(NSMenuItem(title: "Clear UserDefaults", action: #selector(clearUserDefaults(_:)), keyEquivalent: ""))
+        developMenuItem.submenu = developMenu
+        mainMenu.addItem(developMenuItem)
+#endif
 
         // Standard help menu
         let helpMenuItem = NSMenuItem()

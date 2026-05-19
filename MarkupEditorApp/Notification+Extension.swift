@@ -15,4 +15,7 @@ extension Notification.Name {
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
     static let menuShowSettings = Notification.Name("menuShowSettings")
     static let dismissSettings = Notification.Name("dismissSettings")
+#if DEBUG
+    static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
+#endif
 }

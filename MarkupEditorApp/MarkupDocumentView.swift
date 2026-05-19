@@ -109,6 +109,14 @@ struct MarkupDocumentView: View {
             }
         }
         // Dismiss the SettingsView when this one will close
+#if DEBUG
+        .onReceive(NotificationCenter.default.publisher(for: .menuClearUserDefaults)) { _ in
+            UserDefaults.standard.removeObject(forKey: ConfigKeys.toolbar)
+            UserDefaults.standard.removeObject(forKey: ConfigKeys.keymap)
+            UserDefaults.standard.removeObject(forKey: ConfigKeys.behavior)
+            UserDefaults.standard.removeObject(forKey: ConfigKeys.app)
+        }
+#endif
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
             NotificationCenter.default.post(name: .dismissSettings, object: nil)
         }

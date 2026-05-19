@@ -57,6 +57,7 @@ struct ToolbarSettingsView: View {
             Toggle("Table", isOn: insertBar("tableMenu"))
             Toggle("Header", isOn: menus("tableHeader")).padding(.leading)
             Toggle("Border", isOn: menus("tableBorder")).padding(.leading)
+            Toggle("Horizontal Rule", isOn: insertBar("hRule"))
             
             Spacer(minLength: 16)
             
