@@ -43,19 +43,6 @@
       "Skill(update-config)"
     ]
   },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash|Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "INPUT=$(cat); TOOL=$(echo \"$INPUT\" | jq -r '.tool_name // \"\"'); if [[ \"$TOOL\" == \"Bash\" ]]; then CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // \"\"'); if echo \"$CMD\" | grep -q 'grep' && echo \"$CMD\" | grep -q '\\.swift'; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SERENA REQUIRED: Use mcp__serena__search_for_pattern or mcp__serena__find_symbol instead of grep on Swift files.\"}}'; fi; elif [[ \"$TOOL\" == \"Read\" ]]; then FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // \"\"'); if [[ \"$FILE\" == *.swift ]]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SERENA REQUIRED: Use mcp__serena__read_file, mcp__serena__find_symbol, or mcp__serena__replace_symbol_body instead of Read on Swift files.\"}}'; fi; fi"
-          }
-        ]
-      }
-    ]
-  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "serena"
