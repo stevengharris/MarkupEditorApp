@@ -36,6 +36,17 @@ struct BehaviorSettingsView: View {
             .onChange(of: toolbarVisibility) { oldValue, newValue in
                 setToolbarVisibility(newValue)
             }
+            Section("Installed Plugins") {
+                let plugins = appConfig.plugins ?? []
+                if plugins.isEmpty {
+                    Text("No plugins installed.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(plugins, id: \.name) { plugin in
+                        Text(plugin.name)
+                    }
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {

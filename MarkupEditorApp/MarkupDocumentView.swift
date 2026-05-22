@@ -112,6 +112,57 @@ struct MarkupDocumentView: View {
                 openDocument(at: url)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .menuExportPlugin)) { notification in
+            guard let name = notification.userInfo?["name"] as? String,
+                  let pluginId = notification.userInfo?["filename"] as? String else { return }
+            // pluginId == manifest 'name' == JS registry key (set by markupPluginsDidLoad)
+            MarkupEditor.selectedWebView?.getHtml { html in
+                let panel = NSSavePanel()
+                panel.nameFieldStringValue = name
+                panel.allowedContentTypes = [.plainText]
+                guard panel.runModal() == .OK, let url = panel.url else { return }
+                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                    guard let output = result else {
+                        let alert = NSAlert()
+                        alert.messageText = "Plugin '\(name)' could not complete the operation."
+                        alert.runModal()
+                        return
+                    }
+                    do {
+                        try output.write(to: url, atomically: true, encoding: .utf8)
+                    } catch {
+                        let alert = NSAlert()
+                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                        alert.runModal()
+                    }
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .menuImportPlugin)) { notification in
+            guard let name = notification.userInfo?["name"] as? String,
+                  let pluginId = notification.userInfo?["filename"] as? String else { return }
+            // pluginId == manifest 'name' == JS registry key (set by markupPluginsDidLoad)
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = false
+            panel.canChooseDirectories = false
+            panel.allowedContentTypes = [.plainText]
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
+                let alert = NSAlert()
+                alert.messageText = "Could not read file."
+                alert.runModal()
+                return
+            }
+            MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: fileContent) { result in
+                guard let html = result else {
+                    let alert = NSAlert()
+                    alert.messageText = "Plugin '\(name)' could not complete the operation."
+                    alert.runModal()
+                    return
+                }
+                MarkupEditor.selectedWebView?.setHtml(html)
+            }
+        }
         // Dismiss the SettingsView when this one will close
 #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .menuClearUserDefaults)) { _ in
@@ -520,6 +571,17 @@ extension MarkupDocumentView: MarkupDelegate {
     /// value of   selectImage .
     func markupSelectImage(_ view: MarkupWKWebView?) {
         selectImage.value.toggle()
+    }
+
+    func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
+        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
+        let entries = plugins.compactMap { dict -> AppConfig.PluginConfigEntry? in
+            // Manifest shape: {id, name, extension} — no "filename" key.
+            // Store 'name' in the filename slot; it is the JS registry key passed to invokePlugin.
+            guard let name = dict["name"] else { return nil }
+            return AppConfig.PluginConfigEntry(name: name, filename: name)
+        }
+        appDelegate.populatePluginMenus(entries)
     }
 
 }
