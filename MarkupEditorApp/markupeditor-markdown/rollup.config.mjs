@@ -5,8 +5,7 @@ export default {
 	input: 'src/markup-editor-markdown.js',
 	output: {
 		file: 'dist/markup-editor-markdown.js',
-		format: 'iife',
-		name: 'MarkupEditorMarkdown'
+		format: 'es'
 	},
 	plugins: [
 		resolve(),
