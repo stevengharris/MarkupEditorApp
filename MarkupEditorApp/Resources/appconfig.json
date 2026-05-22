@@ -1,4 +1,5 @@
 {
     "toolbarVisibility": "toggled",
-    "toggledState": "visible"
+    "toggledState": "visible",
+    "plugins": [{ "name": "Markdown", "filename": "markup-editor-markdown.js" }]
 }

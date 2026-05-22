@@ -28,5 +28,6 @@ struct MarkupEditorApp: App {
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
         MarkupEditor.isInspectable = true
+        PluginSetup.setupOnLaunch()
     }
 }
