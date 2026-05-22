@@ -117,59 +117,32 @@ import AppKit
         #expect(delegate.importSubmenu.items.isEmpty)
     }
 
-    // MARK: - Notifications
+    // MARK: - Menu item wiring
+    //
+    // These tests verify the action selector and target are wired correctly without
+    // invoking the action. Invoking would post to NotificationCenter.default, which
+    // the live MarkupDocumentView also observes — causing NSSavePanel/NSOpenPanel to
+    // appear during the test run. Functional end-to-end verification is in bead o5g.
 
-    @Test func exportMenuItemPostsNotification() async {
+    @Test func exportMenuItemIsWiredToDelegate() {
         let delegate = makeDelegate()
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
         delegate.populatePluginMenus(entries)
 
-        var received: Notification?
-        let token = NotificationCenter.default.addObserver(
-            forName: .menuExportPlugin,
-            object: nil,
-            queue: .main
-        ) { notification in
-            received = notification
-        }
-        defer { NotificationCenter.default.removeObserver(token) }
-
-        // Simulate menu item click by sending action
         let item = delegate.exportSubmenu.items[0]
-        NSApp.sendAction(item.action!, to: item.target, from: item)
-
-        // Give the run loop one tick
-        await Task.yield()
-
-        #expect(received != nil)
-        let userInfo = received?.userInfo
-        #expect(userInfo?["name"] as? String == "Markdown")
-        #expect(userInfo?["filename"] as? String == "markup-editor-markdown.js")
+        #expect(item.action != nil)
+        #expect(item.target === delegate)
+        #expect(NSStringFromSelector(item.action!) == "exportPluginAction:")
     }
 
-    @Test func importMenuItemPostsNotification() async {
+    @Test func importMenuItemIsWiredToDelegate() {
         let delegate = makeDelegate()
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
         delegate.populatePluginMenus(entries)
 
-        var received: Notification?
-        let token = NotificationCenter.default.addObserver(
-            forName: .menuImportPlugin,
-            object: nil,
-            queue: .main
-        ) { notification in
-            received = notification
-        }
-        defer { NotificationCenter.default.removeObserver(token) }
-
         let item = delegate.importSubmenu.items[0]
-        NSApp.sendAction(item.action!, to: item.target, from: item)
-
-        await Task.yield()
-
-        #expect(received != nil)
-        let userInfo = received?.userInfo
-        #expect(userInfo?["name"] as? String == "Markdown")
-        #expect(userInfo?["filename"] as? String == "markup-editor-markdown.js")
+        #expect(item.action != nil)
+        #expect(item.target === delegate)
+        #expect(NSStringFromSelector(item.action!) == "importPluginAction:")
     }
 }
