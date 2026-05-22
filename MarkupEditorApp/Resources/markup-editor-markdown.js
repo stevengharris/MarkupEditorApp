@@ -12158,13 +12158,7 @@ function makeSerializer(warnings) {
       const headerRow = rows[0];
       const cells = [];
       headerRow.forEach(cell => {
-        let cellText = '';
-        cell.forEach(block => {
-          block.forEach(inline => {
-            if (inline.isText) cellText += inline.text;
-          });
-        });
-        cells.push(cellText.trim());
+        cells.push(cell.textContent.trim());
       });
       state.write('| ' + cells.join(' | ') + ' |');
       state.write('\n');
@@ -12177,13 +12171,7 @@ function makeSerializer(warnings) {
       for (let i = 1; i < rows.length; i++) {
         const rowCells = [];
         rows[i].forEach(cell => {
-          let cellText = '';
-          cell.forEach(block => {
-            block.forEach(inline => {
-              if (inline.isText) cellText += inline.text;
-            });
-          });
-          rowCells.push(cellText.trim());
+          rowCells.push(cell.textContent.trim());
         });
         state.write('| ' + rowCells.join(' | ') + ' |');
         state.write('\n');
@@ -12280,7 +12268,7 @@ function makeSerializer(warnings) {
 function makeParser(schema, warnings) {
   // Use markdown-it in 'default' mode (includes table support) with html disabled.
   // The 'default' mode includes GFM tables; commonmark does not.
-  const tokenizer = new MarkdownIt({ html: false });
+  const tokenizer = new MarkdownIt({ html: true });
 
   // Start from the default token set and add table + strikethrough support
   const tokens = Object.assign({}, defaultMarkdownParser.tokens, {
@@ -12325,6 +12313,13 @@ function makeParser(schema, warnings) {
   parser.tokenHandlers['th_close'] = cellClose;
   parser.tokenHandlers['td_open']  = cellOpen;
   parser.tokenHandlers['td_close'] = cellClose;
+
+  parser.tokenHandlers['html_block'] = (state, tok) => {
+    warnings.add(`Raw HTML block stripped (not supported in MarkupEditor): ${tok.content.slice(0, 60).trim()}`);
+  };
+  parser.tokenHandlers['html_inline'] = (state, tok) => {
+    warnings.add(`Raw HTML inline stripped (not supported in MarkupEditor): ${tok.content.trim()}`);
+  };
 
   return parser
 }
@@ -17880,7 +17875,7 @@ function exportFn(_content) {
  */
 function importFn(content) {
   const warnings = makeWarnings();
-  const parser = makeParser(schema);
+  const parser = makeParser(schema, warnings);
   const doc = parser.parse(content);
   const serializer = DOMSerializer.fromSchema(schema);
   const div = document.createElement('div');

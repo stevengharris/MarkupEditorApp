@@ -12,7 +12,7 @@ import MarkdownIt from 'markdown-it'
 export function makeParser(schema, warnings) {
   // Use markdown-it in 'default' mode (includes table support) with html disabled.
   // The 'default' mode includes GFM tables; commonmark does not.
-  const tokenizer = new MarkdownIt({ html: false })
+  const tokenizer = new MarkdownIt({ html: true })
 
   // Start from the default token set and add table + strikethrough support
   const tokens = Object.assign({}, defaultMarkdownParser.tokens, {
@@ -57,6 +57,13 @@ export function makeParser(schema, warnings) {
   parser.tokenHandlers['th_close'] = cellClose
   parser.tokenHandlers['td_open']  = cellOpen
   parser.tokenHandlers['td_close'] = cellClose
+
+  parser.tokenHandlers['html_block'] = (state, tok) => {
+    warnings.add(`Raw HTML block stripped (not supported in MarkupEditor): ${tok.content.slice(0, 60).trim()}`)
+  }
+  parser.tokenHandlers['html_inline'] = (state, tok) => {
+    warnings.add(`Raw HTML inline stripped (not supported in MarkupEditor): ${tok.content.trim()}`)
+  }
 
   return parser
 }

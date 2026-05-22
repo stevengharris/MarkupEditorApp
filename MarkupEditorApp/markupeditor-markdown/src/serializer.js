@@ -42,13 +42,7 @@ export function makeSerializer(warnings) {
       const headerRow = rows[0]
       const cells = []
       headerRow.forEach(cell => {
-        let cellText = ''
-        cell.forEach(block => {
-          block.forEach(inline => {
-            if (inline.isText) cellText += inline.text
-          })
-        })
-        cells.push(cellText.trim())
+        cells.push(cell.textContent.trim())
       })
       state.write('| ' + cells.join(' | ') + ' |')
       state.write('\n')
@@ -61,13 +55,7 @@ export function makeSerializer(warnings) {
       for (let i = 1; i < rows.length; i++) {
         const rowCells = []
         rows[i].forEach(cell => {
-          let cellText = ''
-          cell.forEach(block => {
-            block.forEach(inline => {
-              if (inline.isText) cellText += inline.text
-            })
-          })
-          rowCells.push(cellText.trim())
+          rowCells.push(cell.textContent.trim())
         })
         state.write('| ' + rowCells.join(' | ') + ' |')
         state.write('\n')
