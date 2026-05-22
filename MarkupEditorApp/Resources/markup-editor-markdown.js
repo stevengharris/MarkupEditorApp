@@ -1,11 +1,11 @@
 // ::- Persistent data structure representing an ordered mapping from
 // strings to values, with some convenient update methods.
-function OrderedMap(content) {
+function OrderedMap$1(content) {
   this.content = content;
 }
 
-OrderedMap.prototype = {
-  constructor: OrderedMap,
+OrderedMap$1.prototype = {
+  constructor: OrderedMap$1,
 
   find: function(key) {
     for (var i = 0; i < this.content.length; i += 2)
@@ -34,7 +34,7 @@ OrderedMap.prototype = {
       content[found + 1] = value;
       if (newKey) content[found] = newKey;
     }
-    return new OrderedMap(content)
+    return new OrderedMap$1(content)
   },
 
   // :: (string) → OrderedMap
@@ -44,13 +44,13 @@ OrderedMap.prototype = {
     if (found == -1) return this
     var content = this.content.slice();
     content.splice(found, 2);
-    return new OrderedMap(content)
+    return new OrderedMap$1(content)
   },
 
   // :: (string, any) → OrderedMap
   // Add a new key to the start of the map.
   addToStart: function(key, value) {
-    return new OrderedMap([key, value].concat(this.remove(key).content))
+    return new OrderedMap$1([key, value].concat(this.remove(key).content))
   },
 
   // :: (string, any) → OrderedMap
@@ -58,7 +58,7 @@ OrderedMap.prototype = {
   addToEnd: function(key, value) {
     var content = this.remove(key).content.slice();
     content.push(key, value);
-    return new OrderedMap(content)
+    return new OrderedMap$1(content)
   },
 
   // :: (string, string, any) → OrderedMap
@@ -68,7 +68,7 @@ OrderedMap.prototype = {
     var without = this.remove(key), content = without.content.slice();
     var found = without.find(place);
     content.splice(found == -1 ? content.length : found, 0, key, value);
-    return new OrderedMap(content)
+    return new OrderedMap$1(content)
   },
 
   // :: ((key: string, value: any))
@@ -83,18 +83,18 @@ OrderedMap.prototype = {
   // Create a new map by prepending the keys in this map that don't
   // appear in `map` before the keys in `map`.
   prepend: function(map) {
-    map = OrderedMap.from(map);
+    map = OrderedMap$1.from(map);
     if (!map.size) return this
-    return new OrderedMap(map.content.concat(this.subtract(map).content))
+    return new OrderedMap$1(map.content.concat(this.subtract(map).content))
   },
 
   // :: (union<Object, OrderedMap>) → OrderedMap
   // Create a new map by appending the keys in this map that don't
   // appear in `map` after the keys in `map`.
   append: function(map) {
-    map = OrderedMap.from(map);
+    map = OrderedMap$1.from(map);
     if (!map.size) return this
-    return new OrderedMap(this.subtract(map).content.concat(map.content))
+    return new OrderedMap$1(this.subtract(map).content.concat(map.content))
   },
 
   // :: (union<Object, OrderedMap>) → OrderedMap
@@ -102,7 +102,7 @@ OrderedMap.prototype = {
   // appear in `map`.
   subtract: function(map) {
     var result = this;
-    map = OrderedMap.from(map);
+    map = OrderedMap$1.from(map);
     for (var i = 0; i < map.content.length; i += 2)
       result = result.remove(map.content[i]);
     return result
@@ -127,14 +127,14 @@ OrderedMap.prototype = {
 // Return a map with the given content. If null, create an empty
 // map. If given an ordered map, return that map itself. If given an
 // object, create a map from the object's properties.
-OrderedMap.from = function(value) {
-  if (value instanceof OrderedMap) return value
+OrderedMap$1.from = function(value) {
+  if (value instanceof OrderedMap$1) return value
   var content = [];
   if (value) for (var prop in value) content.push(prop, value[prop]);
-  return new OrderedMap(content)
+  return new OrderedMap$1(content)
 };
 
-function findDiffStart(a, b, pos) {
+function findDiffStart$1(a, b, pos) {
     for (let i = 0;; i++) {
         if (i == a.childCount || i == b.childCount)
             return a.childCount == b.childCount ? null : pos;
@@ -151,14 +151,14 @@ function findDiffStart(a, b, pos) {
             return pos;
         }
         if (childA.content.size || childB.content.size) {
-            let inner = findDiffStart(childA.content, childB.content, pos + 1);
+            let inner = findDiffStart$1(childA.content, childB.content, pos + 1);
             if (inner != null)
                 return inner;
         }
         pos += childA.nodeSize;
     }
 }
-function findDiffEnd(a, b, posA, posB) {
+function findDiffEnd$1(a, b, posA, posB) {
     for (let iA = a.childCount, iB = b.childCount;;) {
         if (iA == 0 || iB == 0)
             return iA == iB ? null : { a: posA, b: posB };
@@ -180,7 +180,7 @@ function findDiffEnd(a, b, posA, posB) {
             return { a: posA, b: posB };
         }
         if (childA.content.size || childB.content.size) {
-            let inner = findDiffEnd(childA.content, childB.content, posA - 1, posB - 1);
+            let inner = findDiffEnd$1(childA.content, childB.content, posA - 1, posB - 1);
             if (inner)
                 return inner;
         }
@@ -196,7 +196,7 @@ Like nodes, fragments are persistent data structures, and you
 should not mutate them or their content. Rather, you create new
 instances whenever needed. The API tries to make this easy.
 */
-class Fragment {
+let Fragment$1 = class Fragment {
     /**
     @internal
     */
@@ -390,7 +390,7 @@ class Fragment {
     fragment differ, or `null` if they are the same.
     */
     findDiffStart(other, pos = 0) {
-        return findDiffStart(this, other, pos);
+        return findDiffStart$1(this, other, pos);
     }
     /**
     Find the first position, searching from the end, at which this
@@ -399,7 +399,7 @@ class Fragment {
     nodes, an object with two separate positions is returned.
     */
     findDiffEnd(other, pos = this.size, otherPos = other.size) {
-        return findDiffEnd(this, other, pos, otherPos);
+        return findDiffEnd$1(this, other, pos, otherPos);
     }
     /**
     Find the index and inner offset corresponding to a given relative
@@ -408,17 +408,17 @@ class Fragment {
     */
     findIndex(pos) {
         if (pos == 0)
-            return retIndex(0, pos);
+            return retIndex$1(0, pos);
         if (pos == this.size)
-            return retIndex(this.content.length, pos);
+            return retIndex$1(this.content.length, pos);
         if (pos > this.size || pos < 0)
             throw new RangeError(`Position ${pos} outside of fragment (${this})`);
         for (let i = 0, curPos = 0;; i++) {
             let cur = this.child(i), end = curPos + cur.nodeSize;
             if (end >= pos) {
                 if (end == pos)
-                    return retIndex(i + 1, end);
-                return retIndex(i, curPos);
+                    return retIndex$1(i + 1, end);
+                return retIndex$1(i, curPos);
             }
             curPos = end;
         }
@@ -488,21 +488,21 @@ class Fragment {
         throw new RangeError("Can not convert " + nodes + " to a Fragment" +
             (nodes.nodesBetween ? " (looks like multiple versions of prosemirror-model were loaded)" : ""));
     }
-}
+};
 /**
 An empty fragment. Intended to be reused whenever a node doesn't
 contain anything (rather than allocating a new empty fragment for
 each leaf node).
 */
-Fragment.empty = new Fragment([], 0);
-const found = { index: 0, offset: 0 };
-function retIndex(index, offset) {
-    found.index = index;
-    found.offset = offset;
-    return found;
+Fragment$1.empty = new Fragment$1([], 0);
+const found$1 = { index: 0, offset: 0 };
+function retIndex$1(index, offset) {
+    found$1.index = index;
+    found$1.offset = offset;
+    return found$1;
 }
 
-function compareDeep(a, b) {
+function compareDeep$1(a, b) {
     if (a === b)
         return true;
     if (!(a && typeof a == "object") ||
@@ -515,12 +515,12 @@ function compareDeep(a, b) {
         if (a.length != b.length)
             return false;
         for (let i = 0; i < a.length; i++)
-            if (!compareDeep(a[i], b[i]))
+            if (!compareDeep$1(a[i], b[i]))
                 return false;
     }
     else {
         for (let p in a)
-            if (!(p in b) || !compareDeep(a[p], b[p]))
+            if (!(p in b) || !compareDeep$1(a[p], b[p]))
                 return false;
         for (let p in b)
             if (!(p in a))
@@ -537,7 +537,7 @@ information (such as the target of the link). Marks are created
 through a `Schema`, which controls which types exist and which
 attributes they have.
 */
-class Mark {
+let Mark$1 = class Mark {
     /**
     @internal
     */
@@ -615,7 +615,7 @@ class Mark {
     */
     eq(other) {
         return this == other ||
-            (this.type == other.type && compareDeep(this.attrs, other.attrs));
+            (this.type == other.type && compareDeep$1(this.attrs, other.attrs));
     }
     /**
     Convert this mark to a JSON-serializeable representation.
@@ -667,24 +667,24 @@ class Mark {
         copy.sort((a, b) => a.type.rank - b.type.rank);
         return copy;
     }
-}
+};
 /**
 The empty set of marks.
 */
-Mark.none = [];
+Mark$1.none = [];
 
 /**
 Error type raised by [`Node.replace`](https://prosemirror.net/docs/ref/#model.Node.replace) when
 given an invalid replacement.
 */
-class ReplaceError extends Error {
-}
+let ReplaceError$1 = class ReplaceError extends Error {
+};
 /**
 A slice represents a piece cut out of a larger document. It
 stores not only a fragment, but also the depth up to which nodes on
 both side are ‘open’ (cut through).
 */
-class Slice {
+let Slice$1 = class Slice {
     /**
     Create a slice. When specifying a non-zero open depth, you must
     make sure that there are nodes of at least that depth at the
@@ -724,14 +724,14 @@ class Slice {
     @internal
     */
     insertAt(pos, fragment) {
-        let content = insertInto(this.content, pos + this.openStart, fragment, this.openStart + 1, this.openEnd + 1);
+        let content = insertInto$1(this.content, pos + this.openStart, fragment, this.openStart + 1, this.openEnd + 1);
         return content && new Slice(content, this.openStart, this.openEnd);
     }
     /**
     @internal
     */
     removeBetween(from, to) {
-        return new Slice(removeRange(this.content, from + this.openStart, to + this.openStart), this.openStart, this.openEnd);
+        return new Slice(removeRange$1(this.content, from + this.openStart, to + this.openStart), this.openStart, this.openEnd);
     }
     /**
     Tests whether this slice is equal to another slice.
@@ -767,7 +767,7 @@ class Slice {
         let openStart = json.openStart || 0, openEnd = json.openEnd || 0;
         if (typeof openStart != "number" || typeof openEnd != "number")
             throw new RangeError("Invalid input for Slice.fromJSON");
-        return new Slice(Fragment.fromJSON(schema, json.content), openStart, openEnd);
+        return new Slice(Fragment$1.fromJSON(schema, json.content), openStart, openEnd);
     }
     /**
     Create a slice from a fragment by taking the maximum possible
@@ -781,12 +781,12 @@ class Slice {
             openEnd++;
         return new Slice(fragment, openStart, openEnd);
     }
-}
+};
 /**
 The empty slice.
 */
-Slice.empty = new Slice(Fragment.empty, 0, 0);
-function removeRange(content, from, to) {
+Slice$1.empty = new Slice$1(Fragment$1.empty, 0, 0);
+function removeRange$1(content, from, to) {
     let { index, offset } = content.findIndex(from), child = content.maybeChild(index);
     let { index: indexTo, offset: offsetTo } = content.findIndex(to);
     if (offset == from || child.isText) {
@@ -796,60 +796,60 @@ function removeRange(content, from, to) {
     }
     if (index != indexTo)
         throw new RangeError("Removing non-flat range");
-    return content.replaceChild(index, child.copy(removeRange(child.content, from - offset - 1, to - offset - 1)));
+    return content.replaceChild(index, child.copy(removeRange$1(child.content, from - offset - 1, to - offset - 1)));
 }
-function insertInto(content, dist, insert, openStart, openEnd, parent) {
+function insertInto$1(content, dist, insert, openStart, openEnd, parent) {
     let { index, offset } = content.findIndex(dist), child = content.maybeChild(index);
     if (offset == dist || child.isText) {
         if (parent && openStart <= 0 && openEnd <= 0 && !parent.canReplace(index, index, insert))
             return null;
         return content.cut(0, dist).append(insert).append(content.cut(dist));
     }
-    let inner = insertInto(child.content, dist - offset - 1, insert, index == 0 ? openStart - 1 : 0, index == content.childCount - 1 ? openEnd - 1 : 0, child);
+    let inner = insertInto$1(child.content, dist - offset - 1, insert, index == 0 ? openStart - 1 : 0, index == content.childCount - 1 ? openEnd - 1 : 0, child);
     return inner && content.replaceChild(index, child.copy(inner));
 }
-function replace$1($from, $to, slice) {
+function replace$2($from, $to, slice) {
     if (slice.openStart > $from.depth)
-        throw new ReplaceError("Inserted content deeper than insertion position");
+        throw new ReplaceError$1("Inserted content deeper than insertion position");
     if ($from.depth - slice.openStart != $to.depth - slice.openEnd)
-        throw new ReplaceError("Inconsistent open depths");
-    return replaceOuter($from, $to, slice, 0);
+        throw new ReplaceError$1("Inconsistent open depths");
+    return replaceOuter$1($from, $to, slice, 0);
 }
-function replaceOuter($from, $to, slice, depth) {
+function replaceOuter$1($from, $to, slice, depth) {
     let index = $from.index(depth), node = $from.node(depth);
     if (index == $to.index(depth) && depth < $from.depth - slice.openStart) {
-        let inner = replaceOuter($from, $to, slice, depth + 1);
+        let inner = replaceOuter$1($from, $to, slice, depth + 1);
         return node.copy(node.content.replaceChild(index, inner));
     }
     else if (!slice.content.size) {
-        return close(node, replaceTwoWay($from, $to, depth));
+        return close$1(node, replaceTwoWay$1($from, $to, depth));
     }
     else if (!slice.openStart && !slice.openEnd && $from.depth == depth && $to.depth == depth) { // Simple, flat case
         let parent = $from.parent, content = parent.content;
-        return close(parent, content.cut(0, $from.parentOffset).append(slice.content).append(content.cut($to.parentOffset)));
+        return close$1(parent, content.cut(0, $from.parentOffset).append(slice.content).append(content.cut($to.parentOffset)));
     }
     else {
-        let { start, end } = prepareSliceForReplace(slice, $from);
-        return close(node, replaceThreeWay($from, start, end, $to, depth));
+        let { start, end } = prepareSliceForReplace$1(slice, $from);
+        return close$1(node, replaceThreeWay$1($from, start, end, $to, depth));
     }
 }
-function checkJoin(main, sub) {
+function checkJoin$1(main, sub) {
     if (!sub.type.compatibleContent(main.type))
-        throw new ReplaceError("Cannot join " + sub.type.name + " onto " + main.type.name);
+        throw new ReplaceError$1("Cannot join " + sub.type.name + " onto " + main.type.name);
 }
-function joinable($before, $after, depth) {
+function joinable$1($before, $after, depth) {
     let node = $before.node(depth);
-    checkJoin(node, $after.node(depth));
+    checkJoin$1(node, $after.node(depth));
     return node;
 }
-function addNode(child, target) {
+function addNode$1(child, target) {
     let last = target.length - 1;
     if (last >= 0 && child.isText && child.sameMarkup(target[last]))
         target[last] = child.withText(target[last].text + child.text);
     else
         target.push(child);
 }
-function addRange($start, $end, depth, target) {
+function addRange$1($start, $end, depth, target) {
     let node = ($end || $start).node(depth);
     let startIndex = 0, endIndex = $end ? $end.index(depth) : node.childCount;
     if ($start) {
@@ -858,53 +858,53 @@ function addRange($start, $end, depth, target) {
             startIndex++;
         }
         else if ($start.textOffset) {
-            addNode($start.nodeAfter, target);
+            addNode$1($start.nodeAfter, target);
             startIndex++;
         }
     }
     for (let i = startIndex; i < endIndex; i++)
-        addNode(node.child(i), target);
+        addNode$1(node.child(i), target);
     if ($end && $end.depth == depth && $end.textOffset)
-        addNode($end.nodeBefore, target);
+        addNode$1($end.nodeBefore, target);
 }
-function close(node, content) {
+function close$1(node, content) {
     node.type.checkContent(content);
     return node.copy(content);
 }
-function replaceThreeWay($from, $start, $end, $to, depth) {
-    let openStart = $from.depth > depth && joinable($from, $start, depth + 1);
-    let openEnd = $to.depth > depth && joinable($end, $to, depth + 1);
+function replaceThreeWay$1($from, $start, $end, $to, depth) {
+    let openStart = $from.depth > depth && joinable$1($from, $start, depth + 1);
+    let openEnd = $to.depth > depth && joinable$1($end, $to, depth + 1);
     let content = [];
-    addRange(null, $from, depth, content);
+    addRange$1(null, $from, depth, content);
     if (openStart && openEnd && $start.index(depth) == $end.index(depth)) {
-        checkJoin(openStart, openEnd);
-        addNode(close(openStart, replaceThreeWay($from, $start, $end, $to, depth + 1)), content);
+        checkJoin$1(openStart, openEnd);
+        addNode$1(close$1(openStart, replaceThreeWay$1($from, $start, $end, $to, depth + 1)), content);
     }
     else {
         if (openStart)
-            addNode(close(openStart, replaceTwoWay($from, $start, depth + 1)), content);
-        addRange($start, $end, depth, content);
+            addNode$1(close$1(openStart, replaceTwoWay$1($from, $start, depth + 1)), content);
+        addRange$1($start, $end, depth, content);
         if (openEnd)
-            addNode(close(openEnd, replaceTwoWay($end, $to, depth + 1)), content);
+            addNode$1(close$1(openEnd, replaceTwoWay$1($end, $to, depth + 1)), content);
     }
-    addRange($to, null, depth, content);
-    return new Fragment(content);
+    addRange$1($to, null, depth, content);
+    return new Fragment$1(content);
 }
-function replaceTwoWay($from, $to, depth) {
+function replaceTwoWay$1($from, $to, depth) {
     let content = [];
-    addRange(null, $from, depth, content);
+    addRange$1(null, $from, depth, content);
     if ($from.depth > depth) {
-        let type = joinable($from, $to, depth + 1);
-        addNode(close(type, replaceTwoWay($from, $to, depth + 1)), content);
+        let type = joinable$1($from, $to, depth + 1);
+        addNode$1(close$1(type, replaceTwoWay$1($from, $to, depth + 1)), content);
     }
-    addRange($to, null, depth, content);
-    return new Fragment(content);
+    addRange$1($to, null, depth, content);
+    return new Fragment$1(content);
 }
-function prepareSliceForReplace(slice, $along) {
+function prepareSliceForReplace$1(slice, $along) {
     let extra = $along.depth - slice.openStart, parent = $along.node(extra);
     let node = parent.copy(slice.content);
     for (let i = extra - 1; i >= 0; i--)
-        node = $along.node(i).copy(Fragment.from(node));
+        node = $along.node(i).copy(Fragment$1.from(node));
     return { start: node.resolveNoCache(slice.openStart + extra),
         end: node.resolveNoCache(node.content.size - slice.openEnd - extra) };
 }
@@ -919,7 +919,7 @@ Throughout this interface, methods that take an optional `depth`
 parameter will interpret undefined as `this.depth` and negative
 numbers as `this.depth + value`.
 */
-class ResolvedPos {
+let ResolvedPos$1 = class ResolvedPos {
     /**
     @internal
     */
@@ -1068,7 +1068,7 @@ class ResolvedPos {
         let parent = this.parent, index = this.index();
         // In an empty parent, return the empty array
         if (parent.content.size == 0)
-            return Mark.none;
+            return Mark$1.none;
         // When inside a text node, just return the text node's marks
         if (this.textOffset)
             return parent.child(index).marks;
@@ -1130,7 +1130,7 @@ class ResolvedPos {
             return other.blockRange(this);
         for (let d = this.depth - (this.parent.inlineContent || this.pos == other.pos ? 1 : 0); d >= 0; d--)
             if (other.pos <= this.end(d) && (!pred || pred(this.node(d))))
-                return new NodeRange(this, other, d);
+                return new NodeRange$1(this, other, d);
         return null;
     }
     /**
@@ -1186,7 +1186,7 @@ class ResolvedPos {
     @internal
     */
     static resolveCached(doc, pos) {
-        let cache = resolveCache.get(doc);
+        let cache = resolveCache$1.get(doc);
         if (cache) {
             for (let i = 0; i < cache.elts.length; i++) {
                 let elt = cache.elts[i];
@@ -1195,25 +1195,25 @@ class ResolvedPos {
             }
         }
         else {
-            resolveCache.set(doc, cache = new ResolveCache);
+            resolveCache$1.set(doc, cache = new ResolveCache$1);
         }
         let result = cache.elts[cache.i] = ResolvedPos.resolve(doc, pos);
-        cache.i = (cache.i + 1) % resolveCacheSize;
+        cache.i = (cache.i + 1) % resolveCacheSize$1;
         return result;
     }
-}
-class ResolveCache {
+};
+let ResolveCache$1 = class ResolveCache {
     constructor() {
         this.elts = [];
         this.i = 0;
     }
-}
-const resolveCacheSize = 12, resolveCache = new WeakMap();
+};
+const resolveCacheSize$1 = 12, resolveCache$1 = new WeakMap();
 /**
 Represents a flat range of content, i.e. one that starts and
 ends in the same node.
 */
-class NodeRange {
+let NodeRange$1 = class NodeRange {
     /**
     Construct a node range. `$from` and `$to` should point into the
     same node until at least the given `depth`, since a node range
@@ -1260,9 +1260,9 @@ class NodeRange {
     The end index of the range in the parent node.
     */
     get endIndex() { return this.$to.indexAfter(this.depth); }
-}
+};
 
-const emptyAttrs = Object.create(null);
+const emptyAttrs$1 = Object.create(null);
 /**
 This class represents a node in the tree that makes up a
 ProseMirror document. So a document is an instance of `Node`, with
@@ -1277,7 +1277,7 @@ tree shape like this (without back pointers) makes easy.
 **Do not** directly mutate the properties of a `Node` object. See
 [the guide](https://prosemirror.net/docs/guide/#doc) for more information.
 */
-class Node {
+let Node$1 = class Node {
     /**
     @internal
     */
@@ -1298,11 +1298,11 @@ class Node {
     The marks (things like whether it is emphasized or part of a
     link) applied to this node.
     */
-    marks = Mark.none) {
+    marks = Mark$1.none) {
         this.type = type;
         this.attrs = attrs;
         this.marks = marks;
-        this.content = content || Fragment.empty;
+        this.content = content || Fragment$1.empty;
     }
     /**
     The array of this node's child nodes.
@@ -1403,8 +1403,8 @@ class Node {
     */
     hasMarkup(type, attrs, marks) {
         return this.type == type &&
-            compareDeep(this.attrs, attrs || type.defaultAttrs || emptyAttrs) &&
-            Mark.sameSet(this.marks, marks || Mark.none);
+            compareDeep$1(this.attrs, attrs || type.defaultAttrs || emptyAttrs$1) &&
+            Mark$1.sameSet(this.marks, marks || Mark$1.none);
     }
     /**
     Create a new node with the same markup as this node, containing
@@ -1438,12 +1438,12 @@ class Node {
     */
     slice(from, to = this.content.size, includeParents = false) {
         if (from == to)
-            return Slice.empty;
+            return Slice$1.empty;
         let $from = this.resolve(from), $to = this.resolve(to);
         let depth = includeParents ? 0 : $from.sharedDepth(to);
         let start = $from.start(depth), node = $from.node(depth);
         let content = node.content.cut($from.pos - start, $to.pos - start);
-        return new Slice(content, $from.depth - depth, $to.depth - depth);
+        return new Slice$1(content, $from.depth - depth, $to.depth - depth);
     }
     /**
     Replace the part of the document between the given positions with
@@ -1454,7 +1454,7 @@ class Node {
     [`ReplaceError`](https://prosemirror.net/docs/ref/#model.ReplaceError) is thrown.
     */
     replace(from, to, slice) {
-        return replace$1(this.resolve(from), this.resolve(to), slice);
+        return replace$2(this.resolve(from), this.resolve(to), slice);
     }
     /**
     Find the node directly after the given position.
@@ -1497,11 +1497,11 @@ class Node {
     Resolve the given position in the document, returning an
     [object](https://prosemirror.net/docs/ref/#model.ResolvedPos) with information about its context.
     */
-    resolve(pos) { return ResolvedPos.resolveCached(this, pos); }
+    resolve(pos) { return ResolvedPos$1.resolveCached(this, pos); }
     /**
     @internal
     */
-    resolveNoCache(pos) { return ResolvedPos.resolve(this, pos); }
+    resolveNoCache(pos) { return ResolvedPos$1.resolve(this, pos); }
     /**
     Test whether a given mark or mark type occurs in this document
     between the two given positions.
@@ -1560,7 +1560,7 @@ class Node {
         let name = this.type.name;
         if (this.content.size)
             name += "(" + this.content.toStringInner() + ")";
-        return wrapMarks(this.marks, name);
+        return wrapMarks$1(this.marks, name);
     }
     /**
     Get the content match in this node at the given index.
@@ -1578,7 +1578,7 @@ class Node {
     can optionally pass `start` and `end` indices into the
     replacement fragment.
     */
-    canReplace(from, to, replacement = Fragment.empty, start = 0, end = replacement.childCount) {
+    canReplace(from, to, replacement = Fragment$1.empty, start = 0, end = replacement.childCount) {
         let one = this.contentMatchAt(from).matchFragment(replacement, start, end);
         let two = one && one.matchFragment(this.content, to);
         if (!two || !two.validEnd)
@@ -1618,13 +1618,13 @@ class Node {
     check() {
         this.type.checkContent(this.content);
         this.type.checkAttrs(this.attrs);
-        let copy = Mark.none;
+        let copy = Mark$1.none;
         for (let i = 0; i < this.marks.length; i++) {
             let mark = this.marks[i];
             mark.type.checkAttrs(mark.attrs);
             copy = mark.addToSet(copy);
         }
-        if (!Mark.sameSet(copy, this.marks))
+        if (!Mark$1.sameSet(copy, this.marks))
             throw new RangeError(`Invalid collection of marks for node ${this.type.name}: ${this.marks.map(m => m.type.name)}`);
         this.content.forEach(node => node.check());
     }
@@ -1660,14 +1660,14 @@ class Node {
                 throw new RangeError("Invalid text node in JSON");
             return schema.text(json.text, marks);
         }
-        let content = Fragment.fromJSON(schema, json.content);
+        let content = Fragment$1.fromJSON(schema, json.content);
         let node = schema.nodeType(json.type).create(json.attrs, content, marks);
         node.type.checkAttrs(node.attrs);
         return node;
     }
-}
-Node.prototype.text = undefined;
-class TextNode extends Node {
+};
+Node$1.prototype.text = undefined;
+let TextNode$1 = class TextNode extends Node$1 {
     /**
     @internal
     */
@@ -1680,7 +1680,7 @@ class TextNode extends Node {
     toString() {
         if (this.type.spec.toDebugString)
             return this.type.spec.toDebugString(this);
-        return wrapMarks(this.marks, JSON.stringify(this.text));
+        return wrapMarks$1(this.marks, JSON.stringify(this.text));
     }
     get textContent() { return this.text; }
     textBetween(from, to) { return this.text.slice(from, to); }
@@ -1706,8 +1706,8 @@ class TextNode extends Node {
         base.text = this.text;
         return base;
     }
-}
-function wrapMarks(marks, str) {
+};
+function wrapMarks$1(marks, str) {
     for (let i = marks.length - 1; i >= 0; i--)
         str = marks[i].type.name + "(" + str + ")";
     return str;
@@ -1719,7 +1719,7 @@ Instances of this class represent a match state of a node type's
 find out whether further content matches here, and whether a given
 position is a valid end of the node.
 */
-class ContentMatch {
+let ContentMatch$1 = class ContentMatch {
     /**
     @internal
     */
@@ -1742,14 +1742,14 @@ class ContentMatch {
     @internal
     */
     static parse(string, nodeTypes) {
-        let stream = new TokenStream(string, nodeTypes);
+        let stream = new TokenStream$1(string, nodeTypes);
         if (stream.next == null)
             return ContentMatch.empty;
-        let expr = parseExpr(stream);
+        let expr = parseExpr$1(stream);
         if (stream.next)
             stream.err("Unexpected trailing text");
-        let match = dfa(nfa(expr));
-        checkForDeadEnds(match, stream);
+        let match = dfa$1(nfa$1(expr));
+        checkForDeadEnds$1(match, stream);
         return match;
     }
     /**
@@ -1813,7 +1813,7 @@ class ContentMatch {
         function search(match, types) {
             let finished = match.matchFragment(after, startIndex);
             if (finished && (!toEnd || finished.validEnd))
-                return Fragment.from(types.map(tp => tp.createAndFill()));
+                return Fragment$1.from(types.map(tp => tp.createAndFill()));
             for (let i = 0; i < match.next.length; i++) {
                 let { type, next } = match.next[i];
                 if (!(type.isText || type.hasRequiredAttrs()) && seen.indexOf(next) == -1) {
@@ -1899,12 +1899,12 @@ class ContentMatch {
             return out;
         }).join("\n");
     }
-}
+};
 /**
 @internal
 */
-ContentMatch.empty = new ContentMatch(true);
-class TokenStream {
+ContentMatch$1.empty = new ContentMatch$1(true);
+let TokenStream$1 = class TokenStream {
     constructor(string, nodeTypes) {
         this.string = string;
         this.nodeTypes = nodeTypes;
@@ -1919,23 +1919,23 @@ class TokenStream {
     get next() { return this.tokens[this.pos]; }
     eat(tok) { return this.next == tok && (this.pos++ || true); }
     err(str) { throw new SyntaxError(str + " (in content expression '" + this.string + "')"); }
-}
-function parseExpr(stream) {
+};
+function parseExpr$1(stream) {
     let exprs = [];
     do {
-        exprs.push(parseExprSeq(stream));
+        exprs.push(parseExprSeq$1(stream));
     } while (stream.eat("|"));
     return exprs.length == 1 ? exprs[0] : { type: "choice", exprs };
 }
-function parseExprSeq(stream) {
+function parseExprSeq$1(stream) {
     let exprs = [];
     do {
-        exprs.push(parseExprSubscript(stream));
+        exprs.push(parseExprSubscript$1(stream));
     } while (stream.next && stream.next != ")" && stream.next != "|");
     return exprs.length == 1 ? exprs[0] : { type: "seq", exprs };
 }
-function parseExprSubscript(stream) {
-    let expr = parseExprAtom(stream);
+function parseExprSubscript$1(stream) {
+    let expr = parseExprAtom$1(stream);
     for (;;) {
         if (stream.eat("+"))
             expr = { type: "plus", expr };
@@ -1944,24 +1944,24 @@ function parseExprSubscript(stream) {
         else if (stream.eat("?"))
             expr = { type: "opt", expr };
         else if (stream.eat("{"))
-            expr = parseExprRange(stream, expr);
+            expr = parseExprRange$1(stream, expr);
         else
             break;
     }
     return expr;
 }
-function parseNum(stream) {
+function parseNum$1(stream) {
     if (/\D/.test(stream.next))
         stream.err("Expected number, got '" + stream.next + "'");
     let result = Number(stream.next);
     stream.pos++;
     return result;
 }
-function parseExprRange(stream, expr) {
-    let min = parseNum(stream), max = min;
+function parseExprRange$1(stream, expr) {
+    let min = parseNum$1(stream), max = min;
     if (stream.eat(",")) {
         if (stream.next != "}")
-            max = parseNum(stream);
+            max = parseNum$1(stream);
         else
             max = -1;
     }
@@ -1969,7 +1969,7 @@ function parseExprRange(stream, expr) {
         stream.err("Unclosed braced range");
     return { type: "range", min, max, expr };
 }
-function resolveName(stream, name) {
+function resolveName$1(stream, name) {
     let types = stream.nodeTypes, type = types[name];
     if (type)
         return [type];
@@ -1983,15 +1983,15 @@ function resolveName(stream, name) {
         stream.err("No node type or group '" + name + "' found");
     return result;
 }
-function parseExprAtom(stream) {
+function parseExprAtom$1(stream) {
     if (stream.eat("(")) {
-        let expr = parseExpr(stream);
+        let expr = parseExpr$1(stream);
         if (!stream.eat(")"))
             stream.err("Missing closing paren");
         return expr;
     }
     else if (!/\W/.test(stream.next)) {
-        let exprs = resolveName(stream, stream.next).map(type => {
+        let exprs = resolveName$1(stream, stream.next).map(type => {
             if (stream.inline == null)
                 stream.inline = type.isInline;
             else if (stream.inline != type.isInline)
@@ -2013,7 +2013,7 @@ function parseExprAtom(stream) {
 // Note that unlike typical NFAs, the edge ordering in this one is
 // significant, in that it is used to contruct filler content when
 // necessary.
-function nfa(expr) {
+function nfa$1(expr) {
     let nfa = [[]];
     connect(compile(expr, 0), node());
     return nfa;
@@ -2081,14 +2081,14 @@ function nfa(expr) {
         }
     }
 }
-function cmp(a, b) { return b - a; }
+function cmp$1(a, b) { return b - a; }
 // Get the set of nodes reachable by null edges from `node`. Omit
 // nodes with only a single null-out-edge, since they may lead to
 // needless duplicated nodes.
-function nullFrom(nfa, node) {
+function nullFrom$1(nfa, node) {
     let result = [];
     scan(node);
-    return result.sort(cmp);
+    return result.sort(cmp$1);
     function scan(node) {
         let edges = nfa[node];
         if (edges.length == 1 && !edges[0].term)
@@ -2104,9 +2104,9 @@ function nullFrom(nfa, node) {
 // Compiles an NFA as produced by `nfa` into a DFA, modeled as a set
 // of state objects (`ContentMatch` instances) with transitions
 // between them.
-function dfa(nfa) {
+function dfa$1(nfa) {
     let labeled = Object.create(null);
-    return explore(nullFrom(nfa, 0));
+    return explore(nullFrom$1(nfa, 0));
     function explore(states) {
         let out = [];
         states.forEach(node => {
@@ -2117,7 +2117,7 @@ function dfa(nfa) {
                 for (let i = 0; i < out.length; i++)
                     if (out[i][0] == term)
                         set = out[i][1];
-                nullFrom(nfa, to).forEach(node => {
+                nullFrom$1(nfa, to).forEach(node => {
                     if (!set)
                         out.push([term, set = []]);
                     if (set.indexOf(node) == -1)
@@ -2125,15 +2125,15 @@ function dfa(nfa) {
                 });
             });
         });
-        let state = labeled[states.join(",")] = new ContentMatch(states.indexOf(nfa.length - 1) > -1);
+        let state = labeled[states.join(",")] = new ContentMatch$1(states.indexOf(nfa.length - 1) > -1);
         for (let i = 0; i < out.length; i++) {
-            let states = out[i][1].sort(cmp);
+            let states = out[i][1].sort(cmp$1);
             state.next.push({ type: out[i][0], next: labeled[states.join(",")] || explore(states) });
         }
         return state;
     }
 }
-function checkForDeadEnds(match, stream) {
+function checkForDeadEnds$1(match, stream) {
     for (let i = 0, work = [match]; i < work.length; i++) {
         let state = work[i], dead = !state.validEnd, nodes = [];
         for (let j = 0; j < state.next.length; j++) {
@@ -2153,7 +2153,7 @@ function checkForDeadEnds(match, stream) {
 // have any attributes), build up a single reusable default attribute
 // object, and use it for all nodes that don't specify specific
 // attributes.
-function defaultAttrs(attrs) {
+function defaultAttrs$1(attrs) {
     let defaults = Object.create(null);
     for (let attrName in attrs) {
         let attr = attrs[attrName];
@@ -2163,7 +2163,7 @@ function defaultAttrs(attrs) {
     }
     return defaults;
 }
-function computeAttrs(attrs, value) {
+function computeAttrs$1(attrs, value) {
     let built = Object.create(null);
     for (let name in attrs) {
         let given = value && value[name];
@@ -2178,7 +2178,7 @@ function computeAttrs(attrs, value) {
     }
     return built;
 }
-function checkAttrs(attrs, values, type, name) {
+function checkAttrs$1(attrs, values, type, name) {
     for (let name in values)
         if (!(name in attrs))
             throw new RangeError(`Unsupported attribute ${name} for ${type} of type ${name}`);
@@ -2188,11 +2188,11 @@ function checkAttrs(attrs, values, type, name) {
             attr.validate(values[name]);
     }
 }
-function initAttrs(typeName, attrs) {
+function initAttrs$1(typeName, attrs) {
     let result = Object.create(null);
     if (attrs)
         for (let name in attrs)
-            result[name] = new Attribute(typeName, name, attrs[name]);
+            result[name] = new Attribute$1(typeName, name, attrs[name]);
     return result;
 }
 /**
@@ -2201,7 +2201,7 @@ Node types are objects allocated once per `Schema` and used to
 about the node type, such as its name and what kind of node it
 represents.
 */
-class NodeType {
+let NodeType$1 = class NodeType {
     /**
     @internal
     */
@@ -2227,8 +2227,8 @@ class NodeType {
         */
         this.markSet = null;
         this.groups = spec.group ? spec.group.split(" ") : [];
-        this.attrs = initAttrs(name, spec.attrs);
-        this.defaultAttrs = defaultAttrs(this.attrs);
+        this.attrs = initAttrs$1(name, spec.attrs);
+        this.defaultAttrs = defaultAttrs$1(this.attrs);
         this.contentMatch = null;
         this.inlineContent = null;
         this.isBlock = !(spec.inline || name == "text");
@@ -2246,7 +2246,7 @@ class NodeType {
     /**
     True for node types that allow no content.
     */
-    get isLeaf() { return this.contentMatch == ContentMatch.empty; }
+    get isLeaf() { return this.contentMatch == ContentMatch$1.empty; }
     /**
     True when this node is an atom, i.e. when it does not have
     directly editable content.
@@ -2288,7 +2288,7 @@ class NodeType {
         if (!attrs && this.defaultAttrs)
             return this.defaultAttrs;
         else
-            return computeAttrs(this.attrs, attrs);
+            return computeAttrs$1(this.attrs, attrs);
     }
     /**
     Create a `Node` of this type. The given attributes are
@@ -2301,7 +2301,7 @@ class NodeType {
     create(attrs = null, content, marks) {
         if (this.isText)
             throw new Error("NodeType.create can't construct text nodes");
-        return new Node(this, this.computeAttrs(attrs), Fragment.from(content), Mark.setFrom(marks));
+        return new Node$1(this, this.computeAttrs(attrs), Fragment$1.from(content), Mark$1.setFrom(marks));
     }
     /**
     Like [`create`](https://prosemirror.net/docs/ref/#model.NodeType.create), but check the given content
@@ -2309,9 +2309,9 @@ class NodeType {
     if it doesn't match.
     */
     createChecked(attrs = null, content, marks) {
-        content = Fragment.from(content);
+        content = Fragment$1.from(content);
         this.checkContent(content);
-        return new Node(this, this.computeAttrs(attrs), content, Mark.setFrom(marks));
+        return new Node$1(this, this.computeAttrs(attrs), content, Mark$1.setFrom(marks));
     }
     /**
     Like [`create`](https://prosemirror.net/docs/ref/#model.NodeType.create), but see if it is
@@ -2323,7 +2323,7 @@ class NodeType {
     */
     createAndFill(attrs = null, content, marks) {
         attrs = this.computeAttrs(attrs);
-        content = Fragment.from(content);
+        content = Fragment$1.from(content);
         if (content.size) {
             let before = this.contentMatch.fillBefore(content);
             if (!before)
@@ -2331,10 +2331,10 @@ class NodeType {
             content = before.append(content);
         }
         let matched = this.contentMatch.matchFragment(content);
-        let after = matched && matched.fillBefore(Fragment.empty, true);
+        let after = matched && matched.fillBefore(Fragment$1.empty, true);
         if (!after)
             return null;
-        return new Node(this, attrs, content.append(after), Mark.setFrom(marks));
+        return new Node$1(this, attrs, content.append(after), Mark$1.setFrom(marks));
     }
     /**
     Returns true if the given fragment is valid content for this node
@@ -2362,7 +2362,7 @@ class NodeType {
     @internal
     */
     checkAttrs(attrs) {
-        checkAttrs(this.attrs, attrs, "node", this.name);
+        checkAttrs$1(this.attrs, attrs, "node", this.name);
     }
     /**
     Check whether the given mark type is allowed in this node.
@@ -2397,7 +2397,7 @@ class NodeType {
                 copy.push(marks[i]);
             }
         }
-        return !copy ? marks : copy.length ? copy : Mark.none;
+        return !copy ? marks : copy.length ? copy : Mark$1.none;
     }
     /**
     @internal
@@ -2414,8 +2414,8 @@ class NodeType {
             throw new RangeError("The text node type should not have attributes");
         return result;
     }
-}
-function validateType(typeName, attrName, type) {
+};
+function validateType$1(typeName, attrName, type) {
     let types = type.split("|");
     return (value) => {
         let name = value === null ? "null" : typeof value;
@@ -2424,16 +2424,16 @@ function validateType(typeName, attrName, type) {
     };
 }
 // Attribute descriptors
-class Attribute {
+let Attribute$1 = class Attribute {
     constructor(typeName, attrName, options) {
         this.hasDefault = Object.prototype.hasOwnProperty.call(options, "default");
         this.default = options.default;
-        this.validate = typeof options.validate == "string" ? validateType(typeName, attrName, options.validate) : options.validate;
+        this.validate = typeof options.validate == "string" ? validateType$1(typeName, attrName, options.validate) : options.validate;
     }
     get isRequired() {
         return !this.hasDefault;
     }
-}
+};
 // Marks
 /**
 Like nodes, marks (which are associated with nodes to signify
@@ -2441,7 +2441,7 @@ things like emphasis or being part of a link) are
 [tagged](https://prosemirror.net/docs/ref/#model.Mark.type) with type objects, which are
 instantiated once per `Schema`.
 */
-class MarkType {
+let MarkType$1 = class MarkType {
     /**
     @internal
     */
@@ -2466,10 +2466,10 @@ class MarkType {
         this.rank = rank;
         this.schema = schema;
         this.spec = spec;
-        this.attrs = initAttrs(name, spec.attrs);
+        this.attrs = initAttrs$1(name, spec.attrs);
         this.excluded = null;
-        let defaults = defaultAttrs(this.attrs);
-        this.instance = defaults ? new Mark(this, defaults) : null;
+        let defaults = defaultAttrs$1(this.attrs);
+        this.instance = defaults ? new Mark$1(this, defaults) : null;
     }
     /**
     Create a mark of this type. `attrs` may be `null` or an object
@@ -2479,7 +2479,7 @@ class MarkType {
     create(attrs = null) {
         if (!attrs && this.instance)
             return this.instance;
-        return new Mark(this, computeAttrs(this.attrs, attrs));
+        return new Mark$1(this, computeAttrs$1(this.attrs, attrs));
     }
     /**
     @internal
@@ -2513,7 +2513,7 @@ class MarkType {
     @internal
     */
     checkAttrs(attrs) {
-        checkAttrs(this.attrs, attrs, "mark", this.name);
+        checkAttrs$1(this.attrs, attrs, "mark", this.name);
     }
     /**
     Queries whether a given mark type is
@@ -2522,7 +2522,7 @@ class MarkType {
     excludes(other) {
         return this.excluded.indexOf(other) > -1;
     }
-}
+};
 /**
 A document schema. Holds [node](https://prosemirror.net/docs/ref/#model.NodeType) and [mark
 type](https://prosemirror.net/docs/ref/#model.MarkType) objects for the nodes and marks that may
@@ -2532,7 +2532,7 @@ creating and deserializing such documents.
 When given, the type parameters provide the names of the nodes and
 marks in this schema.
 */
-class Schema {
+let Schema$1 = class Schema {
     /**
     Construct a schema from a schema [specification](https://prosemirror.net/docs/ref/#model.SchemaSpec).
     */
@@ -2552,17 +2552,17 @@ class Schema {
         let instanceSpec = this.spec = {};
         for (let prop in spec)
             instanceSpec[prop] = spec[prop];
-        instanceSpec.nodes = OrderedMap.from(spec.nodes),
-            instanceSpec.marks = OrderedMap.from(spec.marks || {}),
-            this.nodes = NodeType.compile(this.spec.nodes, this);
-        this.marks = MarkType.compile(this.spec.marks, this);
+        instanceSpec.nodes = OrderedMap$1.from(spec.nodes),
+            instanceSpec.marks = OrderedMap$1.from(spec.marks || {}),
+            this.nodes = NodeType$1.compile(this.spec.nodes, this);
+        this.marks = MarkType$1.compile(this.spec.marks, this);
         let contentExprCache = Object.create(null);
         for (let prop in this.nodes) {
             if (prop in this.marks)
                 throw new RangeError(prop + " can not be both a node and a mark");
             let type = this.nodes[prop], contentExpr = type.spec.content || "", markExpr = type.spec.marks;
             type.contentMatch = contentExprCache[contentExpr] ||
-                (contentExprCache[contentExpr] = ContentMatch.parse(contentExpr, this.nodes));
+                (contentExprCache[contentExpr] = ContentMatch$1.parse(contentExpr, this.nodes));
             type.inlineContent = type.contentMatch.inlineContent;
             if (type.spec.linebreakReplacement) {
                 if (this.linebreakReplacement)
@@ -2572,15 +2572,15 @@ class Schema {
                 this.linebreakReplacement = type;
             }
             type.markSet = markExpr == "_" ? null :
-                markExpr ? gatherMarks(this, markExpr.split(" ")) :
+                markExpr ? gatherMarks$1(this, markExpr.split(" ")) :
                     markExpr == "" || !type.inlineContent ? [] : null;
         }
         for (let prop in this.marks) {
             let type = this.marks[prop], excl = type.spec.excludes;
-            type.excluded = excl == null ? [type] : excl == "" ? [] : gatherMarks(this, excl.split(" "));
+            type.excluded = excl == null ? [type] : excl == "" ? [] : gatherMarks$1(this, excl.split(" "));
         }
-        this.nodeFromJSON = json => Node.fromJSON(this, json);
-        this.markFromJSON = json => Mark.fromJSON(this, json);
+        this.nodeFromJSON = json => Node$1.fromJSON(this, json);
+        this.markFromJSON = json => Mark$1.fromJSON(this, json);
         this.topNodeType = this.nodes[this.spec.topNode || "doc"];
         this.cached.wrappings = Object.create(null);
     }
@@ -2593,7 +2593,7 @@ class Schema {
     node(type, attrs = null, content, marks) {
         if (typeof type == "string")
             type = this.nodeType(type);
-        else if (!(type instanceof NodeType))
+        else if (!(type instanceof NodeType$1))
             throw new RangeError("Invalid node type: " + type);
         else if (type.schema != this)
             throw new RangeError("Node type from different schema used (" + type.name + ")");
@@ -2605,7 +2605,7 @@ class Schema {
     */
     text(text, marks) {
         let type = this.nodes.text;
-        return new TextNode(type, type.defaultAttrs, text, Mark.setFrom(marks));
+        return new TextNode$1(type, type.defaultAttrs, text, Mark$1.setFrom(marks));
     }
     /**
     Create a mark with the given type and attributes.
@@ -2624,8 +2624,8 @@ class Schema {
             throw new RangeError("Unknown node type: " + name);
         return found;
     }
-}
-function gatherMarks(schema, marks) {
+};
+function gatherMarks$1(schema, marks) {
     let found = [];
     for (let i = 0; i < marks.length; i++) {
         let name = marks[i], mark = schema.marks[name], ok = mark;
@@ -2877,2518 +2877,6 @@ function renderSpec(doc, structure, xmlNS, blockArraysIn) {
         }
     }
     return { dom, contentDOM };
-}
-
-// Recovery values encode a range index and an offset. They are
-// represented as numbers, because tons of them will be created when
-// mapping, for example, a large number of decorations. The number's
-// lower 16 bits provide the index, the remaining bits the offset.
-//
-// Note: We intentionally don't use bit shift operators to en- and
-// decode these, since those clip to 32 bits, which we might in rare
-// cases want to overflow. A 64-bit float can represent 48-bit
-// integers precisely.
-const lower16 = 0xffff;
-const factor16 = Math.pow(2, 16);
-function makeRecover(index, offset) { return index + offset * factor16; }
-function recoverIndex(value) { return value & lower16; }
-function recoverOffset(value) { return (value - (value & lower16)) / factor16; }
-const DEL_BEFORE = 1, DEL_AFTER = 2, DEL_ACROSS = 4, DEL_SIDE = 8;
-/**
-An object representing a mapped position with extra
-information.
-*/
-class MapResult {
-    /**
-    @internal
-    */
-    constructor(
-    /**
-    The mapped version of the position.
-    */
-    pos, 
-    /**
-    @internal
-    */
-    delInfo, 
-    /**
-    @internal
-    */
-    recover) {
-        this.pos = pos;
-        this.delInfo = delInfo;
-        this.recover = recover;
-    }
-    /**
-    Tells you whether the position was deleted, that is, whether the
-    step removed the token on the side queried (via the `assoc`)
-    argument from the document.
-    */
-    get deleted() { return (this.delInfo & DEL_SIDE) > 0; }
-    /**
-    Tells you whether the token before the mapped position was deleted.
-    */
-    get deletedBefore() { return (this.delInfo & (DEL_BEFORE | DEL_ACROSS)) > 0; }
-    /**
-    True when the token after the mapped position was deleted.
-    */
-    get deletedAfter() { return (this.delInfo & (DEL_AFTER | DEL_ACROSS)) > 0; }
-    /**
-    Tells whether any of the steps mapped through deletes across the
-    position (including both the token before and after the
-    position).
-    */
-    get deletedAcross() { return (this.delInfo & DEL_ACROSS) > 0; }
-}
-/**
-A map describing the deletions and insertions made by a step, which
-can be used to find the correspondence between positions in the
-pre-step version of a document and the same position in the
-post-step version.
-*/
-class StepMap {
-    /**
-    Create a position map. The modifications to the document are
-    represented as an array of numbers, in which each group of three
-    represents a modified chunk as `[start, oldSize, newSize]`.
-    */
-    constructor(
-    /**
-    @internal
-    */
-    ranges, 
-    /**
-    @internal
-    */
-    inverted = false) {
-        this.ranges = ranges;
-        this.inverted = inverted;
-        if (!ranges.length && StepMap.empty)
-            return StepMap.empty;
-    }
-    /**
-    @internal
-    */
-    recover(value) {
-        let diff = 0, index = recoverIndex(value);
-        if (!this.inverted)
-            for (let i = 0; i < index; i++)
-                diff += this.ranges[i * 3 + 2] - this.ranges[i * 3 + 1];
-        return this.ranges[index * 3] + diff + recoverOffset(value);
-    }
-    mapResult(pos, assoc = 1) { return this._map(pos, assoc, false); }
-    map(pos, assoc = 1) { return this._map(pos, assoc, true); }
-    /**
-    @internal
-    */
-    _map(pos, assoc, simple) {
-        let diff = 0, oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
-        for (let i = 0; i < this.ranges.length; i += 3) {
-            let start = this.ranges[i] - (this.inverted ? diff : 0);
-            if (start > pos)
-                break;
-            let oldSize = this.ranges[i + oldIndex], newSize = this.ranges[i + newIndex], end = start + oldSize;
-            if (pos <= end) {
-                let side = !oldSize ? assoc : pos == start ? -1 : pos == end ? 1 : assoc;
-                let result = start + diff + (side < 0 ? 0 : newSize);
-                if (simple)
-                    return result;
-                let recover = pos == (assoc < 0 ? start : end) ? null : makeRecover(i / 3, pos - start);
-                let del = pos == start ? DEL_AFTER : pos == end ? DEL_BEFORE : DEL_ACROSS;
-                if (assoc < 0 ? pos != start : pos != end)
-                    del |= DEL_SIDE;
-                return new MapResult(result, del, recover);
-            }
-            diff += newSize - oldSize;
-        }
-        return simple ? pos + diff : new MapResult(pos + diff, 0, null);
-    }
-    /**
-    @internal
-    */
-    touches(pos, recover) {
-        let diff = 0, index = recoverIndex(recover);
-        let oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
-        for (let i = 0; i < this.ranges.length; i += 3) {
-            let start = this.ranges[i] - (this.inverted ? diff : 0);
-            if (start > pos)
-                break;
-            let oldSize = this.ranges[i + oldIndex], end = start + oldSize;
-            if (pos <= end && i == index * 3)
-                return true;
-            diff += this.ranges[i + newIndex] - oldSize;
-        }
-        return false;
-    }
-    /**
-    Calls the given function on each of the changed ranges included in
-    this map.
-    */
-    forEach(f) {
-        let oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
-        for (let i = 0, diff = 0; i < this.ranges.length; i += 3) {
-            let start = this.ranges[i], oldStart = start - (this.inverted ? diff : 0), newStart = start + (this.inverted ? 0 : diff);
-            let oldSize = this.ranges[i + oldIndex], newSize = this.ranges[i + newIndex];
-            f(oldStart, oldStart + oldSize, newStart, newStart + newSize);
-            diff += newSize - oldSize;
-        }
-    }
-    /**
-    Create an inverted version of this map. The result can be used to
-    map positions in the post-step document to the pre-step document.
-    */
-    invert() {
-        return new StepMap(this.ranges, !this.inverted);
-    }
-    /**
-    @internal
-    */
-    toString() {
-        return (this.inverted ? "-" : "") + JSON.stringify(this.ranges);
-    }
-    /**
-    Create a map that moves all positions by offset `n` (which may be
-    negative). This can be useful when applying steps meant for a
-    sub-document to a larger document, or vice-versa.
-    */
-    static offset(n) {
-        return n == 0 ? StepMap.empty : new StepMap(n < 0 ? [0, -n, 0] : [0, 0, n]);
-    }
-}
-/**
-A StepMap that contains no changed ranges.
-*/
-StepMap.empty = new StepMap([]);
-
-const stepsByID = Object.create(null);
-/**
-A step object represents an atomic change. It generally applies
-only to the document it was created for, since the positions
-stored in it will only make sense for that document.
-
-New steps are defined by creating classes that extend `Step`,
-overriding the `apply`, `invert`, `map`, `getMap` and `fromJSON`
-methods, and registering your class with a unique
-JSON-serialization identifier using
-[`Step.jsonID`](https://prosemirror.net/docs/ref/#transform.Step^jsonID).
-*/
-class Step {
-    /**
-    Get the step map that represents the changes made by this step,
-    and which can be used to transform between positions in the old
-    and the new document.
-    */
-    getMap() { return StepMap.empty; }
-    /**
-    Try to merge this step with another one, to be applied directly
-    after it. Returns the merged step when possible, null if the
-    steps can't be merged.
-    */
-    merge(other) { return null; }
-    /**
-    Deserialize a step from its JSON representation. Will call
-    through to the step class' own implementation of this method.
-    */
-    static fromJSON(schema, json) {
-        if (!json || !json.stepType)
-            throw new RangeError("Invalid input for Step.fromJSON");
-        let type = stepsByID[json.stepType];
-        if (!type)
-            throw new RangeError(`No step type ${json.stepType} defined`);
-        return type.fromJSON(schema, json);
-    }
-    /**
-    To be able to serialize steps to JSON, each step needs a string
-    ID to attach to its JSON representation. Use this method to
-    register an ID for your step classes. Try to pick something
-    that's unlikely to clash with steps from other modules.
-    */
-    static jsonID(id, stepClass) {
-        if (id in stepsByID)
-            throw new RangeError("Duplicate use of step JSON ID " + id);
-        stepsByID[id] = stepClass;
-        stepClass.prototype.jsonID = id;
-        return stepClass;
-    }
-}
-/**
-The result of [applying](https://prosemirror.net/docs/ref/#transform.Step.apply) a step. Contains either a
-new document or a failure value.
-*/
-class StepResult {
-    /**
-    @internal
-    */
-    constructor(
-    /**
-    The transformed document, if successful.
-    */
-    doc, 
-    /**
-    The failure message, if unsuccessful.
-    */
-    failed) {
-        this.doc = doc;
-        this.failed = failed;
-    }
-    /**
-    Create a successful step result.
-    */
-    static ok(doc) { return new StepResult(doc, null); }
-    /**
-    Create a failed step result.
-    */
-    static fail(message) { return new StepResult(null, message); }
-    /**
-    Call [`Node.replace`](https://prosemirror.net/docs/ref/#model.Node.replace) with the given
-    arguments. Create a successful result if it succeeds, and a
-    failed one if it throws a `ReplaceError`.
-    */
-    static fromReplace(doc, from, to, slice) {
-        try {
-            return StepResult.ok(doc.replace(from, to, slice));
-        }
-        catch (e) {
-            if (e instanceof ReplaceError)
-                return StepResult.fail(e.message);
-            throw e;
-        }
-    }
-}
-
-function mapFragment(fragment, f, parent) {
-    let mapped = [];
-    for (let i = 0; i < fragment.childCount; i++) {
-        let child = fragment.child(i);
-        if (child.content.size)
-            child = child.copy(mapFragment(child.content, f, child));
-        if (child.isInline)
-            child = f(child, parent, i);
-        mapped.push(child);
-    }
-    return Fragment.fromArray(mapped);
-}
-/**
-Add a mark to all inline content between two positions.
-*/
-class AddMarkStep extends Step {
-    /**
-    Create a mark step.
-    */
-    constructor(
-    /**
-    The start of the marked range.
-    */
-    from, 
-    /**
-    The end of the marked range.
-    */
-    to, 
-    /**
-    The mark to add.
-    */
-    mark) {
-        super();
-        this.from = from;
-        this.to = to;
-        this.mark = mark;
-    }
-    apply(doc) {
-        let oldSlice = doc.slice(this.from, this.to), $from = doc.resolve(this.from);
-        let parent = $from.node($from.sharedDepth(this.to));
-        let slice = new Slice(mapFragment(oldSlice.content, (node, parent) => {
-            if (!node.isAtom || !parent.type.allowsMarkType(this.mark.type))
-                return node;
-            return node.mark(this.mark.addToSet(node.marks));
-        }, parent), oldSlice.openStart, oldSlice.openEnd);
-        return StepResult.fromReplace(doc, this.from, this.to, slice);
-    }
-    invert() {
-        return new RemoveMarkStep(this.from, this.to, this.mark);
-    }
-    map(mapping) {
-        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
-        if (from.deleted && to.deleted || from.pos >= to.pos)
-            return null;
-        return new AddMarkStep(from.pos, to.pos, this.mark);
-    }
-    merge(other) {
-        if (other instanceof AddMarkStep &&
-            other.mark.eq(this.mark) &&
-            this.from <= other.to && this.to >= other.from)
-            return new AddMarkStep(Math.min(this.from, other.from), Math.max(this.to, other.to), this.mark);
-        return null;
-    }
-    toJSON() {
-        return { stepType: "addMark", mark: this.mark.toJSON(),
-            from: this.from, to: this.to };
-    }
-    /**
-    @internal
-    */
-    static fromJSON(schema, json) {
-        if (typeof json.from != "number" || typeof json.to != "number")
-            throw new RangeError("Invalid input for AddMarkStep.fromJSON");
-        return new AddMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
-    }
-}
-Step.jsonID("addMark", AddMarkStep);
-/**
-Remove a mark from all inline content between two positions.
-*/
-class RemoveMarkStep extends Step {
-    /**
-    Create a mark-removing step.
-    */
-    constructor(
-    /**
-    The start of the unmarked range.
-    */
-    from, 
-    /**
-    The end of the unmarked range.
-    */
-    to, 
-    /**
-    The mark to remove.
-    */
-    mark) {
-        super();
-        this.from = from;
-        this.to = to;
-        this.mark = mark;
-    }
-    apply(doc) {
-        let oldSlice = doc.slice(this.from, this.to);
-        let slice = new Slice(mapFragment(oldSlice.content, node => {
-            return node.mark(this.mark.removeFromSet(node.marks));
-        }, doc), oldSlice.openStart, oldSlice.openEnd);
-        return StepResult.fromReplace(doc, this.from, this.to, slice);
-    }
-    invert() {
-        return new AddMarkStep(this.from, this.to, this.mark);
-    }
-    map(mapping) {
-        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
-        if (from.deleted && to.deleted || from.pos >= to.pos)
-            return null;
-        return new RemoveMarkStep(from.pos, to.pos, this.mark);
-    }
-    merge(other) {
-        if (other instanceof RemoveMarkStep &&
-            other.mark.eq(this.mark) &&
-            this.from <= other.to && this.to >= other.from)
-            return new RemoveMarkStep(Math.min(this.from, other.from), Math.max(this.to, other.to), this.mark);
-        return null;
-    }
-    toJSON() {
-        return { stepType: "removeMark", mark: this.mark.toJSON(),
-            from: this.from, to: this.to };
-    }
-    /**
-    @internal
-    */
-    static fromJSON(schema, json) {
-        if (typeof json.from != "number" || typeof json.to != "number")
-            throw new RangeError("Invalid input for RemoveMarkStep.fromJSON");
-        return new RemoveMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
-    }
-}
-Step.jsonID("removeMark", RemoveMarkStep);
-/**
-Add a mark to a specific node.
-*/
-class AddNodeMarkStep extends Step {
-    /**
-    Create a node mark step.
-    */
-    constructor(
-    /**
-    The position of the target node.
-    */
-    pos, 
-    /**
-    The mark to add.
-    */
-    mark) {
-        super();
-        this.pos = pos;
-        this.mark = mark;
-    }
-    apply(doc) {
-        let node = doc.nodeAt(this.pos);
-        if (!node)
-            return StepResult.fail("No node at mark step's position");
-        let updated = node.type.create(node.attrs, null, this.mark.addToSet(node.marks));
-        return StepResult.fromReplace(doc, this.pos, this.pos + 1, new Slice(Fragment.from(updated), 0, node.isLeaf ? 0 : 1));
-    }
-    invert(doc) {
-        let node = doc.nodeAt(this.pos);
-        if (node) {
-            let newSet = this.mark.addToSet(node.marks);
-            if (newSet.length == node.marks.length) {
-                for (let i = 0; i < node.marks.length; i++)
-                    if (!node.marks[i].isInSet(newSet))
-                        return new AddNodeMarkStep(this.pos, node.marks[i]);
-                return new AddNodeMarkStep(this.pos, this.mark);
-            }
-        }
-        return new RemoveNodeMarkStep(this.pos, this.mark);
-    }
-    map(mapping) {
-        let pos = mapping.mapResult(this.pos, 1);
-        return pos.deletedAfter ? null : new AddNodeMarkStep(pos.pos, this.mark);
-    }
-    toJSON() {
-        return { stepType: "addNodeMark", pos: this.pos, mark: this.mark.toJSON() };
-    }
-    /**
-    @internal
-    */
-    static fromJSON(schema, json) {
-        if (typeof json.pos != "number")
-            throw new RangeError("Invalid input for AddNodeMarkStep.fromJSON");
-        return new AddNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
-    }
-}
-Step.jsonID("addNodeMark", AddNodeMarkStep);
-/**
-Remove a mark from a specific node.
-*/
-class RemoveNodeMarkStep extends Step {
-    /**
-    Create a mark-removing step.
-    */
-    constructor(
-    /**
-    The position of the target node.
-    */
-    pos, 
-    /**
-    The mark to remove.
-    */
-    mark) {
-        super();
-        this.pos = pos;
-        this.mark = mark;
-    }
-    apply(doc) {
-        let node = doc.nodeAt(this.pos);
-        if (!node)
-            return StepResult.fail("No node at mark step's position");
-        let updated = node.type.create(node.attrs, null, this.mark.removeFromSet(node.marks));
-        return StepResult.fromReplace(doc, this.pos, this.pos + 1, new Slice(Fragment.from(updated), 0, node.isLeaf ? 0 : 1));
-    }
-    invert(doc) {
-        let node = doc.nodeAt(this.pos);
-        if (!node || !this.mark.isInSet(node.marks))
-            return this;
-        return new AddNodeMarkStep(this.pos, this.mark);
-    }
-    map(mapping) {
-        let pos = mapping.mapResult(this.pos, 1);
-        return pos.deletedAfter ? null : new RemoveNodeMarkStep(pos.pos, this.mark);
-    }
-    toJSON() {
-        return { stepType: "removeNodeMark", pos: this.pos, mark: this.mark.toJSON() };
-    }
-    /**
-    @internal
-    */
-    static fromJSON(schema, json) {
-        if (typeof json.pos != "number")
-            throw new RangeError("Invalid input for RemoveNodeMarkStep.fromJSON");
-        return new RemoveNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
-    }
-}
-Step.jsonID("removeNodeMark", RemoveNodeMarkStep);
-
-/**
-Replace a part of the document with a slice of new content.
-*/
-class ReplaceStep extends Step {
-    /**
-    The given `slice` should fit the 'gap' between `from` and
-    `to`—the depths must line up, and the surrounding nodes must be
-    able to be joined with the open sides of the slice. When
-    `structure` is true, the step will fail if the content between
-    from and to is not just a sequence of closing and then opening
-    tokens (this is to guard against rebased replace steps
-    overwriting something they weren't supposed to).
-    */
-    constructor(
-    /**
-    The start position of the replaced range.
-    */
-    from, 
-    /**
-    The end position of the replaced range.
-    */
-    to, 
-    /**
-    The slice to insert.
-    */
-    slice, 
-    /**
-    @internal
-    */
-    structure = false) {
-        super();
-        this.from = from;
-        this.to = to;
-        this.slice = slice;
-        this.structure = structure;
-    }
-    apply(doc) {
-        if (this.structure && contentBetween(doc, this.from, this.to))
-            return StepResult.fail("Structure replace would overwrite content");
-        return StepResult.fromReplace(doc, this.from, this.to, this.slice);
-    }
-    getMap() {
-        return new StepMap([this.from, this.to - this.from, this.slice.size]);
-    }
-    invert(doc) {
-        return new ReplaceStep(this.from, this.from + this.slice.size, doc.slice(this.from, this.to));
-    }
-    map(mapping) {
-        let to = mapping.mapResult(this.to, -1);
-        let from = this.from == this.to && ReplaceStep.MAP_BIAS < 0 ? to : mapping.mapResult(this.from, 1);
-        if (from.deletedAcross && to.deletedAcross)
-            return null;
-        return new ReplaceStep(from.pos, Math.max(from.pos, to.pos), this.slice, this.structure);
-    }
-    merge(other) {
-        if (!(other instanceof ReplaceStep) || other.structure || this.structure)
-            return null;
-        if (this.from + this.slice.size == other.from && !this.slice.openEnd && !other.slice.openStart) {
-            let slice = this.slice.size + other.slice.size == 0 ? Slice.empty
-                : new Slice(this.slice.content.append(other.slice.content), this.slice.openStart, other.slice.openEnd);
-            return new ReplaceStep(this.from, this.to + (other.to - other.from), slice, this.structure);
-        }
-        else if (other.to == this.from && !this.slice.openStart && !other.slice.openEnd) {
-            let slice = this.slice.size + other.slice.size == 0 ? Slice.empty
-                : new Slice(other.slice.content.append(this.slice.content), other.slice.openStart, this.slice.openEnd);
-            return new ReplaceStep(other.from, this.to, slice, this.structure);
-        }
-        else {
-            return null;
-        }
-    }
-    toJSON() {
-        let json = { stepType: "replace", from: this.from, to: this.to };
-        if (this.slice.size)
-            json.slice = this.slice.toJSON();
-        if (this.structure)
-            json.structure = true;
-        return json;
-    }
-    /**
-    @internal
-    */
-    static fromJSON(schema, json) {
-        if (typeof json.from != "number" || typeof json.to != "number")
-            throw new RangeError("Invalid input for ReplaceStep.fromJSON");
-        return new ReplaceStep(json.from, json.to, Slice.fromJSON(schema, json.slice), !!json.structure);
-    }
-}
-/**
-By default, for backwards compatibility, an inserting step
-mapped over an insertion at that same position fill move after
-the inserted content. In a collaborative editing situation, that
-can make redone insertions appear in unexpected places. You can
-set this to -1 to make such mapping keep the step before the
-insertion instead.
-*/
-ReplaceStep.MAP_BIAS = 1;
-Step.jsonID("replace", ReplaceStep);
-/**
-Replace a part of the document with a slice of content, but
-preserve a range of the replaced content by moving it into the
-slice.
-*/
-class ReplaceAroundStep extends Step {
-    /**
-    Create a replace-around step with the given range and gap.
-    `insert` should be the point in the slice into which the content
-    of the gap should be moved. `structure` has the same meaning as
-    it has in the [`ReplaceStep`](https://prosemirror.net/docs/ref/#transform.ReplaceStep) class.
-    */
-    constructor(
-    /**
-    The start position of the replaced range.
-    */
-    from, 
-    /**
-    The end position of the replaced range.
-    */
-    to, 
-    /**
-    The start of preserved range.
-    */
-    gapFrom, 
-    /**
-    The end of preserved range.
-    */
-    gapTo, 
-    /**
-    The slice to insert.
-    */
-    slice, 
-    /**
-    The position in the slice where the preserved range should be
-    inserted.
-    */
-    insert, 
-    /**
-    @internal
-    */
-    structure = false) {
-        super();
-        this.from = from;
-        this.to = to;
-        this.gapFrom = gapFrom;
-        this.gapTo = gapTo;
-        this.slice = slice;
-        this.insert = insert;
-        this.structure = structure;
-    }
-    apply(doc) {
-        if (this.structure && (contentBetween(doc, this.from, this.gapFrom) ||
-            contentBetween(doc, this.gapTo, this.to)))
-            return StepResult.fail("Structure gap-replace would overwrite content");
-        let gap = doc.slice(this.gapFrom, this.gapTo);
-        if (gap.openStart || gap.openEnd)
-            return StepResult.fail("Gap is not a flat range");
-        let inserted = this.slice.insertAt(this.insert, gap.content);
-        if (!inserted)
-            return StepResult.fail("Content does not fit in gap");
-        return StepResult.fromReplace(doc, this.from, this.to, inserted);
-    }
-    getMap() {
-        return new StepMap([this.from, this.gapFrom - this.from, this.insert,
-            this.gapTo, this.to - this.gapTo, this.slice.size - this.insert]);
-    }
-    invert(doc) {
-        let gap = this.gapTo - this.gapFrom;
-        return new ReplaceAroundStep(this.from, this.from + this.slice.size + gap, this.from + this.insert, this.from + this.insert + gap, doc.slice(this.from, this.to).removeBetween(this.gapFrom - this.from, this.gapTo - this.from), this.gapFrom - this.from, this.structure);
-    }
-    map(mapping) {
-        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
-        let gapFrom = this.from == this.gapFrom ? from.pos : mapping.map(this.gapFrom, -1);
-        let gapTo = this.to == this.gapTo ? to.pos : mapping.map(this.gapTo, 1);
-        if ((from.deletedAcross && to.deletedAcross) || gapFrom < from.pos || gapTo > to.pos)
-            return null;
-        return new ReplaceAroundStep(from.pos, to.pos, gapFrom, gapTo, this.slice, this.insert, this.structure);
-    }
-    toJSON() {
-        let json = { stepType: "replaceAround", from: this.from, to: this.to,
-            gapFrom: this.gapFrom, gapTo: this.gapTo, insert: this.insert };
-        if (this.slice.size)
-            json.slice = this.slice.toJSON();
-        if (this.structure)
-            json.structure = true;
-        return json;
-    }
-    /**
-    @internal
-    */
-    static fromJSON(schema, json) {
-        if (typeof json.from != "number" || typeof json.to != "number" ||
-            typeof json.gapFrom != "number" || typeof json.gapTo != "number" || typeof json.insert != "number")
-            throw new RangeError("Invalid input for ReplaceAroundStep.fromJSON");
-        return new ReplaceAroundStep(json.from, json.to, json.gapFrom, json.gapTo, Slice.fromJSON(schema, json.slice), json.insert, !!json.structure);
-    }
-}
-Step.jsonID("replaceAround", ReplaceAroundStep);
-function contentBetween(doc, from, to) {
-    let $from = doc.resolve(from), dist = to - from, depth = $from.depth;
-    while (dist > 0 && depth > 0 && $from.indexAfter(depth) == $from.node(depth).childCount) {
-        depth--;
-        dist--;
-    }
-    if (dist > 0) {
-        let next = $from.node(depth).maybeChild($from.indexAfter(depth));
-        while (dist > 0) {
-            if (!next || next.isLeaf)
-                return true;
-            next = next.firstChild;
-            dist--;
-        }
-    }
-    return false;
-}
-
-/**
-Update an attribute in a specific node.
-*/
-class AttrStep extends Step {
-    /**
-    Construct an attribute step.
-    */
-    constructor(
-    /**
-    The position of the target node.
-    */
-    pos, 
-    /**
-    The attribute to set.
-    */
-    attr, 
-    // The attribute's new value.
-    value) {
-        super();
-        this.pos = pos;
-        this.attr = attr;
-        this.value = value;
-    }
-    apply(doc) {
-        let node = doc.nodeAt(this.pos);
-        if (!node)
-            return StepResult.fail("No node at attribute step's position");
-        let attrs = Object.create(null);
-        for (let name in node.attrs)
-            attrs[name] = node.attrs[name];
-        attrs[this.attr] = this.value;
-        let updated = node.type.create(attrs, null, node.marks);
-        return StepResult.fromReplace(doc, this.pos, this.pos + 1, new Slice(Fragment.from(updated), 0, node.isLeaf ? 0 : 1));
-    }
-    getMap() {
-        return StepMap.empty;
-    }
-    invert(doc) {
-        return new AttrStep(this.pos, this.attr, doc.nodeAt(this.pos).attrs[this.attr]);
-    }
-    map(mapping) {
-        let pos = mapping.mapResult(this.pos, 1);
-        return pos.deletedAfter ? null : new AttrStep(pos.pos, this.attr, this.value);
-    }
-    toJSON() {
-        return { stepType: "attr", pos: this.pos, attr: this.attr, value: this.value };
-    }
-    static fromJSON(schema, json) {
-        if (typeof json.pos != "number" || typeof json.attr != "string")
-            throw new RangeError("Invalid input for AttrStep.fromJSON");
-        return new AttrStep(json.pos, json.attr, json.value);
-    }
-}
-Step.jsonID("attr", AttrStep);
-/**
-Update an attribute in the doc node.
-*/
-class DocAttrStep extends Step {
-    /**
-    Construct an attribute step.
-    */
-    constructor(
-    /**
-    The attribute to set.
-    */
-    attr, 
-    // The attribute's new value.
-    value) {
-        super();
-        this.attr = attr;
-        this.value = value;
-    }
-    apply(doc) {
-        let attrs = Object.create(null);
-        for (let name in doc.attrs)
-            attrs[name] = doc.attrs[name];
-        attrs[this.attr] = this.value;
-        let updated = doc.type.create(attrs, doc.content, doc.marks);
-        return StepResult.ok(updated);
-    }
-    getMap() {
-        return StepMap.empty;
-    }
-    invert(doc) {
-        return new DocAttrStep(this.attr, doc.attrs[this.attr]);
-    }
-    map(mapping) {
-        return this;
-    }
-    toJSON() {
-        return { stepType: "docAttr", attr: this.attr, value: this.value };
-    }
-    static fromJSON(schema, json) {
-        if (typeof json.attr != "string")
-            throw new RangeError("Invalid input for DocAttrStep.fromJSON");
-        return new DocAttrStep(json.attr, json.value);
-    }
-}
-Step.jsonID("docAttr", DocAttrStep);
-
-/**
-@internal
-*/
-let TransformError = class extends Error {
-};
-TransformError = function TransformError(message) {
-    let err = Error.call(this, message);
-    err.__proto__ = TransformError.prototype;
-    return err;
-};
-TransformError.prototype = Object.create(Error.prototype);
-TransformError.prototype.constructor = TransformError;
-TransformError.prototype.name = "TransformError";
-
-const classesById = Object.create(null);
-/**
-Superclass for editor selections. Every selection type should
-extend this. Should not be instantiated directly.
-*/
-class Selection {
-    /**
-    Initialize a selection with the head and anchor and ranges. If no
-    ranges are given, constructs a single range across `$anchor` and
-    `$head`.
-    */
-    constructor(
-    /**
-    The resolved anchor of the selection (the side that stays in
-    place when the selection is modified).
-    */
-    $anchor, 
-    /**
-    The resolved head of the selection (the side that moves when
-    the selection is modified).
-    */
-    $head, ranges) {
-        this.$anchor = $anchor;
-        this.$head = $head;
-        this.ranges = ranges || [new SelectionRange($anchor.min($head), $anchor.max($head))];
-    }
-    /**
-    The selection's anchor, as an unresolved position.
-    */
-    get anchor() { return this.$anchor.pos; }
-    /**
-    The selection's head.
-    */
-    get head() { return this.$head.pos; }
-    /**
-    The lower bound of the selection's main range.
-    */
-    get from() { return this.$from.pos; }
-    /**
-    The upper bound of the selection's main range.
-    */
-    get to() { return this.$to.pos; }
-    /**
-    The resolved lower  bound of the selection's main range.
-    */
-    get $from() {
-        return this.ranges[0].$from;
-    }
-    /**
-    The resolved upper bound of the selection's main range.
-    */
-    get $to() {
-        return this.ranges[0].$to;
-    }
-    /**
-    Indicates whether the selection contains any content.
-    */
-    get empty() {
-        let ranges = this.ranges;
-        for (let i = 0; i < ranges.length; i++)
-            if (ranges[i].$from.pos != ranges[i].$to.pos)
-                return false;
-        return true;
-    }
-    /**
-    Get the content of this selection as a slice.
-    */
-    content() {
-        return this.$from.doc.slice(this.from, this.to, true);
-    }
-    /**
-    Replace the selection with a slice or, if no slice is given,
-    delete the selection. Will append to the given transaction.
-    */
-    replace(tr, content = Slice.empty) {
-        // Put the new selection at the position after the inserted
-        // content. When that ended in an inline node, search backwards,
-        // to get the position after that node. If not, search forward.
-        let lastNode = content.content.lastChild, lastParent = null;
-        for (let i = 0; i < content.openEnd; i++) {
-            lastParent = lastNode;
-            lastNode = lastNode.lastChild;
-        }
-        let mapFrom = tr.steps.length, ranges = this.ranges;
-        for (let i = 0; i < ranges.length; i++) {
-            let { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
-            tr.replaceRange(mapping.map($from.pos), mapping.map($to.pos), i ? Slice.empty : content);
-            if (i == 0)
-                selectionToInsertionEnd(tr, mapFrom, (lastNode ? lastNode.isInline : lastParent && lastParent.isTextblock) ? -1 : 1);
-        }
-    }
-    /**
-    Replace the selection with the given node, appending the changes
-    to the given transaction.
-    */
-    replaceWith(tr, node) {
-        let mapFrom = tr.steps.length, ranges = this.ranges;
-        for (let i = 0; i < ranges.length; i++) {
-            let { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
-            let from = mapping.map($from.pos), to = mapping.map($to.pos);
-            if (i) {
-                tr.deleteRange(from, to);
-            }
-            else {
-                tr.replaceRangeWith(from, to, node);
-                selectionToInsertionEnd(tr, mapFrom, node.isInline ? -1 : 1);
-            }
-        }
-    }
-    /**
-    Find a valid cursor or leaf node selection starting at the given
-    position and searching back if `dir` is negative, and forward if
-    positive. When `textOnly` is true, only consider cursor
-    selections. Will return null when no valid selection position is
-    found.
-    */
-    static findFrom($pos, dir, textOnly = false) {
-        let inner = $pos.parent.inlineContent ? new TextSelection($pos)
-            : findSelectionIn($pos.node(0), $pos.parent, $pos.pos, $pos.index(), dir, textOnly);
-        if (inner)
-            return inner;
-        for (let depth = $pos.depth - 1; depth >= 0; depth--) {
-            let found = dir < 0
-                ? findSelectionIn($pos.node(0), $pos.node(depth), $pos.before(depth + 1), $pos.index(depth), dir, textOnly)
-                : findSelectionIn($pos.node(0), $pos.node(depth), $pos.after(depth + 1), $pos.index(depth) + 1, dir, textOnly);
-            if (found)
-                return found;
-        }
-        return null;
-    }
-    /**
-    Find a valid cursor or leaf node selection near the given
-    position. Searches forward first by default, but if `bias` is
-    negative, it will search backwards first.
-    */
-    static near($pos, bias = 1) {
-        return this.findFrom($pos, bias) || this.findFrom($pos, -bias) || new AllSelection($pos.node(0));
-    }
-    /**
-    Find the cursor or leaf node selection closest to the start of
-    the given document. Will return an
-    [`AllSelection`](https://prosemirror.net/docs/ref/#state.AllSelection) if no valid position
-    exists.
-    */
-    static atStart(doc) {
-        return findSelectionIn(doc, doc, 0, 0, 1) || new AllSelection(doc);
-    }
-    /**
-    Find the cursor or leaf node selection closest to the end of the
-    given document.
-    */
-    static atEnd(doc) {
-        return findSelectionIn(doc, doc, doc.content.size, doc.childCount, -1) || new AllSelection(doc);
-    }
-    /**
-    Deserialize the JSON representation of a selection. Must be
-    implemented for custom classes (as a static class method).
-    */
-    static fromJSON(doc, json) {
-        if (!json || !json.type)
-            throw new RangeError("Invalid input for Selection.fromJSON");
-        let cls = classesById[json.type];
-        if (!cls)
-            throw new RangeError(`No selection type ${json.type} defined`);
-        return cls.fromJSON(doc, json);
-    }
-    /**
-    To be able to deserialize selections from JSON, custom selection
-    classes must register themselves with an ID string, so that they
-    can be disambiguated. Try to pick something that's unlikely to
-    clash with classes from other modules.
-    */
-    static jsonID(id, selectionClass) {
-        if (id in classesById)
-            throw new RangeError("Duplicate use of selection JSON ID " + id);
-        classesById[id] = selectionClass;
-        selectionClass.prototype.jsonID = id;
-        return selectionClass;
-    }
-    /**
-    Get a [bookmark](https://prosemirror.net/docs/ref/#state.SelectionBookmark) for this selection,
-    which is a value that can be mapped without having access to a
-    current document, and later resolved to a real selection for a
-    given document again. (This is used mostly by the history to
-    track and restore old selections.) The default implementation of
-    this method just converts the selection to a text selection and
-    returns the bookmark for that.
-    */
-    getBookmark() {
-        return TextSelection.between(this.$anchor, this.$head).getBookmark();
-    }
-}
-Selection.prototype.visible = true;
-/**
-Represents a selected range in a document.
-*/
-class SelectionRange {
-    /**
-    Create a range.
-    */
-    constructor(
-    /**
-    The lower bound of the range.
-    */
-    $from, 
-    /**
-    The upper bound of the range.
-    */
-    $to) {
-        this.$from = $from;
-        this.$to = $to;
-    }
-}
-let warnedAboutTextSelection = false;
-function checkTextSelection($pos) {
-    if (!warnedAboutTextSelection && !$pos.parent.inlineContent) {
-        warnedAboutTextSelection = true;
-        console["warn"]("TextSelection endpoint not pointing into a node with inline content (" + $pos.parent.type.name + ")");
-    }
-}
-/**
-A text selection represents a classical editor selection, with a
-head (the moving side) and anchor (immobile side), both of which
-point into textblock nodes. It can be empty (a regular cursor
-position).
-*/
-class TextSelection extends Selection {
-    /**
-    Construct a text selection between the given points.
-    */
-    constructor($anchor, $head = $anchor) {
-        checkTextSelection($anchor);
-        checkTextSelection($head);
-        super($anchor, $head);
-    }
-    /**
-    Returns a resolved position if this is a cursor selection (an
-    empty text selection), and null otherwise.
-    */
-    get $cursor() { return this.$anchor.pos == this.$head.pos ? this.$head : null; }
-    map(doc, mapping) {
-        let $head = doc.resolve(mapping.map(this.head));
-        if (!$head.parent.inlineContent)
-            return Selection.near($head);
-        let $anchor = doc.resolve(mapping.map(this.anchor));
-        return new TextSelection($anchor.parent.inlineContent ? $anchor : $head, $head);
-    }
-    replace(tr, content = Slice.empty) {
-        super.replace(tr, content);
-        if (content == Slice.empty) {
-            let marks = this.$from.marksAcross(this.$to);
-            if (marks)
-                tr.ensureMarks(marks);
-        }
-    }
-    eq(other) {
-        return other instanceof TextSelection && other.anchor == this.anchor && other.head == this.head;
-    }
-    getBookmark() {
-        return new TextBookmark(this.anchor, this.head);
-    }
-    toJSON() {
-        return { type: "text", anchor: this.anchor, head: this.head };
-    }
-    /**
-    @internal
-    */
-    static fromJSON(doc, json) {
-        if (typeof json.anchor != "number" || typeof json.head != "number")
-            throw new RangeError("Invalid input for TextSelection.fromJSON");
-        return new TextSelection(doc.resolve(json.anchor), doc.resolve(json.head));
-    }
-    /**
-    Create a text selection from non-resolved positions.
-    */
-    static create(doc, anchor, head = anchor) {
-        let $anchor = doc.resolve(anchor);
-        return new this($anchor, head == anchor ? $anchor : doc.resolve(head));
-    }
-    /**
-    Return a text selection that spans the given positions or, if
-    they aren't text positions, find a text selection near them.
-    `bias` determines whether the method searches forward (default)
-    or backwards (negative number) first. Will fall back to calling
-    [`Selection.near`](https://prosemirror.net/docs/ref/#state.Selection^near) when the document
-    doesn't contain a valid text position.
-    */
-    static between($anchor, $head, bias) {
-        let dPos = $anchor.pos - $head.pos;
-        if (!bias || dPos)
-            bias = dPos >= 0 ? 1 : -1;
-        if (!$head.parent.inlineContent) {
-            let found = Selection.findFrom($head, bias, true) || Selection.findFrom($head, -bias, true);
-            if (found)
-                $head = found.$head;
-            else
-                return Selection.near($head, bias);
-        }
-        if (!$anchor.parent.inlineContent) {
-            if (dPos == 0) {
-                $anchor = $head;
-            }
-            else {
-                $anchor = (Selection.findFrom($anchor, -bias, true) || Selection.findFrom($anchor, bias, true)).$anchor;
-                if (($anchor.pos < $head.pos) != (dPos < 0))
-                    $anchor = $head;
-            }
-        }
-        return new TextSelection($anchor, $head);
-    }
-}
-Selection.jsonID("text", TextSelection);
-class TextBookmark {
-    constructor(anchor, head) {
-        this.anchor = anchor;
-        this.head = head;
-    }
-    map(mapping) {
-        return new TextBookmark(mapping.map(this.anchor), mapping.map(this.head));
-    }
-    resolve(doc) {
-        return TextSelection.between(doc.resolve(this.anchor), doc.resolve(this.head));
-    }
-}
-/**
-A node selection is a selection that points at a single node. All
-nodes marked [selectable](https://prosemirror.net/docs/ref/#model.NodeSpec.selectable) can be the
-target of a node selection. In such a selection, `from` and `to`
-point directly before and after the selected node, `anchor` equals
-`from`, and `head` equals `to`..
-*/
-class NodeSelection extends Selection {
-    /**
-    Create a node selection. Does not verify the validity of its
-    argument.
-    */
-    constructor($pos) {
-        let node = $pos.nodeAfter;
-        let $end = $pos.node(0).resolve($pos.pos + node.nodeSize);
-        super($pos, $end);
-        this.node = node;
-    }
-    map(doc, mapping) {
-        let { deleted, pos } = mapping.mapResult(this.anchor);
-        let $pos = doc.resolve(pos);
-        if (deleted)
-            return Selection.near($pos);
-        return new NodeSelection($pos);
-    }
-    content() {
-        return new Slice(Fragment.from(this.node), 0, 0);
-    }
-    eq(other) {
-        return other instanceof NodeSelection && other.anchor == this.anchor;
-    }
-    toJSON() {
-        return { type: "node", anchor: this.anchor };
-    }
-    getBookmark() { return new NodeBookmark(this.anchor); }
-    /**
-    @internal
-    */
-    static fromJSON(doc, json) {
-        if (typeof json.anchor != "number")
-            throw new RangeError("Invalid input for NodeSelection.fromJSON");
-        return new NodeSelection(doc.resolve(json.anchor));
-    }
-    /**
-    Create a node selection from non-resolved positions.
-    */
-    static create(doc, from) {
-        return new NodeSelection(doc.resolve(from));
-    }
-    /**
-    Determines whether the given node may be selected as a node
-    selection.
-    */
-    static isSelectable(node) {
-        return !node.isText && node.type.spec.selectable !== false;
-    }
-}
-NodeSelection.prototype.visible = false;
-Selection.jsonID("node", NodeSelection);
-class NodeBookmark {
-    constructor(anchor) {
-        this.anchor = anchor;
-    }
-    map(mapping) {
-        let { deleted, pos } = mapping.mapResult(this.anchor);
-        return deleted ? new TextBookmark(pos, pos) : new NodeBookmark(pos);
-    }
-    resolve(doc) {
-        let $pos = doc.resolve(this.anchor), node = $pos.nodeAfter;
-        if (node && NodeSelection.isSelectable(node))
-            return new NodeSelection($pos);
-        return Selection.near($pos);
-    }
-}
-/**
-A selection type that represents selecting the whole document
-(which can not necessarily be expressed with a text selection, when
-there are for example leaf block nodes at the start or end of the
-document).
-*/
-class AllSelection extends Selection {
-    /**
-    Create an all-selection over the given document.
-    */
-    constructor(doc) {
-        super(doc.resolve(0), doc.resolve(doc.content.size));
-    }
-    replace(tr, content = Slice.empty) {
-        if (content == Slice.empty) {
-            tr.delete(0, tr.doc.content.size);
-            let sel = Selection.atStart(tr.doc);
-            if (!sel.eq(tr.selection))
-                tr.setSelection(sel);
-        }
-        else {
-            super.replace(tr, content);
-        }
-    }
-    toJSON() { return { type: "all" }; }
-    /**
-    @internal
-    */
-    static fromJSON(doc) { return new AllSelection(doc); }
-    map(doc) { return new AllSelection(doc); }
-    eq(other) { return other instanceof AllSelection; }
-    getBookmark() { return AllBookmark; }
-}
-Selection.jsonID("all", AllSelection);
-const AllBookmark = {
-    map() { return this; },
-    resolve(doc) { return new AllSelection(doc); }
-};
-// FIXME we'll need some awareness of text direction when scanning for selections
-// Try to find a selection inside the given node. `pos` points at the
-// position where the search starts. When `text` is true, only return
-// text selections.
-function findSelectionIn(doc, node, pos, index, dir, text = false) {
-    if (node.inlineContent)
-        return TextSelection.create(doc, pos);
-    for (let i = index - (dir > 0 ? 0 : 1); dir > 0 ? i < node.childCount : i >= 0; i += dir) {
-        let child = node.child(i);
-        if (!child.isAtom) {
-            let inner = findSelectionIn(doc, child, pos + dir, dir < 0 ? child.childCount : 0, dir, text);
-            if (inner)
-                return inner;
-        }
-        else if (!text && NodeSelection.isSelectable(child)) {
-            return NodeSelection.create(doc, pos - (dir < 0 ? child.nodeSize : 0));
-        }
-        pos += child.nodeSize * dir;
-    }
-    return null;
-}
-function selectionToInsertionEnd(tr, startLen, bias) {
-    let last = tr.steps.length - 1;
-    if (last < startLen)
-        return;
-    let step = tr.steps[last];
-    if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep))
-        return;
-    let map = tr.mapping.maps[last], end;
-    map.forEach((_from, _to, _newFrom, newTo) => { if (end == null)
-        end = newTo; });
-    tr.setSelection(Selection.near(tr.doc.resolve(end), bias));
-}
-
-function bind(f, self) {
-    return !self || !f ? f : f.bind(self);
-}
-class FieldDesc {
-    constructor(name, desc, self) {
-        this.name = name;
-        this.init = bind(desc.init, self);
-        this.apply = bind(desc.apply, self);
-    }
-}
-[
-    new FieldDesc("doc", {
-        init(config) { return config.doc || config.schema.topNodeType.createAndFill(); },
-        apply(tr) { return tr.doc; }
-    }),
-    new FieldDesc("selection", {
-        init(config, instance) { return config.selection || Selection.atStart(instance.doc); },
-        apply(tr) { return tr.selection; }
-    }),
-    new FieldDesc("storedMarks", {
-        init(config) { return config.storedMarks || null; },
-        apply(tr, _marks, _old, state) { return state.selection.$cursor ? tr.storedMarks : null; }
-    }),
-    new FieldDesc("scrollToSelection", {
-        init() { return 0; },
-        apply(tr, prev) { return tr.scrolledIntoView ? prev + 1 : prev; }
-    })
-];
-const keys = Object.create(null);
-function createKey(name) {
-    if (name in keys)
-        return name + "$" + ++keys[name];
-    keys[name] = 0;
-    return name + "$";
-}
-/**
-A key is used to [tag](https://prosemirror.net/docs/ref/#state.PluginSpec.key) plugins in a way
-that makes it possible to find them, given an editor state.
-Assigning a key does mean only one plugin of that type can be
-active in a state.
-*/
-class PluginKey {
-    /**
-    Create a plugin key.
-    */
-    constructor(name = "key") { this.key = createKey(name); }
-    /**
-    Get the active plugin with this key, if any, from an editor
-    state.
-    */
-    get(state) { return state.config.pluginsByKey[this.key]; }
-    /**
-    Get the plugin's state from an editor state.
-    */
-    getState(state) { return state[this.key]; }
-}
-
-var base$1 = {
-  8: "Backspace",
-  9: "Tab",
-  10: "Enter",
-  12: "NumLock",
-  13: "Enter",
-  16: "Shift",
-  17: "Control",
-  18: "Alt",
-  20: "CapsLock",
-  27: "Escape",
-  32: " ",
-  33: "PageUp",
-  34: "PageDown",
-  35: "End",
-  36: "Home",
-  37: "ArrowLeft",
-  38: "ArrowUp",
-  39: "ArrowRight",
-  40: "ArrowDown",
-  44: "PrintScreen",
-  45: "Insert",
-  46: "Delete",
-  59: ";",
-  61: "=",
-  91: "Meta",
-  92: "Meta",
-  106: "*",
-  107: "+",
-  108: ",",
-  109: "-",
-  110: ".",
-  111: "/",
-  144: "NumLock",
-  145: "ScrollLock",
-  160: "Shift",
-  161: "Shift",
-  162: "Control",
-  163: "Control",
-  164: "Alt",
-  165: "Alt",
-  173: "-",
-  186: ";",
-  187: "=",
-  188: ",",
-  189: "-",
-  190: ".",
-  191: "/",
-  192: "`",
-  219: "[",
-  220: "\\",
-  221: "]",
-  222: "'"
-};
-
-var shift = {
-  48: ")",
-  49: "!",
-  50: "@",
-  51: "#",
-  52: "$",
-  53: "%",
-  54: "^",
-  55: "&",
-  56: "*",
-  57: "(",
-  59: ":",
-  61: "+",
-  173: "_",
-  186: ":",
-  187: "+",
-  188: "<",
-  189: "_",
-  190: ">",
-  191: "?",
-  192: "~",
-  219: "{",
-  220: "|",
-  221: "}",
-  222: "\""
-};
-
-var mac$1 = typeof navigator != "undefined" && /Mac/.test(navigator.platform);
-var ie = typeof navigator != "undefined" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent);
-
-// Fill in the digit keys
-for (var i = 0; i < 10; i++) base$1[48 + i] = base$1[96 + i] = String(i);
-
-// The function keys
-for (var i = 1; i <= 24; i++) base$1[i + 111] = "F" + i;
-
-// And the alphabetic keys
-for (var i = 65; i <= 90; i++) {
-  base$1[i] = String.fromCharCode(i + 32);
-  shift[i] = String.fromCharCode(i);
-}
-
-// For each code that doesn't have a shift-equivalent, copy the base name
-for (var code$1 in base$1) if (!shift.hasOwnProperty(code$1)) shift[code$1] = base$1[code$1];
-
-function keyName(event) {
-  // On macOS, keys held with Shift and Cmd don't reflect the effect of Shift in `.key`.
-  // On IE, shift effect is never included in `.key`.
-  var ignoreKey = mac$1 && event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey ||
-      ie && event.shiftKey && event.key && event.key.length == 1 ||
-      event.key == "Unidentified";
-  var name = (!ignoreKey && event.key) ||
-    (event.shiftKey ? shift : base$1)[event.keyCode] ||
-    event.key || "Unidentified";
-  // Edge sometimes produces wrong names (Issue #3)
-  if (name == "Esc") name = "Escape";
-  if (name == "Del") name = "Delete";
-  // https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8860571/
-  if (name == "Left") name = "ArrowLeft";
-  if (name == "Up") name = "ArrowUp";
-  if (name == "Right") name = "ArrowRight";
-  if (name == "Down") name = "ArrowDown";
-  return name
-}
-
-const mac = typeof navigator != "undefined" && /Mac|iP(hone|[oa]d)/.test(navigator.platform);
-const windows = typeof navigator != "undefined" && /Win/.test(navigator.platform);
-function normalizeKeyName(name) {
-    let parts = name.split(/-(?!$)/), result = parts[parts.length - 1];
-    if (result == "Space")
-        result = " ";
-    let alt, ctrl, shift, meta;
-    for (let i = 0; i < parts.length - 1; i++) {
-        let mod = parts[i];
-        if (/^(cmd|meta|m)$/i.test(mod))
-            meta = true;
-        else if (/^a(lt)?$/i.test(mod))
-            alt = true;
-        else if (/^(c|ctrl|control)$/i.test(mod))
-            ctrl = true;
-        else if (/^s(hift)?$/i.test(mod))
-            shift = true;
-        else if (/^mod$/i.test(mod)) {
-            if (mac)
-                meta = true;
-            else
-                ctrl = true;
-        }
-        else
-            throw new Error("Unrecognized modifier name: " + mod);
-    }
-    if (alt)
-        result = "Alt-" + result;
-    if (ctrl)
-        result = "Ctrl-" + result;
-    if (meta)
-        result = "Meta-" + result;
-    if (shift)
-        result = "Shift-" + result;
-    return result;
-}
-function normalize$1(map) {
-    let copy = Object.create(null);
-    for (let prop in map)
-        copy[normalizeKeyName(prop)] = map[prop];
-    return copy;
-}
-function modifiers(name, event, shift = true) {
-    if (event.altKey)
-        name = "Alt-" + name;
-    if (event.ctrlKey)
-        name = "Ctrl-" + name;
-    if (event.metaKey)
-        name = "Meta-" + name;
-    if (shift && event.shiftKey)
-        name = "Shift-" + name;
-    return name;
-}
-/**
-Given a set of bindings (using the same format as
-[`keymap`](https://prosemirror.net/docs/ref/#keymap.keymap)), return a [keydown
-handler](https://prosemirror.net/docs/ref/#view.EditorProps.handleKeyDown) that handles them.
-*/
-function keydownHandler(bindings) {
-    let map = normalize$1(bindings);
-    return function (view, event) {
-        let name = keyName(event), baseName, direct = map[modifiers(name, event)];
-        if (direct && direct(view.state, view.dispatch, view))
-            return true;
-        // A character key
-        if (name.length == 1 && name != " ") {
-            if (event.shiftKey) {
-                // In case the name was already modified by shift, try looking
-                // it up without its shift modifier
-                let noShift = map[modifiers(name, event, false)];
-                if (noShift && noShift(view.state, view.dispatch, view))
-                    return true;
-            }
-            if ((event.altKey || event.metaKey || event.ctrlKey) &&
-                // Ctrl-Alt may be used for AltGr on Windows
-                !(windows && event.ctrlKey && event.altKey) &&
-                (baseName = base$1[event.keyCode]) && baseName != name) {
-                // Try falling back to the keyCode when there's a modifier
-                // active or the character produced isn't ASCII, and our table
-                // produces a different name from the the keyCode. See #668,
-                // #1060, #1529.
-                let fromCode = map[modifiers(baseName, event)];
-                if (fromCode && fromCode(view.state, view.dispatch, view))
-                    return true;
-            }
-        }
-        return false;
-    };
-}
-
-//#region src/tablemap.ts
-let readFromCache;
-let addToCache;
-if (typeof WeakMap != "undefined") {
-	let cache = /* @__PURE__ */ new WeakMap();
-	readFromCache = (key) => cache.get(key);
-	addToCache = (key, value) => {
-		cache.set(key, value);
-		return value;
-	};
-} else {
-	const cache = [];
-	const cacheSize = 10;
-	let cachePos = 0;
-	readFromCache = (key) => {
-		for (let i = 0; i < cache.length; i += 2) if (cache[i] == key) return cache[i + 1];
-	};
-	addToCache = (key, value) => {
-		if (cachePos == cacheSize) cachePos = 0;
-		cache[cachePos++] = key;
-		return cache[cachePos++] = value;
-	};
-}
-/**
-* A table map describes the structure of a given table. To avoid
-* recomputing them all the time, they are cached per table node. To
-* be able to do that, positions saved in the map are relative to the
-* start of the table, rather than the start of the document.
-*
-* @public
-*/
-var TableMap = class {
-	constructor(width, height, map, problems) {
-		this.width = width;
-		this.height = height;
-		this.map = map;
-		this.problems = problems;
-	}
-	findCell(pos) {
-		for (let i = 0; i < this.map.length; i++) {
-			const curPos = this.map[i];
-			if (curPos != pos) continue;
-			const left = i % this.width;
-			const top = i / this.width | 0;
-			let right = left + 1;
-			let bottom = top + 1;
-			for (let j = 1; right < this.width && this.map[i + j] == curPos; j++) right++;
-			for (let j = 1; bottom < this.height && this.map[i + this.width * j] == curPos; j++) bottom++;
-			return {
-				left,
-				top,
-				right,
-				bottom
-			};
-		}
-		throw new RangeError(`No cell with offset ${pos} found`);
-	}
-	colCount(pos) {
-		for (let i = 0; i < this.map.length; i++) if (this.map[i] == pos) return i % this.width;
-		throw new RangeError(`No cell with offset ${pos} found`);
-	}
-	nextCell(pos, axis, dir) {
-		const { left, right, top, bottom } = this.findCell(pos);
-		if (axis == "horiz") {
-			if (dir < 0 ? left == 0 : right == this.width) return null;
-			return this.map[top * this.width + (dir < 0 ? left - 1 : right)];
-		} else {
-			if (dir < 0 ? top == 0 : bottom == this.height) return null;
-			return this.map[left + this.width * (dir < 0 ? top - 1 : bottom)];
-		}
-	}
-	rectBetween(a, b) {
-		const { left: leftA, right: rightA, top: topA, bottom: bottomA } = this.findCell(a);
-		const { left: leftB, right: rightB, top: topB, bottom: bottomB } = this.findCell(b);
-		return {
-			left: Math.min(leftA, leftB),
-			top: Math.min(topA, topB),
-			right: Math.max(rightA, rightB),
-			bottom: Math.max(bottomA, bottomB)
-		};
-	}
-	cellsInRect(rect) {
-		const result = [];
-		const seen = {};
-		for (let row = rect.top; row < rect.bottom; row++) for (let col = rect.left; col < rect.right; col++) {
-			const index = row * this.width + col;
-			const pos = this.map[index];
-			if (seen[pos]) continue;
-			seen[pos] = true;
-			if (col == rect.left && col && this.map[index - 1] == pos || row == rect.top && row && this.map[index - this.width] == pos) continue;
-			result.push(pos);
-		}
-		return result;
-	}
-	positionAt(row, col, table) {
-		for (let i = 0, rowStart = 0;; i++) {
-			const rowEnd = rowStart + table.child(i).nodeSize;
-			if (i == row) {
-				let index = col + row * this.width;
-				const rowEndIndex = (row + 1) * this.width;
-				while (index < rowEndIndex && this.map[index] < rowStart) index++;
-				return index == rowEndIndex ? rowEnd - 1 : this.map[index];
-			}
-			rowStart = rowEnd;
-		}
-	}
-	static get(table) {
-		return readFromCache(table) || addToCache(table, computeMap(table));
-	}
-};
-function computeMap(table) {
-	if (table.type.spec.tableRole != "table") throw new RangeError("Not a table node: " + table.type.name);
-	const width = findWidth(table), height = table.childCount;
-	const map = [];
-	let mapPos = 0;
-	let problems = null;
-	const colWidths = [];
-	for (let i = 0, e = width * height; i < e; i++) map[i] = 0;
-	for (let row = 0, pos = 0; row < height; row++) {
-		const rowNode = table.child(row);
-		pos++;
-		for (let i = 0;; i++) {
-			while (mapPos < map.length && map[mapPos] != 0) mapPos++;
-			if (i == rowNode.childCount) break;
-			const cellNode = rowNode.child(i);
-			const { colspan, rowspan, colwidth } = cellNode.attrs;
-			for (let h = 0; h < rowspan; h++) {
-				if (h + row >= height) {
-					(problems || (problems = [])).push({
-						type: "overlong_rowspan",
-						pos,
-						n: rowspan - h
-					});
-					break;
-				}
-				const start = mapPos + h * width;
-				for (let w = 0; w < colspan; w++) {
-					if (map[start + w] == 0) map[start + w] = pos;
-					else (problems || (problems = [])).push({
-						type: "collision",
-						row,
-						pos,
-						n: colspan - w
-					});
-					const colW = colwidth && colwidth[w];
-					if (colW) {
-						const widthIndex = (start + w) % width * 2, prev = colWidths[widthIndex];
-						if (prev == null || prev != colW && colWidths[widthIndex + 1] == 1) {
-							colWidths[widthIndex] = colW;
-							colWidths[widthIndex + 1] = 1;
-						} else if (prev == colW) colWidths[widthIndex + 1]++;
-					}
-				}
-			}
-			mapPos += colspan;
-			pos += cellNode.nodeSize;
-		}
-		const expectedPos = (row + 1) * width;
-		let missing = 0;
-		while (mapPos < expectedPos) if (map[mapPos++] == 0) missing++;
-		if (missing) (problems || (problems = [])).push({
-			type: "missing",
-			row,
-			n: missing
-		});
-		pos++;
-	}
-	if (width === 0 || height === 0) (problems || (problems = [])).push({ type: "zero_sized" });
-	const tableMap = new TableMap(width, height, map, problems);
-	let badWidths = false;
-	for (let i = 0; !badWidths && i < colWidths.length; i += 2) if (colWidths[i] != null && colWidths[i + 1] < height) badWidths = true;
-	if (badWidths) findBadColWidths(tableMap, colWidths, table);
-	return tableMap;
-}
-function findWidth(table) {
-	let width = -1;
-	let hasRowSpan = false;
-	for (let row = 0; row < table.childCount; row++) {
-		const rowNode = table.child(row);
-		let rowWidth = 0;
-		if (hasRowSpan) for (let j = 0; j < row; j++) {
-			const prevRow = table.child(j);
-			for (let i = 0; i < prevRow.childCount; i++) {
-				const cell = prevRow.child(i);
-				if (j + cell.attrs.rowspan > row) rowWidth += cell.attrs.colspan;
-			}
-		}
-		for (let i = 0; i < rowNode.childCount; i++) {
-			const cell = rowNode.child(i);
-			rowWidth += cell.attrs.colspan;
-			if (cell.attrs.rowspan > 1) hasRowSpan = true;
-		}
-		if (width == -1) width = rowWidth;
-		else if (width != rowWidth) width = Math.max(width, rowWidth);
-	}
-	return width;
-}
-function findBadColWidths(map, colWidths, table) {
-	if (!map.problems) map.problems = [];
-	const seen = {};
-	for (let i = 0; i < map.map.length; i++) {
-		const pos = map.map[i];
-		if (seen[pos]) continue;
-		seen[pos] = true;
-		const node = table.nodeAt(pos);
-		if (!node) throw new RangeError(`No cell with offset ${pos} found`);
-		let updated = null;
-		const attrs = node.attrs;
-		for (let j = 0; j < attrs.colspan; j++) {
-			const colWidth = colWidths[(i + j) % map.width * 2];
-			if (colWidth != null && (!attrs.colwidth || attrs.colwidth[j] != colWidth)) (updated || (updated = freshColWidth(attrs)))[j] = colWidth;
-		}
-		if (updated) map.problems.unshift({
-			type: "colwidth mismatch",
-			pos,
-			colwidth: updated
-		});
-	}
-}
-function freshColWidth(attrs) {
-	if (attrs.colwidth) return attrs.colwidth.slice();
-	const result = [];
-	for (let i = 0; i < attrs.colspan; i++) result.push(0);
-	return result;
-}
-
-//#endregion
-//#region src/schema.ts
-function getCellAttrs(dom, extraAttrs) {
-	if (typeof dom === "string") return {};
-	const widthAttr = dom.getAttribute("data-colwidth");
-	const widths = widthAttr && /^\d+(,\d+)*$/.test(widthAttr) ? widthAttr.split(",").map((s) => Number(s)) : null;
-	const colspan = Number(dom.getAttribute("colspan") || 1);
-	const result = {
-		colspan,
-		rowspan: Number(dom.getAttribute("rowspan") || 1),
-		colwidth: widths && widths.length == colspan ? widths : null
-	};
-	for (const prop in extraAttrs) {
-		const getter = extraAttrs[prop].getFromDOM;
-		const value = getter && getter(dom);
-		if (value != null) result[prop] = value;
-	}
-	return result;
-}
-function setCellAttrs(node, extraAttrs) {
-	const attrs = {};
-	if (node.attrs.colspan != 1) attrs.colspan = node.attrs.colspan;
-	if (node.attrs.rowspan != 1) attrs.rowspan = node.attrs.rowspan;
-	if (node.attrs.colwidth) attrs["data-colwidth"] = node.attrs.colwidth.join(",");
-	for (const prop in extraAttrs) {
-		const setter = extraAttrs[prop].setDOMAttr;
-		if (setter) setter(node.attrs[prop], attrs);
-	}
-	return attrs;
-}
-function validateColwidth(value) {
-	if (value === null) return;
-	if (!Array.isArray(value)) throw new TypeError("colwidth must be null or an array");
-	for (const item of value) if (typeof item !== "number") throw new TypeError("colwidth must be null or an array of numbers");
-}
-/**
-* This function creates a set of [node
-* specs](http://prosemirror.net/docs/ref/#model.SchemaSpec.nodes) for
-* `table`, `table_row`, and `table_cell` nodes types as used by this
-* module. The result can then be added to the set of nodes when
-* creating a schema.
-*
-* @public
-*/
-function tableNodes(options) {
-	const extraAttrs = options.cellAttributes || {};
-	const cellAttrs = {
-		colspan: {
-			default: 1,
-			validate: "number"
-		},
-		rowspan: {
-			default: 1,
-			validate: "number"
-		},
-		colwidth: {
-			default: null,
-			validate: validateColwidth
-		}
-	};
-	for (const prop in extraAttrs) cellAttrs[prop] = {
-		default: extraAttrs[prop].default,
-		validate: extraAttrs[prop].validate
-	};
-	return {
-		table: {
-			content: "table_row+",
-			tableRole: "table",
-			isolating: true,
-			group: options.tableGroup,
-			parseDOM: [{ tag: "table" }],
-			toDOM() {
-				return ["table", ["tbody", 0]];
-			}
-		},
-		table_row: {
-			content: "(table_cell | table_header)*",
-			tableRole: "row",
-			parseDOM: [{ tag: "tr" }],
-			toDOM() {
-				return ["tr", 0];
-			}
-		},
-		table_cell: {
-			content: options.cellContent,
-			attrs: cellAttrs,
-			tableRole: "cell",
-			isolating: true,
-			parseDOM: [{
-				tag: "td",
-				getAttrs: (dom) => getCellAttrs(dom, extraAttrs)
-			}],
-			toDOM(node) {
-				return [
-					"td",
-					setCellAttrs(node, extraAttrs),
-					0
-				];
-			}
-		},
-		table_header: {
-			content: options.cellContent,
-			attrs: cellAttrs,
-			tableRole: "header_cell",
-			isolating: true,
-			parseDOM: [{
-				tag: "th",
-				getAttrs: (dom) => getCellAttrs(dom, extraAttrs)
-			}],
-			toDOM(node) {
-				return [
-					"th",
-					setCellAttrs(node, extraAttrs),
-					0
-				];
-			}
-		}
-	};
-}
-/**
-* @public
-*/
-function tableNodeTypes(schema) {
-	let result = schema.cached.tableNodeTypes;
-	if (!result) {
-		result = schema.cached.tableNodeTypes = {};
-		for (const name in schema.nodes) {
-			const type = schema.nodes[name], role = type.spec.tableRole;
-			if (role) result[role] = type;
-		}
-	}
-	return result;
-}
-
-//#endregion
-//#region src/util.ts
-/**
-* @public
-*/
-new PluginKey("selectingCells");
-/**
-* @public
-*/
-function cellAround($pos) {
-	for (let d = $pos.depth - 1; d > 0; d--) if ($pos.node(d).type.spec.tableRole == "row") return $pos.node(0).resolve($pos.before(d + 1));
-	return null;
-}
-/**
-* @public
-*/
-function isInTable(state) {
-	const $head = state.selection.$head;
-	for (let d = $head.depth; d > 0; d--) if ($head.node(d).type.spec.tableRole == "row") return true;
-	return false;
-}
-/**
-* @internal
-*/
-function selectionCell(state) {
-	const sel = state.selection;
-	if ("$anchorCell" in sel && sel.$anchorCell) return sel.$anchorCell.pos > sel.$headCell.pos ? sel.$anchorCell : sel.$headCell;
-	else if ("node" in sel && sel.node && sel.node.type.spec.tableRole == "cell") return sel.$anchor;
-	const $cell = cellAround(sel.$head) || cellNear(sel.$head);
-	if ($cell) return $cell;
-	throw new RangeError(`No cell found around position ${sel.head}`);
-}
-/**
-* @public
-*/
-function cellNear($pos) {
-	for (let after = $pos.nodeAfter, pos = $pos.pos; after; after = after.firstChild, pos++) {
-		const role = after.type.spec.tableRole;
-		if (role == "cell" || role == "header_cell") return $pos.doc.resolve(pos);
-	}
-	for (let before = $pos.nodeBefore, pos = $pos.pos; before; before = before.lastChild, pos--) {
-		const role = before.type.spec.tableRole;
-		if (role == "cell" || role == "header_cell") return $pos.doc.resolve(pos - before.nodeSize);
-	}
-}
-/**
-* @public
-*/
-function pointsAtCell($pos) {
-	return $pos.parent.type.spec.tableRole == "row" && !!$pos.nodeAfter;
-}
-/**
-* @internal
-*/
-function inSameTable($cellA, $cellB) {
-	return $cellA.depth == $cellB.depth && $cellA.pos >= $cellB.start(-1) && $cellA.pos <= $cellB.end(-1);
-}
-/**
-* @public
-*/
-function nextCell($pos, axis, dir) {
-	const table = $pos.node(-1);
-	const map = TableMap.get(table);
-	const tableStart = $pos.start(-1);
-	const moved = map.nextCell($pos.pos - tableStart, axis, dir);
-	return moved == null ? null : $pos.node(0).resolve(tableStart + moved);
-}
-/**
-* @public
-*/
-function removeColSpan(attrs, pos, n = 1) {
-	const result = {
-		...attrs,
-		colspan: attrs.colspan - n
-	};
-	if (result.colwidth) {
-		result.colwidth = result.colwidth.slice();
-		result.colwidth.splice(pos, n);
-		if (!result.colwidth.some((w) => w > 0)) result.colwidth = null;
-	}
-	return result;
-}
-
-//#endregion
-//#region src/cellselection.ts
-/**
-* A [`Selection`](http://prosemirror.net/docs/ref/#state.Selection)
-* subclass that represents a cell selection spanning part of a table.
-* With the plugin enabled, these will be created when the user
-* selects across cells, and will be drawn by giving selected cells a
-* `selectedCell` CSS class.
-*
-* @public
-*/
-var CellSelection = class CellSelection extends Selection {
-	constructor($anchorCell, $headCell = $anchorCell) {
-		const table = $anchorCell.node(-1);
-		const map = TableMap.get(table);
-		const tableStart = $anchorCell.start(-1);
-		const rect = map.rectBetween($anchorCell.pos - tableStart, $headCell.pos - tableStart);
-		const doc = $anchorCell.node(0);
-		const cells = map.cellsInRect(rect).filter((p) => p != $headCell.pos - tableStart);
-		cells.unshift($headCell.pos - tableStart);
-		const ranges = cells.map((pos) => {
-			const cell = table.nodeAt(pos);
-			if (!cell) throw new RangeError(`No cell with offset ${pos} found`);
-			const from = tableStart + pos + 1;
-			return new SelectionRange(doc.resolve(from), doc.resolve(from + cell.content.size));
-		});
-		super(ranges[0].$from, ranges[0].$to, ranges);
-		this.$anchorCell = $anchorCell;
-		this.$headCell = $headCell;
-	}
-	map(doc, mapping) {
-		const $anchorCell = doc.resolve(mapping.map(this.$anchorCell.pos));
-		const $headCell = doc.resolve(mapping.map(this.$headCell.pos));
-		if (pointsAtCell($anchorCell) && pointsAtCell($headCell) && inSameTable($anchorCell, $headCell)) {
-			const tableChanged = this.$anchorCell.node(-1) != $anchorCell.node(-1);
-			if (tableChanged && this.isRowSelection()) return CellSelection.rowSelection($anchorCell, $headCell);
-			else if (tableChanged && this.isColSelection()) return CellSelection.colSelection($anchorCell, $headCell);
-			else return new CellSelection($anchorCell, $headCell);
-		}
-		return TextSelection.between($anchorCell, $headCell);
-	}
-	content() {
-		const table = this.$anchorCell.node(-1);
-		const map = TableMap.get(table);
-		const tableStart = this.$anchorCell.start(-1);
-		const rect = map.rectBetween(this.$anchorCell.pos - tableStart, this.$headCell.pos - tableStart);
-		const seen = {};
-		const rows = [];
-		for (let row = rect.top; row < rect.bottom; row++) {
-			const rowContent = [];
-			for (let index = row * map.width + rect.left, col = rect.left; col < rect.right; col++, index++) {
-				const pos = map.map[index];
-				if (seen[pos]) continue;
-				seen[pos] = true;
-				const cellRect = map.findCell(pos);
-				let cell = table.nodeAt(pos);
-				if (!cell) throw new RangeError(`No cell with offset ${pos} found`);
-				const extraLeft = rect.left - cellRect.left;
-				const extraRight = cellRect.right - rect.right;
-				if (extraLeft > 0 || extraRight > 0) {
-					let attrs = cell.attrs;
-					if (extraLeft > 0) attrs = removeColSpan(attrs, 0, extraLeft);
-					if (extraRight > 0) attrs = removeColSpan(attrs, attrs.colspan - extraRight, extraRight);
-					if (cellRect.left < rect.left) {
-						cell = cell.type.createAndFill(attrs);
-						if (!cell) throw new RangeError(`Could not create cell with attrs ${JSON.stringify(attrs)}`);
-					} else cell = cell.type.create(attrs, cell.content);
-				}
-				if (cellRect.top < rect.top || cellRect.bottom > rect.bottom) {
-					const attrs = {
-						...cell.attrs,
-						rowspan: Math.min(cellRect.bottom, rect.bottom) - Math.max(cellRect.top, rect.top)
-					};
-					if (cellRect.top < rect.top) cell = cell.type.createAndFill(attrs);
-					else cell = cell.type.create(attrs, cell.content);
-				}
-				rowContent.push(cell);
-			}
-			rows.push(table.child(row).copy(Fragment.from(rowContent)));
-		}
-		const fragment = this.isColSelection() && this.isRowSelection() ? table : rows;
-		return new Slice(Fragment.from(fragment), 1, 1);
-	}
-	replace(tr, content = Slice.empty) {
-		const mapFrom = tr.steps.length, ranges = this.ranges;
-		for (let i = 0; i < ranges.length; i++) {
-			const { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
-			tr.replace(mapping.map($from.pos), mapping.map($to.pos), i ? Slice.empty : content);
-		}
-		const sel = Selection.findFrom(tr.doc.resolve(tr.mapping.slice(mapFrom).map(this.to)), -1);
-		if (sel) tr.setSelection(sel);
-	}
-	replaceWith(tr, node) {
-		this.replace(tr, new Slice(Fragment.from(node), 0, 0));
-	}
-	forEachCell(f) {
-		const table = this.$anchorCell.node(-1);
-		const map = TableMap.get(table);
-		const tableStart = this.$anchorCell.start(-1);
-		const cells = map.cellsInRect(map.rectBetween(this.$anchorCell.pos - tableStart, this.$headCell.pos - tableStart));
-		for (let i = 0; i < cells.length; i++) f(table.nodeAt(cells[i]), tableStart + cells[i]);
-	}
-	isColSelection() {
-		const anchorTop = this.$anchorCell.index(-1);
-		const headTop = this.$headCell.index(-1);
-		if (Math.min(anchorTop, headTop) > 0) return false;
-		const anchorBottom = anchorTop + this.$anchorCell.nodeAfter.attrs.rowspan;
-		const headBottom = headTop + this.$headCell.nodeAfter.attrs.rowspan;
-		return Math.max(anchorBottom, headBottom) == this.$headCell.node(-1).childCount;
-	}
-	static colSelection($anchorCell, $headCell = $anchorCell) {
-		const table = $anchorCell.node(-1);
-		const map = TableMap.get(table);
-		const tableStart = $anchorCell.start(-1);
-		const anchorRect = map.findCell($anchorCell.pos - tableStart);
-		const headRect = map.findCell($headCell.pos - tableStart);
-		const doc = $anchorCell.node(0);
-		if (anchorRect.top <= headRect.top) {
-			if (anchorRect.top > 0) $anchorCell = doc.resolve(tableStart + map.map[anchorRect.left]);
-			if (headRect.bottom < map.height) $headCell = doc.resolve(tableStart + map.map[map.width * (map.height - 1) + headRect.right - 1]);
-		} else {
-			if (headRect.top > 0) $headCell = doc.resolve(tableStart + map.map[headRect.left]);
-			if (anchorRect.bottom < map.height) $anchorCell = doc.resolve(tableStart + map.map[map.width * (map.height - 1) + anchorRect.right - 1]);
-		}
-		return new CellSelection($anchorCell, $headCell);
-	}
-	isRowSelection() {
-		const table = this.$anchorCell.node(-1);
-		const map = TableMap.get(table);
-		const tableStart = this.$anchorCell.start(-1);
-		const anchorLeft = map.colCount(this.$anchorCell.pos - tableStart);
-		const headLeft = map.colCount(this.$headCell.pos - tableStart);
-		if (Math.min(anchorLeft, headLeft) > 0) return false;
-		const anchorRight = anchorLeft + this.$anchorCell.nodeAfter.attrs.colspan;
-		const headRight = headLeft + this.$headCell.nodeAfter.attrs.colspan;
-		return Math.max(anchorRight, headRight) == map.width;
-	}
-	eq(other) {
-		return other instanceof CellSelection && other.$anchorCell.pos == this.$anchorCell.pos && other.$headCell.pos == this.$headCell.pos;
-	}
-	static rowSelection($anchorCell, $headCell = $anchorCell) {
-		const table = $anchorCell.node(-1);
-		const map = TableMap.get(table);
-		const tableStart = $anchorCell.start(-1);
-		const anchorRect = map.findCell($anchorCell.pos - tableStart);
-		const headRect = map.findCell($headCell.pos - tableStart);
-		const doc = $anchorCell.node(0);
-		if (anchorRect.left <= headRect.left) {
-			if (anchorRect.left > 0) $anchorCell = doc.resolve(tableStart + map.map[anchorRect.top * map.width]);
-			if (headRect.right < map.width) $headCell = doc.resolve(tableStart + map.map[map.width * (headRect.top + 1) - 1]);
-		} else {
-			if (headRect.left > 0) $headCell = doc.resolve(tableStart + map.map[headRect.top * map.width]);
-			if (anchorRect.right < map.width) $anchorCell = doc.resolve(tableStart + map.map[map.width * (anchorRect.top + 1) - 1]);
-		}
-		return new CellSelection($anchorCell, $headCell);
-	}
-	toJSON() {
-		return {
-			type: "cell",
-			anchor: this.$anchorCell.pos,
-			head: this.$headCell.pos
-		};
-	}
-	static fromJSON(doc, json) {
-		return new CellSelection(doc.resolve(json.anchor), doc.resolve(json.head));
-	}
-	static create(doc, anchorCell, headCell = anchorCell) {
-		return new CellSelection(doc.resolve(anchorCell), doc.resolve(headCell));
-	}
-	getBookmark() {
-		return new CellBookmark(this.$anchorCell.pos, this.$headCell.pos);
-	}
-};
-CellSelection.prototype.visible = false;
-Selection.jsonID("cell", CellSelection);
-/**
-* @public
-*/
-var CellBookmark = class CellBookmark {
-	constructor(anchor, head) {
-		this.anchor = anchor;
-		this.head = head;
-	}
-	map(mapping) {
-		return new CellBookmark(mapping.map(this.anchor), mapping.map(this.head));
-	}
-	resolve(doc) {
-		const $anchorCell = doc.resolve(this.anchor), $headCell = doc.resolve(this.head);
-		if ($anchorCell.parent.type.spec.tableRole == "row" && $headCell.parent.type.spec.tableRole == "row" && $anchorCell.index() < $anchorCell.parent.childCount && $headCell.index() < $headCell.parent.childCount && inSameTable($anchorCell, $headCell)) return new CellSelection($anchorCell, $headCell);
-		else return Selection.near($headCell, 1);
-	}
-};
-
-//#endregion
-//#region src/fixtables.ts
-/**
-* @public
-*/
-new PluginKey("fix-tables");
-
-//#endregion
-//#region src/commands.ts
-/**
-* Helper to get the selected rectangle in a table, if any. Adds table
-* map, table node, and table start offset to the object for
-* convenience.
-*
-* @public
-*/
-function selectedRect(state) {
-	const sel = state.selection;
-	const $pos = selectionCell(state);
-	const table = $pos.node(-1);
-	const tableStart = $pos.start(-1);
-	const map = TableMap.get(table);
-	return {
-		...sel instanceof CellSelection ? map.rectBetween(sel.$anchorCell.pos - tableStart, sel.$headCell.pos - tableStart) : map.findCell($pos.pos - tableStart),
-		tableStart,
-		map,
-		table
-	};
-}
-function deprecated_toggleHeader(type) {
-	return function(state, dispatch) {
-		if (!isInTable(state)) return false;
-		if (dispatch) {
-			const types = tableNodeTypes(state.schema);
-			const rect = selectedRect(state), tr = state.tr;
-			const cells = rect.map.cellsInRect(type == "column" ? {
-				left: rect.left,
-				top: 0,
-				right: rect.right,
-				bottom: rect.map.height
-			} : type == "row" ? {
-				left: 0,
-				top: rect.top,
-				right: rect.map.width,
-				bottom: rect.bottom
-			} : rect);
-			const nodes = cells.map((pos) => rect.table.nodeAt(pos));
-			for (let i = 0; i < cells.length; i++) if (nodes[i].type == types.header_cell) tr.setNodeMarkup(rect.tableStart + cells[i], types.cell, nodes[i].attrs);
-			if (tr.steps.length === 0) for (let i = 0; i < cells.length; i++) tr.setNodeMarkup(rect.tableStart + cells[i], types.header_cell, nodes[i].attrs);
-			dispatch(tr);
-		}
-		return true;
-	};
-}
-function isHeaderEnabledByType(type, rect, types) {
-	const cellPositions = rect.map.cellsInRect({
-		left: 0,
-		top: 0,
-		right: type == "row" ? rect.map.width : 1,
-		bottom: type == "column" ? rect.map.height : 1
-	});
-	for (let i = 0; i < cellPositions.length; i++) {
-		const cell = rect.table.nodeAt(cellPositions[i]);
-		if (cell && cell.type !== types.header_cell) return false;
-	}
-	return true;
-}
-/**
-* Toggles between row/column header and normal cells (Only applies to first row/column).
-* For deprecated behavior pass `useDeprecatedLogic` in options with true.
-*
-* @public
-*/
-function toggleHeader(type, options) {
-	options = options || { useDeprecatedLogic: false };
-	if (options.useDeprecatedLogic) return deprecated_toggleHeader(type);
-	return function(state, dispatch) {
-		if (!isInTable(state)) return false;
-		if (dispatch) {
-			const types = tableNodeTypes(state.schema);
-			const rect = selectedRect(state), tr = state.tr;
-			const isHeaderRowEnabled = isHeaderEnabledByType("row", rect, types);
-			const isHeaderColumnEnabled = isHeaderEnabledByType("column", rect, types);
-			const selectionStartsAt = (type === "column" ? isHeaderRowEnabled : type === "row" ? isHeaderColumnEnabled : false) ? 1 : 0;
-			const cellsRect = type == "column" ? {
-				left: 0,
-				top: selectionStartsAt,
-				right: 1,
-				bottom: rect.map.height
-			} : type == "row" ? {
-				left: selectionStartsAt,
-				top: 0,
-				right: rect.map.width,
-				bottom: 1
-			} : rect;
-			const newType = type == "column" ? isHeaderColumnEnabled ? types.cell : types.header_cell : type == "row" ? isHeaderRowEnabled ? types.cell : types.header_cell : types.cell;
-			rect.map.cellsInRect(cellsRect).forEach((relativeCellPos) => {
-				const cellPos = relativeCellPos + rect.tableStart;
-				const cell = tr.doc.nodeAt(cellPos);
-				if (cell) tr.setNodeMarkup(cellPos, newType, cell.attrs);
-			});
-			dispatch(tr);
-		}
-		return true;
-	};
-}
-/**
-* Toggles whether the selected row contains header cells.
-*
-* @public
-*/
-toggleHeader("row", { useDeprecatedLogic: true });
-/**
-* Toggles whether the selected column contains header cells.
-*
-* @public
-*/
-toggleHeader("column", { useDeprecatedLogic: true });
-/**
-* Toggles whether the selected cells are header cells.
-*
-* @public
-*/
-toggleHeader("cell", { useDeprecatedLogic: true });
-/**
-* Deletes the content of the selected cells, if they are not empty.
-*
-* @public
-*/
-function deleteCellSelection(state, dispatch) {
-	const sel = state.selection;
-	if (!(sel instanceof CellSelection)) return false;
-	if (dispatch) {
-		const tr = state.tr;
-		const baseContent = tableNodeTypes(state.schema).cell.createAndFill().content;
-		sel.forEachCell((cell, pos) => {
-			if (!cell.content.eq(baseContent)) tr.replace(tr.mapping.map(pos + 1), tr.mapping.map(pos + cell.nodeSize - 1), new Slice(baseContent, 0, 0));
-		});
-		if (tr.docChanged) dispatch(tr);
-	}
-	return true;
-}
-
-//#endregion
-//#region src/input.ts
-keydownHandler({
-	ArrowLeft: arrow("horiz", -1),
-	ArrowRight: arrow("horiz", 1),
-	ArrowUp: arrow("vert", -1),
-	ArrowDown: arrow("vert", 1),
-	"Shift-ArrowLeft": shiftArrow("horiz", -1),
-	"Shift-ArrowRight": shiftArrow("horiz", 1),
-	"Shift-ArrowUp": shiftArrow("vert", -1),
-	"Shift-ArrowDown": shiftArrow("vert", 1),
-	Backspace: deleteCellSelection,
-	"Mod-Backspace": deleteCellSelection,
-	Delete: deleteCellSelection,
-	"Mod-Delete": deleteCellSelection
-});
-function maybeSetSelection(state, dispatch, selection) {
-	if (selection.eq(state.selection)) return false;
-	if (dispatch) dispatch(state.tr.setSelection(selection).scrollIntoView());
-	return true;
-}
-/**
-* @internal
-*/
-function arrow(axis, dir) {
-	return (state, dispatch, view) => {
-		if (!view) return false;
-		const sel = state.selection;
-		if (sel instanceof CellSelection) return maybeSetSelection(state, dispatch, Selection.near(sel.$headCell, dir));
-		if (axis != "horiz" && !sel.empty) return false;
-		const end = atEndOfCell(view, axis, dir);
-		if (end == null) return false;
-		if (axis == "horiz") return maybeSetSelection(state, dispatch, Selection.near(state.doc.resolve(sel.head + dir), dir));
-		else {
-			const $cell = state.doc.resolve(end);
-			const $next = nextCell($cell, axis, dir);
-			let newSel;
-			if ($next) newSel = Selection.near($next, 1);
-			else if (dir < 0) newSel = Selection.near(state.doc.resolve($cell.before(-1)), -1);
-			else newSel = Selection.near(state.doc.resolve($cell.after(-1)), 1);
-			return maybeSetSelection(state, dispatch, newSel);
-		}
-	};
-}
-function shiftArrow(axis, dir) {
-	return (state, dispatch, view) => {
-		if (!view) return false;
-		const sel = state.selection;
-		let cellSel;
-		if (sel instanceof CellSelection) cellSel = sel;
-		else {
-			const end = atEndOfCell(view, axis, dir);
-			if (end == null) return false;
-			cellSel = new CellSelection(state.doc.resolve(end));
-		}
-		const $head = nextCell(cellSel.$headCell, axis, dir);
-		if (!$head) return false;
-		return maybeSetSelection(state, dispatch, new CellSelection(cellSel.$anchorCell, $head));
-	};
-}
-function atEndOfCell(view, axis, dir) {
-	if (!(view.state.selection instanceof TextSelection)) return null;
-	const { $head } = view.state.selection;
-	for (let d = $head.depth - 1; d >= 0; d--) {
-		const parent = $head.node(d);
-		if ((dir < 0 ? $head.index(d) : $head.indexAfter(d)) != (dir < 0 ? 0 : parent.childCount)) return null;
-		if (parent.type.spec.tableRole == "cell" || parent.type.spec.tableRole == "header_cell") {
-			const cellPos = $head.before(d);
-			const dirStr = axis == "vert" ? dir > 0 ? "down" : "up" : dir > 0 ? "right" : "left";
-			return view.endOfTextblock(dirStr) ? cellPos : null;
-		}
-	}
-	return null;
-}
-
-//#endregion
-//#region src/columnresizing.ts
-/**
-* @public
-*/
-new PluginKey("tableColumnResizing");
-
-const olDOM = ["ol", 0], ulDOM = ["ul", 0], liDOM = ["li", 0];
-/**
-An ordered list [node spec](https://prosemirror.net/docs/ref/#model.NodeSpec). Has a single
-attribute, `order`, which determines the number at which the list
-starts counting, and defaults to 1. Represented as an `<ol>`
-element.
-*/
-const orderedList = {
-    attrs: { order: { default: 1, validate: "number" } },
-    parseDOM: [{ tag: "ol", getAttrs(dom) {
-                return { order: dom.hasAttribute("start") ? +dom.getAttribute("start") : 1 };
-            } }],
-    toDOM(node) {
-        return node.attrs.order == 1 ? olDOM : ["ol", { start: node.attrs.order }, 0];
-    }
-};
-/**
-A bullet list node spec, represented in the DOM as `<ul>`.
-*/
-const bulletList = {
-    parseDOM: [{ tag: "ul" }],
-    toDOM() { return ulDOM; }
-};
-/**
-A list item (`<li>`) spec.
-*/
-const listItem = {
-    parseDOM: [{ tag: "li" }],
-    toDOM() { return liDOM; },
-    defining: true
-};
-function add(obj, props) {
-    let copy = {};
-    for (let prop in obj)
-        copy[prop] = obj[prop];
-    for (let prop in props)
-        copy[prop] = props[prop];
-    return copy;
-}
-/**
-Convenience function for adding list-related node types to a map
-specifying the nodes for a schema. Adds
-[`orderedList`](https://prosemirror.net/docs/ref/#schema-list.orderedList) as `"ordered_list"`,
-[`bulletList`](https://prosemirror.net/docs/ref/#schema-list.bulletList) as `"bullet_list"`, and
-[`listItem`](https://prosemirror.net/docs/ref/#schema-list.listItem) as `"list_item"`.
-
-`itemContent` determines the content expression for the list items.
-If you want the commands defined in this module to apply to your
-list structure, it should have a shape like `"paragraph block*"` or
-`"paragraph (ordered_list | bullet_list)*"`. `listGroup` can be
-given to assign a group name to the list node types, for example
-`"block"`.
-*/
-function addListNodes(nodes, itemContent, listGroup) {
-    return nodes.append({
-        ordered_list: add(orderedList, { content: "list_item+", group: listGroup }),
-        bullet_list: add(bulletList, { content: "list_item+", group: listGroup }),
-        list_item: add(listItem, { content: itemContent })
-    });
 }
 
 /* eslint-disable no-bitwise */
@@ -7861,7 +5349,7 @@ StateCore.prototype.Token = Token;
 const NEWLINES_RE  = /\r\n?|\n/g;
 const NULL_RE      = /\0/g;
 
-function normalize (state) {
+function normalize$1 (state) {
   let str;
 
   // Normalize newlines
@@ -8117,7 +5605,7 @@ function replace_rare (inlineTokens) {
   }
 }
 
-function replace (state) {
+function replace$1 (state) {
   let blkIdx;
 
   if (!state.md.options.typographer) { return }
@@ -8381,11 +5869,11 @@ function text_join (state) {
 
 
 const _rules$2 = [
-  ['normalize',      normalize],
+  ['normalize',      normalize$1],
   ['block',          block],
   ['inline',         inline],
   ['linkify',        linkify$1],
-  ['replacements',   replace],
+  ['replacements',   replace$1],
   ['smartquotes',    smartquotes],
   // `text_join` finds `text_special` tokens (for escape sequences)
   // and joins them with the rest of the text
@@ -8870,7 +6358,7 @@ function table (state, startLine, endLine, silent) {
 
 // Code block (4 spaces padded)
 
-function code (state, startLine, endLine/*, silent */) {
+function code$1 (state, startLine, endLine/*, silent */) {
   if (state.sCount[startLine] - state.blkIndent < 4) { return false }
 
   let nextLine = startLine + 1;
@@ -10133,7 +7621,7 @@ const _rules$1 = [
   // First 2 params - rule name & source. Secondary array - list of rules,
   // which can be terminated by this one.
   ['table',      table,      ['paragraph', 'reference']],
-  ['code',       code],
+  ['code',       code$1],
   ['fence',      fence,      ['paragraph', 'reference', 'blockquote', 'list']],
   ['blockquote', blockquote, ['paragraph', 'reference', 'blockquote', 'list']],
   ['hr',         hr,         ['paragraph', 'reference', 'blockquote', 'list']],
@@ -12559,7 +10047,7 @@ LinkifyIt.prototype.onCompile = function onCompile () {
 const maxInt = 2147483647; // aka. 0x7FFFFFFF or 2^31-1
 
 /** Bootstring parameters */
-const base = 36;
+const base$1 = 36;
 const tMin = 1;
 const tMax = 26;
 const skew = 38;
@@ -12581,7 +10069,7 @@ const errors = {
 };
 
 /** Convenience shortcuts */
-const baseMinusTMin = base - tMin;
+const baseMinusTMin = base$1 - tMin;
 const floor = Math.floor;
 const stringFromCharCode = String.fromCharCode;
 
@@ -12706,7 +10194,7 @@ const basicToDigit = function(codePoint) {
 	if (codePoint >= 0x61 && codePoint < 0x7B) {
 		return codePoint - 0x61;
 	}
-	return base;
+	return base$1;
 };
 
 /**
@@ -12735,7 +10223,7 @@ const adapt = function(delta, numPoints, firstTime) {
 	let k = 0;
 	delta = firstTime ? floor(delta / damp) : delta >> 1;
 	delta += floor(delta / numPoints);
-	for (/* no initialization */; delta > baseMinusTMin * tMax >> 1; k += base) {
+	for (/* no initialization */; delta > baseMinusTMin * tMax >> 1; k += base$1) {
 		delta = floor(delta / baseMinusTMin);
 	}
 	return floor(k + (baseMinusTMin + 1) * delta / (delta + skew));
@@ -12784,7 +10272,7 @@ const decode = function(input) {
 		// if we increase `i` as we go, then subtract off its starting
 		// value at the end to obtain `delta`.
 		const oldi = i;
-		for (let w = 1, k = base; /* no condition */; k += base) {
+		for (let w = 1, k = base$1; /* no condition */; k += base$1) {
 
 			if (index >= inputLength) {
 				error('invalid-input');
@@ -12792,7 +10280,7 @@ const decode = function(input) {
 
 			const digit = basicToDigit(input.charCodeAt(index++));
 
-			if (digit >= base) {
+			if (digit >= base$1) {
 				error('invalid-input');
 			}
 			if (digit > floor((maxInt - i) / w)) {
@@ -12806,7 +10294,7 @@ const decode = function(input) {
 				break;
 			}
 
-			const baseMinusT = base - t;
+			const baseMinusT = base$1 - t;
 			if (w > floor(maxInt / baseMinusT)) {
 				error('overflow');
 			}
@@ -12903,13 +10391,13 @@ const encode = function(input) {
 			if (currentValue === n) {
 				// Represent delta as a generalized variable-length integer.
 				let q = delta;
-				for (let k = base; /* no condition */; k += base) {
+				for (let k = base$1; /* no condition */; k += base$1) {
 					const t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias);
 					if (q < t) {
 						break;
 					}
 					const qMinusT = q - t;
-					const baseMinusT = base - t;
+					const baseMinusT = base$1 - t;
 					output.push(
 						stringFromCharCode(digitToBasic(t + qMinusT % baseMinusT, 0))
 					);
@@ -13757,7 +11245,7 @@ MarkdownIt.prototype.renderInline = function (src, env) {
 /**
 Document schema for the data model used by CommonMark.
 */
-const schema$1 = new Schema({
+const schema$1 = new Schema$1({
     nodes: {
         doc: {
             content: "block+"
@@ -13896,7 +11384,7 @@ const schema$1 = new Schema({
 
 // @ts-ignore
 function maybeMerge(a, b) {
-    if (a.isText && b.isText && Mark.sameSet(a.marks, b.marks))
+    if (a.isText && b.isText && Mark$1.sameSet(a.marks, b.marks))
         return a.withText(a.text + b.text);
 }
 // Object used to track the context of a running parse.
@@ -13904,7 +11392,7 @@ class MarkdownParseState {
     constructor(schema, tokenHandlers) {
         this.schema = schema;
         this.tokenHandlers = tokenHandlers;
-        this.stack = [{ type: schema.topNodeType, attrs: null, content: [], marks: Mark.none }];
+        this.stack = [{ type: schema.topNodeType, attrs: null, content: [], marks: Mark$1.none }];
     }
     top() {
         return this.stack[this.stack.length - 1];
@@ -13955,7 +11443,7 @@ class MarkdownParseState {
     }
     // Wrap subsequent content in a node of the given type.
     openNode(type, attrs) {
-        this.stack.push({ type: type, attrs: attrs, content: [], marks: Mark.none });
+        this.stack.push({ type: type, attrs: attrs, content: [], marks: Mark$1.none });
     }
     // Close and return the node that is currently on top of the stack.
     closeNode() {
@@ -14826,192 +12314,5400 @@ function makeWarnings() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Schema (mirrors markupeditor-base/src/schema/index.js exactly)
-// ---------------------------------------------------------------------------
+// ::- Persistent data structure representing an ordered mapping from
+// strings to values, with some convenient update methods.
+function OrderedMap(content) {
+  this.content = content;
+}
 
-const pDOM = ['p', 0];
-const blockquoteDOM = ['blockquote', 0];
-const hrDOM = ['hr'];
-const preDOM = ['pre', ['code', 0]];
-const brDOM = ['br'];
+OrderedMap.prototype = {
+  constructor: OrderedMap,
 
-let baseNodes = OrderedMap.from({
-  doc: {
-    content: 'block+'
+  find: function(key) {
+    for (var i = 0; i < this.content.length; i += 2)
+      if (this.content[i] === key) return i
+    return -1
   },
 
+  // :: (string) → ?any
+  // Retrieve the value stored under `key`, or return undefined when
+  // no such key exists.
+  get: function(key) {
+    var found = this.find(key);
+    return found == -1 ? undefined : this.content[found + 1]
+  },
+
+  // :: (string, any, ?string) → OrderedMap
+  // Create a new map by replacing the value of `key` with a new
+  // value, or adding a binding to the end of the map. If `newKey` is
+  // given, the key of the binding will be replaced with that key.
+  update: function(key, value, newKey) {
+    var self = newKey && newKey != key ? this.remove(newKey) : this;
+    var found = self.find(key), content = self.content.slice();
+    if (found == -1) {
+      content.push(newKey || key, value);
+    } else {
+      content[found + 1] = value;
+      if (newKey) content[found] = newKey;
+    }
+    return new OrderedMap(content)
+  },
+
+  // :: (string) → OrderedMap
+  // Return a map with the given key removed, if it existed.
+  remove: function(key) {
+    var found = this.find(key);
+    if (found == -1) return this
+    var content = this.content.slice();
+    content.splice(found, 2);
+    return new OrderedMap(content)
+  },
+
+  // :: (string, any) → OrderedMap
+  // Add a new key to the start of the map.
+  addToStart: function(key, value) {
+    return new OrderedMap([key, value].concat(this.remove(key).content))
+  },
+
+  // :: (string, any) → OrderedMap
+  // Add a new key to the end of the map.
+  addToEnd: function(key, value) {
+    var content = this.remove(key).content.slice();
+    content.push(key, value);
+    return new OrderedMap(content)
+  },
+
+  // :: (string, string, any) → OrderedMap
+  // Add a key after the given key. If `place` is not found, the new
+  // key is added to the end.
+  addBefore: function(place, key, value) {
+    var without = this.remove(key), content = without.content.slice();
+    var found = without.find(place);
+    content.splice(found == -1 ? content.length : found, 0, key, value);
+    return new OrderedMap(content)
+  },
+
+  // :: ((key: string, value: any))
+  // Call the given function for each key/value pair in the map, in
+  // order.
+  forEach: function(f) {
+    for (var i = 0; i < this.content.length; i += 2)
+      f(this.content[i], this.content[i + 1]);
+  },
+
+  // :: (union<Object, OrderedMap>) → OrderedMap
+  // Create a new map by prepending the keys in this map that don't
+  // appear in `map` before the keys in `map`.
+  prepend: function(map) {
+    map = OrderedMap.from(map);
+    if (!map.size) return this
+    return new OrderedMap(map.content.concat(this.subtract(map).content))
+  },
+
+  // :: (union<Object, OrderedMap>) → OrderedMap
+  // Create a new map by appending the keys in this map that don't
+  // appear in `map` after the keys in `map`.
+  append: function(map) {
+    map = OrderedMap.from(map);
+    if (!map.size) return this
+    return new OrderedMap(this.subtract(map).content.concat(map.content))
+  },
+
+  // :: (union<Object, OrderedMap>) → OrderedMap
+  // Create a map containing all the keys in this map that don't
+  // appear in `map`.
+  subtract: function(map) {
+    var result = this;
+    map = OrderedMap.from(map);
+    for (var i = 0; i < map.content.length; i += 2)
+      result = result.remove(map.content[i]);
+    return result
+  },
+
+  // :: () → Object
+  // Turn ordered map into a plain object.
+  toObject: function() {
+    var result = {};
+    this.forEach(function(key, value) { result[key] = value; });
+    return result
+  },
+
+  // :: number
+  // The amount of keys in this map.
+  get size() {
+    return this.content.length >> 1
+  }
+};
+
+// :: (?union<Object, OrderedMap>) → OrderedMap
+// Return a map with the given content. If null, create an empty
+// map. If given an ordered map, return that map itself. If given an
+// object, create a map from the object's properties.
+OrderedMap.from = function(value) {
+  if (value instanceof OrderedMap) return value
+  var content = [];
+  if (value) for (var prop in value) content.push(prop, value[prop]);
+  return new OrderedMap(content)
+};
+
+function findDiffStart(a, b, pos) {
+    for (let i = 0;; i++) {
+        if (i == a.childCount || i == b.childCount)
+            return a.childCount == b.childCount ? null : pos;
+        let childA = a.child(i), childB = b.child(i);
+        if (childA == childB) {
+            pos += childA.nodeSize;
+            continue;
+        }
+        if (!childA.sameMarkup(childB))
+            return pos;
+        if (childA.isText && childA.text != childB.text) {
+            for (let j = 0; childA.text[j] == childB.text[j]; j++)
+                pos++;
+            return pos;
+        }
+        if (childA.content.size || childB.content.size) {
+            let inner = findDiffStart(childA.content, childB.content, pos + 1);
+            if (inner != null)
+                return inner;
+        }
+        pos += childA.nodeSize;
+    }
+}
+function findDiffEnd(a, b, posA, posB) {
+    for (let iA = a.childCount, iB = b.childCount;;) {
+        if (iA == 0 || iB == 0)
+            return iA == iB ? null : { a: posA, b: posB };
+        let childA = a.child(--iA), childB = b.child(--iB), size = childA.nodeSize;
+        if (childA == childB) {
+            posA -= size;
+            posB -= size;
+            continue;
+        }
+        if (!childA.sameMarkup(childB))
+            return { a: posA, b: posB };
+        if (childA.isText && childA.text != childB.text) {
+            let same = 0, minSize = Math.min(childA.text.length, childB.text.length);
+            while (same < minSize && childA.text[childA.text.length - same - 1] == childB.text[childB.text.length - same - 1]) {
+                same++;
+                posA--;
+                posB--;
+            }
+            return { a: posA, b: posB };
+        }
+        if (childA.content.size || childB.content.size) {
+            let inner = findDiffEnd(childA.content, childB.content, posA - 1, posB - 1);
+            if (inner)
+                return inner;
+        }
+        posA -= size;
+        posB -= size;
+    }
+}
+
+/**
+A fragment represents a node's collection of child nodes.
+
+Like nodes, fragments are persistent data structures, and you
+should not mutate them or their content. Rather, you create new
+instances whenever needed. The API tries to make this easy.
+*/
+class Fragment {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The child nodes in this fragment.
+    */
+    content, size) {
+        this.content = content;
+        this.size = size || 0;
+        if (size == null)
+            for (let i = 0; i < content.length; i++)
+                this.size += content[i].nodeSize;
+    }
+    /**
+    Invoke a callback for all descendant nodes between the given two
+    positions (relative to start of this fragment). Doesn't descend
+    into a node when the callback returns `false`.
+    */
+    nodesBetween(from, to, f, nodeStart = 0, parent) {
+        for (let i = 0, pos = 0; pos < to; i++) {
+            let child = this.content[i], end = pos + child.nodeSize;
+            if (end > from && f(child, nodeStart + pos, parent || null, i) !== false && child.content.size) {
+                let start = pos + 1;
+                child.nodesBetween(Math.max(0, from - start), Math.min(child.content.size, to - start), f, nodeStart + start);
+            }
+            pos = end;
+        }
+    }
+    /**
+    Call the given callback for every descendant node. `pos` will be
+    relative to the start of the fragment. The callback may return
+    `false` to prevent traversal of a given node's children.
+    */
+    descendants(f) {
+        this.nodesBetween(0, this.size, f);
+    }
+    /**
+    Extract the text between `from` and `to`. See the same method on
+    [`Node`](https://prosemirror.net/docs/ref/#model.Node.textBetween).
+    */
+    textBetween(from, to, blockSeparator, leafText) {
+        let text = "", first = true;
+        this.nodesBetween(from, to, (node, pos) => {
+            let nodeText = node.isText ? node.text.slice(Math.max(from, pos) - pos, to - pos)
+                : !node.isLeaf ? ""
+                    : leafText ? (typeof leafText === "function" ? leafText(node) : leafText)
+                        : node.type.spec.leafText ? node.type.spec.leafText(node)
+                            : "";
+            if (node.isBlock && (node.isLeaf && nodeText || node.isTextblock) && blockSeparator) {
+                if (first)
+                    first = false;
+                else
+                    text += blockSeparator;
+            }
+            text += nodeText;
+        }, 0);
+        return text;
+    }
+    /**
+    Create a new fragment containing the combined content of this
+    fragment and the other.
+    */
+    append(other) {
+        if (!other.size)
+            return this;
+        if (!this.size)
+            return other;
+        let last = this.lastChild, first = other.firstChild, content = this.content.slice(), i = 0;
+        if (last.isText && last.sameMarkup(first)) {
+            content[content.length - 1] = last.withText(last.text + first.text);
+            i = 1;
+        }
+        for (; i < other.content.length; i++)
+            content.push(other.content[i]);
+        return new Fragment(content, this.size + other.size);
+    }
+    /**
+    Cut out the sub-fragment between the two given positions.
+    */
+    cut(from, to = this.size) {
+        if (from == 0 && to == this.size)
+            return this;
+        let result = [], size = 0;
+        if (to > from)
+            for (let i = 0, pos = 0; pos < to; i++) {
+                let child = this.content[i], end = pos + child.nodeSize;
+                if (end > from) {
+                    if (pos < from || end > to) {
+                        if (child.isText)
+                            child = child.cut(Math.max(0, from - pos), Math.min(child.text.length, to - pos));
+                        else
+                            child = child.cut(Math.max(0, from - pos - 1), Math.min(child.content.size, to - pos - 1));
+                    }
+                    result.push(child);
+                    size += child.nodeSize;
+                }
+                pos = end;
+            }
+        return new Fragment(result, size);
+    }
+    /**
+    @internal
+    */
+    cutByIndex(from, to) {
+        if (from == to)
+            return Fragment.empty;
+        if (from == 0 && to == this.content.length)
+            return this;
+        return new Fragment(this.content.slice(from, to));
+    }
+    /**
+    Create a new fragment in which the node at the given index is
+    replaced by the given node.
+    */
+    replaceChild(index, node) {
+        let current = this.content[index];
+        if (current == node)
+            return this;
+        let copy = this.content.slice();
+        let size = this.size + node.nodeSize - current.nodeSize;
+        copy[index] = node;
+        return new Fragment(copy, size);
+    }
+    /**
+    Create a new fragment by prepending the given node to this
+    fragment.
+    */
+    addToStart(node) {
+        return new Fragment([node].concat(this.content), this.size + node.nodeSize);
+    }
+    /**
+    Create a new fragment by appending the given node to this
+    fragment.
+    */
+    addToEnd(node) {
+        return new Fragment(this.content.concat(node), this.size + node.nodeSize);
+    }
+    /**
+    Compare this fragment to another one.
+    */
+    eq(other) {
+        if (this.content.length != other.content.length)
+            return false;
+        for (let i = 0; i < this.content.length; i++)
+            if (!this.content[i].eq(other.content[i]))
+                return false;
+        return true;
+    }
+    /**
+    The first child of the fragment, or `null` if it is empty.
+    */
+    get firstChild() { return this.content.length ? this.content[0] : null; }
+    /**
+    The last child of the fragment, or `null` if it is empty.
+    */
+    get lastChild() { return this.content.length ? this.content[this.content.length - 1] : null; }
+    /**
+    The number of child nodes in this fragment.
+    */
+    get childCount() { return this.content.length; }
+    /**
+    Get the child node at the given index. Raise an error when the
+    index is out of range.
+    */
+    child(index) {
+        let found = this.content[index];
+        if (!found)
+            throw new RangeError("Index " + index + " out of range for " + this);
+        return found;
+    }
+    /**
+    Get the child node at the given index, if it exists.
+    */
+    maybeChild(index) {
+        return this.content[index] || null;
+    }
+    /**
+    Call `f` for every child node, passing the node, its offset
+    into this parent node, and its index.
+    */
+    forEach(f) {
+        for (let i = 0, p = 0; i < this.content.length; i++) {
+            let child = this.content[i];
+            f(child, p, i);
+            p += child.nodeSize;
+        }
+    }
+    /**
+    Find the first position at which this fragment and another
+    fragment differ, or `null` if they are the same.
+    */
+    findDiffStart(other, pos = 0) {
+        return findDiffStart(this, other, pos);
+    }
+    /**
+    Find the first position, searching from the end, at which this
+    fragment and the given fragment differ, or `null` if they are
+    the same. Since this position will not be the same in both
+    nodes, an object with two separate positions is returned.
+    */
+    findDiffEnd(other, pos = this.size, otherPos = other.size) {
+        return findDiffEnd(this, other, pos, otherPos);
+    }
+    /**
+    Find the index and inner offset corresponding to a given relative
+    position in this fragment. The result object will be reused
+    (overwritten) the next time the function is called. @internal
+    */
+    findIndex(pos) {
+        if (pos == 0)
+            return retIndex(0, pos);
+        if (pos == this.size)
+            return retIndex(this.content.length, pos);
+        if (pos > this.size || pos < 0)
+            throw new RangeError(`Position ${pos} outside of fragment (${this})`);
+        for (let i = 0, curPos = 0;; i++) {
+            let cur = this.child(i), end = curPos + cur.nodeSize;
+            if (end >= pos) {
+                if (end == pos)
+                    return retIndex(i + 1, end);
+                return retIndex(i, curPos);
+            }
+            curPos = end;
+        }
+    }
+    /**
+    Return a debugging string that describes this fragment.
+    */
+    toString() { return "<" + this.toStringInner() + ">"; }
+    /**
+    @internal
+    */
+    toStringInner() { return this.content.join(", "); }
+    /**
+    Create a JSON-serializeable representation of this fragment.
+    */
+    toJSON() {
+        return this.content.length ? this.content.map(n => n.toJSON()) : null;
+    }
+    /**
+    Deserialize a fragment from its JSON representation.
+    */
+    static fromJSON(schema, value) {
+        if (!value)
+            return Fragment.empty;
+        if (!Array.isArray(value))
+            throw new RangeError("Invalid input for Fragment.fromJSON");
+        return new Fragment(value.map(schema.nodeFromJSON));
+    }
+    /**
+    Build a fragment from an array of nodes. Ensures that adjacent
+    text nodes with the same marks are joined together.
+    */
+    static fromArray(array) {
+        if (!array.length)
+            return Fragment.empty;
+        let joined, size = 0;
+        for (let i = 0; i < array.length; i++) {
+            let node = array[i];
+            size += node.nodeSize;
+            if (i && node.isText && array[i - 1].sameMarkup(node)) {
+                if (!joined)
+                    joined = array.slice(0, i);
+                joined[joined.length - 1] = node
+                    .withText(joined[joined.length - 1].text + node.text);
+            }
+            else if (joined) {
+                joined.push(node);
+            }
+        }
+        return new Fragment(joined || array, size);
+    }
+    /**
+    Create a fragment from something that can be interpreted as a
+    set of nodes. For `null`, it returns the empty fragment. For a
+    fragment, the fragment itself. For a node or array of nodes, a
+    fragment containing those nodes.
+    */
+    static from(nodes) {
+        if (!nodes)
+            return Fragment.empty;
+        if (nodes instanceof Fragment)
+            return nodes;
+        if (Array.isArray(nodes))
+            return this.fromArray(nodes);
+        if (nodes.attrs)
+            return new Fragment([nodes], nodes.nodeSize);
+        throw new RangeError("Can not convert " + nodes + " to a Fragment" +
+            (nodes.nodesBetween ? " (looks like multiple versions of prosemirror-model were loaded)" : ""));
+    }
+}
+/**
+An empty fragment. Intended to be reused whenever a node doesn't
+contain anything (rather than allocating a new empty fragment for
+each leaf node).
+*/
+Fragment.empty = new Fragment([], 0);
+const found = { index: 0, offset: 0 };
+function retIndex(index, offset) {
+    found.index = index;
+    found.offset = offset;
+    return found;
+}
+
+function compareDeep(a, b) {
+    if (a === b)
+        return true;
+    if (!(a && typeof a == "object") ||
+        !(b && typeof b == "object"))
+        return false;
+    let array = Array.isArray(a);
+    if (Array.isArray(b) != array)
+        return false;
+    if (array) {
+        if (a.length != b.length)
+            return false;
+        for (let i = 0; i < a.length; i++)
+            if (!compareDeep(a[i], b[i]))
+                return false;
+    }
+    else {
+        for (let p in a)
+            if (!(p in b) || !compareDeep(a[p], b[p]))
+                return false;
+        for (let p in b)
+            if (!(p in a))
+                return false;
+    }
+    return true;
+}
+
+/**
+A mark is a piece of information that can be attached to a node,
+such as it being emphasized, in code font, or a link. It has a
+type and optionally a set of attributes that provide further
+information (such as the target of the link). Marks are created
+through a `Schema`, which controls which types exist and which
+attributes they have.
+*/
+class Mark {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The type of this mark.
+    */
+    type, 
+    /**
+    The attributes associated with this mark.
+    */
+    attrs) {
+        this.type = type;
+        this.attrs = attrs;
+    }
+    /**
+    Given a set of marks, create a new set which contains this one as
+    well, in the right position. If this mark is already in the set,
+    the set itself is returned. If any marks that are set to be
+    [exclusive](https://prosemirror.net/docs/ref/#model.MarkSpec.excludes) with this mark are present,
+    those are replaced by this one.
+    */
+    addToSet(set) {
+        let copy, placed = false;
+        for (let i = 0; i < set.length; i++) {
+            let other = set[i];
+            if (this.eq(other))
+                return set;
+            if (this.type.excludes(other.type)) {
+                if (!copy)
+                    copy = set.slice(0, i);
+            }
+            else if (other.type.excludes(this.type)) {
+                return set;
+            }
+            else {
+                if (!placed && other.type.rank > this.type.rank) {
+                    if (!copy)
+                        copy = set.slice(0, i);
+                    copy.push(this);
+                    placed = true;
+                }
+                if (copy)
+                    copy.push(other);
+            }
+        }
+        if (!copy)
+            copy = set.slice();
+        if (!placed)
+            copy.push(this);
+        return copy;
+    }
+    /**
+    Remove this mark from the given set, returning a new set. If this
+    mark is not in the set, the set itself is returned.
+    */
+    removeFromSet(set) {
+        for (let i = 0; i < set.length; i++)
+            if (this.eq(set[i]))
+                return set.slice(0, i).concat(set.slice(i + 1));
+        return set;
+    }
+    /**
+    Test whether this mark is in the given set of marks.
+    */
+    isInSet(set) {
+        for (let i = 0; i < set.length; i++)
+            if (this.eq(set[i]))
+                return true;
+        return false;
+    }
+    /**
+    Test whether this mark has the same type and attributes as
+    another mark.
+    */
+    eq(other) {
+        return this == other ||
+            (this.type == other.type && compareDeep(this.attrs, other.attrs));
+    }
+    /**
+    Convert this mark to a JSON-serializeable representation.
+    */
+    toJSON() {
+        let obj = { type: this.type.name };
+        for (let _ in this.attrs) {
+            obj.attrs = this.attrs;
+            break;
+        }
+        return obj;
+    }
+    /**
+    Deserialize a mark from JSON.
+    */
+    static fromJSON(schema, json) {
+        if (!json)
+            throw new RangeError("Invalid input for Mark.fromJSON");
+        let type = schema.marks[json.type];
+        if (!type)
+            throw new RangeError(`There is no mark type ${json.type} in this schema`);
+        let mark = type.create(json.attrs);
+        type.checkAttrs(mark.attrs);
+        return mark;
+    }
+    /**
+    Test whether two sets of marks are identical.
+    */
+    static sameSet(a, b) {
+        if (a == b)
+            return true;
+        if (a.length != b.length)
+            return false;
+        for (let i = 0; i < a.length; i++)
+            if (!a[i].eq(b[i]))
+                return false;
+        return true;
+    }
+    /**
+    Create a properly sorted mark set from null, a single mark, or an
+    unsorted array of marks.
+    */
+    static setFrom(marks) {
+        if (!marks || Array.isArray(marks) && marks.length == 0)
+            return Mark.none;
+        if (marks instanceof Mark)
+            return [marks];
+        let copy = marks.slice();
+        copy.sort((a, b) => a.type.rank - b.type.rank);
+        return copy;
+    }
+}
+/**
+The empty set of marks.
+*/
+Mark.none = [];
+
+/**
+Error type raised by [`Node.replace`](https://prosemirror.net/docs/ref/#model.Node.replace) when
+given an invalid replacement.
+*/
+class ReplaceError extends Error {
+}
+/*
+ReplaceError = function(this: any, message: string) {
+  let err = Error.call(this, message)
+  ;(err as any).__proto__ = ReplaceError.prototype
+  return err
+} as any
+
+ReplaceError.prototype = Object.create(Error.prototype)
+ReplaceError.prototype.constructor = ReplaceError
+ReplaceError.prototype.name = "ReplaceError"
+*/
+/**
+A slice represents a piece cut out of a larger document. It
+stores not only a fragment, but also the depth up to which nodes on
+both side are ‘open’ (cut through).
+*/
+class Slice {
+    /**
+    Create a slice. When specifying a non-zero open depth, you must
+    make sure that there are nodes of at least that depth at the
+    appropriate side of the fragment—i.e. if the fragment is an
+    empty paragraph node, `openStart` and `openEnd` can't be greater
+    than 1.
+    
+    It is not necessary for the content of open nodes to conform to
+    the schema's content constraints, though it should be a valid
+    start/end/middle for such a node, depending on which sides are
+    open.
+    */
+    constructor(
+    /**
+    The slice's content.
+    */
+    content, 
+    /**
+    The open depth at the start of the fragment.
+    */
+    openStart, 
+    /**
+    The open depth at the end.
+    */
+    openEnd) {
+        this.content = content;
+        this.openStart = openStart;
+        this.openEnd = openEnd;
+    }
+    /**
+    The size this slice would add when inserted into a document.
+    */
+    get size() {
+        return this.content.size - this.openStart - this.openEnd;
+    }
+    /**
+    @internal
+    */
+    insertAt(pos, fragment) {
+        let content = insertInto(this.content, pos + this.openStart, fragment);
+        return content && new Slice(content, this.openStart, this.openEnd);
+    }
+    /**
+    @internal
+    */
+    removeBetween(from, to) {
+        return new Slice(removeRange(this.content, from + this.openStart, to + this.openStart), this.openStart, this.openEnd);
+    }
+    /**
+    Tests whether this slice is equal to another slice.
+    */
+    eq(other) {
+        return this.content.eq(other.content) && this.openStart == other.openStart && this.openEnd == other.openEnd;
+    }
+    /**
+    @internal
+    */
+    toString() {
+        return this.content + "(" + this.openStart + "," + this.openEnd + ")";
+    }
+    /**
+    Convert a slice to a JSON-serializable representation.
+    */
+    toJSON() {
+        if (!this.content.size)
+            return null;
+        let json = { content: this.content.toJSON() };
+        if (this.openStart > 0)
+            json.openStart = this.openStart;
+        if (this.openEnd > 0)
+            json.openEnd = this.openEnd;
+        return json;
+    }
+    /**
+    Deserialize a slice from its JSON representation.
+    */
+    static fromJSON(schema, json) {
+        if (!json)
+            return Slice.empty;
+        let openStart = json.openStart || 0, openEnd = json.openEnd || 0;
+        if (typeof openStart != "number" || typeof openEnd != "number")
+            throw new RangeError("Invalid input for Slice.fromJSON");
+        return new Slice(Fragment.fromJSON(schema, json.content), openStart, openEnd);
+    }
+    /**
+    Create a slice from a fragment by taking the maximum possible
+    open value on both side of the fragment.
+    */
+    static maxOpen(fragment, openIsolating = true) {
+        let openStart = 0, openEnd = 0;
+        for (let n = fragment.firstChild; n && !n.isLeaf && (openIsolating || !n.type.spec.isolating); n = n.firstChild)
+            openStart++;
+        for (let n = fragment.lastChild; n && !n.isLeaf && (openIsolating || !n.type.spec.isolating); n = n.lastChild)
+            openEnd++;
+        return new Slice(fragment, openStart, openEnd);
+    }
+}
+/**
+The empty slice.
+*/
+Slice.empty = new Slice(Fragment.empty, 0, 0);
+function removeRange(content, from, to) {
+    let { index, offset } = content.findIndex(from), child = content.maybeChild(index);
+    let { index: indexTo, offset: offsetTo } = content.findIndex(to);
+    if (offset == from || child.isText) {
+        if (offsetTo != to && !content.child(indexTo).isText)
+            throw new RangeError("Removing non-flat range");
+        return content.cut(0, from).append(content.cut(to));
+    }
+    if (index != indexTo)
+        throw new RangeError("Removing non-flat range");
+    return content.replaceChild(index, child.copy(removeRange(child.content, from - offset - 1, to - offset - 1)));
+}
+function insertInto(content, dist, insert, parent) {
+    let { index, offset } = content.findIndex(dist), child = content.maybeChild(index);
+    if (offset == dist || child.isText) {
+        if (parent && !parent.canReplace(index, index, insert))
+            return null;
+        return content.cut(0, dist).append(insert).append(content.cut(dist));
+    }
+    let inner = insertInto(child.content, dist - offset - 1, insert, child);
+    return inner && content.replaceChild(index, child.copy(inner));
+}
+function replace($from, $to, slice) {
+    if (slice.openStart > $from.depth)
+        throw new ReplaceError("Inserted content deeper than insertion position");
+    if ($from.depth - slice.openStart != $to.depth - slice.openEnd)
+        throw new ReplaceError("Inconsistent open depths");
+    return replaceOuter($from, $to, slice, 0);
+}
+function replaceOuter($from, $to, slice, depth) {
+    let index = $from.index(depth), node = $from.node(depth);
+    if (index == $to.index(depth) && depth < $from.depth - slice.openStart) {
+        let inner = replaceOuter($from, $to, slice, depth + 1);
+        return node.copy(node.content.replaceChild(index, inner));
+    }
+    else if (!slice.content.size) {
+        return close(node, replaceTwoWay($from, $to, depth));
+    }
+    else if (!slice.openStart && !slice.openEnd && $from.depth == depth && $to.depth == depth) { // Simple, flat case
+        let parent = $from.parent, content = parent.content;
+        return close(parent, content.cut(0, $from.parentOffset).append(slice.content).append(content.cut($to.parentOffset)));
+    }
+    else {
+        let { start, end } = prepareSliceForReplace(slice, $from);
+        return close(node, replaceThreeWay($from, start, end, $to, depth));
+    }
+}
+function checkJoin(main, sub) {
+    if (!sub.type.compatibleContent(main.type))
+        throw new ReplaceError("Cannot join " + sub.type.name + " onto " + main.type.name);
+}
+function joinable($before, $after, depth) {
+    let node = $before.node(depth);
+    checkJoin(node, $after.node(depth));
+    return node;
+}
+function addNode(child, target) {
+    let last = target.length - 1;
+    if (last >= 0 && child.isText && child.sameMarkup(target[last]))
+        target[last] = child.withText(target[last].text + child.text);
+    else
+        target.push(child);
+}
+function addRange($start, $end, depth, target) {
+    let node = ($end || $start).node(depth);
+    let startIndex = 0, endIndex = $end ? $end.index(depth) : node.childCount;
+    if ($start) {
+        startIndex = $start.index(depth);
+        if ($start.depth > depth) {
+            startIndex++;
+        }
+        else if ($start.textOffset) {
+            addNode($start.nodeAfter, target);
+            startIndex++;
+        }
+    }
+    for (let i = startIndex; i < endIndex; i++)
+        addNode(node.child(i), target);
+    if ($end && $end.depth == depth && $end.textOffset)
+        addNode($end.nodeBefore, target);
+}
+function close(node, content) {
+    node.type.checkContent(content);
+    return node.copy(content);
+}
+function replaceThreeWay($from, $start, $end, $to, depth) {
+    let openStart = $from.depth > depth && joinable($from, $start, depth + 1);
+    let openEnd = $to.depth > depth && joinable($end, $to, depth + 1);
+    let content = [];
+    addRange(null, $from, depth, content);
+    if (openStart && openEnd && $start.index(depth) == $end.index(depth)) {
+        checkJoin(openStart, openEnd);
+        addNode(close(openStart, replaceThreeWay($from, $start, $end, $to, depth + 1)), content);
+    }
+    else {
+        if (openStart)
+            addNode(close(openStart, replaceTwoWay($from, $start, depth + 1)), content);
+        addRange($start, $end, depth, content);
+        if (openEnd)
+            addNode(close(openEnd, replaceTwoWay($end, $to, depth + 1)), content);
+    }
+    addRange($to, null, depth, content);
+    return new Fragment(content);
+}
+function replaceTwoWay($from, $to, depth) {
+    let content = [];
+    addRange(null, $from, depth, content);
+    if ($from.depth > depth) {
+        let type = joinable($from, $to, depth + 1);
+        addNode(close(type, replaceTwoWay($from, $to, depth + 1)), content);
+    }
+    addRange($to, null, depth, content);
+    return new Fragment(content);
+}
+function prepareSliceForReplace(slice, $along) {
+    let extra = $along.depth - slice.openStart, parent = $along.node(extra);
+    let node = parent.copy(slice.content);
+    for (let i = extra - 1; i >= 0; i--)
+        node = $along.node(i).copy(Fragment.from(node));
+    return { start: node.resolveNoCache(slice.openStart + extra),
+        end: node.resolveNoCache(node.content.size - slice.openEnd - extra) };
+}
+
+/**
+You can [_resolve_](https://prosemirror.net/docs/ref/#model.Node.resolve) a position to get more
+information about it. Objects of this class represent such a
+resolved position, providing various pieces of context
+information, and some helper methods.
+
+Throughout this interface, methods that take an optional `depth`
+parameter will interpret undefined as `this.depth` and negative
+numbers as `this.depth + value`.
+*/
+class ResolvedPos {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The position that was resolved.
+    */
+    pos, 
+    /**
+    @internal
+    */
+    path, 
+    /**
+    The offset this position has into its parent node.
+    */
+    parentOffset) {
+        this.pos = pos;
+        this.path = path;
+        this.parentOffset = parentOffset;
+        this.depth = path.length / 3 - 1;
+    }
+    /**
+    @internal
+    */
+    resolveDepth(val) {
+        if (val == null)
+            return this.depth;
+        if (val < 0)
+            return this.depth + val;
+        return val;
+    }
+    /**
+    The parent node that the position points into. Note that even if
+    a position points into a text node, that node is not considered
+    the parent—text nodes are ‘flat’ in this model, and have no content.
+    */
+    get parent() { return this.node(this.depth); }
+    /**
+    The root node in which the position was resolved.
+    */
+    get doc() { return this.node(0); }
+    /**
+    The ancestor node at the given level. `p.node(p.depth)` is the
+    same as `p.parent`.
+    */
+    node(depth) { return this.path[this.resolveDepth(depth) * 3]; }
+    /**
+    The index into the ancestor at the given level. If this points
+    at the 3rd node in the 2nd paragraph on the top level, for
+    example, `p.index(0)` is 1 and `p.index(1)` is 2.
+    */
+    index(depth) { return this.path[this.resolveDepth(depth) * 3 + 1]; }
+    /**
+    The index pointing after this position into the ancestor at the
+    given level.
+    */
+    indexAfter(depth) {
+        depth = this.resolveDepth(depth);
+        return this.index(depth) + (depth == this.depth && !this.textOffset ? 0 : 1);
+    }
+    /**
+    The (absolute) position at the start of the node at the given
+    level.
+    */
+    start(depth) {
+        depth = this.resolveDepth(depth);
+        return depth == 0 ? 0 : this.path[depth * 3 - 1] + 1;
+    }
+    /**
+    The (absolute) position at the end of the node at the given
+    level.
+    */
+    end(depth) {
+        depth = this.resolveDepth(depth);
+        return this.start(depth) + this.node(depth).content.size;
+    }
+    /**
+    The (absolute) position directly before the wrapping node at the
+    given level, or, when `depth` is `this.depth + 1`, the original
+    position.
+    */
+    before(depth) {
+        depth = this.resolveDepth(depth);
+        if (!depth)
+            throw new RangeError("There is no position before the top-level node");
+        return depth == this.depth + 1 ? this.pos : this.path[depth * 3 - 1];
+    }
+    /**
+    The (absolute) position directly after the wrapping node at the
+    given level, or the original position when `depth` is `this.depth + 1`.
+    */
+    after(depth) {
+        depth = this.resolveDepth(depth);
+        if (!depth)
+            throw new RangeError("There is no position after the top-level node");
+        return depth == this.depth + 1 ? this.pos : this.path[depth * 3 - 1] + this.path[depth * 3].nodeSize;
+    }
+    /**
+    When this position points into a text node, this returns the
+    distance between the position and the start of the text node.
+    Will be zero for positions that point between nodes.
+    */
+    get textOffset() { return this.pos - this.path[this.path.length - 1]; }
+    /**
+    Get the node directly after the position, if any. If the position
+    points into a text node, only the part of that node after the
+    position is returned.
+    */
+    get nodeAfter() {
+        let parent = this.parent, index = this.index(this.depth);
+        if (index == parent.childCount)
+            return null;
+        let dOff = this.pos - this.path[this.path.length - 1], child = parent.child(index);
+        return dOff ? parent.child(index).cut(dOff) : child;
+    }
+    /**
+    Get the node directly before the position, if any. If the
+    position points into a text node, only the part of that node
+    before the position is returned.
+    */
+    get nodeBefore() {
+        let index = this.index(this.depth);
+        let dOff = this.pos - this.path[this.path.length - 1];
+        if (dOff)
+            return this.parent.child(index).cut(0, dOff);
+        return index == 0 ? null : this.parent.child(index - 1);
+    }
+    /**
+    Get the position at the given index in the parent node at the
+    given depth (which defaults to `this.depth`).
+    */
+    posAtIndex(index, depth) {
+        depth = this.resolveDepth(depth);
+        let node = this.path[depth * 3], pos = depth == 0 ? 0 : this.path[depth * 3 - 1] + 1;
+        for (let i = 0; i < index; i++)
+            pos += node.child(i).nodeSize;
+        return pos;
+    }
+    /**
+    Get the marks at this position, factoring in the surrounding
+    marks' [`inclusive`](https://prosemirror.net/docs/ref/#model.MarkSpec.inclusive) property. If the
+    position is at the start of a non-empty node, the marks of the
+    node after it (if any) are returned.
+    */
+    marks() {
+        let parent = this.parent, index = this.index();
+        // In an empty parent, return the empty array
+        if (parent.content.size == 0)
+            return Mark.none;
+        // When inside a text node, just return the text node's marks
+        if (this.textOffset)
+            return parent.child(index).marks;
+        let main = parent.maybeChild(index - 1), other = parent.maybeChild(index);
+        // If the `after` flag is true of there is no node before, make
+        // the node after this position the main reference.
+        if (!main) {
+            let tmp = main;
+            main = other;
+            other = tmp;
+        }
+        // Use all marks in the main node, except those that have
+        // `inclusive` set to false and are not present in the other node.
+        let marks = main.marks;
+        for (var i = 0; i < marks.length; i++)
+            if (marks[i].type.spec.inclusive === false && (!other || !marks[i].isInSet(other.marks)))
+                marks = marks[i--].removeFromSet(marks);
+        return marks;
+    }
+    /**
+    Get the marks after the current position, if any, except those
+    that are non-inclusive and not present at position `$end`. This
+    is mostly useful for getting the set of marks to preserve after a
+    deletion. Will return `null` if this position is at the end of
+    its parent node or its parent node isn't a textblock (in which
+    case no marks should be preserved).
+    */
+    marksAcross($end) {
+        let after = this.parent.maybeChild(this.index());
+        if (!after || !after.isInline)
+            return null;
+        let marks = after.marks, next = $end.parent.maybeChild($end.index());
+        for (var i = 0; i < marks.length; i++)
+            if (marks[i].type.spec.inclusive === false && (!next || !marks[i].isInSet(next.marks)))
+                marks = marks[i--].removeFromSet(marks);
+        return marks;
+    }
+    /**
+    The depth up to which this position and the given (non-resolved)
+    position share the same parent nodes.
+    */
+    sharedDepth(pos) {
+        for (let depth = this.depth; depth > 0; depth--)
+            if (this.start(depth) <= pos && this.end(depth) >= pos)
+                return depth;
+        return 0;
+    }
+    /**
+    Returns a range based on the place where this position and the
+    given position diverge around block content. If both point into
+    the same textblock, for example, a range around that textblock
+    will be returned. If they point into different blocks, the range
+    around those blocks in their shared ancestor is returned. You can
+    pass in an optional predicate that will be called with a parent
+    node to see if a range into that parent is acceptable.
+    */
+    blockRange(other = this, pred) {
+        if (other.pos < this.pos)
+            return other.blockRange(this);
+        for (let d = this.depth - (this.parent.inlineContent || this.pos == other.pos ? 1 : 0); d >= 0; d--)
+            if (other.pos <= this.end(d) && (!pred || pred(this.node(d))))
+                return new NodeRange(this, other, d);
+        return null;
+    }
+    /**
+    Query whether the given position shares the same parent node.
+    */
+    sameParent(other) {
+        return this.pos - this.parentOffset == other.pos - other.parentOffset;
+    }
+    /**
+    Return the greater of this and the given position.
+    */
+    max(other) {
+        return other.pos > this.pos ? other : this;
+    }
+    /**
+    Return the smaller of this and the given position.
+    */
+    min(other) {
+        return other.pos < this.pos ? other : this;
+    }
+    /**
+    @internal
+    */
+    toString() {
+        let str = "";
+        for (let i = 1; i <= this.depth; i++)
+            str += (str ? "/" : "") + this.node(i).type.name + "_" + this.index(i - 1);
+        return str + ":" + this.parentOffset;
+    }
+    /**
+    @internal
+    */
+    static resolve(doc, pos) {
+        if (!(pos >= 0 && pos <= doc.content.size))
+            throw new RangeError("Position " + pos + " out of range");
+        let path = [];
+        let start = 0, parentOffset = pos;
+        for (let node = doc;;) {
+            let { index, offset } = node.content.findIndex(parentOffset);
+            let rem = parentOffset - offset;
+            path.push(node, index, start + offset);
+            if (!rem)
+                break;
+            node = node.child(index);
+            if (node.isText)
+                break;
+            parentOffset = rem - 1;
+            start += offset + 1;
+        }
+        return new ResolvedPos(pos, path, parentOffset);
+    }
+    /**
+    @internal
+    */
+    static resolveCached(doc, pos) {
+        let cache = resolveCache.get(doc);
+        if (cache) {
+            for (let i = 0; i < cache.elts.length; i++) {
+                let elt = cache.elts[i];
+                if (elt.pos == pos)
+                    return elt;
+            }
+        }
+        else {
+            resolveCache.set(doc, cache = new ResolveCache);
+        }
+        let result = cache.elts[cache.i] = ResolvedPos.resolve(doc, pos);
+        cache.i = (cache.i + 1) % resolveCacheSize;
+        return result;
+    }
+}
+class ResolveCache {
+    constructor() {
+        this.elts = [];
+        this.i = 0;
+    }
+}
+const resolveCacheSize = 12, resolveCache = new WeakMap();
+/**
+Represents a flat range of content, i.e. one that starts and
+ends in the same node.
+*/
+class NodeRange {
+    /**
+    Construct a node range. `$from` and `$to` should point into the
+    same node until at least the given `depth`, since a node range
+    denotes an adjacent set of nodes in a single parent node.
+    */
+    constructor(
+    /**
+    A resolved position along the start of the content. May have a
+    `depth` greater than this object's `depth` property, since
+    these are the positions that were used to compute the range,
+    not re-resolved positions directly at its boundaries.
+    */
+    $from, 
+    /**
+    A position along the end of the content. See
+    caveat for [`$from`](https://prosemirror.net/docs/ref/#model.NodeRange.$from).
+    */
+    $to, 
+    /**
+    The depth of the node that this range points into.
+    */
+    depth) {
+        this.$from = $from;
+        this.$to = $to;
+        this.depth = depth;
+    }
+    /**
+    The position at the start of the range.
+    */
+    get start() { return this.$from.before(this.depth + 1); }
+    /**
+    The position at the end of the range.
+    */
+    get end() { return this.$to.after(this.depth + 1); }
+    /**
+    The parent node that the range points into.
+    */
+    get parent() { return this.$from.node(this.depth); }
+    /**
+    The start index of the range in the parent node.
+    */
+    get startIndex() { return this.$from.index(this.depth); }
+    /**
+    The end index of the range in the parent node.
+    */
+    get endIndex() { return this.$to.indexAfter(this.depth); }
+}
+
+const emptyAttrs = Object.create(null);
+/**
+This class represents a node in the tree that makes up a
+ProseMirror document. So a document is an instance of `Node`, with
+children that are also instances of `Node`.
+
+Nodes are persistent data structures. Instead of changing them, you
+create new ones with the content you want. Old ones keep pointing
+at the old document shape. This is made cheaper by sharing
+structure between the old and new data as much as possible, which a
+tree shape like this (without back pointers) makes easy.
+
+**Do not** directly mutate the properties of a `Node` object. See
+[the guide](https://prosemirror.net/docs/guide/#doc) for more information.
+*/
+class Node {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The type of node that this is.
+    */
+    type, 
+    /**
+    An object mapping attribute names to values. The kind of
+    attributes allowed and required are
+    [determined](https://prosemirror.net/docs/ref/#model.NodeSpec.attrs) by the node type.
+    */
+    attrs, 
+    // A fragment holding the node's children.
+    content, 
+    /**
+    The marks (things like whether it is emphasized or part of a
+    link) applied to this node.
+    */
+    marks = Mark.none) {
+        this.type = type;
+        this.attrs = attrs;
+        this.marks = marks;
+        this.content = content || Fragment.empty;
+    }
+    /**
+    The array of this node's child nodes.
+    */
+    get children() { return this.content.content; }
+    /**
+    The size of this node, as defined by the integer-based [indexing
+    scheme](https://prosemirror.net/docs/guide/#doc.indexing). For text nodes, this is the
+    amount of characters. For other leaf nodes, it is one. For
+    non-leaf nodes, it is the size of the content plus two (the
+    start and end token).
+    */
+    get nodeSize() { return this.isLeaf ? 1 : 2 + this.content.size; }
+    /**
+    The number of children that the node has.
+    */
+    get childCount() { return this.content.childCount; }
+    /**
+    Get the child node at the given index. Raises an error when the
+    index is out of range.
+    */
+    child(index) { return this.content.child(index); }
+    /**
+    Get the child node at the given index, if it exists.
+    */
+    maybeChild(index) { return this.content.maybeChild(index); }
+    /**
+    Call `f` for every child node, passing the node, its offset
+    into this parent node, and its index.
+    */
+    forEach(f) { this.content.forEach(f); }
+    /**
+    Invoke a callback for all descendant nodes recursively between
+    the given two positions that are relative to start of this
+    node's content. The callback is invoked with the node, its
+    position relative to the original node (method receiver),
+    its parent node, and its child index. When the callback returns
+    false for a given node, that node's children will not be
+    recursed over. The last parameter can be used to specify a
+    starting position to count from.
+    */
+    nodesBetween(from, to, f, startPos = 0) {
+        this.content.nodesBetween(from, to, f, startPos, this);
+    }
+    /**
+    Call the given callback for every descendant node. Doesn't
+    descend into a node when the callback returns `false`.
+    */
+    descendants(f) {
+        this.nodesBetween(0, this.content.size, f);
+    }
+    /**
+    Concatenates all the text nodes found in this fragment and its
+    children.
+    */
+    get textContent() {
+        return (this.isLeaf && this.type.spec.leafText)
+            ? this.type.spec.leafText(this)
+            : this.textBetween(0, this.content.size, "");
+    }
+    /**
+    Get all text between positions `from` and `to`. When
+    `blockSeparator` is given, it will be inserted to separate text
+    from different block nodes. If `leafText` is given, it'll be
+    inserted for every non-text leaf node encountered, otherwise
+    [`leafText`](https://prosemirror.net/docs/ref/#model.NodeSpec.leafText) will be used.
+    */
+    textBetween(from, to, blockSeparator, leafText) {
+        return this.content.textBetween(from, to, blockSeparator, leafText);
+    }
+    /**
+    Returns this node's first child, or `null` if there are no
+    children.
+    */
+    get firstChild() { return this.content.firstChild; }
+    /**
+    Returns this node's last child, or `null` if there are no
+    children.
+    */
+    get lastChild() { return this.content.lastChild; }
+    /**
+    Test whether two nodes represent the same piece of document.
+    */
+    eq(other) {
+        return this == other || (this.sameMarkup(other) && this.content.eq(other.content));
+    }
+    /**
+    Compare the markup (type, attributes, and marks) of this node to
+    those of another. Returns `true` if both have the same markup.
+    */
+    sameMarkup(other) {
+        return this.hasMarkup(other.type, other.attrs, other.marks);
+    }
+    /**
+    Check whether this node's markup correspond to the given type,
+    attributes, and marks.
+    */
+    hasMarkup(type, attrs, marks) {
+        return this.type == type &&
+            compareDeep(this.attrs, attrs || type.defaultAttrs || emptyAttrs) &&
+            Mark.sameSet(this.marks, marks || Mark.none);
+    }
+    /**
+    Create a new node with the same markup as this node, containing
+    the given content (or empty, if no content is given).
+    */
+    copy(content = null) {
+        if (content == this.content)
+            return this;
+        return new Node(this.type, this.attrs, content, this.marks);
+    }
+    /**
+    Create a copy of this node, with the given set of marks instead
+    of the node's own marks.
+    */
+    mark(marks) {
+        return marks == this.marks ? this : new Node(this.type, this.attrs, this.content, marks);
+    }
+    /**
+    Create a copy of this node with only the content between the
+    given positions. If `to` is not given, it defaults to the end of
+    the node.
+    */
+    cut(from, to = this.content.size) {
+        if (from == 0 && to == this.content.size)
+            return this;
+        return this.copy(this.content.cut(from, to));
+    }
+    /**
+    Cut out the part of the document between the given positions, and
+    return it as a `Slice` object.
+    */
+    slice(from, to = this.content.size, includeParents = false) {
+        if (from == to)
+            return Slice.empty;
+        let $from = this.resolve(from), $to = this.resolve(to);
+        let depth = includeParents ? 0 : $from.sharedDepth(to);
+        let start = $from.start(depth), node = $from.node(depth);
+        let content = node.content.cut($from.pos - start, $to.pos - start);
+        return new Slice(content, $from.depth - depth, $to.depth - depth);
+    }
+    /**
+    Replace the part of the document between the given positions with
+    the given slice. The slice must 'fit', meaning its open sides
+    must be able to connect to the surrounding content, and its
+    content nodes must be valid children for the node they are placed
+    into. If any of this is violated, an error of type
+    [`ReplaceError`](https://prosemirror.net/docs/ref/#model.ReplaceError) is thrown.
+    */
+    replace(from, to, slice) {
+        return replace(this.resolve(from), this.resolve(to), slice);
+    }
+    /**
+    Find the node directly after the given position.
+    */
+    nodeAt(pos) {
+        for (let node = this;;) {
+            let { index, offset } = node.content.findIndex(pos);
+            node = node.maybeChild(index);
+            if (!node)
+                return null;
+            if (offset == pos || node.isText)
+                return node;
+            pos -= offset + 1;
+        }
+    }
+    /**
+    Find the (direct) child node after the given offset, if any,
+    and return it along with its index and offset relative to this
+    node.
+    */
+    childAfter(pos) {
+        let { index, offset } = this.content.findIndex(pos);
+        return { node: this.content.maybeChild(index), index, offset };
+    }
+    /**
+    Find the (direct) child node before the given offset, if any,
+    and return it along with its index and offset relative to this
+    node.
+    */
+    childBefore(pos) {
+        if (pos == 0)
+            return { node: null, index: 0, offset: 0 };
+        let { index, offset } = this.content.findIndex(pos);
+        if (offset < pos)
+            return { node: this.content.child(index), index, offset };
+        let node = this.content.child(index - 1);
+        return { node, index: index - 1, offset: offset - node.nodeSize };
+    }
+    /**
+    Resolve the given position in the document, returning an
+    [object](https://prosemirror.net/docs/ref/#model.ResolvedPos) with information about its context.
+    */
+    resolve(pos) { return ResolvedPos.resolveCached(this, pos); }
+    /**
+    @internal
+    */
+    resolveNoCache(pos) { return ResolvedPos.resolve(this, pos); }
+    /**
+    Test whether a given mark or mark type occurs in this document
+    between the two given positions.
+    */
+    rangeHasMark(from, to, type) {
+        let found = false;
+        if (to > from)
+            this.nodesBetween(from, to, node => {
+                if (type.isInSet(node.marks))
+                    found = true;
+                return !found;
+            });
+        return found;
+    }
+    /**
+    True when this is a block (non-inline node)
+    */
+    get isBlock() { return this.type.isBlock; }
+    /**
+    True when this is a textblock node, a block node with inline
+    content.
+    */
+    get isTextblock() { return this.type.isTextblock; }
+    /**
+    True when this node allows inline content.
+    */
+    get inlineContent() { return this.type.inlineContent; }
+    /**
+    True when this is an inline node (a text node or a node that can
+    appear among text).
+    */
+    get isInline() { return this.type.isInline; }
+    /**
+    True when this is a text node.
+    */
+    get isText() { return this.type.isText; }
+    /**
+    True when this is a leaf node.
+    */
+    get isLeaf() { return this.type.isLeaf; }
+    /**
+    True when this is an atom, i.e. when it does not have directly
+    editable content. This is usually the same as `isLeaf`, but can
+    be configured with the [`atom` property](https://prosemirror.net/docs/ref/#model.NodeSpec.atom)
+    on a node's spec (typically used when the node is displayed as
+    an uneditable [node view](https://prosemirror.net/docs/ref/#view.NodeView)).
+    */
+    get isAtom() { return this.type.isAtom; }
+    /**
+    Return a string representation of this node for debugging
+    purposes.
+    */
+    toString() {
+        if (this.type.spec.toDebugString)
+            return this.type.spec.toDebugString(this);
+        let name = this.type.name;
+        if (this.content.size)
+            name += "(" + this.content.toStringInner() + ")";
+        return wrapMarks(this.marks, name);
+    }
+    /**
+    Get the content match in this node at the given index.
+    */
+    contentMatchAt(index) {
+        let match = this.type.contentMatch.matchFragment(this.content, 0, index);
+        if (!match)
+            throw new Error("Called contentMatchAt on a node with invalid content");
+        return match;
+    }
+    /**
+    Test whether replacing the range between `from` and `to` (by
+    child index) with the given replacement fragment (which defaults
+    to the empty fragment) would leave the node's content valid. You
+    can optionally pass `start` and `end` indices into the
+    replacement fragment.
+    */
+    canReplace(from, to, replacement = Fragment.empty, start = 0, end = replacement.childCount) {
+        let one = this.contentMatchAt(from).matchFragment(replacement, start, end);
+        let two = one && one.matchFragment(this.content, to);
+        if (!two || !two.validEnd)
+            return false;
+        for (let i = start; i < end; i++)
+            if (!this.type.allowsMarks(replacement.child(i).marks))
+                return false;
+        return true;
+    }
+    /**
+    Test whether replacing the range `from` to `to` (by index) with
+    a node of the given type would leave the node's content valid.
+    */
+    canReplaceWith(from, to, type, marks) {
+        if (marks && !this.type.allowsMarks(marks))
+            return false;
+        let start = this.contentMatchAt(from).matchType(type);
+        let end = start && start.matchFragment(this.content, to);
+        return end ? end.validEnd : false;
+    }
+    /**
+    Test whether the given node's content could be appended to this
+    node. If that node is empty, this will only return true if there
+    is at least one node type that can appear in both nodes (to avoid
+    merging completely incompatible nodes).
+    */
+    canAppend(other) {
+        if (other.content.size)
+            return this.canReplace(this.childCount, this.childCount, other.content);
+        else
+            return this.type.compatibleContent(other.type);
+    }
+    /**
+    Check whether this node and its descendants conform to the
+    schema, and raise an exception when they do not.
+    */
+    check() {
+        this.type.checkContent(this.content);
+        this.type.checkAttrs(this.attrs);
+        let copy = Mark.none;
+        for (let i = 0; i < this.marks.length; i++) {
+            let mark = this.marks[i];
+            mark.type.checkAttrs(mark.attrs);
+            copy = mark.addToSet(copy);
+        }
+        if (!Mark.sameSet(copy, this.marks))
+            throw new RangeError(`Invalid collection of marks for node ${this.type.name}: ${this.marks.map(m => m.type.name)}`);
+        this.content.forEach(node => node.check());
+    }
+    /**
+    Return a JSON-serializeable representation of this node.
+    */
+    toJSON() {
+        let obj = { type: this.type.name };
+        for (let _ in this.attrs) {
+            obj.attrs = this.attrs;
+            break;
+        }
+        if (this.content.size)
+            obj.content = this.content.toJSON();
+        if (this.marks.length)
+            obj.marks = this.marks.map(n => n.toJSON());
+        return obj;
+    }
+    /**
+    Deserialize a node from its JSON representation.
+    */
+    static fromJSON(schema, json) {
+        if (!json)
+            throw new RangeError("Invalid input for Node.fromJSON");
+        let marks = undefined;
+        if (json.marks) {
+            if (!Array.isArray(json.marks))
+                throw new RangeError("Invalid mark data for Node.fromJSON");
+            marks = json.marks.map(schema.markFromJSON);
+        }
+        if (json.type == "text") {
+            if (typeof json.text != "string")
+                throw new RangeError("Invalid text node in JSON");
+            return schema.text(json.text, marks);
+        }
+        let content = Fragment.fromJSON(schema, json.content);
+        let node = schema.nodeType(json.type).create(json.attrs, content, marks);
+        node.type.checkAttrs(node.attrs);
+        return node;
+    }
+}
+Node.prototype.text = undefined;
+class TextNode extends Node {
+    /**
+    @internal
+    */
+    constructor(type, attrs, content, marks) {
+        super(type, attrs, null, marks);
+        if (!content)
+            throw new RangeError("Empty text nodes are not allowed");
+        this.text = content;
+    }
+    toString() {
+        if (this.type.spec.toDebugString)
+            return this.type.spec.toDebugString(this);
+        return wrapMarks(this.marks, JSON.stringify(this.text));
+    }
+    get textContent() { return this.text; }
+    textBetween(from, to) { return this.text.slice(from, to); }
+    get nodeSize() { return this.text.length; }
+    mark(marks) {
+        return marks == this.marks ? this : new TextNode(this.type, this.attrs, this.text, marks);
+    }
+    withText(text) {
+        if (text == this.text)
+            return this;
+        return new TextNode(this.type, this.attrs, text, this.marks);
+    }
+    cut(from = 0, to = this.text.length) {
+        if (from == 0 && to == this.text.length)
+            return this;
+        return this.withText(this.text.slice(from, to));
+    }
+    eq(other) {
+        return this.sameMarkup(other) && this.text == other.text;
+    }
+    toJSON() {
+        let base = super.toJSON();
+        base.text = this.text;
+        return base;
+    }
+}
+function wrapMarks(marks, str) {
+    for (let i = marks.length - 1; i >= 0; i--)
+        str = marks[i].type.name + "(" + str + ")";
+    return str;
+}
+
+/**
+Instances of this class represent a match state of a node type's
+[content expression](https://prosemirror.net/docs/ref/#model.NodeSpec.content), and can be used to
+find out whether further content matches here, and whether a given
+position is a valid end of the node.
+*/
+class ContentMatch {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    True when this match state represents a valid end of the node.
+    */
+    validEnd) {
+        this.validEnd = validEnd;
+        /**
+        @internal
+        */
+        this.next = [];
+        /**
+        @internal
+        */
+        this.wrapCache = [];
+    }
+    /**
+    @internal
+    */
+    static parse(string, nodeTypes) {
+        let stream = new TokenStream(string, nodeTypes);
+        if (stream.next == null)
+            return ContentMatch.empty;
+        let expr = parseExpr(stream);
+        if (stream.next)
+            stream.err("Unexpected trailing text");
+        let match = dfa(nfa(expr));
+        checkForDeadEnds(match, stream);
+        return match;
+    }
+    /**
+    Match a node type, returning a match after that node if
+    successful.
+    */
+    matchType(type) {
+        for (let i = 0; i < this.next.length; i++)
+            if (this.next[i].type == type)
+                return this.next[i].next;
+        return null;
+    }
+    /**
+    Try to match a fragment. Returns the resulting match when
+    successful.
+    */
+    matchFragment(frag, start = 0, end = frag.childCount) {
+        let cur = this;
+        for (let i = start; cur && i < end; i++)
+            cur = cur.matchType(frag.child(i).type);
+        return cur;
+    }
+    /**
+    @internal
+    */
+    get inlineContent() {
+        return this.next.length != 0 && this.next[0].type.isInline;
+    }
+    /**
+    Get the first matching node type at this match position that can
+    be generated.
+    */
+    get defaultType() {
+        for (let i = 0; i < this.next.length; i++) {
+            let { type } = this.next[i];
+            if (!(type.isText || type.hasRequiredAttrs()))
+                return type;
+        }
+        return null;
+    }
+    /**
+    @internal
+    */
+    compatible(other) {
+        for (let i = 0; i < this.next.length; i++)
+            for (let j = 0; j < other.next.length; j++)
+                if (this.next[i].type == other.next[j].type)
+                    return true;
+        return false;
+    }
+    /**
+    Try to match the given fragment, and if that fails, see if it can
+    be made to match by inserting nodes in front of it. When
+    successful, return a fragment of inserted nodes (which may be
+    empty if nothing had to be inserted). When `toEnd` is true, only
+    return a fragment if the resulting match goes to the end of the
+    content expression.
+    */
+    fillBefore(after, toEnd = false, startIndex = 0) {
+        let seen = [this];
+        function search(match, types) {
+            let finished = match.matchFragment(after, startIndex);
+            if (finished && (!toEnd || finished.validEnd))
+                return Fragment.from(types.map(tp => tp.createAndFill()));
+            for (let i = 0; i < match.next.length; i++) {
+                let { type, next } = match.next[i];
+                if (!(type.isText || type.hasRequiredAttrs()) && seen.indexOf(next) == -1) {
+                    seen.push(next);
+                    let found = search(next, types.concat(type));
+                    if (found)
+                        return found;
+                }
+            }
+            return null;
+        }
+        return search(this, []);
+    }
+    /**
+    Find a set of wrapping node types that would allow a node of the
+    given type to appear at this position. The result may be empty
+    (when it fits directly) and will be null when no such wrapping
+    exists.
+    */
+    findWrapping(target) {
+        for (let i = 0; i < this.wrapCache.length; i += 2)
+            if (this.wrapCache[i] == target)
+                return this.wrapCache[i + 1];
+        let computed = this.computeWrapping(target);
+        this.wrapCache.push(target, computed);
+        return computed;
+    }
+    /**
+    @internal
+    */
+    computeWrapping(target) {
+        let seen = Object.create(null), active = [{ match: this, type: null, via: null }];
+        while (active.length) {
+            let current = active.shift(), match = current.match;
+            if (match.matchType(target)) {
+                let result = [];
+                for (let obj = current; obj.type; obj = obj.via)
+                    result.push(obj.type);
+                return result.reverse();
+            }
+            for (let i = 0; i < match.next.length; i++) {
+                let { type, next } = match.next[i];
+                if (!type.isLeaf && !type.hasRequiredAttrs() && !(type.name in seen) && (!current.type || next.validEnd)) {
+                    active.push({ match: type.contentMatch, type, via: current });
+                    seen[type.name] = true;
+                }
+            }
+        }
+        return null;
+    }
+    /**
+    The number of outgoing edges this node has in the finite
+    automaton that describes the content expression.
+    */
+    get edgeCount() {
+        return this.next.length;
+    }
+    /**
+    Get the _n_​th outgoing edge from this node in the finite
+    automaton that describes the content expression.
+    */
+    edge(n) {
+        if (n >= this.next.length)
+            throw new RangeError(`There's no ${n}th edge in this content match`);
+        return this.next[n];
+    }
+    /**
+    @internal
+    */
+    toString() {
+        let seen = [];
+        function scan(m) {
+            seen.push(m);
+            for (let i = 0; i < m.next.length; i++)
+                if (seen.indexOf(m.next[i].next) == -1)
+                    scan(m.next[i].next);
+        }
+        scan(this);
+        return seen.map((m, i) => {
+            let out = i + (m.validEnd ? "*" : " ") + " ";
+            for (let i = 0; i < m.next.length; i++)
+                out += (i ? ", " : "") + m.next[i].type.name + "->" + seen.indexOf(m.next[i].next);
+            return out;
+        }).join("\n");
+    }
+}
+/**
+@internal
+*/
+ContentMatch.empty = new ContentMatch(true);
+class TokenStream {
+    constructor(string, nodeTypes) {
+        this.string = string;
+        this.nodeTypes = nodeTypes;
+        this.inline = null;
+        this.pos = 0;
+        this.tokens = string.split(/\s*(?=\b|\W|$)/);
+        if (this.tokens[this.tokens.length - 1] == "")
+            this.tokens.pop();
+        if (this.tokens[0] == "")
+            this.tokens.shift();
+    }
+    get next() { return this.tokens[this.pos]; }
+    eat(tok) { return this.next == tok && (this.pos++ || true); }
+    err(str) { throw new SyntaxError(str + " (in content expression '" + this.string + "')"); }
+}
+function parseExpr(stream) {
+    let exprs = [];
+    do {
+        exprs.push(parseExprSeq(stream));
+    } while (stream.eat("|"));
+    return exprs.length == 1 ? exprs[0] : { type: "choice", exprs };
+}
+function parseExprSeq(stream) {
+    let exprs = [];
+    do {
+        exprs.push(parseExprSubscript(stream));
+    } while (stream.next && stream.next != ")" && stream.next != "|");
+    return exprs.length == 1 ? exprs[0] : { type: "seq", exprs };
+}
+function parseExprSubscript(stream) {
+    let expr = parseExprAtom(stream);
+    for (;;) {
+        if (stream.eat("+"))
+            expr = { type: "plus", expr };
+        else if (stream.eat("*"))
+            expr = { type: "star", expr };
+        else if (stream.eat("?"))
+            expr = { type: "opt", expr };
+        else if (stream.eat("{"))
+            expr = parseExprRange(stream, expr);
+        else
+            break;
+    }
+    return expr;
+}
+function parseNum(stream) {
+    if (/\D/.test(stream.next))
+        stream.err("Expected number, got '" + stream.next + "'");
+    let result = Number(stream.next);
+    stream.pos++;
+    return result;
+}
+function parseExprRange(stream, expr) {
+    let min = parseNum(stream), max = min;
+    if (stream.eat(",")) {
+        if (stream.next != "}")
+            max = parseNum(stream);
+        else
+            max = -1;
+    }
+    if (!stream.eat("}"))
+        stream.err("Unclosed braced range");
+    return { type: "range", min, max, expr };
+}
+function resolveName(stream, name) {
+    let types = stream.nodeTypes, type = types[name];
+    if (type)
+        return [type];
+    let result = [];
+    for (let typeName in types) {
+        let type = types[typeName];
+        if (type.isInGroup(name))
+            result.push(type);
+    }
+    if (result.length == 0)
+        stream.err("No node type or group '" + name + "' found");
+    return result;
+}
+function parseExprAtom(stream) {
+    if (stream.eat("(")) {
+        let expr = parseExpr(stream);
+        if (!stream.eat(")"))
+            stream.err("Missing closing paren");
+        return expr;
+    }
+    else if (!/\W/.test(stream.next)) {
+        let exprs = resolveName(stream, stream.next).map(type => {
+            if (stream.inline == null)
+                stream.inline = type.isInline;
+            else if (stream.inline != type.isInline)
+                stream.err("Mixing inline and block content");
+            return { type: "name", value: type };
+        });
+        stream.pos++;
+        return exprs.length == 1 ? exprs[0] : { type: "choice", exprs };
+    }
+    else {
+        stream.err("Unexpected token '" + stream.next + "'");
+    }
+}
+// Construct an NFA from an expression as returned by the parser. The
+// NFA is represented as an array of states, which are themselves
+// arrays of edges, which are `{term, to}` objects. The first state is
+// the entry state and the last node is the success state.
+//
+// Note that unlike typical NFAs, the edge ordering in this one is
+// significant, in that it is used to contruct filler content when
+// necessary.
+function nfa(expr) {
+    let nfa = [[]];
+    connect(compile(expr, 0), node());
+    return nfa;
+    function node() { return nfa.push([]) - 1; }
+    function edge(from, to, term) {
+        let edge = { term, to };
+        nfa[from].push(edge);
+        return edge;
+    }
+    function connect(edges, to) {
+        edges.forEach(edge => edge.to = to);
+    }
+    function compile(expr, from) {
+        if (expr.type == "choice") {
+            return expr.exprs.reduce((out, expr) => out.concat(compile(expr, from)), []);
+        }
+        else if (expr.type == "seq") {
+            for (let i = 0;; i++) {
+                let next = compile(expr.exprs[i], from);
+                if (i == expr.exprs.length - 1)
+                    return next;
+                connect(next, from = node());
+            }
+        }
+        else if (expr.type == "star") {
+            let loop = node();
+            edge(from, loop);
+            connect(compile(expr.expr, loop), loop);
+            return [edge(loop)];
+        }
+        else if (expr.type == "plus") {
+            let loop = node();
+            connect(compile(expr.expr, from), loop);
+            connect(compile(expr.expr, loop), loop);
+            return [edge(loop)];
+        }
+        else if (expr.type == "opt") {
+            return [edge(from)].concat(compile(expr.expr, from));
+        }
+        else if (expr.type == "range") {
+            let cur = from;
+            for (let i = 0; i < expr.min; i++) {
+                let next = node();
+                connect(compile(expr.expr, cur), next);
+                cur = next;
+            }
+            if (expr.max == -1) {
+                connect(compile(expr.expr, cur), cur);
+            }
+            else {
+                for (let i = expr.min; i < expr.max; i++) {
+                    let next = node();
+                    edge(cur, next);
+                    connect(compile(expr.expr, cur), next);
+                    cur = next;
+                }
+            }
+            return [edge(cur)];
+        }
+        else if (expr.type == "name") {
+            return [edge(from, undefined, expr.value)];
+        }
+        else {
+            throw new Error("Unknown expr type");
+        }
+    }
+}
+function cmp(a, b) { return b - a; }
+// Get the set of nodes reachable by null edges from `node`. Omit
+// nodes with only a single null-out-edge, since they may lead to
+// needless duplicated nodes.
+function nullFrom(nfa, node) {
+    let result = [];
+    scan(node);
+    return result.sort(cmp);
+    function scan(node) {
+        let edges = nfa[node];
+        if (edges.length == 1 && !edges[0].term)
+            return scan(edges[0].to);
+        result.push(node);
+        for (let i = 0; i < edges.length; i++) {
+            let { term, to } = edges[i];
+            if (!term && result.indexOf(to) == -1)
+                scan(to);
+        }
+    }
+}
+// Compiles an NFA as produced by `nfa` into a DFA, modeled as a set
+// of state objects (`ContentMatch` instances) with transitions
+// between them.
+function dfa(nfa) {
+    let labeled = Object.create(null);
+    return explore(nullFrom(nfa, 0));
+    function explore(states) {
+        let out = [];
+        states.forEach(node => {
+            nfa[node].forEach(({ term, to }) => {
+                if (!term)
+                    return;
+                let set;
+                for (let i = 0; i < out.length; i++)
+                    if (out[i][0] == term)
+                        set = out[i][1];
+                nullFrom(nfa, to).forEach(node => {
+                    if (!set)
+                        out.push([term, set = []]);
+                    if (set.indexOf(node) == -1)
+                        set.push(node);
+                });
+            });
+        });
+        let state = labeled[states.join(",")] = new ContentMatch(states.indexOf(nfa.length - 1) > -1);
+        for (let i = 0; i < out.length; i++) {
+            let states = out[i][1].sort(cmp);
+            state.next.push({ type: out[i][0], next: labeled[states.join(",")] || explore(states) });
+        }
+        return state;
+    }
+}
+function checkForDeadEnds(match, stream) {
+    for (let i = 0, work = [match]; i < work.length; i++) {
+        let state = work[i], dead = !state.validEnd, nodes = [];
+        for (let j = 0; j < state.next.length; j++) {
+            let { type, next } = state.next[j];
+            nodes.push(type.name);
+            if (dead && !(type.isText || type.hasRequiredAttrs()))
+                dead = false;
+            if (work.indexOf(next) == -1)
+                work.push(next);
+        }
+        if (dead)
+            stream.err("Only non-generatable nodes (" + nodes.join(", ") + ") in a required position (see https://prosemirror.net/docs/guide/#generatable)");
+    }
+}
+
+// For node types where all attrs have a default value (or which don't
+// have any attributes), build up a single reusable default attribute
+// object, and use it for all nodes that don't specify specific
+// attributes.
+function defaultAttrs(attrs) {
+    let defaults = Object.create(null);
+    for (let attrName in attrs) {
+        let attr = attrs[attrName];
+        if (!attr.hasDefault)
+            return null;
+        defaults[attrName] = attr.default;
+    }
+    return defaults;
+}
+function computeAttrs(attrs, value) {
+    let built = Object.create(null);
+    for (let name in attrs) {
+        let given = value && value[name];
+        if (given === undefined) {
+            let attr = attrs[name];
+            if (attr.hasDefault)
+                given = attr.default;
+            else
+                throw new RangeError("No value supplied for attribute " + name);
+        }
+        built[name] = given;
+    }
+    return built;
+}
+function checkAttrs(attrs, values, type, name) {
+    for (let name in values)
+        if (!(name in attrs))
+            throw new RangeError(`Unsupported attribute ${name} for ${type} of type ${name}`);
+    for (let name in attrs) {
+        let attr = attrs[name];
+        if (attr.validate)
+            attr.validate(values[name]);
+    }
+}
+function initAttrs(typeName, attrs) {
+    let result = Object.create(null);
+    if (attrs)
+        for (let name in attrs)
+            result[name] = new Attribute(typeName, name, attrs[name]);
+    return result;
+}
+/**
+Node types are objects allocated once per `Schema` and used to
+[tag](https://prosemirror.net/docs/ref/#model.Node.type) `Node` instances. They contain information
+about the node type, such as its name and what kind of node it
+represents.
+*/
+class NodeType {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The name the node type has in this schema.
+    */
+    name, 
+    /**
+    A link back to the `Schema` the node type belongs to.
+    */
+    schema, 
+    /**
+    The spec that this type is based on
+    */
+    spec) {
+        this.name = name;
+        this.schema = schema;
+        this.spec = spec;
+        /**
+        The set of marks allowed in this node. `null` means all marks
+        are allowed.
+        */
+        this.markSet = null;
+        this.groups = spec.group ? spec.group.split(" ") : [];
+        this.attrs = initAttrs(name, spec.attrs);
+        this.defaultAttrs = defaultAttrs(this.attrs);
+        this.contentMatch = null;
+        this.inlineContent = null;
+        this.isBlock = !(spec.inline || name == "text");
+        this.isText = name == "text";
+    }
+    /**
+    True if this is an inline type.
+    */
+    get isInline() { return !this.isBlock; }
+    /**
+    True if this is a textblock type, a block that contains inline
+    content.
+    */
+    get isTextblock() { return this.isBlock && this.inlineContent; }
+    /**
+    True for node types that allow no content.
+    */
+    get isLeaf() { return this.contentMatch == ContentMatch.empty; }
+    /**
+    True when this node is an atom, i.e. when it does not have
+    directly editable content.
+    */
+    get isAtom() { return this.isLeaf || !!this.spec.atom; }
+    /**
+    Return true when this node type is part of the given
+    [group](https://prosemirror.net/docs/ref/#model.NodeSpec.group).
+    */
+    isInGroup(group) {
+        return this.groups.indexOf(group) > -1;
+    }
+    /**
+    The node type's [whitespace](https://prosemirror.net/docs/ref/#model.NodeSpec.whitespace) option.
+    */
+    get whitespace() {
+        return this.spec.whitespace || (this.spec.code ? "pre" : "normal");
+    }
+    /**
+    Tells you whether this node type has any required attributes.
+    */
+    hasRequiredAttrs() {
+        for (let n in this.attrs)
+            if (this.attrs[n].isRequired)
+                return true;
+        return false;
+    }
+    /**
+    Indicates whether this node allows some of the same content as
+    the given node type.
+    */
+    compatibleContent(other) {
+        return this == other || this.contentMatch.compatible(other.contentMatch);
+    }
+    /**
+    @internal
+    */
+    computeAttrs(attrs) {
+        if (!attrs && this.defaultAttrs)
+            return this.defaultAttrs;
+        else
+            return computeAttrs(this.attrs, attrs);
+    }
+    /**
+    Create a `Node` of this type. The given attributes are
+    checked and defaulted (you can pass `null` to use the type's
+    defaults entirely, if no required attributes exist). `content`
+    may be a `Fragment`, a node, an array of nodes, or
+    `null`. Similarly `marks` may be `null` to default to the empty
+    set of marks.
+    */
+    create(attrs = null, content, marks) {
+        if (this.isText)
+            throw new Error("NodeType.create can't construct text nodes");
+        return new Node(this, this.computeAttrs(attrs), Fragment.from(content), Mark.setFrom(marks));
+    }
+    /**
+    Like [`create`](https://prosemirror.net/docs/ref/#model.NodeType.create), but check the given content
+    against the node type's content restrictions, and throw an error
+    if it doesn't match.
+    */
+    createChecked(attrs = null, content, marks) {
+        content = Fragment.from(content);
+        this.checkContent(content);
+        return new Node(this, this.computeAttrs(attrs), content, Mark.setFrom(marks));
+    }
+    /**
+    Like [`create`](https://prosemirror.net/docs/ref/#model.NodeType.create), but see if it is
+    necessary to add nodes to the start or end of the given fragment
+    to make it fit the node. If no fitting wrapping can be found,
+    return null. Note that, due to the fact that required nodes can
+    always be created, this will always succeed if you pass null or
+    `Fragment.empty` as content.
+    */
+    createAndFill(attrs = null, content, marks) {
+        attrs = this.computeAttrs(attrs);
+        content = Fragment.from(content);
+        if (content.size) {
+            let before = this.contentMatch.fillBefore(content);
+            if (!before)
+                return null;
+            content = before.append(content);
+        }
+        let matched = this.contentMatch.matchFragment(content);
+        let after = matched && matched.fillBefore(Fragment.empty, true);
+        if (!after)
+            return null;
+        return new Node(this, attrs, content.append(after), Mark.setFrom(marks));
+    }
+    /**
+    Returns true if the given fragment is valid content for this node
+    type.
+    */
+    validContent(content) {
+        let result = this.contentMatch.matchFragment(content);
+        if (!result || !result.validEnd)
+            return false;
+        for (let i = 0; i < content.childCount; i++)
+            if (!this.allowsMarks(content.child(i).marks))
+                return false;
+        return true;
+    }
+    /**
+    Throws a RangeError if the given fragment is not valid content for this
+    node type.
+    @internal
+    */
+    checkContent(content) {
+        if (!this.validContent(content))
+            throw new RangeError(`Invalid content for node ${this.name}: ${content.toString().slice(0, 50)}`);
+    }
+    /**
+    @internal
+    */
+    checkAttrs(attrs) {
+        checkAttrs(this.attrs, attrs, "node", this.name);
+    }
+    /**
+    Check whether the given mark type is allowed in this node.
+    */
+    allowsMarkType(markType) {
+        return this.markSet == null || this.markSet.indexOf(markType) > -1;
+    }
+    /**
+    Test whether the given set of marks are allowed in this node.
+    */
+    allowsMarks(marks) {
+        if (this.markSet == null)
+            return true;
+        for (let i = 0; i < marks.length; i++)
+            if (!this.allowsMarkType(marks[i].type))
+                return false;
+        return true;
+    }
+    /**
+    Removes the marks that are not allowed in this node from the given set.
+    */
+    allowedMarks(marks) {
+        if (this.markSet == null)
+            return marks;
+        let copy;
+        for (let i = 0; i < marks.length; i++) {
+            if (!this.allowsMarkType(marks[i].type)) {
+                if (!copy)
+                    copy = marks.slice(0, i);
+            }
+            else if (copy) {
+                copy.push(marks[i]);
+            }
+        }
+        return !copy ? marks : copy.length ? copy : Mark.none;
+    }
+    /**
+    @internal
+    */
+    static compile(nodes, schema) {
+        let result = Object.create(null);
+        nodes.forEach((name, spec) => result[name] = new NodeType(name, schema, spec));
+        let topType = schema.spec.topNode || "doc";
+        if (!result[topType])
+            throw new RangeError("Schema is missing its top node type ('" + topType + "')");
+        if (!result.text)
+            throw new RangeError("Every schema needs a 'text' type");
+        for (let _ in result.text.attrs)
+            throw new RangeError("The text node type should not have attributes");
+        return result;
+    }
+}
+function validateType(typeName, attrName, type) {
+    let types = type.split("|");
+    return (value) => {
+        let name = value === null ? "null" : typeof value;
+        if (types.indexOf(name) < 0)
+            throw new RangeError(`Expected value of type ${types} for attribute ${attrName} on type ${typeName}, got ${name}`);
+    };
+}
+// Attribute descriptors
+class Attribute {
+    constructor(typeName, attrName, options) {
+        this.hasDefault = Object.prototype.hasOwnProperty.call(options, "default");
+        this.default = options.default;
+        this.validate = typeof options.validate == "string" ? validateType(typeName, attrName, options.validate) : options.validate;
+    }
+    get isRequired() {
+        return !this.hasDefault;
+    }
+}
+// Marks
+/**
+Like nodes, marks (which are associated with nodes to signify
+things like emphasis or being part of a link) are
+[tagged](https://prosemirror.net/docs/ref/#model.Mark.type) with type objects, which are
+instantiated once per `Schema`.
+*/
+class MarkType {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The name of the mark type.
+    */
+    name, 
+    /**
+    @internal
+    */
+    rank, 
+    /**
+    The schema that this mark type instance is part of.
+    */
+    schema, 
+    /**
+    The spec on which the type is based.
+    */
+    spec) {
+        this.name = name;
+        this.rank = rank;
+        this.schema = schema;
+        this.spec = spec;
+        this.attrs = initAttrs(name, spec.attrs);
+        this.excluded = null;
+        let defaults = defaultAttrs(this.attrs);
+        this.instance = defaults ? new Mark(this, defaults) : null;
+    }
+    /**
+    Create a mark of this type. `attrs` may be `null` or an object
+    containing only some of the mark's attributes. The others, if
+    they have defaults, will be added.
+    */
+    create(attrs = null) {
+        if (!attrs && this.instance)
+            return this.instance;
+        return new Mark(this, computeAttrs(this.attrs, attrs));
+    }
+    /**
+    @internal
+    */
+    static compile(marks, schema) {
+        let result = Object.create(null), rank = 0;
+        marks.forEach((name, spec) => result[name] = new MarkType(name, rank++, schema, spec));
+        return result;
+    }
+    /**
+    When there is a mark of this type in the given set, a new set
+    without it is returned. Otherwise, the input set is returned.
+    */
+    removeFromSet(set) {
+        for (var i = 0; i < set.length; i++)
+            if (set[i].type == this) {
+                set = set.slice(0, i).concat(set.slice(i + 1));
+                i--;
+            }
+        return set;
+    }
+    /**
+    Tests whether there is a mark of this type in the given set.
+    */
+    isInSet(set) {
+        for (let i = 0; i < set.length; i++)
+            if (set[i].type == this)
+                return set[i];
+    }
+    /**
+    @internal
+    */
+    checkAttrs(attrs) {
+        checkAttrs(this.attrs, attrs, "mark", this.name);
+    }
+    /**
+    Queries whether a given mark type is
+    [excluded](https://prosemirror.net/docs/ref/#model.MarkSpec.excludes) by this one.
+    */
+    excludes(other) {
+        return this.excluded.indexOf(other) > -1;
+    }
+}
+/**
+A document schema. Holds [node](https://prosemirror.net/docs/ref/#model.NodeType) and [mark
+type](https://prosemirror.net/docs/ref/#model.MarkType) objects for the nodes and marks that may
+occur in conforming documents, and provides functionality for
+creating and deserializing such documents.
+
+When given, the type parameters provide the names of the nodes and
+marks in this schema.
+*/
+class Schema {
+    /**
+    Construct a schema from a schema [specification](https://prosemirror.net/docs/ref/#model.SchemaSpec).
+    */
+    constructor(spec) {
+        /**
+        The [linebreak
+        replacement](https://prosemirror.net/docs/ref/#model.NodeSpec.linebreakReplacement) node defined
+        in this schema, if any.
+        */
+        this.linebreakReplacement = null;
+        /**
+        An object for storing whatever values modules may want to
+        compute and cache per schema. (If you want to store something
+        in it, try to use property names unlikely to clash.)
+        */
+        this.cached = Object.create(null);
+        let instanceSpec = this.spec = {};
+        for (let prop in spec)
+            instanceSpec[prop] = spec[prop];
+        instanceSpec.nodes = OrderedMap.from(spec.nodes),
+            instanceSpec.marks = OrderedMap.from(spec.marks || {}),
+            this.nodes = NodeType.compile(this.spec.nodes, this);
+        this.marks = MarkType.compile(this.spec.marks, this);
+        let contentExprCache = Object.create(null);
+        for (let prop in this.nodes) {
+            if (prop in this.marks)
+                throw new RangeError(prop + " can not be both a node and a mark");
+            let type = this.nodes[prop], contentExpr = type.spec.content || "", markExpr = type.spec.marks;
+            type.contentMatch = contentExprCache[contentExpr] ||
+                (contentExprCache[contentExpr] = ContentMatch.parse(contentExpr, this.nodes));
+            type.inlineContent = type.contentMatch.inlineContent;
+            if (type.spec.linebreakReplacement) {
+                if (this.linebreakReplacement)
+                    throw new RangeError("Multiple linebreak nodes defined");
+                if (!type.isInline || !type.isLeaf)
+                    throw new RangeError("Linebreak replacement nodes must be inline leaf nodes");
+                this.linebreakReplacement = type;
+            }
+            type.markSet = markExpr == "_" ? null :
+                markExpr ? gatherMarks(this, markExpr.split(" ")) :
+                    markExpr == "" || !type.inlineContent ? [] : null;
+        }
+        for (let prop in this.marks) {
+            let type = this.marks[prop], excl = type.spec.excludes;
+            type.excluded = excl == null ? [type] : excl == "" ? [] : gatherMarks(this, excl.split(" "));
+        }
+        this.nodeFromJSON = json => Node.fromJSON(this, json);
+        this.markFromJSON = json => Mark.fromJSON(this, json);
+        this.topNodeType = this.nodes[this.spec.topNode || "doc"];
+        this.cached.wrappings = Object.create(null);
+    }
+    /**
+    Create a node in this schema. The `type` may be a string or a
+    `NodeType` instance. Attributes will be extended with defaults,
+    `content` may be a `Fragment`, `null`, a `Node`, or an array of
+    nodes.
+    */
+    node(type, attrs = null, content, marks) {
+        if (typeof type == "string")
+            type = this.nodeType(type);
+        else if (!(type instanceof NodeType))
+            throw new RangeError("Invalid node type: " + type);
+        else if (type.schema != this)
+            throw new RangeError("Node type from different schema used (" + type.name + ")");
+        return type.createChecked(attrs, content, marks);
+    }
+    /**
+    Create a text node in the schema. Empty text nodes are not
+    allowed.
+    */
+    text(text, marks) {
+        let type = this.nodes.text;
+        return new TextNode(type, type.defaultAttrs, text, Mark.setFrom(marks));
+    }
+    /**
+    Create a mark with the given type and attributes.
+    */
+    mark(type, attrs) {
+        if (typeof type == "string")
+            type = this.marks[type];
+        return type.create(attrs);
+    }
+    /**
+    @internal
+    */
+    nodeType(name) {
+        let found = this.nodes[name];
+        if (!found)
+            throw new RangeError("Unknown node type: " + name);
+        return found;
+    }
+}
+function gatherMarks(schema, marks) {
+    let found = [];
+    for (let i = 0; i < marks.length; i++) {
+        let name = marks[i], mark = schema.marks[name], ok = mark;
+        if (mark) {
+            found.push(mark);
+        }
+        else {
+            for (let prop in schema.marks) {
+                let mark = schema.marks[prop];
+                if (name == "_" || (mark.spec.group && mark.spec.group.split(" ").indexOf(name) > -1))
+                    found.push(ok = mark);
+            }
+        }
+        if (!ok)
+            throw new SyntaxError("Unknown mark type: '" + marks[i] + "'");
+    }
+    return found;
+}
+
+// Recovery values encode a range index and an offset. They are
+// represented as numbers, because tons of them will be created when
+// mapping, for example, a large number of decorations. The number's
+// lower 16 bits provide the index, the remaining bits the offset.
+//
+// Note: We intentionally don't use bit shift operators to en- and
+// decode these, since those clip to 32 bits, which we might in rare
+// cases want to overflow. A 64-bit float can represent 48-bit
+// integers precisely.
+const lower16 = 0xffff;
+const factor16 = Math.pow(2, 16);
+function makeRecover(index, offset) { return index + offset * factor16; }
+function recoverIndex(value) { return value & lower16; }
+function recoverOffset(value) { return (value - (value & lower16)) / factor16; }
+const DEL_BEFORE = 1, DEL_AFTER = 2, DEL_ACROSS = 4, DEL_SIDE = 8;
+/**
+An object representing a mapped position with extra
+information.
+*/
+class MapResult {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The mapped version of the position.
+    */
+    pos, 
+    /**
+    @internal
+    */
+    delInfo, 
+    /**
+    @internal
+    */
+    recover) {
+        this.pos = pos;
+        this.delInfo = delInfo;
+        this.recover = recover;
+    }
+    /**
+    Tells you whether the position was deleted, that is, whether the
+    step removed the token on the side queried (via the `assoc`)
+    argument from the document.
+    */
+    get deleted() { return (this.delInfo & DEL_SIDE) > 0; }
+    /**
+    Tells you whether the token before the mapped position was deleted.
+    */
+    get deletedBefore() { return (this.delInfo & (DEL_BEFORE | DEL_ACROSS)) > 0; }
+    /**
+    True when the token after the mapped position was deleted.
+    */
+    get deletedAfter() { return (this.delInfo & (DEL_AFTER | DEL_ACROSS)) > 0; }
+    /**
+    Tells whether any of the steps mapped through deletes across the
+    position (including both the token before and after the
+    position).
+    */
+    get deletedAcross() { return (this.delInfo & DEL_ACROSS) > 0; }
+}
+/**
+A map describing the deletions and insertions made by a step, which
+can be used to find the correspondence between positions in the
+pre-step version of a document and the same position in the
+post-step version.
+*/
+class StepMap {
+    /**
+    Create a position map. The modifications to the document are
+    represented as an array of numbers, in which each group of three
+    represents a modified chunk as `[start, oldSize, newSize]`.
+    */
+    constructor(
+    /**
+    @internal
+    */
+    ranges, 
+    /**
+    @internal
+    */
+    inverted = false) {
+        this.ranges = ranges;
+        this.inverted = inverted;
+        if (!ranges.length && StepMap.empty)
+            return StepMap.empty;
+    }
+    /**
+    @internal
+    */
+    recover(value) {
+        let diff = 0, index = recoverIndex(value);
+        if (!this.inverted)
+            for (let i = 0; i < index; i++)
+                diff += this.ranges[i * 3 + 2] - this.ranges[i * 3 + 1];
+        return this.ranges[index * 3] + diff + recoverOffset(value);
+    }
+    mapResult(pos, assoc = 1) { return this._map(pos, assoc, false); }
+    map(pos, assoc = 1) { return this._map(pos, assoc, true); }
+    /**
+    @internal
+    */
+    _map(pos, assoc, simple) {
+        let diff = 0, oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
+        for (let i = 0; i < this.ranges.length; i += 3) {
+            let start = this.ranges[i] - (this.inverted ? diff : 0);
+            if (start > pos)
+                break;
+            let oldSize = this.ranges[i + oldIndex], newSize = this.ranges[i + newIndex], end = start + oldSize;
+            if (pos <= end) {
+                let side = !oldSize ? assoc : pos == start ? -1 : pos == end ? 1 : assoc;
+                let result = start + diff + (side < 0 ? 0 : newSize);
+                if (simple)
+                    return result;
+                let recover = pos == (assoc < 0 ? start : end) ? null : makeRecover(i / 3, pos - start);
+                let del = pos == start ? DEL_AFTER : pos == end ? DEL_BEFORE : DEL_ACROSS;
+                if (assoc < 0 ? pos != start : pos != end)
+                    del |= DEL_SIDE;
+                return new MapResult(result, del, recover);
+            }
+            diff += newSize - oldSize;
+        }
+        return simple ? pos + diff : new MapResult(pos + diff, 0, null);
+    }
+    /**
+    @internal
+    */
+    touches(pos, recover) {
+        let diff = 0, index = recoverIndex(recover);
+        let oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
+        for (let i = 0; i < this.ranges.length; i += 3) {
+            let start = this.ranges[i] - (this.inverted ? diff : 0);
+            if (start > pos)
+                break;
+            let oldSize = this.ranges[i + oldIndex], end = start + oldSize;
+            if (pos <= end && i == index * 3)
+                return true;
+            diff += this.ranges[i + newIndex] - oldSize;
+        }
+        return false;
+    }
+    /**
+    Calls the given function on each of the changed ranges included in
+    this map.
+    */
+    forEach(f) {
+        let oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
+        for (let i = 0, diff = 0; i < this.ranges.length; i += 3) {
+            let start = this.ranges[i], oldStart = start - (this.inverted ? diff : 0), newStart = start + (this.inverted ? 0 : diff);
+            let oldSize = this.ranges[i + oldIndex], newSize = this.ranges[i + newIndex];
+            f(oldStart, oldStart + oldSize, newStart, newStart + newSize);
+            diff += newSize - oldSize;
+        }
+    }
+    /**
+    Create an inverted version of this map. The result can be used to
+    map positions in the post-step document to the pre-step document.
+    */
+    invert() {
+        return new StepMap(this.ranges, !this.inverted);
+    }
+    /**
+    @internal
+    */
+    toString() {
+        return (this.inverted ? "-" : "") + JSON.stringify(this.ranges);
+    }
+    /**
+    Create a map that moves all positions by offset `n` (which may be
+    negative). This can be useful when applying steps meant for a
+    sub-document to a larger document, or vice-versa.
+    */
+    static offset(n) {
+        return n == 0 ? StepMap.empty : new StepMap(n < 0 ? [0, -n, 0] : [0, 0, n]);
+    }
+}
+/**
+A StepMap that contains no changed ranges.
+*/
+StepMap.empty = new StepMap([]);
+
+const stepsByID = Object.create(null);
+/**
+A step object represents an atomic change. It generally applies
+only to the document it was created for, since the positions
+stored in it will only make sense for that document.
+
+New steps are defined by creating classes that extend `Step`,
+overriding the `apply`, `invert`, `map`, `getMap` and `fromJSON`
+methods, and registering your class with a unique
+JSON-serialization identifier using
+[`Step.jsonID`](https://prosemirror.net/docs/ref/#transform.Step^jsonID).
+*/
+class Step {
+    /**
+    Get the step map that represents the changes made by this step,
+    and which can be used to transform between positions in the old
+    and the new document.
+    */
+    getMap() { return StepMap.empty; }
+    /**
+    Try to merge this step with another one, to be applied directly
+    after it. Returns the merged step when possible, null if the
+    steps can't be merged.
+    */
+    merge(other) { return null; }
+    /**
+    Deserialize a step from its JSON representation. Will call
+    through to the step class' own implementation of this method.
+    */
+    static fromJSON(schema, json) {
+        if (!json || !json.stepType)
+            throw new RangeError("Invalid input for Step.fromJSON");
+        let type = stepsByID[json.stepType];
+        if (!type)
+            throw new RangeError(`No step type ${json.stepType} defined`);
+        return type.fromJSON(schema, json);
+    }
+    /**
+    To be able to serialize steps to JSON, each step needs a string
+    ID to attach to its JSON representation. Use this method to
+    register an ID for your step classes. Try to pick something
+    that's unlikely to clash with steps from other modules.
+    */
+    static jsonID(id, stepClass) {
+        if (id in stepsByID)
+            throw new RangeError("Duplicate use of step JSON ID " + id);
+        stepsByID[id] = stepClass;
+        stepClass.prototype.jsonID = id;
+        return stepClass;
+    }
+}
+/**
+The result of [applying](https://prosemirror.net/docs/ref/#transform.Step.apply) a step. Contains either a
+new document or a failure value.
+*/
+class StepResult {
+    /**
+    @internal
+    */
+    constructor(
+    /**
+    The transformed document, if successful.
+    */
+    doc, 
+    /**
+    The failure message, if unsuccessful.
+    */
+    failed) {
+        this.doc = doc;
+        this.failed = failed;
+    }
+    /**
+    Create a successful step result.
+    */
+    static ok(doc) { return new StepResult(doc, null); }
+    /**
+    Create a failed step result.
+    */
+    static fail(message) { return new StepResult(null, message); }
+    /**
+    Call [`Node.replace`](https://prosemirror.net/docs/ref/#model.Node.replace) with the given
+    arguments. Create a successful result if it succeeds, and a
+    failed one if it throws a `ReplaceError`.
+    */
+    static fromReplace(doc, from, to, slice) {
+        try {
+            return StepResult.ok(doc.replace(from, to, slice));
+        }
+        catch (e) {
+            if (e instanceof ReplaceError)
+                return StepResult.fail(e.message);
+            throw e;
+        }
+    }
+}
+
+function mapFragment(fragment, f, parent) {
+    let mapped = [];
+    for (let i = 0; i < fragment.childCount; i++) {
+        let child = fragment.child(i);
+        if (child.content.size)
+            child = child.copy(mapFragment(child.content, f, child));
+        if (child.isInline)
+            child = f(child, parent, i);
+        mapped.push(child);
+    }
+    return Fragment.fromArray(mapped);
+}
+/**
+Add a mark to all inline content between two positions.
+*/
+class AddMarkStep extends Step {
+    /**
+    Create a mark step.
+    */
+    constructor(
+    /**
+    The start of the marked range.
+    */
+    from, 
+    /**
+    The end of the marked range.
+    */
+    to, 
+    /**
+    The mark to add.
+    */
+    mark) {
+        super();
+        this.from = from;
+        this.to = to;
+        this.mark = mark;
+    }
+    apply(doc) {
+        let oldSlice = doc.slice(this.from, this.to), $from = doc.resolve(this.from);
+        let parent = $from.node($from.sharedDepth(this.to));
+        let slice = new Slice(mapFragment(oldSlice.content, (node, parent) => {
+            if (!node.isAtom || !parent.type.allowsMarkType(this.mark.type))
+                return node;
+            return node.mark(this.mark.addToSet(node.marks));
+        }, parent), oldSlice.openStart, oldSlice.openEnd);
+        return StepResult.fromReplace(doc, this.from, this.to, slice);
+    }
+    invert() {
+        return new RemoveMarkStep(this.from, this.to, this.mark);
+    }
+    map(mapping) {
+        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
+        if (from.deleted && to.deleted || from.pos >= to.pos)
+            return null;
+        return new AddMarkStep(from.pos, to.pos, this.mark);
+    }
+    merge(other) {
+        if (other instanceof AddMarkStep &&
+            other.mark.eq(this.mark) &&
+            this.from <= other.to && this.to >= other.from)
+            return new AddMarkStep(Math.min(this.from, other.from), Math.max(this.to, other.to), this.mark);
+        return null;
+    }
+    toJSON() {
+        return { stepType: "addMark", mark: this.mark.toJSON(),
+            from: this.from, to: this.to };
+    }
+    /**
+    @internal
+    */
+    static fromJSON(schema, json) {
+        if (typeof json.from != "number" || typeof json.to != "number")
+            throw new RangeError("Invalid input for AddMarkStep.fromJSON");
+        return new AddMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
+    }
+}
+Step.jsonID("addMark", AddMarkStep);
+/**
+Remove a mark from all inline content between two positions.
+*/
+class RemoveMarkStep extends Step {
+    /**
+    Create a mark-removing step.
+    */
+    constructor(
+    /**
+    The start of the unmarked range.
+    */
+    from, 
+    /**
+    The end of the unmarked range.
+    */
+    to, 
+    /**
+    The mark to remove.
+    */
+    mark) {
+        super();
+        this.from = from;
+        this.to = to;
+        this.mark = mark;
+    }
+    apply(doc) {
+        let oldSlice = doc.slice(this.from, this.to);
+        let slice = new Slice(mapFragment(oldSlice.content, node => {
+            return node.mark(this.mark.removeFromSet(node.marks));
+        }, doc), oldSlice.openStart, oldSlice.openEnd);
+        return StepResult.fromReplace(doc, this.from, this.to, slice);
+    }
+    invert() {
+        return new AddMarkStep(this.from, this.to, this.mark);
+    }
+    map(mapping) {
+        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
+        if (from.deleted && to.deleted || from.pos >= to.pos)
+            return null;
+        return new RemoveMarkStep(from.pos, to.pos, this.mark);
+    }
+    merge(other) {
+        if (other instanceof RemoveMarkStep &&
+            other.mark.eq(this.mark) &&
+            this.from <= other.to && this.to >= other.from)
+            return new RemoveMarkStep(Math.min(this.from, other.from), Math.max(this.to, other.to), this.mark);
+        return null;
+    }
+    toJSON() {
+        return { stepType: "removeMark", mark: this.mark.toJSON(),
+            from: this.from, to: this.to };
+    }
+    /**
+    @internal
+    */
+    static fromJSON(schema, json) {
+        if (typeof json.from != "number" || typeof json.to != "number")
+            throw new RangeError("Invalid input for RemoveMarkStep.fromJSON");
+        return new RemoveMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
+    }
+}
+Step.jsonID("removeMark", RemoveMarkStep);
+/**
+Add a mark to a specific node.
+*/
+class AddNodeMarkStep extends Step {
+    /**
+    Create a node mark step.
+    */
+    constructor(
+    /**
+    The position of the target node.
+    */
+    pos, 
+    /**
+    The mark to add.
+    */
+    mark) {
+        super();
+        this.pos = pos;
+        this.mark = mark;
+    }
+    apply(doc) {
+        let node = doc.nodeAt(this.pos);
+        if (!node)
+            return StepResult.fail("No node at mark step's position");
+        let updated = node.type.create(node.attrs, null, this.mark.addToSet(node.marks));
+        return StepResult.fromReplace(doc, this.pos, this.pos + 1, new Slice(Fragment.from(updated), 0, node.isLeaf ? 0 : 1));
+    }
+    invert(doc) {
+        let node = doc.nodeAt(this.pos);
+        if (node) {
+            let newSet = this.mark.addToSet(node.marks);
+            if (newSet.length == node.marks.length) {
+                for (let i = 0; i < node.marks.length; i++)
+                    if (!node.marks[i].isInSet(newSet))
+                        return new AddNodeMarkStep(this.pos, node.marks[i]);
+                return new AddNodeMarkStep(this.pos, this.mark);
+            }
+        }
+        return new RemoveNodeMarkStep(this.pos, this.mark);
+    }
+    map(mapping) {
+        let pos = mapping.mapResult(this.pos, 1);
+        return pos.deletedAfter ? null : new AddNodeMarkStep(pos.pos, this.mark);
+    }
+    toJSON() {
+        return { stepType: "addNodeMark", pos: this.pos, mark: this.mark.toJSON() };
+    }
+    /**
+    @internal
+    */
+    static fromJSON(schema, json) {
+        if (typeof json.pos != "number")
+            throw new RangeError("Invalid input for AddNodeMarkStep.fromJSON");
+        return new AddNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
+    }
+}
+Step.jsonID("addNodeMark", AddNodeMarkStep);
+/**
+Remove a mark from a specific node.
+*/
+class RemoveNodeMarkStep extends Step {
+    /**
+    Create a mark-removing step.
+    */
+    constructor(
+    /**
+    The position of the target node.
+    */
+    pos, 
+    /**
+    The mark to remove.
+    */
+    mark) {
+        super();
+        this.pos = pos;
+        this.mark = mark;
+    }
+    apply(doc) {
+        let node = doc.nodeAt(this.pos);
+        if (!node)
+            return StepResult.fail("No node at mark step's position");
+        let updated = node.type.create(node.attrs, null, this.mark.removeFromSet(node.marks));
+        return StepResult.fromReplace(doc, this.pos, this.pos + 1, new Slice(Fragment.from(updated), 0, node.isLeaf ? 0 : 1));
+    }
+    invert(doc) {
+        let node = doc.nodeAt(this.pos);
+        if (!node || !this.mark.isInSet(node.marks))
+            return this;
+        return new AddNodeMarkStep(this.pos, this.mark);
+    }
+    map(mapping) {
+        let pos = mapping.mapResult(this.pos, 1);
+        return pos.deletedAfter ? null : new RemoveNodeMarkStep(pos.pos, this.mark);
+    }
+    toJSON() {
+        return { stepType: "removeNodeMark", pos: this.pos, mark: this.mark.toJSON() };
+    }
+    /**
+    @internal
+    */
+    static fromJSON(schema, json) {
+        if (typeof json.pos != "number")
+            throw new RangeError("Invalid input for RemoveNodeMarkStep.fromJSON");
+        return new RemoveNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
+    }
+}
+Step.jsonID("removeNodeMark", RemoveNodeMarkStep);
+
+/**
+Replace a part of the document with a slice of new content.
+*/
+class ReplaceStep extends Step {
+    /**
+    The given `slice` should fit the 'gap' between `from` and
+    `to`—the depths must line up, and the surrounding nodes must be
+    able to be joined with the open sides of the slice. When
+    `structure` is true, the step will fail if the content between
+    from and to is not just a sequence of closing and then opening
+    tokens (this is to guard against rebased replace steps
+    overwriting something they weren't supposed to).
+    */
+    constructor(
+    /**
+    The start position of the replaced range.
+    */
+    from, 
+    /**
+    The end position of the replaced range.
+    */
+    to, 
+    /**
+    The slice to insert.
+    */
+    slice, 
+    /**
+    @internal
+    */
+    structure = false) {
+        super();
+        this.from = from;
+        this.to = to;
+        this.slice = slice;
+        this.structure = structure;
+    }
+    apply(doc) {
+        if (this.structure && contentBetween(doc, this.from, this.to))
+            return StepResult.fail("Structure replace would overwrite content");
+        return StepResult.fromReplace(doc, this.from, this.to, this.slice);
+    }
+    getMap() {
+        return new StepMap([this.from, this.to - this.from, this.slice.size]);
+    }
+    invert(doc) {
+        return new ReplaceStep(this.from, this.from + this.slice.size, doc.slice(this.from, this.to));
+    }
+    map(mapping) {
+        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
+        if (from.deletedAcross && to.deletedAcross)
+            return null;
+        return new ReplaceStep(from.pos, Math.max(from.pos, to.pos), this.slice, this.structure);
+    }
+    merge(other) {
+        if (!(other instanceof ReplaceStep) || other.structure || this.structure)
+            return null;
+        if (this.from + this.slice.size == other.from && !this.slice.openEnd && !other.slice.openStart) {
+            let slice = this.slice.size + other.slice.size == 0 ? Slice.empty
+                : new Slice(this.slice.content.append(other.slice.content), this.slice.openStart, other.slice.openEnd);
+            return new ReplaceStep(this.from, this.to + (other.to - other.from), slice, this.structure);
+        }
+        else if (other.to == this.from && !this.slice.openStart && !other.slice.openEnd) {
+            let slice = this.slice.size + other.slice.size == 0 ? Slice.empty
+                : new Slice(other.slice.content.append(this.slice.content), other.slice.openStart, this.slice.openEnd);
+            return new ReplaceStep(other.from, this.to, slice, this.structure);
+        }
+        else {
+            return null;
+        }
+    }
+    toJSON() {
+        let json = { stepType: "replace", from: this.from, to: this.to };
+        if (this.slice.size)
+            json.slice = this.slice.toJSON();
+        if (this.structure)
+            json.structure = true;
+        return json;
+    }
+    /**
+    @internal
+    */
+    static fromJSON(schema, json) {
+        if (typeof json.from != "number" || typeof json.to != "number")
+            throw new RangeError("Invalid input for ReplaceStep.fromJSON");
+        return new ReplaceStep(json.from, json.to, Slice.fromJSON(schema, json.slice), !!json.structure);
+    }
+}
+Step.jsonID("replace", ReplaceStep);
+/**
+Replace a part of the document with a slice of content, but
+preserve a range of the replaced content by moving it into the
+slice.
+*/
+class ReplaceAroundStep extends Step {
+    /**
+    Create a replace-around step with the given range and gap.
+    `insert` should be the point in the slice into which the content
+    of the gap should be moved. `structure` has the same meaning as
+    it has in the [`ReplaceStep`](https://prosemirror.net/docs/ref/#transform.ReplaceStep) class.
+    */
+    constructor(
+    /**
+    The start position of the replaced range.
+    */
+    from, 
+    /**
+    The end position of the replaced range.
+    */
+    to, 
+    /**
+    The start of preserved range.
+    */
+    gapFrom, 
+    /**
+    The end of preserved range.
+    */
+    gapTo, 
+    /**
+    The slice to insert.
+    */
+    slice, 
+    /**
+    The position in the slice where the preserved range should be
+    inserted.
+    */
+    insert, 
+    /**
+    @internal
+    */
+    structure = false) {
+        super();
+        this.from = from;
+        this.to = to;
+        this.gapFrom = gapFrom;
+        this.gapTo = gapTo;
+        this.slice = slice;
+        this.insert = insert;
+        this.structure = structure;
+    }
+    apply(doc) {
+        if (this.structure && (contentBetween(doc, this.from, this.gapFrom) ||
+            contentBetween(doc, this.gapTo, this.to)))
+            return StepResult.fail("Structure gap-replace would overwrite content");
+        let gap = doc.slice(this.gapFrom, this.gapTo);
+        if (gap.openStart || gap.openEnd)
+            return StepResult.fail("Gap is not a flat range");
+        let inserted = this.slice.insertAt(this.insert, gap.content);
+        if (!inserted)
+            return StepResult.fail("Content does not fit in gap");
+        return StepResult.fromReplace(doc, this.from, this.to, inserted);
+    }
+    getMap() {
+        return new StepMap([this.from, this.gapFrom - this.from, this.insert,
+            this.gapTo, this.to - this.gapTo, this.slice.size - this.insert]);
+    }
+    invert(doc) {
+        let gap = this.gapTo - this.gapFrom;
+        return new ReplaceAroundStep(this.from, this.from + this.slice.size + gap, this.from + this.insert, this.from + this.insert + gap, doc.slice(this.from, this.to).removeBetween(this.gapFrom - this.from, this.gapTo - this.from), this.gapFrom - this.from, this.structure);
+    }
+    map(mapping) {
+        let from = mapping.mapResult(this.from, 1), to = mapping.mapResult(this.to, -1);
+        let gapFrom = this.from == this.gapFrom ? from.pos : mapping.map(this.gapFrom, -1);
+        let gapTo = this.to == this.gapTo ? to.pos : mapping.map(this.gapTo, 1);
+        if ((from.deletedAcross && to.deletedAcross) || gapFrom < from.pos || gapTo > to.pos)
+            return null;
+        return new ReplaceAroundStep(from.pos, to.pos, gapFrom, gapTo, this.slice, this.insert, this.structure);
+    }
+    toJSON() {
+        let json = { stepType: "replaceAround", from: this.from, to: this.to,
+            gapFrom: this.gapFrom, gapTo: this.gapTo, insert: this.insert };
+        if (this.slice.size)
+            json.slice = this.slice.toJSON();
+        if (this.structure)
+            json.structure = true;
+        return json;
+    }
+    /**
+    @internal
+    */
+    static fromJSON(schema, json) {
+        if (typeof json.from != "number" || typeof json.to != "number" ||
+            typeof json.gapFrom != "number" || typeof json.gapTo != "number" || typeof json.insert != "number")
+            throw new RangeError("Invalid input for ReplaceAroundStep.fromJSON");
+        return new ReplaceAroundStep(json.from, json.to, json.gapFrom, json.gapTo, Slice.fromJSON(schema, json.slice), json.insert, !!json.structure);
+    }
+}
+Step.jsonID("replaceAround", ReplaceAroundStep);
+function contentBetween(doc, from, to) {
+    let $from = doc.resolve(from), dist = to - from, depth = $from.depth;
+    while (dist > 0 && depth > 0 && $from.indexAfter(depth) == $from.node(depth).childCount) {
+        depth--;
+        dist--;
+    }
+    if (dist > 0) {
+        let next = $from.node(depth).maybeChild($from.indexAfter(depth));
+        while (dist > 0) {
+            if (!next || next.isLeaf)
+                return true;
+            next = next.firstChild;
+            dist--;
+        }
+    }
+    return false;
+}
+
+/**
+Update an attribute in a specific node.
+*/
+class AttrStep extends Step {
+    /**
+    Construct an attribute step.
+    */
+    constructor(
+    /**
+    The position of the target node.
+    */
+    pos, 
+    /**
+    The attribute to set.
+    */
+    attr, 
+    // The attribute's new value.
+    value) {
+        super();
+        this.pos = pos;
+        this.attr = attr;
+        this.value = value;
+    }
+    apply(doc) {
+        let node = doc.nodeAt(this.pos);
+        if (!node)
+            return StepResult.fail("No node at attribute step's position");
+        let attrs = Object.create(null);
+        for (let name in node.attrs)
+            attrs[name] = node.attrs[name];
+        attrs[this.attr] = this.value;
+        let updated = node.type.create(attrs, null, node.marks);
+        return StepResult.fromReplace(doc, this.pos, this.pos + 1, new Slice(Fragment.from(updated), 0, node.isLeaf ? 0 : 1));
+    }
+    getMap() {
+        return StepMap.empty;
+    }
+    invert(doc) {
+        return new AttrStep(this.pos, this.attr, doc.nodeAt(this.pos).attrs[this.attr]);
+    }
+    map(mapping) {
+        let pos = mapping.mapResult(this.pos, 1);
+        return pos.deletedAfter ? null : new AttrStep(pos.pos, this.attr, this.value);
+    }
+    toJSON() {
+        return { stepType: "attr", pos: this.pos, attr: this.attr, value: this.value };
+    }
+    static fromJSON(schema, json) {
+        if (typeof json.pos != "number" || typeof json.attr != "string")
+            throw new RangeError("Invalid input for AttrStep.fromJSON");
+        return new AttrStep(json.pos, json.attr, json.value);
+    }
+}
+Step.jsonID("attr", AttrStep);
+/**
+Update an attribute in the doc node.
+*/
+class DocAttrStep extends Step {
+    /**
+    Construct an attribute step.
+    */
+    constructor(
+    /**
+    The attribute to set.
+    */
+    attr, 
+    // The attribute's new value.
+    value) {
+        super();
+        this.attr = attr;
+        this.value = value;
+    }
+    apply(doc) {
+        let attrs = Object.create(null);
+        for (let name in doc.attrs)
+            attrs[name] = doc.attrs[name];
+        attrs[this.attr] = this.value;
+        let updated = doc.type.create(attrs, doc.content, doc.marks);
+        return StepResult.ok(updated);
+    }
+    getMap() {
+        return StepMap.empty;
+    }
+    invert(doc) {
+        return new DocAttrStep(this.attr, doc.attrs[this.attr]);
+    }
+    map(mapping) {
+        return this;
+    }
+    toJSON() {
+        return { stepType: "docAttr", attr: this.attr, value: this.value };
+    }
+    static fromJSON(schema, json) {
+        if (typeof json.attr != "string")
+            throw new RangeError("Invalid input for DocAttrStep.fromJSON");
+        return new DocAttrStep(json.attr, json.value);
+    }
+}
+Step.jsonID("docAttr", DocAttrStep);
+
+/**
+@internal
+*/
+let TransformError = class extends Error {
+};
+TransformError = function TransformError(message) {
+    let err = Error.call(this, message);
+    err.__proto__ = TransformError.prototype;
+    return err;
+};
+TransformError.prototype = Object.create(Error.prototype);
+TransformError.prototype.constructor = TransformError;
+TransformError.prototype.name = "TransformError";
+
+const classesById = Object.create(null);
+/**
+Superclass for editor selections. Every selection type should
+extend this. Should not be instantiated directly.
+*/
+class Selection {
+    /**
+    Initialize a selection with the head and anchor and ranges. If no
+    ranges are given, constructs a single range across `$anchor` and
+    `$head`.
+    */
+    constructor(
+    /**
+    The resolved anchor of the selection (the side that stays in
+    place when the selection is modified).
+    */
+    $anchor, 
+    /**
+    The resolved head of the selection (the side that moves when
+    the selection is modified).
+    */
+    $head, ranges) {
+        this.$anchor = $anchor;
+        this.$head = $head;
+        this.ranges = ranges || [new SelectionRange($anchor.min($head), $anchor.max($head))];
+    }
+    /**
+    The selection's anchor, as an unresolved position.
+    */
+    get anchor() { return this.$anchor.pos; }
+    /**
+    The selection's head.
+    */
+    get head() { return this.$head.pos; }
+    /**
+    The lower bound of the selection's main range.
+    */
+    get from() { return this.$from.pos; }
+    /**
+    The upper bound of the selection's main range.
+    */
+    get to() { return this.$to.pos; }
+    /**
+    The resolved lower  bound of the selection's main range.
+    */
+    get $from() {
+        return this.ranges[0].$from;
+    }
+    /**
+    The resolved upper bound of the selection's main range.
+    */
+    get $to() {
+        return this.ranges[0].$to;
+    }
+    /**
+    Indicates whether the selection contains any content.
+    */
+    get empty() {
+        let ranges = this.ranges;
+        for (let i = 0; i < ranges.length; i++)
+            if (ranges[i].$from.pos != ranges[i].$to.pos)
+                return false;
+        return true;
+    }
+    /**
+    Get the content of this selection as a slice.
+    */
+    content() {
+        return this.$from.doc.slice(this.from, this.to, true);
+    }
+    /**
+    Replace the selection with a slice or, if no slice is given,
+    delete the selection. Will append to the given transaction.
+    */
+    replace(tr, content = Slice.empty) {
+        // Put the new selection at the position after the inserted
+        // content. When that ended in an inline node, search backwards,
+        // to get the position after that node. If not, search forward.
+        let lastNode = content.content.lastChild, lastParent = null;
+        for (let i = 0; i < content.openEnd; i++) {
+            lastParent = lastNode;
+            lastNode = lastNode.lastChild;
+        }
+        let mapFrom = tr.steps.length, ranges = this.ranges;
+        for (let i = 0; i < ranges.length; i++) {
+            let { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
+            tr.replaceRange(mapping.map($from.pos), mapping.map($to.pos), i ? Slice.empty : content);
+            if (i == 0)
+                selectionToInsertionEnd(tr, mapFrom, (lastNode ? lastNode.isInline : lastParent && lastParent.isTextblock) ? -1 : 1);
+        }
+    }
+    /**
+    Replace the selection with the given node, appending the changes
+    to the given transaction.
+    */
+    replaceWith(tr, node) {
+        let mapFrom = tr.steps.length, ranges = this.ranges;
+        for (let i = 0; i < ranges.length; i++) {
+            let { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
+            let from = mapping.map($from.pos), to = mapping.map($to.pos);
+            if (i) {
+                tr.deleteRange(from, to);
+            }
+            else {
+                tr.replaceRangeWith(from, to, node);
+                selectionToInsertionEnd(tr, mapFrom, node.isInline ? -1 : 1);
+            }
+        }
+    }
+    /**
+    Find a valid cursor or leaf node selection starting at the given
+    position and searching back if `dir` is negative, and forward if
+    positive. When `textOnly` is true, only consider cursor
+    selections. Will return null when no valid selection position is
+    found.
+    */
+    static findFrom($pos, dir, textOnly = false) {
+        let inner = $pos.parent.inlineContent ? new TextSelection($pos)
+            : findSelectionIn($pos.node(0), $pos.parent, $pos.pos, $pos.index(), dir, textOnly);
+        if (inner)
+            return inner;
+        for (let depth = $pos.depth - 1; depth >= 0; depth--) {
+            let found = dir < 0
+                ? findSelectionIn($pos.node(0), $pos.node(depth), $pos.before(depth + 1), $pos.index(depth), dir, textOnly)
+                : findSelectionIn($pos.node(0), $pos.node(depth), $pos.after(depth + 1), $pos.index(depth) + 1, dir, textOnly);
+            if (found)
+                return found;
+        }
+        return null;
+    }
+    /**
+    Find a valid cursor or leaf node selection near the given
+    position. Searches forward first by default, but if `bias` is
+    negative, it will search backwards first.
+    */
+    static near($pos, bias = 1) {
+        return this.findFrom($pos, bias) || this.findFrom($pos, -bias) || new AllSelection($pos.node(0));
+    }
+    /**
+    Find the cursor or leaf node selection closest to the start of
+    the given document. Will return an
+    [`AllSelection`](https://prosemirror.net/docs/ref/#state.AllSelection) if no valid position
+    exists.
+    */
+    static atStart(doc) {
+        return findSelectionIn(doc, doc, 0, 0, 1) || new AllSelection(doc);
+    }
+    /**
+    Find the cursor or leaf node selection closest to the end of the
+    given document.
+    */
+    static atEnd(doc) {
+        return findSelectionIn(doc, doc, doc.content.size, doc.childCount, -1) || new AllSelection(doc);
+    }
+    /**
+    Deserialize the JSON representation of a selection. Must be
+    implemented for custom classes (as a static class method).
+    */
+    static fromJSON(doc, json) {
+        if (!json || !json.type)
+            throw new RangeError("Invalid input for Selection.fromJSON");
+        let cls = classesById[json.type];
+        if (!cls)
+            throw new RangeError(`No selection type ${json.type} defined`);
+        return cls.fromJSON(doc, json);
+    }
+    /**
+    To be able to deserialize selections from JSON, custom selection
+    classes must register themselves with an ID string, so that they
+    can be disambiguated. Try to pick something that's unlikely to
+    clash with classes from other modules.
+    */
+    static jsonID(id, selectionClass) {
+        if (id in classesById)
+            throw new RangeError("Duplicate use of selection JSON ID " + id);
+        classesById[id] = selectionClass;
+        selectionClass.prototype.jsonID = id;
+        return selectionClass;
+    }
+    /**
+    Get a [bookmark](https://prosemirror.net/docs/ref/#state.SelectionBookmark) for this selection,
+    which is a value that can be mapped without having access to a
+    current document, and later resolved to a real selection for a
+    given document again. (This is used mostly by the history to
+    track and restore old selections.) The default implementation of
+    this method just converts the selection to a text selection and
+    returns the bookmark for that.
+    */
+    getBookmark() {
+        return TextSelection.between(this.$anchor, this.$head).getBookmark();
+    }
+}
+Selection.prototype.visible = true;
+/**
+Represents a selected range in a document.
+*/
+class SelectionRange {
+    /**
+    Create a range.
+    */
+    constructor(
+    /**
+    The lower bound of the range.
+    */
+    $from, 
+    /**
+    The upper bound of the range.
+    */
+    $to) {
+        this.$from = $from;
+        this.$to = $to;
+    }
+}
+let warnedAboutTextSelection = false;
+function checkTextSelection($pos) {
+    if (!warnedAboutTextSelection && !$pos.parent.inlineContent) {
+        warnedAboutTextSelection = true;
+        console["warn"]("TextSelection endpoint not pointing into a node with inline content (" + $pos.parent.type.name + ")");
+    }
+}
+/**
+A text selection represents a classical editor selection, with a
+head (the moving side) and anchor (immobile side), both of which
+point into textblock nodes. It can be empty (a regular cursor
+position).
+*/
+class TextSelection extends Selection {
+    /**
+    Construct a text selection between the given points.
+    */
+    constructor($anchor, $head = $anchor) {
+        checkTextSelection($anchor);
+        checkTextSelection($head);
+        super($anchor, $head);
+    }
+    /**
+    Returns a resolved position if this is a cursor selection (an
+    empty text selection), and null otherwise.
+    */
+    get $cursor() { return this.$anchor.pos == this.$head.pos ? this.$head : null; }
+    map(doc, mapping) {
+        let $head = doc.resolve(mapping.map(this.head));
+        if (!$head.parent.inlineContent)
+            return Selection.near($head);
+        let $anchor = doc.resolve(mapping.map(this.anchor));
+        return new TextSelection($anchor.parent.inlineContent ? $anchor : $head, $head);
+    }
+    replace(tr, content = Slice.empty) {
+        super.replace(tr, content);
+        if (content == Slice.empty) {
+            let marks = this.$from.marksAcross(this.$to);
+            if (marks)
+                tr.ensureMarks(marks);
+        }
+    }
+    eq(other) {
+        return other instanceof TextSelection && other.anchor == this.anchor && other.head == this.head;
+    }
+    getBookmark() {
+        return new TextBookmark(this.anchor, this.head);
+    }
+    toJSON() {
+        return { type: "text", anchor: this.anchor, head: this.head };
+    }
+    /**
+    @internal
+    */
+    static fromJSON(doc, json) {
+        if (typeof json.anchor != "number" || typeof json.head != "number")
+            throw new RangeError("Invalid input for TextSelection.fromJSON");
+        return new TextSelection(doc.resolve(json.anchor), doc.resolve(json.head));
+    }
+    /**
+    Create a text selection from non-resolved positions.
+    */
+    static create(doc, anchor, head = anchor) {
+        let $anchor = doc.resolve(anchor);
+        return new this($anchor, head == anchor ? $anchor : doc.resolve(head));
+    }
+    /**
+    Return a text selection that spans the given positions or, if
+    they aren't text positions, find a text selection near them.
+    `bias` determines whether the method searches forward (default)
+    or backwards (negative number) first. Will fall back to calling
+    [`Selection.near`](https://prosemirror.net/docs/ref/#state.Selection^near) when the document
+    doesn't contain a valid text position.
+    */
+    static between($anchor, $head, bias) {
+        let dPos = $anchor.pos - $head.pos;
+        if (!bias || dPos)
+            bias = dPos >= 0 ? 1 : -1;
+        if (!$head.parent.inlineContent) {
+            let found = Selection.findFrom($head, bias, true) || Selection.findFrom($head, -bias, true);
+            if (found)
+                $head = found.$head;
+            else
+                return Selection.near($head, bias);
+        }
+        if (!$anchor.parent.inlineContent) {
+            if (dPos == 0) {
+                $anchor = $head;
+            }
+            else {
+                $anchor = (Selection.findFrom($anchor, -bias, true) || Selection.findFrom($anchor, bias, true)).$anchor;
+                if (($anchor.pos < $head.pos) != (dPos < 0))
+                    $anchor = $head;
+            }
+        }
+        return new TextSelection($anchor, $head);
+    }
+}
+Selection.jsonID("text", TextSelection);
+class TextBookmark {
+    constructor(anchor, head) {
+        this.anchor = anchor;
+        this.head = head;
+    }
+    map(mapping) {
+        return new TextBookmark(mapping.map(this.anchor), mapping.map(this.head));
+    }
+    resolve(doc) {
+        return TextSelection.between(doc.resolve(this.anchor), doc.resolve(this.head));
+    }
+}
+/**
+A node selection is a selection that points at a single node. All
+nodes marked [selectable](https://prosemirror.net/docs/ref/#model.NodeSpec.selectable) can be the
+target of a node selection. In such a selection, `from` and `to`
+point directly before and after the selected node, `anchor` equals
+`from`, and `head` equals `to`..
+*/
+class NodeSelection extends Selection {
+    /**
+    Create a node selection. Does not verify the validity of its
+    argument.
+    */
+    constructor($pos) {
+        let node = $pos.nodeAfter;
+        let $end = $pos.node(0).resolve($pos.pos + node.nodeSize);
+        super($pos, $end);
+        this.node = node;
+    }
+    map(doc, mapping) {
+        let { deleted, pos } = mapping.mapResult(this.anchor);
+        let $pos = doc.resolve(pos);
+        if (deleted)
+            return Selection.near($pos);
+        return new NodeSelection($pos);
+    }
+    content() {
+        return new Slice(Fragment.from(this.node), 0, 0);
+    }
+    eq(other) {
+        return other instanceof NodeSelection && other.anchor == this.anchor;
+    }
+    toJSON() {
+        return { type: "node", anchor: this.anchor };
+    }
+    getBookmark() { return new NodeBookmark(this.anchor); }
+    /**
+    @internal
+    */
+    static fromJSON(doc, json) {
+        if (typeof json.anchor != "number")
+            throw new RangeError("Invalid input for NodeSelection.fromJSON");
+        return new NodeSelection(doc.resolve(json.anchor));
+    }
+    /**
+    Create a node selection from non-resolved positions.
+    */
+    static create(doc, from) {
+        return new NodeSelection(doc.resolve(from));
+    }
+    /**
+    Determines whether the given node may be selected as a node
+    selection.
+    */
+    static isSelectable(node) {
+        return !node.isText && node.type.spec.selectable !== false;
+    }
+}
+NodeSelection.prototype.visible = false;
+Selection.jsonID("node", NodeSelection);
+class NodeBookmark {
+    constructor(anchor) {
+        this.anchor = anchor;
+    }
+    map(mapping) {
+        let { deleted, pos } = mapping.mapResult(this.anchor);
+        return deleted ? new TextBookmark(pos, pos) : new NodeBookmark(pos);
+    }
+    resolve(doc) {
+        let $pos = doc.resolve(this.anchor), node = $pos.nodeAfter;
+        if (node && NodeSelection.isSelectable(node))
+            return new NodeSelection($pos);
+        return Selection.near($pos);
+    }
+}
+/**
+A selection type that represents selecting the whole document
+(which can not necessarily be expressed with a text selection, when
+there are for example leaf block nodes at the start or end of the
+document).
+*/
+class AllSelection extends Selection {
+    /**
+    Create an all-selection over the given document.
+    */
+    constructor(doc) {
+        super(doc.resolve(0), doc.resolve(doc.content.size));
+    }
+    replace(tr, content = Slice.empty) {
+        if (content == Slice.empty) {
+            tr.delete(0, tr.doc.content.size);
+            let sel = Selection.atStart(tr.doc);
+            if (!sel.eq(tr.selection))
+                tr.setSelection(sel);
+        }
+        else {
+            super.replace(tr, content);
+        }
+    }
+    toJSON() { return { type: "all" }; }
+    /**
+    @internal
+    */
+    static fromJSON(doc) { return new AllSelection(doc); }
+    map(doc) { return new AllSelection(doc); }
+    eq(other) { return other instanceof AllSelection; }
+    getBookmark() { return AllBookmark; }
+}
+Selection.jsonID("all", AllSelection);
+const AllBookmark = {
+    map() { return this; },
+    resolve(doc) { return new AllSelection(doc); }
+};
+// FIXME we'll need some awareness of text direction when scanning for selections
+// Try to find a selection inside the given node. `pos` points at the
+// position where the search starts. When `text` is true, only return
+// text selections.
+function findSelectionIn(doc, node, pos, index, dir, text = false) {
+    if (node.inlineContent)
+        return TextSelection.create(doc, pos);
+    for (let i = index - (dir > 0 ? 0 : 1); dir > 0 ? i < node.childCount : i >= 0; i += dir) {
+        let child = node.child(i);
+        if (!child.isAtom) {
+            let inner = findSelectionIn(doc, child, pos + dir, dir < 0 ? child.childCount : 0, dir, text);
+            if (inner)
+                return inner;
+        }
+        else if (!text && NodeSelection.isSelectable(child)) {
+            return NodeSelection.create(doc, pos - (dir < 0 ? child.nodeSize : 0));
+        }
+        pos += child.nodeSize * dir;
+    }
+    return null;
+}
+function selectionToInsertionEnd(tr, startLen, bias) {
+    let last = tr.steps.length - 1;
+    if (last < startLen)
+        return;
+    let step = tr.steps[last];
+    if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep))
+        return;
+    let map = tr.mapping.maps[last], end;
+    map.forEach((_from, _to, _newFrom, newTo) => { if (end == null)
+        end = newTo; });
+    tr.setSelection(Selection.near(tr.doc.resolve(end), bias));
+}
+
+function bind(f, self) {
+    return !self || !f ? f : f.bind(self);
+}
+class FieldDesc {
+    constructor(name, desc, self) {
+        this.name = name;
+        this.init = bind(desc.init, self);
+        this.apply = bind(desc.apply, self);
+    }
+}
+[
+    new FieldDesc("doc", {
+        init(config) { return config.doc || config.schema.topNodeType.createAndFill(); },
+        apply(tr) { return tr.doc; }
+    }),
+    new FieldDesc("selection", {
+        init(config, instance) { return config.selection || Selection.atStart(instance.doc); },
+        apply(tr) { return tr.selection; }
+    }),
+    new FieldDesc("storedMarks", {
+        init(config) { return config.storedMarks || null; },
+        apply(tr, _marks, _old, state) { return state.selection.$cursor ? tr.storedMarks : null; }
+    }),
+    new FieldDesc("scrollToSelection", {
+        init() { return 0; },
+        apply(tr, prev) { return tr.scrolledIntoView ? prev + 1 : prev; }
+    })
+];
+const keys = Object.create(null);
+function createKey(name) {
+    if (name in keys)
+        return name + "$" + ++keys[name];
+    keys[name] = 0;
+    return name + "$";
+}
+/**
+A key is used to [tag](https://prosemirror.net/docs/ref/#state.PluginSpec.key) plugins in a way
+that makes it possible to find them, given an editor state.
+Assigning a key does mean only one plugin of that type can be
+active in a state.
+*/
+class PluginKey {
+    /**
+    Create a plugin key.
+    */
+    constructor(name = "key") { this.key = createKey(name); }
+    /**
+    Get the active plugin with this key, if any, from an editor
+    state.
+    */
+    get(state) { return state.config.pluginsByKey[this.key]; }
+    /**
+    Get the plugin's state from an editor state.
+    */
+    getState(state) { return state[this.key]; }
+}
+
+var base = {
+  8: "Backspace",
+  9: "Tab",
+  10: "Enter",
+  12: "NumLock",
+  13: "Enter",
+  16: "Shift",
+  17: "Control",
+  18: "Alt",
+  20: "CapsLock",
+  27: "Escape",
+  32: " ",
+  33: "PageUp",
+  34: "PageDown",
+  35: "End",
+  36: "Home",
+  37: "ArrowLeft",
+  38: "ArrowUp",
+  39: "ArrowRight",
+  40: "ArrowDown",
+  44: "PrintScreen",
+  45: "Insert",
+  46: "Delete",
+  59: ";",
+  61: "=",
+  91: "Meta",
+  92: "Meta",
+  106: "*",
+  107: "+",
+  108: ",",
+  109: "-",
+  110: ".",
+  111: "/",
+  144: "NumLock",
+  145: "ScrollLock",
+  160: "Shift",
+  161: "Shift",
+  162: "Control",
+  163: "Control",
+  164: "Alt",
+  165: "Alt",
+  173: "-",
+  186: ";",
+  187: "=",
+  188: ",",
+  189: "-",
+  190: ".",
+  191: "/",
+  192: "`",
+  219: "[",
+  220: "\\",
+  221: "]",
+  222: "'"
+};
+
+var shift = {
+  48: ")",
+  49: "!",
+  50: "@",
+  51: "#",
+  52: "$",
+  53: "%",
+  54: "^",
+  55: "&",
+  56: "*",
+  57: "(",
+  59: ":",
+  61: "+",
+  173: "_",
+  186: ":",
+  187: "+",
+  188: "<",
+  189: "_",
+  190: ">",
+  191: "?",
+  192: "~",
+  219: "{",
+  220: "|",
+  221: "}",
+  222: "\""
+};
+
+var mac$1 = typeof navigator != "undefined" && /Mac/.test(navigator.platform);
+var ie = typeof navigator != "undefined" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent);
+
+// Fill in the digit keys
+for (var i = 0; i < 10; i++) base[48 + i] = base[96 + i] = String(i);
+
+// The function keys
+for (var i = 1; i <= 24; i++) base[i + 111] = "F" + i;
+
+// And the alphabetic keys
+for (var i = 65; i <= 90; i++) {
+  base[i] = String.fromCharCode(i + 32);
+  shift[i] = String.fromCharCode(i);
+}
+
+// For each code that doesn't have a shift-equivalent, copy the base name
+for (var code in base) if (!shift.hasOwnProperty(code)) shift[code] = base[code];
+
+function keyName(event) {
+  // On macOS, keys held with Shift and Cmd don't reflect the effect of Shift in `.key`.
+  // On IE, shift effect is never included in `.key`.
+  var ignoreKey = mac$1 && event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey ||
+      ie && event.shiftKey && event.key && event.key.length == 1 ||
+      event.key == "Unidentified";
+  var name = (!ignoreKey && event.key) ||
+    (event.shiftKey ? shift : base)[event.keyCode] ||
+    event.key || "Unidentified";
+  // Edge sometimes produces wrong names (Issue #3)
+  if (name == "Esc") name = "Escape";
+  if (name == "Del") name = "Delete";
+  // https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8860571/
+  if (name == "Left") name = "ArrowLeft";
+  if (name == "Up") name = "ArrowUp";
+  if (name == "Right") name = "ArrowRight";
+  if (name == "Down") name = "ArrowDown";
+  return name
+}
+
+const mac = typeof navigator != "undefined" && /Mac|iP(hone|[oa]d)/.test(navigator.platform);
+const windows = typeof navigator != "undefined" && /Win/.test(navigator.platform);
+function normalizeKeyName(name) {
+    let parts = name.split(/-(?!$)/), result = parts[parts.length - 1];
+    if (result == "Space")
+        result = " ";
+    let alt, ctrl, shift, meta;
+    for (let i = 0; i < parts.length - 1; i++) {
+        let mod = parts[i];
+        if (/^(cmd|meta|m)$/i.test(mod))
+            meta = true;
+        else if (/^a(lt)?$/i.test(mod))
+            alt = true;
+        else if (/^(c|ctrl|control)$/i.test(mod))
+            ctrl = true;
+        else if (/^s(hift)?$/i.test(mod))
+            shift = true;
+        else if (/^mod$/i.test(mod)) {
+            if (mac)
+                meta = true;
+            else
+                ctrl = true;
+        }
+        else
+            throw new Error("Unrecognized modifier name: " + mod);
+    }
+    if (alt)
+        result = "Alt-" + result;
+    if (ctrl)
+        result = "Ctrl-" + result;
+    if (meta)
+        result = "Meta-" + result;
+    if (shift)
+        result = "Shift-" + result;
+    return result;
+}
+function normalize(map) {
+    let copy = Object.create(null);
+    for (let prop in map)
+        copy[normalizeKeyName(prop)] = map[prop];
+    return copy;
+}
+function modifiers(name, event, shift = true) {
+    if (event.altKey)
+        name = "Alt-" + name;
+    if (event.ctrlKey)
+        name = "Ctrl-" + name;
+    if (event.metaKey)
+        name = "Meta-" + name;
+    if (shift && event.shiftKey)
+        name = "Shift-" + name;
+    return name;
+}
+/**
+Given a set of bindings (using the same format as
+[`keymap`](https://prosemirror.net/docs/ref/#keymap.keymap)), return a [keydown
+handler](https://prosemirror.net/docs/ref/#view.EditorProps.handleKeyDown) that handles them.
+*/
+function keydownHandler(bindings) {
+    let map = normalize(bindings);
+    return function (view, event) {
+        let name = keyName(event), baseName, direct = map[modifiers(name, event)];
+        if (direct && direct(view.state, view.dispatch, view))
+            return true;
+        // A character key
+        if (name.length == 1 && name != " ") {
+            if (event.shiftKey) {
+                // In case the name was already modified by shift, try looking
+                // it up without its shift modifier
+                let noShift = map[modifiers(name, event, false)];
+                if (noShift && noShift(view.state, view.dispatch, view))
+                    return true;
+            }
+            if ((event.altKey || event.metaKey || event.ctrlKey) &&
+                // Ctrl-Alt may be used for AltGr on Windows
+                !(windows && event.ctrlKey && event.altKey) &&
+                (baseName = base[event.keyCode]) && baseName != name) {
+                // Try falling back to the keyCode when there's a modifier
+                // active or the character produced isn't ASCII, and our table
+                // produces a different name from the the keyCode. See #668,
+                // #1060, #1529.
+                let fromCode = map[modifiers(baseName, event)];
+                if (fromCode && fromCode(view.state, view.dispatch, view))
+                    return true;
+            }
+        }
+        return false;
+    };
+}
+
+//#region src/tablemap.ts
+let readFromCache;
+let addToCache;
+if (typeof WeakMap != "undefined") {
+	let cache = /* @__PURE__ */ new WeakMap();
+	readFromCache = (key) => cache.get(key);
+	addToCache = (key, value) => {
+		cache.set(key, value);
+		return value;
+	};
+} else {
+	const cache = [];
+	const cacheSize = 10;
+	let cachePos = 0;
+	readFromCache = (key) => {
+		for (let i = 0; i < cache.length; i += 2) if (cache[i] == key) return cache[i + 1];
+	};
+	addToCache = (key, value) => {
+		if (cachePos == cacheSize) cachePos = 0;
+		cache[cachePos++] = key;
+		return cache[cachePos++] = value;
+	};
+}
+/**
+* A table map describes the structure of a given table. To avoid
+* recomputing them all the time, they are cached per table node. To
+* be able to do that, positions saved in the map are relative to the
+* start of the table, rather than the start of the document.
+*
+* @public
+*/
+var TableMap = class {
+	constructor(width, height, map, problems) {
+		this.width = width;
+		this.height = height;
+		this.map = map;
+		this.problems = problems;
+	}
+	findCell(pos) {
+		for (let i = 0; i < this.map.length; i++) {
+			const curPos = this.map[i];
+			if (curPos != pos) continue;
+			const left = i % this.width;
+			const top = i / this.width | 0;
+			let right = left + 1;
+			let bottom = top + 1;
+			for (let j = 1; right < this.width && this.map[i + j] == curPos; j++) right++;
+			for (let j = 1; bottom < this.height && this.map[i + this.width * j] == curPos; j++) bottom++;
+			return {
+				left,
+				top,
+				right,
+				bottom
+			};
+		}
+		throw new RangeError(`No cell with offset ${pos} found`);
+	}
+	colCount(pos) {
+		for (let i = 0; i < this.map.length; i++) if (this.map[i] == pos) return i % this.width;
+		throw new RangeError(`No cell with offset ${pos} found`);
+	}
+	nextCell(pos, axis, dir) {
+		const { left, right, top, bottom } = this.findCell(pos);
+		if (axis == "horiz") {
+			if (dir < 0 ? left == 0 : right == this.width) return null;
+			return this.map[top * this.width + (dir < 0 ? left - 1 : right)];
+		} else {
+			if (dir < 0 ? top == 0 : bottom == this.height) return null;
+			return this.map[left + this.width * (dir < 0 ? top - 1 : bottom)];
+		}
+	}
+	rectBetween(a, b) {
+		const { left: leftA, right: rightA, top: topA, bottom: bottomA } = this.findCell(a);
+		const { left: leftB, right: rightB, top: topB, bottom: bottomB } = this.findCell(b);
+		return {
+			left: Math.min(leftA, leftB),
+			top: Math.min(topA, topB),
+			right: Math.max(rightA, rightB),
+			bottom: Math.max(bottomA, bottomB)
+		};
+	}
+	cellsInRect(rect) {
+		const result = [];
+		const seen = {};
+		for (let row = rect.top; row < rect.bottom; row++) for (let col = rect.left; col < rect.right; col++) {
+			const index = row * this.width + col;
+			const pos = this.map[index];
+			if (seen[pos]) continue;
+			seen[pos] = true;
+			if (col == rect.left && col && this.map[index - 1] == pos || row == rect.top && row && this.map[index - this.width] == pos) continue;
+			result.push(pos);
+		}
+		return result;
+	}
+	positionAt(row, col, table) {
+		for (let i = 0, rowStart = 0;; i++) {
+			const rowEnd = rowStart + table.child(i).nodeSize;
+			if (i == row) {
+				let index = col + row * this.width;
+				const rowEndIndex = (row + 1) * this.width;
+				while (index < rowEndIndex && this.map[index] < rowStart) index++;
+				return index == rowEndIndex ? rowEnd - 1 : this.map[index];
+			}
+			rowStart = rowEnd;
+		}
+	}
+	static get(table) {
+		return readFromCache(table) || addToCache(table, computeMap(table));
+	}
+};
+function computeMap(table) {
+	if (table.type.spec.tableRole != "table") throw new RangeError("Not a table node: " + table.type.name);
+	const width = findWidth(table), height = table.childCount;
+	const map = [];
+	let mapPos = 0;
+	let problems = null;
+	const colWidths = [];
+	for (let i = 0, e = width * height; i < e; i++) map[i] = 0;
+	for (let row = 0, pos = 0; row < height; row++) {
+		const rowNode = table.child(row);
+		pos++;
+		for (let i = 0;; i++) {
+			while (mapPos < map.length && map[mapPos] != 0) mapPos++;
+			if (i == rowNode.childCount) break;
+			const cellNode = rowNode.child(i);
+			const { colspan, rowspan, colwidth } = cellNode.attrs;
+			for (let h = 0; h < rowspan; h++) {
+				if (h + row >= height) {
+					(problems || (problems = [])).push({
+						type: "overlong_rowspan",
+						pos,
+						n: rowspan - h
+					});
+					break;
+				}
+				const start = mapPos + h * width;
+				for (let w = 0; w < colspan; w++) {
+					if (map[start + w] == 0) map[start + w] = pos;
+					else (problems || (problems = [])).push({
+						type: "collision",
+						row,
+						pos,
+						n: colspan - w
+					});
+					const colW = colwidth && colwidth[w];
+					if (colW) {
+						const widthIndex = (start + w) % width * 2, prev = colWidths[widthIndex];
+						if (prev == null || prev != colW && colWidths[widthIndex + 1] == 1) {
+							colWidths[widthIndex] = colW;
+							colWidths[widthIndex + 1] = 1;
+						} else if (prev == colW) colWidths[widthIndex + 1]++;
+					}
+				}
+			}
+			mapPos += colspan;
+			pos += cellNode.nodeSize;
+		}
+		const expectedPos = (row + 1) * width;
+		let missing = 0;
+		while (mapPos < expectedPos) if (map[mapPos++] == 0) missing++;
+		if (missing) (problems || (problems = [])).push({
+			type: "missing",
+			row,
+			n: missing
+		});
+		pos++;
+	}
+	if (width === 0 || height === 0) (problems || (problems = [])).push({ type: "zero_sized" });
+	const tableMap = new TableMap(width, height, map, problems);
+	let badWidths = false;
+	for (let i = 0; !badWidths && i < colWidths.length; i += 2) if (colWidths[i] != null && colWidths[i + 1] < height) badWidths = true;
+	if (badWidths) findBadColWidths(tableMap, colWidths, table);
+	return tableMap;
+}
+function findWidth(table) {
+	let width = -1;
+	let hasRowSpan = false;
+	for (let row = 0; row < table.childCount; row++) {
+		const rowNode = table.child(row);
+		let rowWidth = 0;
+		if (hasRowSpan) for (let j = 0; j < row; j++) {
+			const prevRow = table.child(j);
+			for (let i = 0; i < prevRow.childCount; i++) {
+				const cell = prevRow.child(i);
+				if (j + cell.attrs.rowspan > row) rowWidth += cell.attrs.colspan;
+			}
+		}
+		for (let i = 0; i < rowNode.childCount; i++) {
+			const cell = rowNode.child(i);
+			rowWidth += cell.attrs.colspan;
+			if (cell.attrs.rowspan > 1) hasRowSpan = true;
+		}
+		if (width == -1) width = rowWidth;
+		else if (width != rowWidth) width = Math.max(width, rowWidth);
+	}
+	return width;
+}
+function findBadColWidths(map, colWidths, table) {
+	if (!map.problems) map.problems = [];
+	const seen = {};
+	for (let i = 0; i < map.map.length; i++) {
+		const pos = map.map[i];
+		if (seen[pos]) continue;
+		seen[pos] = true;
+		const node = table.nodeAt(pos);
+		if (!node) throw new RangeError(`No cell with offset ${pos} found`);
+		let updated = null;
+		const attrs = node.attrs;
+		for (let j = 0; j < attrs.colspan; j++) {
+			const colWidth = colWidths[(i + j) % map.width * 2];
+			if (colWidth != null && (!attrs.colwidth || attrs.colwidth[j] != colWidth)) (updated || (updated = freshColWidth(attrs)))[j] = colWidth;
+		}
+		if (updated) map.problems.unshift({
+			type: "colwidth mismatch",
+			pos,
+			colwidth: updated
+		});
+	}
+}
+function freshColWidth(attrs) {
+	if (attrs.colwidth) return attrs.colwidth.slice();
+	const result = [];
+	for (let i = 0; i < attrs.colspan; i++) result.push(0);
+	return result;
+}
+
+//#endregion
+//#region src/schema.ts
+function getCellAttrs(dom, extraAttrs) {
+	if (typeof dom === "string") return {};
+	const widthAttr = dom.getAttribute("data-colwidth");
+	const widths = widthAttr && /^\d+(,\d+)*$/.test(widthAttr) ? widthAttr.split(",").map((s) => Number(s)) : null;
+	const colspan = Number(dom.getAttribute("colspan") || 1);
+	const result = {
+		colspan,
+		rowspan: Number(dom.getAttribute("rowspan") || 1),
+		colwidth: widths && widths.length == colspan ? widths : null
+	};
+	for (const prop in extraAttrs) {
+		const getter = extraAttrs[prop].getFromDOM;
+		const value = getter && getter(dom);
+		if (value != null) result[prop] = value;
+	}
+	return result;
+}
+function setCellAttrs(node, extraAttrs) {
+	const attrs = {};
+	if (node.attrs.colspan != 1) attrs.colspan = node.attrs.colspan;
+	if (node.attrs.rowspan != 1) attrs.rowspan = node.attrs.rowspan;
+	if (node.attrs.colwidth) attrs["data-colwidth"] = node.attrs.colwidth.join(",");
+	for (const prop in extraAttrs) {
+		const setter = extraAttrs[prop].setDOMAttr;
+		if (setter) setter(node.attrs[prop], attrs);
+	}
+	return attrs;
+}
+function validateColwidth(value) {
+	if (value === null) return;
+	if (!Array.isArray(value)) throw new TypeError("colwidth must be null or an array");
+	for (const item of value) if (typeof item !== "number") throw new TypeError("colwidth must be null or an array of numbers");
+}
+/**
+* This function creates a set of [node
+* specs](http://prosemirror.net/docs/ref/#model.SchemaSpec.nodes) for
+* `table`, `table_row`, and `table_cell` nodes types as used by this
+* module. The result can then be added to the set of nodes when
+* creating a schema.
+*
+* @public
+*/
+function tableNodes(options) {
+	const extraAttrs = options.cellAttributes || {};
+	const cellAttrs = {
+		colspan: {
+			default: 1,
+			validate: "number"
+		},
+		rowspan: {
+			default: 1,
+			validate: "number"
+		},
+		colwidth: {
+			default: null,
+			validate: validateColwidth
+		}
+	};
+	for (const prop in extraAttrs) cellAttrs[prop] = {
+		default: extraAttrs[prop].default,
+		validate: extraAttrs[prop].validate
+	};
+	return {
+		table: {
+			content: "table_row+",
+			tableRole: "table",
+			isolating: true,
+			group: options.tableGroup,
+			parseDOM: [{ tag: "table" }],
+			toDOM() {
+				return ["table", ["tbody", 0]];
+			}
+		},
+		table_row: {
+			content: "(table_cell | table_header)*",
+			tableRole: "row",
+			parseDOM: [{ tag: "tr" }],
+			toDOM() {
+				return ["tr", 0];
+			}
+		},
+		table_cell: {
+			content: options.cellContent,
+			attrs: cellAttrs,
+			tableRole: "cell",
+			isolating: true,
+			parseDOM: [{
+				tag: "td",
+				getAttrs: (dom) => getCellAttrs(dom, extraAttrs)
+			}],
+			toDOM(node) {
+				return [
+					"td",
+					setCellAttrs(node, extraAttrs),
+					0
+				];
+			}
+		},
+		table_header: {
+			content: options.cellContent,
+			attrs: cellAttrs,
+			tableRole: "header_cell",
+			isolating: true,
+			parseDOM: [{
+				tag: "th",
+				getAttrs: (dom) => getCellAttrs(dom, extraAttrs)
+			}],
+			toDOM(node) {
+				return [
+					"th",
+					setCellAttrs(node, extraAttrs),
+					0
+				];
+			}
+		}
+	};
+}
+/**
+* @public
+*/
+function tableNodeTypes(schema) {
+	let result = schema.cached.tableNodeTypes;
+	if (!result) {
+		result = schema.cached.tableNodeTypes = {};
+		for (const name in schema.nodes) {
+			const type = schema.nodes[name], role = type.spec.tableRole;
+			if (role) result[role] = type;
+		}
+	}
+	return result;
+}
+
+//#endregion
+//#region src/util.ts
+/**
+* @public
+*/
+new PluginKey("selectingCells");
+/**
+* @public
+*/
+function cellAround($pos) {
+	for (let d = $pos.depth - 1; d > 0; d--) if ($pos.node(d).type.spec.tableRole == "row") return $pos.node(0).resolve($pos.before(d + 1));
+	return null;
+}
+/**
+* @public
+*/
+function isInTable(state) {
+	const $head = state.selection.$head;
+	for (let d = $head.depth; d > 0; d--) if ($head.node(d).type.spec.tableRole == "row") return true;
+	return false;
+}
+/**
+* @internal
+*/
+function selectionCell(state) {
+	const sel = state.selection;
+	if ("$anchorCell" in sel && sel.$anchorCell) return sel.$anchorCell.pos > sel.$headCell.pos ? sel.$anchorCell : sel.$headCell;
+	else if ("node" in sel && sel.node && sel.node.type.spec.tableRole == "cell") return sel.$anchor;
+	const $cell = cellAround(sel.$head) || cellNear(sel.$head);
+	if ($cell) return $cell;
+	throw new RangeError(`No cell found around position ${sel.head}`);
+}
+/**
+* @public
+*/
+function cellNear($pos) {
+	for (let after = $pos.nodeAfter, pos = $pos.pos; after; after = after.firstChild, pos++) {
+		const role = after.type.spec.tableRole;
+		if (role == "cell" || role == "header_cell") return $pos.doc.resolve(pos);
+	}
+	for (let before = $pos.nodeBefore, pos = $pos.pos; before; before = before.lastChild, pos--) {
+		const role = before.type.spec.tableRole;
+		if (role == "cell" || role == "header_cell") return $pos.doc.resolve(pos - before.nodeSize);
+	}
+}
+/**
+* @public
+*/
+function pointsAtCell($pos) {
+	return $pos.parent.type.spec.tableRole == "row" && !!$pos.nodeAfter;
+}
+/**
+* @internal
+*/
+function inSameTable($cellA, $cellB) {
+	return $cellA.depth == $cellB.depth && $cellA.pos >= $cellB.start(-1) && $cellA.pos <= $cellB.end(-1);
+}
+/**
+* @public
+*/
+function nextCell($pos, axis, dir) {
+	const table = $pos.node(-1);
+	const map = TableMap.get(table);
+	const tableStart = $pos.start(-1);
+	const moved = map.nextCell($pos.pos - tableStart, axis, dir);
+	return moved == null ? null : $pos.node(0).resolve(tableStart + moved);
+}
+/**
+* @public
+*/
+function removeColSpan(attrs, pos, n = 1) {
+	const result = {
+		...attrs,
+		colspan: attrs.colspan - n
+	};
+	if (result.colwidth) {
+		result.colwidth = result.colwidth.slice();
+		result.colwidth.splice(pos, n);
+		if (!result.colwidth.some((w) => w > 0)) result.colwidth = null;
+	}
+	return result;
+}
+
+//#endregion
+//#region src/cellselection.ts
+/**
+* A [`Selection`](http://prosemirror.net/docs/ref/#state.Selection)
+* subclass that represents a cell selection spanning part of a table.
+* With the plugin enabled, these will be created when the user
+* selects across cells, and will be drawn by giving selected cells a
+* `selectedCell` CSS class.
+*
+* @public
+*/
+var CellSelection = class CellSelection extends Selection {
+	constructor($anchorCell, $headCell = $anchorCell) {
+		const table = $anchorCell.node(-1);
+		const map = TableMap.get(table);
+		const tableStart = $anchorCell.start(-1);
+		const rect = map.rectBetween($anchorCell.pos - tableStart, $headCell.pos - tableStart);
+		const doc = $anchorCell.node(0);
+		const cells = map.cellsInRect(rect).filter((p) => p != $headCell.pos - tableStart);
+		cells.unshift($headCell.pos - tableStart);
+		const ranges = cells.map((pos) => {
+			const cell = table.nodeAt(pos);
+			if (!cell) throw new RangeError(`No cell with offset ${pos} found`);
+			const from = tableStart + pos + 1;
+			return new SelectionRange(doc.resolve(from), doc.resolve(from + cell.content.size));
+		});
+		super(ranges[0].$from, ranges[0].$to, ranges);
+		this.$anchorCell = $anchorCell;
+		this.$headCell = $headCell;
+	}
+	map(doc, mapping) {
+		const $anchorCell = doc.resolve(mapping.map(this.$anchorCell.pos));
+		const $headCell = doc.resolve(mapping.map(this.$headCell.pos));
+		if (pointsAtCell($anchorCell) && pointsAtCell($headCell) && inSameTable($anchorCell, $headCell)) {
+			const tableChanged = this.$anchorCell.node(-1) != $anchorCell.node(-1);
+			if (tableChanged && this.isRowSelection()) return CellSelection.rowSelection($anchorCell, $headCell);
+			else if (tableChanged && this.isColSelection()) return CellSelection.colSelection($anchorCell, $headCell);
+			else return new CellSelection($anchorCell, $headCell);
+		}
+		return TextSelection.between($anchorCell, $headCell);
+	}
+	content() {
+		const table = this.$anchorCell.node(-1);
+		const map = TableMap.get(table);
+		const tableStart = this.$anchorCell.start(-1);
+		const rect = map.rectBetween(this.$anchorCell.pos - tableStart, this.$headCell.pos - tableStart);
+		const seen = {};
+		const rows = [];
+		for (let row = rect.top; row < rect.bottom; row++) {
+			const rowContent = [];
+			for (let index = row * map.width + rect.left, col = rect.left; col < rect.right; col++, index++) {
+				const pos = map.map[index];
+				if (seen[pos]) continue;
+				seen[pos] = true;
+				const cellRect = map.findCell(pos);
+				let cell = table.nodeAt(pos);
+				if (!cell) throw new RangeError(`No cell with offset ${pos} found`);
+				const extraLeft = rect.left - cellRect.left;
+				const extraRight = cellRect.right - rect.right;
+				if (extraLeft > 0 || extraRight > 0) {
+					let attrs = cell.attrs;
+					if (extraLeft > 0) attrs = removeColSpan(attrs, 0, extraLeft);
+					if (extraRight > 0) attrs = removeColSpan(attrs, attrs.colspan - extraRight, extraRight);
+					if (cellRect.left < rect.left) {
+						cell = cell.type.createAndFill(attrs);
+						if (!cell) throw new RangeError(`Could not create cell with attrs ${JSON.stringify(attrs)}`);
+					} else cell = cell.type.create(attrs, cell.content);
+				}
+				if (cellRect.top < rect.top || cellRect.bottom > rect.bottom) {
+					const attrs = {
+						...cell.attrs,
+						rowspan: Math.min(cellRect.bottom, rect.bottom) - Math.max(cellRect.top, rect.top)
+					};
+					if (cellRect.top < rect.top) cell = cell.type.createAndFill(attrs);
+					else cell = cell.type.create(attrs, cell.content);
+				}
+				rowContent.push(cell);
+			}
+			rows.push(table.child(row).copy(Fragment.from(rowContent)));
+		}
+		const fragment = this.isColSelection() && this.isRowSelection() ? table : rows;
+		return new Slice(Fragment.from(fragment), 1, 1);
+	}
+	replace(tr, content = Slice.empty) {
+		const mapFrom = tr.steps.length, ranges = this.ranges;
+		for (let i = 0; i < ranges.length; i++) {
+			const { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
+			tr.replace(mapping.map($from.pos), mapping.map($to.pos), i ? Slice.empty : content);
+		}
+		const sel = Selection.findFrom(tr.doc.resolve(tr.mapping.slice(mapFrom).map(this.to)), -1);
+		if (sel) tr.setSelection(sel);
+	}
+	replaceWith(tr, node) {
+		this.replace(tr, new Slice(Fragment.from(node), 0, 0));
+	}
+	forEachCell(f) {
+		const table = this.$anchorCell.node(-1);
+		const map = TableMap.get(table);
+		const tableStart = this.$anchorCell.start(-1);
+		const cells = map.cellsInRect(map.rectBetween(this.$anchorCell.pos - tableStart, this.$headCell.pos - tableStart));
+		for (let i = 0; i < cells.length; i++) f(table.nodeAt(cells[i]), tableStart + cells[i]);
+	}
+	isColSelection() {
+		const anchorTop = this.$anchorCell.index(-1);
+		const headTop = this.$headCell.index(-1);
+		if (Math.min(anchorTop, headTop) > 0) return false;
+		const anchorBottom = anchorTop + this.$anchorCell.nodeAfter.attrs.rowspan;
+		const headBottom = headTop + this.$headCell.nodeAfter.attrs.rowspan;
+		return Math.max(anchorBottom, headBottom) == this.$headCell.node(-1).childCount;
+	}
+	static colSelection($anchorCell, $headCell = $anchorCell) {
+		const table = $anchorCell.node(-1);
+		const map = TableMap.get(table);
+		const tableStart = $anchorCell.start(-1);
+		const anchorRect = map.findCell($anchorCell.pos - tableStart);
+		const headRect = map.findCell($headCell.pos - tableStart);
+		const doc = $anchorCell.node(0);
+		if (anchorRect.top <= headRect.top) {
+			if (anchorRect.top > 0) $anchorCell = doc.resolve(tableStart + map.map[anchorRect.left]);
+			if (headRect.bottom < map.height) $headCell = doc.resolve(tableStart + map.map[map.width * (map.height - 1) + headRect.right - 1]);
+		} else {
+			if (headRect.top > 0) $headCell = doc.resolve(tableStart + map.map[headRect.left]);
+			if (anchorRect.bottom < map.height) $anchorCell = doc.resolve(tableStart + map.map[map.width * (map.height - 1) + anchorRect.right - 1]);
+		}
+		return new CellSelection($anchorCell, $headCell);
+	}
+	isRowSelection() {
+		const table = this.$anchorCell.node(-1);
+		const map = TableMap.get(table);
+		const tableStart = this.$anchorCell.start(-1);
+		const anchorLeft = map.colCount(this.$anchorCell.pos - tableStart);
+		const headLeft = map.colCount(this.$headCell.pos - tableStart);
+		if (Math.min(anchorLeft, headLeft) > 0) return false;
+		const anchorRight = anchorLeft + this.$anchorCell.nodeAfter.attrs.colspan;
+		const headRight = headLeft + this.$headCell.nodeAfter.attrs.colspan;
+		return Math.max(anchorRight, headRight) == map.width;
+	}
+	eq(other) {
+		return other instanceof CellSelection && other.$anchorCell.pos == this.$anchorCell.pos && other.$headCell.pos == this.$headCell.pos;
+	}
+	static rowSelection($anchorCell, $headCell = $anchorCell) {
+		const table = $anchorCell.node(-1);
+		const map = TableMap.get(table);
+		const tableStart = $anchorCell.start(-1);
+		const anchorRect = map.findCell($anchorCell.pos - tableStart);
+		const headRect = map.findCell($headCell.pos - tableStart);
+		const doc = $anchorCell.node(0);
+		if (anchorRect.left <= headRect.left) {
+			if (anchorRect.left > 0) $anchorCell = doc.resolve(tableStart + map.map[anchorRect.top * map.width]);
+			if (headRect.right < map.width) $headCell = doc.resolve(tableStart + map.map[map.width * (headRect.top + 1) - 1]);
+		} else {
+			if (headRect.left > 0) $headCell = doc.resolve(tableStart + map.map[headRect.top * map.width]);
+			if (anchorRect.right < map.width) $anchorCell = doc.resolve(tableStart + map.map[map.width * (anchorRect.top + 1) - 1]);
+		}
+		return new CellSelection($anchorCell, $headCell);
+	}
+	toJSON() {
+		return {
+			type: "cell",
+			anchor: this.$anchorCell.pos,
+			head: this.$headCell.pos
+		};
+	}
+	static fromJSON(doc, json) {
+		return new CellSelection(doc.resolve(json.anchor), doc.resolve(json.head));
+	}
+	static create(doc, anchorCell, headCell = anchorCell) {
+		return new CellSelection(doc.resolve(anchorCell), doc.resolve(headCell));
+	}
+	getBookmark() {
+		return new CellBookmark(this.$anchorCell.pos, this.$headCell.pos);
+	}
+};
+CellSelection.prototype.visible = false;
+Selection.jsonID("cell", CellSelection);
+/**
+* @public
+*/
+var CellBookmark = class CellBookmark {
+	constructor(anchor, head) {
+		this.anchor = anchor;
+		this.head = head;
+	}
+	map(mapping) {
+		return new CellBookmark(mapping.map(this.anchor), mapping.map(this.head));
+	}
+	resolve(doc) {
+		const $anchorCell = doc.resolve(this.anchor), $headCell = doc.resolve(this.head);
+		if ($anchorCell.parent.type.spec.tableRole == "row" && $headCell.parent.type.spec.tableRole == "row" && $anchorCell.index() < $anchorCell.parent.childCount && $headCell.index() < $headCell.parent.childCount && inSameTable($anchorCell, $headCell)) return new CellSelection($anchorCell, $headCell);
+		else return Selection.near($headCell, 1);
+	}
+};
+
+//#endregion
+//#region src/fixtables.ts
+/**
+* @public
+*/
+new PluginKey("fix-tables");
+
+//#endregion
+//#region src/commands.ts
+/**
+* Helper to get the selected rectangle in a table, if any. Adds table
+* map, table node, and table start offset to the object for
+* convenience.
+*
+* @public
+*/
+function selectedRect(state) {
+	const sel = state.selection;
+	const $pos = selectionCell(state);
+	const table = $pos.node(-1);
+	const tableStart = $pos.start(-1);
+	const map = TableMap.get(table);
+	return {
+		...sel instanceof CellSelection ? map.rectBetween(sel.$anchorCell.pos - tableStart, sel.$headCell.pos - tableStart) : map.findCell($pos.pos - tableStart),
+		tableStart,
+		map,
+		table
+	};
+}
+function deprecated_toggleHeader(type) {
+	return function(state, dispatch) {
+		if (!isInTable(state)) return false;
+		if (dispatch) {
+			const types = tableNodeTypes(state.schema);
+			const rect = selectedRect(state), tr = state.tr;
+			const cells = rect.map.cellsInRect(type == "column" ? {
+				left: rect.left,
+				top: 0,
+				right: rect.right,
+				bottom: rect.map.height
+			} : type == "row" ? {
+				left: 0,
+				top: rect.top,
+				right: rect.map.width,
+				bottom: rect.bottom
+			} : rect);
+			const nodes = cells.map((pos) => rect.table.nodeAt(pos));
+			for (let i = 0; i < cells.length; i++) if (nodes[i].type == types.header_cell) tr.setNodeMarkup(rect.tableStart + cells[i], types.cell, nodes[i].attrs);
+			if (tr.steps.length === 0) for (let i = 0; i < cells.length; i++) tr.setNodeMarkup(rect.tableStart + cells[i], types.header_cell, nodes[i].attrs);
+			dispatch(tr);
+		}
+		return true;
+	};
+}
+function isHeaderEnabledByType(type, rect, types) {
+	const cellPositions = rect.map.cellsInRect({
+		left: 0,
+		top: 0,
+		right: type == "row" ? rect.map.width : 1,
+		bottom: type == "column" ? rect.map.height : 1
+	});
+	for (let i = 0; i < cellPositions.length; i++) {
+		const cell = rect.table.nodeAt(cellPositions[i]);
+		if (cell && cell.type !== types.header_cell) return false;
+	}
+	return true;
+}
+/**
+* Toggles between row/column header and normal cells (Only applies to first row/column).
+* For deprecated behavior pass `useDeprecatedLogic` in options with true.
+*
+* @public
+*/
+function toggleHeader(type, options) {
+	options = options || { useDeprecatedLogic: false };
+	if (options.useDeprecatedLogic) return deprecated_toggleHeader(type);
+	return function(state, dispatch) {
+		if (!isInTable(state)) return false;
+		if (dispatch) {
+			const types = tableNodeTypes(state.schema);
+			const rect = selectedRect(state), tr = state.tr;
+			const isHeaderRowEnabled = isHeaderEnabledByType("row", rect, types);
+			const isHeaderColumnEnabled = isHeaderEnabledByType("column", rect, types);
+			const selectionStartsAt = (type === "column" ? isHeaderRowEnabled : type === "row" ? isHeaderColumnEnabled : false) ? 1 : 0;
+			const cellsRect = type == "column" ? {
+				left: 0,
+				top: selectionStartsAt,
+				right: 1,
+				bottom: rect.map.height
+			} : type == "row" ? {
+				left: selectionStartsAt,
+				top: 0,
+				right: rect.map.width,
+				bottom: 1
+			} : rect;
+			const newType = type == "column" ? isHeaderColumnEnabled ? types.cell : types.header_cell : type == "row" ? isHeaderRowEnabled ? types.cell : types.header_cell : types.cell;
+			rect.map.cellsInRect(cellsRect).forEach((relativeCellPos) => {
+				const cellPos = relativeCellPos + rect.tableStart;
+				const cell = tr.doc.nodeAt(cellPos);
+				if (cell) tr.setNodeMarkup(cellPos, newType, cell.attrs);
+			});
+			dispatch(tr);
+		}
+		return true;
+	};
+}
+/**
+* Toggles whether the selected row contains header cells.
+*
+* @public
+*/
+toggleHeader("row", { useDeprecatedLogic: true });
+/**
+* Toggles whether the selected column contains header cells.
+*
+* @public
+*/
+toggleHeader("column", { useDeprecatedLogic: true });
+/**
+* Toggles whether the selected cells are header cells.
+*
+* @public
+*/
+toggleHeader("cell", { useDeprecatedLogic: true });
+/**
+* Deletes the content of the selected cells, if they are not empty.
+*
+* @public
+*/
+function deleteCellSelection(state, dispatch) {
+	const sel = state.selection;
+	if (!(sel instanceof CellSelection)) return false;
+	if (dispatch) {
+		const tr = state.tr;
+		const baseContent = tableNodeTypes(state.schema).cell.createAndFill().content;
+		sel.forEachCell((cell, pos) => {
+			if (!cell.content.eq(baseContent)) tr.replace(tr.mapping.map(pos + 1), tr.mapping.map(pos + cell.nodeSize - 1), new Slice(baseContent, 0, 0));
+		});
+		if (tr.docChanged) dispatch(tr);
+	}
+	return true;
+}
+
+//#endregion
+//#region src/input.ts
+keydownHandler({
+	ArrowLeft: arrow("horiz", -1),
+	ArrowRight: arrow("horiz", 1),
+	ArrowUp: arrow("vert", -1),
+	ArrowDown: arrow("vert", 1),
+	"Shift-ArrowLeft": shiftArrow("horiz", -1),
+	"Shift-ArrowRight": shiftArrow("horiz", 1),
+	"Shift-ArrowUp": shiftArrow("vert", -1),
+	"Shift-ArrowDown": shiftArrow("vert", 1),
+	Backspace: deleteCellSelection,
+	"Mod-Backspace": deleteCellSelection,
+	Delete: deleteCellSelection,
+	"Mod-Delete": deleteCellSelection
+});
+function maybeSetSelection(state, dispatch, selection) {
+	if (selection.eq(state.selection)) return false;
+	if (dispatch) dispatch(state.tr.setSelection(selection).scrollIntoView());
+	return true;
+}
+/**
+* @internal
+*/
+function arrow(axis, dir) {
+	return (state, dispatch, view) => {
+		if (!view) return false;
+		const sel = state.selection;
+		if (sel instanceof CellSelection) return maybeSetSelection(state, dispatch, Selection.near(sel.$headCell, dir));
+		if (axis != "horiz" && !sel.empty) return false;
+		const end = atEndOfCell(view, axis, dir);
+		if (end == null) return false;
+		if (axis == "horiz") return maybeSetSelection(state, dispatch, Selection.near(state.doc.resolve(sel.head + dir), dir));
+		else {
+			const $cell = state.doc.resolve(end);
+			const $next = nextCell($cell, axis, dir);
+			let newSel;
+			if ($next) newSel = Selection.near($next, 1);
+			else if (dir < 0) newSel = Selection.near(state.doc.resolve($cell.before(-1)), -1);
+			else newSel = Selection.near(state.doc.resolve($cell.after(-1)), 1);
+			return maybeSetSelection(state, dispatch, newSel);
+		}
+	};
+}
+function shiftArrow(axis, dir) {
+	return (state, dispatch, view) => {
+		if (!view) return false;
+		const sel = state.selection;
+		let cellSel;
+		if (sel instanceof CellSelection) cellSel = sel;
+		else {
+			const end = atEndOfCell(view, axis, dir);
+			if (end == null) return false;
+			cellSel = new CellSelection(state.doc.resolve(end));
+		}
+		const $head = nextCell(cellSel.$headCell, axis, dir);
+		if (!$head) return false;
+		return maybeSetSelection(state, dispatch, new CellSelection(cellSel.$anchorCell, $head));
+	};
+}
+function atEndOfCell(view, axis, dir) {
+	if (!(view.state.selection instanceof TextSelection)) return null;
+	const { $head } = view.state.selection;
+	for (let d = $head.depth - 1; d >= 0; d--) {
+		const parent = $head.node(d);
+		if ((dir < 0 ? $head.index(d) : $head.indexAfter(d)) != (dir < 0 ? 0 : parent.childCount)) return null;
+		if (parent.type.spec.tableRole == "cell" || parent.type.spec.tableRole == "header_cell") {
+			const cellPos = $head.before(d);
+			const dirStr = axis == "vert" ? dir > 0 ? "down" : "up" : dir > 0 ? "right" : "left";
+			return view.endOfTextblock(dirStr) ? cellPos : null;
+		}
+	}
+	return null;
+}
+
+//#endregion
+//#region src/columnresizing.ts
+/**
+* @public
+*/
+new PluginKey("tableColumnResizing");
+
+const olDOM = ["ol", 0], ulDOM = ["ul", 0], liDOM = ["li", 0];
+/**
+An ordered list [node spec](https://prosemirror.net/docs/ref/#model.NodeSpec). Has a single
+attribute, `order`, which determines the number at which the list
+starts counting, and defaults to 1. Represented as an `<ol>`
+element.
+*/
+const orderedList = {
+    attrs: { order: { default: 1, validate: "number" } },
+    parseDOM: [{ tag: "ol", getAttrs(dom) {
+                return { order: dom.hasAttribute("start") ? +dom.getAttribute("start") : 1 };
+            } }],
+    toDOM(node) {
+        return node.attrs.order == 1 ? olDOM : ["ol", { start: node.attrs.order }, 0];
+    }
+};
+/**
+A bullet list node spec, represented in the DOM as `<ul>`.
+*/
+const bulletList = {
+    parseDOM: [{ tag: "ul" }],
+    toDOM() { return ulDOM; }
+};
+/**
+A list item (`<li>`) spec.
+*/
+const listItem = {
+    parseDOM: [{ tag: "li" }],
+    toDOM() { return liDOM; },
+    defining: true
+};
+function add(obj, props) {
+    let copy = {};
+    for (let prop in obj)
+        copy[prop] = obj[prop];
+    for (let prop in props)
+        copy[prop] = props[prop];
+    return copy;
+}
+/**
+Convenience function for adding list-related node types to a map
+specifying the nodes for a schema. Adds
+[`orderedList`](https://prosemirror.net/docs/ref/#schema-list.orderedList) as `"ordered_list"`,
+[`bulletList`](https://prosemirror.net/docs/ref/#schema-list.bulletList) as `"bullet_list"`, and
+[`listItem`](https://prosemirror.net/docs/ref/#schema-list.listItem) as `"list_item"`.
+
+`itemContent` determines the content expression for the list items.
+If you want the commands defined in this module to apply to your
+list structure, it should have a shape like `"paragraph block*"` or
+`"paragraph (ordered_list | bullet_list)*"`. `listGroup` can be
+given to assign a group name to the list node types, for example
+`"block"`.
+*/
+function addListNodes(nodes, itemContent, listGroup) {
+    return nodes.append({
+        ordered_list: add(orderedList, { content: "list_item+", group: listGroup }),
+        bullet_list: add(bulletList, { content: "list_item+", group: listGroup }),
+        list_item: add(listItem, { content: itemContent })
+    });
+}
+
+const pDOM = ["p", 0], 
+      blockquoteDOM = ["blockquote", 0], 
+      hrDOM = ["hr"],
+      preDOM = ["pre", ["code", 0]], 
+      brDOM = ["br"];
+
+let baseNodes = OrderedMap.from({
+  // :: NodeSpec The top level document node.
+  doc: {
+    content: "block+"
+  },
+
+  // :: NodeSpec A plain paragraph textblock. Represented in the DOM
+  // as a `<p>` element.
   paragraph: {
-    content: 'inline*',
-    group: 'block',
-    parseDOM: [{ tag: 'p' }],
+    content: "inline*",
+    group: "block",
+    parseDOM: [{tag: "p"}],
     toDOM() { return pDOM }
   },
 
+  // :: NodeSpec A blockquote (`<blockquote>`) wrapping one or more blocks.
   blockquote: {
-    content: 'block+',
-    group: 'block',
+    content: "block+",
+    group: "block",
     defining: true,
-    parseDOM: [{ tag: 'blockquote' }],
+    parseDOM: [{tag: "blockquote"}],
     toDOM() { return blockquoteDOM }
   },
 
+  // :: NodeSpec A horizontal rule (`<hr>`).
   horizontal_rule: {
-    group: 'block',
-    parseDOM: [{ tag: 'hr' }],
+    group: "block",
+    parseDOM: [{tag: "hr"}],
     toDOM() { return hrDOM }
   },
 
+  // :: NodeSpec A heading textblock, with a `level` attribute that
+  // should hold the number 1 to 6. Parsed and serialized as `<h1>` to
+  // `<h6>` elements. We include ID so that local links can reference them.
   heading: {
     attrs: {
-      id: { default: null },
-      level: { default: 1 }
+      id: {default: null},
+      level: {default: 1}
     },
-    content: 'inline*',
-    group: 'block',
+    content: "inline*",
+    group: "block",
     defining: true,
     parseDOM: [
-      { tag: 'h1', getAttrs(dom) { return { level: 1, id: dom.getAttribute('id') } } },
-      { tag: 'h2', getAttrs(dom) { return { level: 2, id: dom.getAttribute('id') } } },
-      { tag: 'h3', getAttrs(dom) { return { level: 3, id: dom.getAttribute('id') } } },
-      { tag: 'h4', getAttrs(dom) { return { level: 4, id: dom.getAttribute('id') } } },
-      { tag: 'h5', getAttrs(dom) { return { level: 5, id: dom.getAttribute('id') } } },
-      { tag: 'h6', getAttrs(dom) { return { level: 6, id: dom.getAttribute('id') } } }
-    ],
-    toDOM(node) {
-      return ['h' + node.attrs.level, { id: node.attrs.id }, 0]
+      {tag: "h1", getAttrs(dom) { return {level: 1, id: dom.getAttribute("id")}}},
+      {tag: "h2", getAttrs(dom) { return {level: 2, id: dom.getAttribute("id")}}},
+      {tag: "h3", getAttrs(dom) { return {level: 3, id: dom.getAttribute("id")}}},
+      {tag: "h4", getAttrs(dom) { return {level: 4, id: dom.getAttribute("id")}}},
+      {tag: "h5", getAttrs(dom) { return {level: 5, id: dom.getAttribute("id")}}},
+      {tag: "h6", getAttrs(dom) { return {level: 6, id: dom.getAttribute("id")}}}],
+    toDOM(node) { 
+      return ["h" + node.attrs.level, { id: node.attrs.id }, 0]
     }
   },
 
+  // :: NodeSpec A code listing. Disallows marks or non-text inline
+  // nodes by default. Represented as a `<pre>` element with a
+  // `<code>` element inside of it.
   code_block: {
-    content: 'text*',
-    marks: '',
-    group: 'block',
+    content: "text*",
+    marks: "",
+    group: "block",
     code: true,
     defining: true,
-    parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }],
+    parseDOM: [{tag: "pre", preserveWhitespace: "full"}],
     toDOM() { return preDOM }
   },
 
+  // :: NodeSpec The text node.
   text: {
-    group: 'inline'
+    group: "inline"
   },
 
+  // :: NodeSpec An inline image (`<img>`) node. Supports `src`,
+  // `alt`, and `href` attributes. The latter two default to the empty
+  // string.
   image: {
     inline: true,
     attrs: {
       src: {},
-      alt: { default: null },
-      width: { default: null },
-      height: { default: null }
+      alt: {default: null},
+      width: {default: null},
+      height: {default: null}
     },
-    group: 'inline',
+    group: "inline",
     parseDOM: [{
-      tag: 'img[src]',
+      tag: "img[src]", 
       getAttrs(dom) {
-        const width = dom.getAttribute('width') && parseInt(dom.getAttribute('width'));
-        const height = dom.getAttribute('height') && parseInt(dom.getAttribute('height'));
+        const width = dom.getAttribute("width") && parseInt(dom.getAttribute("width"));
+        const height = dom.getAttribute("height") && parseInt(dom.getAttribute("height"));
         return {
-          src: dom.getAttribute('src'),
-          alt: dom.getAttribute('alt'),
+          src: dom.getAttribute("src"),
+          alt: dom.getAttribute("alt"),
           width: width,
           height: height
         }
       }
     }],
-    toDOM(node) {
-      const { src, alt, width, height } = node.attrs;
-      const minAttrs = {};
+    toDOM(node) { 
+      let {src, alt, width, height} = node.attrs; 
+      let minAttrs = {};
       minAttrs.src = src;
       if (alt) minAttrs.alt = alt;
       if (width) minAttrs.width = width;
       if (height) minAttrs.height = height;
-      return ['img', minAttrs]
+      return ["img", minAttrs] 
     }
   },
 
+  // :: NodeSpec A hard line break, represented in the DOM as `<br>`.
   hard_break: {
     inline: true,
-    group: 'inline',
+    group: "inline",
     selectable: false,
-    parseDOM: [{ tag: 'br' }],
+    parseDOM: [{tag: "br"}],
     toDOM() { return brDOM }
   },
 
+  // A div-delineated area within the MarkupEditor which can be editable or not,
+  // and typically has its own styling. It may contain a <p> title and/or another div. 
+  // In the latter case, this is used to hold a group of buttons.
+  //
+  // Notes: 
+  //
+  // 1. Changes to div here may need to be reflected in DivView found in markup.js.
+  //
+  // 2. We use a style rule to require divs to include id, class, parentId. The div elements 
+  // are used in the Swift MarkupEditor under these specific conditions, and requiring these 
+  // attributes prevents issues when pasting (e.g., from GitHub READMEs) include divs.
+  //
+  // 3. It might be possible to exclude divs that don't conform to MarkupEditor expectations 
+  // by using a rule. For now, deriving a Node from html always removes divs and buttons, so 
+  // the only way for them to get into the MarkupEditor is via paste, addDiv, and addButton.
+  // See https://discuss.prosemirror.net/t/how-to-filter-pasted-content-by-node-type/4866 and
+  // https://prosemirror.net/docs/ref/#inputrules
   div: {
-    content: 'block*',
-    group: 'block',
-    isolating: true,
+    content: "block*",
+    group: "block",
+    isolating: true,    // Prevent operations like lift from going outside of a div
     selectable: false,
     attrs: {
-      id: { default: null },
-      parentId: { default: 'editor' },
-      cssClass: { default: null },
-      editable: { default: true },
-      htmlContents: { default: null },
-      spellcheck: { default: false },
-      autocorrect: { default: 'on' },
-      autocapitalize: { default: 'off' },
-      writingsuggestions: { default: false }
+      id: {default: null},
+      parentId: {default: 'editor'},
+      cssClass: {default: null},
+      editable: {default: true},
+      htmlContents: {default: null},
+      spellcheck: {default: false},
+      autocorrect: {default: 'on'},
+      autocapitalize: {default: 'off'},
+      writingsuggestions: {default: false},
     },
     parseDOM: [{
-      style: 'div[id, class, parentId]',
+      style: "div[id, class, parentId]",
       getAttrs(dom) {
+        const id = dom.getAttribute("id");
+        const parentId = dom.getAttribute("parentId");
+        const cssClass = dom.getAttribute("class");
+        const editable = dom.getAttribute("editable") == "true";
+        const spellcheck = dom.getAttribute("spellcheck") == "true";
+        const autocorrect = dom.getAttribute("autocorrect") == "on";
+        const autocapitalize = dom.getAttribute("autocapitalize") == "on";
+        const writingsuggestions = dom.getAttribute("writingsuggestions") == "true";
         return {
-          id: dom.getAttribute('id'),
-          parentId: dom.getAttribute('parentId'),
-          cssClass: dom.getAttribute('class'),
-          editable: dom.getAttribute('editable') === 'true',
-          spellcheck: dom.getAttribute('spellcheck') === 'true',
-          autocorrect: dom.getAttribute('autocorrect') === 'on',
-          autocapitalize: dom.getAttribute('autocapitalize') === 'on',
-          writingsuggestions: dom.getAttribute('writingsuggestions') === 'true',
-          htmlContents: dom.innerHTML ?? ''
+          id: id,
+          parentId: parentId,
+          cssClass: cssClass,
+          editable: editable,
+          spellcheck: spellcheck,
+          autocorrect: autocorrect,
+          autocapitalize: autocapitalize,
+          writingsuggestions: writingsuggestions,
+          htmlContents: dom.innerHTML ?? ""
         }
       }
     }],
+    // Notes:
+    // 1. We produce div HTML that includes the id and class. This is because for non-editable 
+    // divs, we have to find elements by id based on the HTML because we prevent ProseMirror from 
+    // handling selection and rendering, and we have to do it for ourselves in the DivView. Also
+    // the attributes on div are not part of the HTML content they hold, which is what is of
+    // interest in MarkupEditor usage.
+    //
+    // 2. For the MarkupEditor, we set the top-level attributes of the editor div at initialization, 
+    // and the other divs embedded in it inherit the behavior set once at the top.
     toDOM(node) {
-      const { id, cssClass } = node.attrs;
-      return ['div', { id: id, class: cssClass }, 0]
+      let {id, cssClass} = node.attrs; 
+      return ["div", { id: id, class: cssClass }, 0] 
     }
   },
 
   button: {
-    content: 'text*',
-    group: 'block',
+    content: "text*",
+    group: "block",
     attrs: {
-      id: { default: null },
-      parentId: { default: null },
-      cssClass: { default: null },
-      label: { default: '' }
+      id: {default: null},
+      parentId: {default: null},
+      cssClass: {default: null},
+      label: {default: ""}
     },
     parseDOM: [{
-      tag: 'button',
+      tag: "button",
       getAttrs(dom) {
+        const id = dom.getAttribute("id");
+        const parentId = dom.getAttribute("parentId");
+        const cssClass = dom.getAttribute("class");
         return {
-          id: dom.getAttribute('id'),
-          parentId: dom.getAttribute('parentId'),
-          cssClass: dom.getAttribute('class'),
-          label: dom.innerHTML ?? ''
+          id: id,
+          parentId: parentId,
+          cssClass: cssClass,
+          label: dom.innerHTML ?? ""
         }
       }
     }],
     toDOM(node) {
-      const { id, cssClass, label } = node.attrs;
-      const button = document.createElement('button');
-      if (id) button.setAttribute('id', id);
-      if (cssClass) button.setAttribute('class', cssClass);
-      button.setAttribute('type', 'button');
+      let {id, cssClass, label} = node.attrs;
+      const button = document.createElement("button");
+      if (id) button.setAttribute("id", id);
+      if (cssClass) button.setAttribute("class", cssClass);
+      button.setAttribute("type", "button");
       if (label) button.innerHTML = label;
-      return button
+      return button;
     }
   }
+
 });
 
-// Mix list nodes
+// Mix the nodes from prosemirror-schema-list into the baseNodes to create a schema with list support.
 baseNodes = addListNodes(baseNodes, '(paragraph | heading)+ block*', 'block');
 
-// Create table nodes
+// Create table nodes that support bordering
 const tNodes = tableNodes({
   tableGroup: 'block',
   cellContent: 'block+',
@@ -15019,94 +17715,111 @@ const tNodes = tableNodes({
     background: {
       default: null,
       getFromDOM(dom) {
-        return dom.style.backgroundColor || null
+        return dom.style.backgroundColor || null;
       },
       setDOMAttr(value, attrs) {
         if (value)
           attrs.style = (attrs.style || '') + `background-color: ${value};`;
-      }
-    }
+      },
+    },
   }
 });
-tNodes.table.attrs = { class: { default: null } };
+tNodes.table.attrs = {class: {default: null}};
+// The class for table indicates the type of bordering so needs to be parsed and output as 
+// part of the table.
 tNodes.table.parseDOM = [{
-  tag: 'table',
+  tag: 'table', 
   getAttrs(dom) {
-    return { class: dom.getAttribute('class') }
+    return {class: dom.getAttribute('class')}
   }
 }];
-tNodes.table.toDOM = (node) => ['table', node.attrs, 0];
+tNodes.table.toDOM = (node) => { return ['table', node.attrs, 0] };
 
+// Append the modified tableNodes and export the resulting nodes
+// :: Object
+// [Specs](#model.NodeSpec) for the nodes defined in this schema.
 const nodes = baseNodes.append(tNodes);
 
-const emDOM = ['em', 0];
-const strongDOM = ['strong', 0];
-const codeDOM = ['code', 0];
-const strikeDOM = ['s', 0];
-const uDOM = ['u', 0];
-const subDOM = ['sub', 0];
-const supDOM = ['sup', 0];
+const emDOM = ["em", 0], 
+      strongDOM = ["strong", 0], 
+      codeDOM = ["code", 0],
+      strikeDOM = ["s", 0],
+      uDOM = ["u", 0],
+      subDOM = ["sub", 0],
+      supDOM = ["sup", 0];
 
+// :: Object [Specs](#model.MarkSpec) for the marks in the schema.
 const marks = {
+  // :: MarkSpec A link. Has `href` and `title` attributes. `title`
+  // defaults to the empty string. Rendered and parsed as an `<a>`
+  // element.
   link: {
     attrs: {
       href: {},
-      title: { default: null }
+      title: {default: null}
     },
     inclusive: false,
-    parseDOM: [{
-      tag: 'a[href]',
-      getAttrs(dom) {
-        return { href: dom.getAttribute('href'), title: dom.getAttribute('title') }
-      }
-    }],
-    toDOM(node) {
-      const { href, title } = node.attrs;
-      return ['a', { href, title }, 0]
-    }
+    parseDOM: [{tag: "a[href]", getAttrs(dom) {
+      return {href: dom.getAttribute("href"), title: dom.getAttribute("title")}
+    }}],
+    toDOM(node) { let {href, title} = node.attrs; return ["a", {href, title}, 0] }
   },
 
+  // :: MarkSpec An emphasis mark. Rendered as an `<em>` element.
+  // Has parse rules that also match `<i>` and `font-style: italic`.
   em: {
-    parseDOM: [{ tag: 'i' }, { tag: 'em' }, { style: 'font-style=italic' }],
+    parseDOM: [{tag: "i"}, {tag: "em"}, {style: "font-style=italic"}],
     toDOM() { return emDOM }
   },
 
   s: {
-    parseDOM: [{ tag: 's' }, { tag: 'del' }, { style: 'text-decoration=line-through' }],
+    parseDOM: [{tag: "s"}, {tag: "del"}, {style: "text-decoration=line-through"}],
     toDOM() { return strikeDOM }
   },
 
   u: {
-    parseDOM: [{ tag: 'u' }, { style: 'text-decoration=underline' }],
+    parseDOM: [{tag: "u"}, {style: "text-decoration=underline"}],
     toDOM() { return uDOM }
   },
 
   sub: {
-    parseDOM: [{ tag: 'sub' }, { style: 'vertical-align: sub' }],
+    parseDOM: [{tag: "sub"}, {style: "vertical-align: sub"}],
     toDOM() { return subDOM }
   },
 
   sup: {
-    parseDOM: [{ tag: 'sup' }, { style: 'vertical-align: super' }],
+    parseDOM: [{tag: "sup"}, {style: "vertical-align: super"}],
     toDOM() { return supDOM }
   },
 
+  // :: MarkSpec A strong mark. Rendered as `<strong>`, parse rules
+  // also match `<b>` and `font-weight: bold`.
   strong: {
-    parseDOM: [
-      { tag: 'strong' },
-      { tag: 'b', getAttrs: node => node.style.fontWeight !== 'normal' && null },
-      { style: 'font-weight', getAttrs: value => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null }
-    ],
+    parseDOM: [{tag: "strong"},
+               // This works around a Google Docs misbehavior where
+               // pasted content will be inexplicably wrapped in `<b>`
+               // tags with a font-weight normal.
+               {tag: "b", getAttrs: node => node.style.fontWeight != "normal" && null},
+               {style: "font-weight", getAttrs: value => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null}],
     toDOM() { return strongDOM }
   },
 
+  // :: MarkSpec Code font mark. Represented as a `<code>` element.
   code: {
-    parseDOM: [{ tag: 'code' }],
+    parseDOM: [{tag: "code"}],
     toDOM() { return codeDOM }
   }
 };
 
-const schema = new Schema({ nodes, marks });
+// :: Schema
+// This schema roughly corresponds to the document schema used by
+// [CommonMark](http://commonmark.org/), minus the list elements,
+// which are defined in the [`prosemirror-schema-list`](#schema-list)
+// module.
+//
+// To reuse elements from this schema, extend or read from its
+// `spec.nodes` and `spec.marks` [properties](#model.Schema.spec).
+const schema = new Schema({nodes, marks});
 
 // ---------------------------------------------------------------------------
 // Plugin registration
