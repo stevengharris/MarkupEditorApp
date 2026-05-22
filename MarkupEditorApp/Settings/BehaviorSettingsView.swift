@@ -36,7 +36,7 @@ struct BehaviorSettingsView: View {
             .onChange(of: toolbarVisibility) { oldValue, newValue in
                 setToolbarVisibility(newValue)
             }
-            Section("Installed Plugins") {
+            LabeledContent("Installed Plugins:") {
                 let plugins = appConfig.plugins ?? []
                 if plugins.isEmpty {
                     Text("No plugins installed.")

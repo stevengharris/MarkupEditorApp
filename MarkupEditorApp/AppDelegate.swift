@@ -50,6 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // fully complete before we replace the menu.
         DispatchQueue.main.async { [self] in
             NSApplication.shared.mainMenu = buildMenu()
+            populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
         }
     }
 
