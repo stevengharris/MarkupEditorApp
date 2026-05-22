@@ -71,6 +71,10 @@ struct MarkupDocumentView: View {
         }
         .onChange(of: appConfigJSON) { _, _ in
             appConfig = AppConfig.fromDefaults()
+            markupConfiguration.pluginFiles = AppConfig.pluginFiles(
+                from: appConfig.plugins,
+                pluginDir: PluginSetup.defaultPluginDir
+            )
             MarkupEditor.selectedWebView?.getHtml { html in
                 self.initialHtml = html ?? ""   // Restore contents on redraw
                 self.configVersion += 1
@@ -220,6 +224,10 @@ struct MarkupDocumentView: View {
         config.toolbarConfig = ToolbarConfig.fromDefaults()
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
+        config.pluginFiles = AppConfig.pluginFiles(
+            from: AppConfig.fromDefaults().plugins,
+            pluginDir: PluginSetup.defaultPluginDir
+        )
         _markupConfiguration = State(initialValue: config)
     }
     
