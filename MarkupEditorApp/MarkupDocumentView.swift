@@ -296,7 +296,7 @@ struct MarkupDocumentView: View {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.html, .htmd]
+            panel.allowedContentTypes = [.html, .htmd, .markdown]
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = true
             panel.canChooseFiles = true
@@ -307,11 +307,17 @@ struct MarkupDocumentView: View {
 
     private func openDocument(at url: URL, handler: (()->Void)? = nil) {
         let ext = url.pathExtension.lowercased()
-        guard ext == "html" || ext == "htmd" else {
+        guard ext == "html" || ext == "htmd" || ext == "md" else {
             let alert = NSAlert()
             alert.messageText = "Unsupported file type"
-            alert.informativeText = "Only .html and .htmd documents can be opened."
+            alert.informativeText = "Only .html, .htmd, and .md documents can be opened."
             alert.runModal()
+            return
+        }
+        if ext == "md" {
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            openMarkdown(at: url, handler: handler)
             return
         }
         let accessing = url.startAccessingSecurityScopedResource()
@@ -382,16 +388,83 @@ struct MarkupDocumentView: View {
         }
     }
 
+    /// Opens a Markdown file by reading its text and importing it through the registered
+    /// plugin for the "md" extension.  The plugin converts Markdown to HTML and sets
+    /// the editor content.  Any warnings returned by the plugin are shown in an alert.
+    private func openMarkdown(at fileURL: URL, handler: (() -> Void)? = nil) {
+        guard let pluginId = pluginId(forExtension: "md") else {
+            let alert = NSAlert()
+            alert.messageText = "No plugin available for .md files."
+            alert.runModal()
+            handler?()
+            return
+        }
+        guard let markdownText = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            handler?()
+            return
+        }
+        MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: markdownText) { result in
+            if let warnings = result, !warnings.isEmpty {
+                let alert = NSAlert()
+                alert.messageText = warnings
+                alert.runModal()
+            }
+            self.activeDocumentType = .md
+            self.hasChanges = false
+            self.currentFileURL = fileURL
+            self.setRepresentedURL(fileURL)
+            NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
+            handler?()
+        }
+    }
+
     private func handleSave(then completion: (()->Void)? = nil) {
         guard let url = currentFileURL else {
             showSavePanel(then: completion)
+            return
+        }
+        guard MarkupEditor.selectedWebView?.baseUrl != nil else {
+            completion?()
+            return
+        }
+        let docType = activeDocumentType ?? .html
+        // Markdown save is async (plugin-driven); handle it before the image-sync path.
+        if docType == .md {
+            guard let pluginId = pluginId(forExtension: "md") else {
+                let alert = NSAlert()
+                alert.messageText = "No plugin available for .md files."
+                alert.runModal()
+                completion?()
+                return
+            }
+            MarkupEditor.selectedWebView?.getHtml { html in
+                guard let html else { completion?(); return }
+                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                    guard let markdown = result else {
+                        let alert = NSAlert()
+                        alert.messageText = "Export failed."
+                        alert.runModal()
+                        completion?()
+                        return
+                    }
+                    do {
+                        try markdown.write(to: url, atomically: true, encoding: .utf8)
+                        self.hasChanges = false
+                        completion?()
+                    } catch {
+                        let alert = NSAlert()
+                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                        alert.runModal()
+                        completion?()
+                    }
+                }
+            }
             return
         }
         guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
             completion?()
             return
         }
-        let docType = activeDocumentType ?? .html
         getLocalImageSrcs { [self] srcs in
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else {
@@ -407,7 +480,7 @@ struct MarkupDocumentView: View {
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
                         try html.write(to: url, atomically: true, encoding: .utf8)
                     case .md:
-                        // P4b: real Markdown save behavior supplied in a later phase.
+                        // Handled above in the early-exit branch.
                         break
                     }
                     hasChanges = false
@@ -439,12 +512,53 @@ struct MarkupDocumentView: View {
             completion?()
             return
         }
-        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+        guard MarkupEditor.selectedWebView?.baseUrl != nil else {
             completion?()
             return
         }
         let targetExt = url.pathExtension.lowercased()
         guard targetExt == "html" || targetExt == "htmd" || targetExt == "md" else {
+            completion?()
+            return
+        }
+        // Markdown save-as is async (plugin-driven); handle it before the image-scan path.
+        if targetExt == "md" {
+            guard let pluginId = pluginId(forExtension: "md") else {
+                let alert = NSAlert()
+                alert.messageText = "No plugin available for .md files."
+                alert.runModal()
+                completion?()
+                return
+            }
+            MarkupEditor.selectedWebView?.getHtml { html in
+                guard let html else { completion?(); return }
+                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                    guard let markdown = result else {
+                        let alert = NSAlert()
+                        alert.messageText = "Export failed."
+                        alert.runModal()
+                        completion?()
+                        return
+                    }
+                    do {
+                        try markdown.write(to: url, atomically: true, encoding: .utf8)
+                        self.currentFileURL = url
+                        self.activeDocumentType = .md
+                        self.hasChanges = false
+                        self.setRepresentedURL(url)
+                        NSDocumentController.shared.noteNewRecentDocumentURL(url)
+                        completion?()
+                    } catch {
+                        let alert = NSAlert()
+                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                        alert.runModal()
+                        completion?()
+                    }
+                }
+            }
+            return
+        }
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
             completion?()
             return
         }
@@ -458,23 +572,13 @@ struct MarkupDocumentView: View {
                     switch targetExt {
                     case "htmd":
                         try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
-                    case "md":
-                        // P4b: real Markdown save behavior supplied in a later phase.
-                        break
                     default:
                         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
                     }
                     currentFileURL = url
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
                     setRepresentedURL(url)
-                    switch targetExt {
-                    case "htmd":
-                        activeDocumentType = .htmd
-                    case "md":
-                        activeDocumentType = .md
-                    default:
-                        activeDocumentType = .html
-                    }
+                    activeDocumentType = targetExt == "htmd" ? .htmd : .html
                     hasChanges = false
                     completion?()
                 } catch {
@@ -487,6 +591,13 @@ struct MarkupDocumentView: View {
     }
     func toolbarVisible() -> Bool {
         !appConfig.isHidden()
+    }
+
+    /// Returns the JS registry key for the plugin registered for `ext`, or `nil` if none.
+    /// Delegates to the free function `pluginId(forExtension:in:)` in DocumentOpener.swift
+    /// using the current `appConfig`.
+    private func pluginId(forExtension ext: String) -> String? {
+        appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
     }
 
 }

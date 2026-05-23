@@ -89,6 +89,19 @@ func saveAsHtml(srcs: [String], html: String, baseUrl: URL, to fileURL: URL) thr
     try copyImageAssets(srcs: srcs, from: baseUrl, to: parentDir, skipMissing: true)
 }
 
+// MARK: - Plugin lookup
+
+/// Returns the JS registry key (`name`) for the first plugin whose `fileExtension`
+/// matches `ext`, or `nil` if no matching plugin is configured.
+///
+/// - Parameters:
+///   - ext: The file extension to look up (e.g. `"md"`). Case-sensitive; callers
+///     are expected to lowercase the extension before calling.
+///   - config: The `AppConfig` to search. Defaults to `AppConfig.fromDefaults()`.
+func pluginId(forExtension ext: String, in config: AppConfig = AppConfig.fromDefaults()) -> String? {
+    config.plugins?.first(where: { $0.fileExtension == ext })?.name
+}
+
 // MARK: - Types
 
 enum DocumentType: Equatable { case html, htmd, md }
