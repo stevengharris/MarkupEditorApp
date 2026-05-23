@@ -11,6 +11,7 @@ internal import UniformTypeIdentifiers
 
 private extension UTType {
     static let htmd = UTType("com.stevengharris.htmd") ?? .data
+    static let markdown = UTType("public.markdown") ?? .plainText
 }
 
 struct MarkupDocumentView: View {
@@ -405,6 +406,9 @@ struct MarkupDocumentView: View {
                     case .html:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
                         try html.write(to: url, atomically: true, encoding: .utf8)
+                    case .md:
+                        // P4b: real Markdown save behavior supplied in a later phase.
+                        break
                     }
                     hasChanges = false
                     completion?()
@@ -429,7 +433,7 @@ struct MarkupDocumentView: View {
 
     private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html, .htmd]
+        panel.allowedContentTypes = [.html, .htmd, .markdown]
         panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.htmd"
         guard panel.runModal() == .OK, let url = panel.url else {
             completion?()
@@ -440,7 +444,7 @@ struct MarkupDocumentView: View {
             return
         }
         let targetExt = url.pathExtension.lowercased()
-        guard targetExt == "html" || targetExt == "htmd" else {
+        guard targetExt == "html" || targetExt == "htmd" || targetExt == "md" else {
             completion?()
             return
         }
@@ -454,13 +458,23 @@ struct MarkupDocumentView: View {
                     switch targetExt {
                     case "htmd":
                         try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
+                    case "md":
+                        // P4b: real Markdown save behavior supplied in a later phase.
+                        break
                     default:
                         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
                     }
                     currentFileURL = url
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
                     setRepresentedURL(url)
-                    activeDocumentType = targetExt == "htmd" ? .htmd : .html
+                    switch targetExt {
+                    case "htmd":
+                        activeDocumentType = .htmd
+                    case "md":
+                        activeDocumentType = .md
+                    default:
+                        activeDocumentType = .html
+                    }
                     hasChanges = false
                     completion?()
                 } catch {

@@ -418,6 +418,27 @@ struct GetLocalImageSrcsTests {
     }
 }
 
+struct DocumentTypeTests {
+
+    @Test func mdCaseExists() {
+        let docType: DocumentType = .md
+        #expect(docType == .md)
+    }
+
+    @Test func mdIsDistinctFromHtml() {
+        #expect(DocumentType.md != .html)
+    }
+
+    @Test func mdIsDistinctFromHtmd() {
+        #expect(DocumentType.md != .htmd)
+    }
+
+    @Test func allThreeCasesAreDistinct() {
+        let cases: [DocumentType] = [.html, .htmd, .md]
+        #expect(Set(cases).count == 3)
+    }
+}
+
 struct CopyPackageAssetsTests {
 
     private func makeTempDir(suffix: String = "") throws -> URL {

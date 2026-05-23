@@ -91,7 +91,7 @@ func saveAsHtml(srcs: [String], html: String, baseUrl: URL, to fileURL: URL) thr
 
 // MARK: - Types
 
-enum DocumentType: Equatable { case html, htmd }
+enum DocumentType: Equatable { case html, htmd, md }
 
 enum DocumentOpenError: Error, Equatable {
     case invalidExtension
