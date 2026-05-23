@@ -14,10 +14,11 @@ import MarkupEditor
 /// types (including `nil`) show "HTML Document".
 ///
 /// `sourceViewIsStale` is wired as a `@Binding` so the parent can signal that the
-/// displayed content may be out of date (set to `true` by `markupInput`). When stale,
-/// a Refresh button appears in the header. The `onRefresh` closure is called when the
-/// user taps that button; the closure is provided by the parent so `SourceView`
-/// remains side-effect-free.
+/// displayed content may be out of date (set to `true` by `markupInput`). A Refresh
+/// button is always present in the header; it is enabled only when `sourceViewIsStale`
+/// is `true` and `MarkupEditor.selectedWebView` is non-nil. The `onRefresh` closure
+/// is called when the user taps the button; the closure is provided by the parent so
+/// `SourceView` remains side-effect-free.
 struct SourceView: View {
 
     @Binding var currentHtml: String
@@ -34,15 +35,16 @@ struct SourceView: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider()
-            HStack {
-                Spacer()
+            ZStack {
                 Text(headerText)
-                Spacer()
-                if sourceViewIsStale {
+                    .frame(maxWidth: .infinity)
+                HStack {
+                    Spacer()
                     Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
                         .labelStyle(.iconOnly)
                         .buttonStyle(.plain)
                         .padding(.trailing, 8)
+                        .disabled(!sourceViewIsStale || MarkupEditor.selectedWebView == nil)
                 }
             }
             .background(

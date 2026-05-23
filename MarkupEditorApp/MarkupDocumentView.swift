@@ -546,7 +546,11 @@ struct MarkupDocumentView: View {
                 return
             }
             MarkupEditor.selectedWebView?.getHtml { html in
-                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html ?? "") { result in
+                guard let html else {
+                    self.sourceViewIsStale = false
+                    return
+                }
+                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
                     if let pluginResult = PluginResult.decode(from: result),
                        let markdown = pluginResult.result {
                         self.currentHtml = markdown
