@@ -32,8 +32,15 @@ public struct AppConfig: JSONConfigurable {
     /// `filename` is a bare filename (e.g. "markup-editor-markdown.js"); the app
     /// resolves it to a full bundle path at runtime when building the plugin configuration.
     public struct PluginConfigEntry: Codable {
-        public let name: String
-        public let filename: String
+        public let name: String           // JS registry key for invokePlugin
+        public let filename: String       // JS bundle filename
+        public let fileExtension: String? // e.g. "md"; nil = backward-compatible
+
+        public init(name: String, filename: String, fileExtension: String? = nil) {
+            self.name = name
+            self.filename = filename
+            self.fileExtension = fileExtension
+        }
     }
 
     public var toolbarVisibility: String

@@ -576,10 +576,12 @@ extension MarkupDocumentView: MarkupDelegate {
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
         let entries = plugins.compactMap { dict -> AppConfig.PluginConfigEntry? in
-            // Manifest shape: {id, name, extension} — no "filename" key.
-            // Store 'name' in the filename slot; it is the JS registry key passed to invokePlugin.
+            // Manifest shape from JS: {id, name, extension} — no "filename" key.
+            // "name" is the JS registry key passed to invokePlugin.
+            // "extension" (JS key) is bridged here to fileExtension (Swift field).
             guard let name = dict["name"] else { return nil }
-            return AppConfig.PluginConfigEntry(name: name, filename: name)
+            let fileExtension = dict["extension"]
+            return AppConfig.PluginConfigEntry(name: name, filename: name, fileExtension: fileExtension)
         }
         appDelegate.populatePluginMenus(entries)
     }

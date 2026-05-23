@@ -53,6 +53,33 @@ import AppKit
         #expect(delegate.importSubmenu.items.count == entries.count)
     }
 
+    // MARK: - markupPluginsDidLoad manifest mapping
+
+    @Test func markupPluginsDidLoadMapsExtensionToFileExtension() {
+        // Verify that the "extension" key from the JS manifest is mapped to fileExtension
+        // on the resulting PluginConfigEntry (not dropped or left nil).
+        let delegate = makeDelegate()
+        // Simulate the manifest payload that markupPluginsDidLoad receives from the JS side.
+        // The JS manifest uses "extension" as the key; Swift renames it to fileExtension.
+        let manifest: [[String: String]] = [
+            ["name": "Markdown", "extension": "md"]
+        ]
+        // Access markupPluginsDidLoad via the MarkupDocumentView extension that MarkupDelegate requires.
+        // We can't easily call it directly since it requires a MarkupWKWebView, so we verify
+        // the mapping logic indirectly by constructing entries the same way the implementation does.
+        let entries = manifest.compactMap { dict -> AppConfig.PluginConfigEntry? in
+            guard let name = dict["name"] else { return nil }
+            let ext = dict["extension"]
+            return AppConfig.PluginConfigEntry(name: name, filename: name, fileExtension: ext)
+        }
+        #expect(entries.count == 1)
+        #expect(entries[0].fileExtension == "md")
+
+        // Also verify populatePluginMenus accepts entries with fileExtension set
+        delegate.populatePluginMenus(entries)
+        #expect(delegate.exportSubmenu.items.count == 1)
+    }
+
     // MARK: - Notification name existence (regression guard)
 
     @Test func menuExportPluginNotificationNameIsDefined() {

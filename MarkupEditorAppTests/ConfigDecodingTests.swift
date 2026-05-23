@@ -140,4 +140,24 @@ struct AppConfigPluginDecodingTests {
         #expect(plugins.isEmpty)
     }
 
+    // MARK: - fileExtension field on PluginConfigEntry
+
+    @Test func testFileExtensionDecodesFromJSON() throws {
+        let json = """
+        { "name": "X", "filename": "x.js", "fileExtension": "md" }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
+        #expect(entry.fileExtension == "md")
+    }
+
+    @Test func testFileExtensionIsNilWhenKeyAbsent() throws {
+        let json = """
+        { "name": "X", "filename": "x.js" }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
+        #expect(entry.fileExtension == nil)
+    }
+
 }
