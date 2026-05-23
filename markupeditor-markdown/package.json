@@ -8,7 +8,7 @@
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "dependencies": {
     "markdown-it": "^14.1.0",
-    "markupeditor": "file:../../../../VSCodeProjects/markupeditor-base",
+    "markupeditor": "file:../../../VSCodeProjects/markupeditor-base",
     "prosemirror-markdown": "^1.13.1",
     "prosemirror-model": "^1.23.0"
   },

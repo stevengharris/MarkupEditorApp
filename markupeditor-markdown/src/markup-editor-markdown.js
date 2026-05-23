@@ -8,7 +8,9 @@ import { schema } from 'markupeditor/src/schema/index.js'
 // Plugin registration
 // ---------------------------------------------------------------------------
 
-const MU = document.querySelector('markup-editor').MU
+const muEl = document.querySelector('markup-editor')
+if (!muEl) throw new Error('markup-editor element not found; plugin loaded too early')
+const MU = muEl.MU
 
 /**
  * Export the active editor content as Markdown.
