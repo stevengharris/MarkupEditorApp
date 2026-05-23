@@ -84,7 +84,7 @@ struct MarkupDocumentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .menuSaveAsDocument)) { _ in
             handleSaveAs()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .menuShowHtml)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .menuShowSource)) { _ in
             handleShowHtml()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in

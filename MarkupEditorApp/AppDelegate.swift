@@ -76,7 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showHtml(_ sender: Any?) {
-        NotificationCenter.default.post(name: .menuShowHtml, object: nil)
+        NotificationCenter.default.post(name: .menuShowSource, object: nil)
     }
 
     @objc private func showSettings(_ sender: Any?) {
@@ -232,9 +232,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         toggleFullScreen.keyEquivalentModifierMask = [.command, .control]
         viewMenu.addItem(toggleFullScreen)
         viewMenu.addItem(.separator())
-        let showHtmlItem = NSMenuItem(title: "Show HTML", action: #selector(showHtml(_:)), keyEquivalent: "u")
+        let showHtmlItem = NSMenuItem(title: "Show Source", action: #selector(showHtml(_:)), keyEquivalent: "u")
         showHtmlItem.keyEquivalentModifierMask = [.command, .shift]
-        showHtmlItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Show HTML")
+        showHtmlItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Show Source")
         showHtmlItem.target = self
         viewMenu.addItem(showHtmlItem)
         viewMenuItem.submenu = viewMenu
