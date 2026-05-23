@@ -45,7 +45,12 @@ struct MarkupDocumentView: View {
             MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Edit document...", id: "Document")
                 .id(configVersion)
             if rawShowing {
-                SourceView(currentHtml: $currentHtml, sourceViewIsStale: $sourceViewIsStale)
+                SourceView(
+                    currentHtml: $currentHtml,
+                    sourceViewIsStale: $sourceViewIsStale,
+                    docType: activeDocumentType,
+                    onRefresh: refreshSourceView
+                )
             }
         }
         .onChange(of: toolbarConfigJSON) { _, _ in
@@ -521,6 +526,37 @@ struct MarkupDocumentView: View {
         }
     }
     
+    /// Refreshes the source view content based on the active document type.
+    ///
+    /// For `.html` and `.htmd`, delegates to `setCurrentHtml()` which fetches raw HTML
+    /// and clears `sourceViewIsStale`. For `.md`, invokes the registered Markdown plugin's
+    /// `export` action to convert the current editor HTML to Markdown, then updates
+    /// `currentHtml` with the result and clears `sourceViewIsStale`.
+    private func refreshSourceView() {
+        guard let docType = activeDocumentType else {
+            sourceViewIsStale = false
+            return
+        }
+        switch docType {
+        case .html, .htmd:
+            setCurrentHtml()
+        case .md:
+            guard let pluginId = pluginId(forExtension: "md") else {
+                sourceViewIsStale = false
+                return
+            }
+            MarkupEditor.selectedWebView?.getHtml { html in
+                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html ?? "") { result in
+                    if let pluginResult = PluginResult.decode(from: result),
+                       let markdown = pluginResult.result {
+                        self.currentHtml = markdown
+                    }
+                    self.sourceViewIsStale = false
+                }
+            }
+        }
+    }
+
     /// Open the HTML view
     private func handleShowHtml() {
         withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
