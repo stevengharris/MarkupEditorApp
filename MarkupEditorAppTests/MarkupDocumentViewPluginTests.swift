@@ -90,4 +90,5 @@ import AppKit
     @Test func menuImportPluginNotificationNameIsDefined() {
         #expect(Notification.Name.menuImportPlugin.rawValue == "menuImportPlugin")
     }
+
 }

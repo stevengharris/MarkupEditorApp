@@ -24,6 +24,7 @@ struct MarkupDocumentView: View {
     @State private var currentHtml = ""     // Used to display the raw HTML but avoid MarkupEditorView redrawing
     @State private var documentPickerShowing: Bool = false
     @State private var rawShowing: Bool = false
+    @State var sourceViewIsStale: Bool = false
     @State private var hasChanges = false
     @State private var currentFileURL: URL?
     @State private var activeDocumentType: DocumentType?
@@ -43,23 +44,7 @@ struct MarkupDocumentView: View {
             MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Edit document...", id: "Document")
                 .id(configVersion)
             if rawShowing {
-                VStack {
-                    Divider()
-                    HStack {
-                        Spacer()
-                        Text("Document HTML")
-                        Spacer()
-                    }
-                    .background(
-                        Color(nsColor: NSColor.unemphasizedSelectedContentBackgroundColor)
-                    )
-                    ScrollView {
-                        Text(currentHtml)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .font(Font.system(size: StyleContext.P.fontSize))
-                            .padding([.top, .bottom, .leading, .trailing], 8)
-                    }
-                }
+                SourceView(currentHtml: $currentHtml, sourceViewIsStale: $sourceViewIsStale)
             }
         }
         .onChange(of: toolbarConfigJSON) { _, _ in
@@ -505,10 +490,9 @@ extension MarkupDocumentView: MarkupDelegate {
     
     func markupInput(_ view: MarkupWKWebView) {
         hasChanges = true
-        // This is way too heavyweight, but it suits the purposes of the demo
         view.getSelectionState() { selectionState in
             MarkupEditor.selectionState.reset(from: selectionState)
-            setCurrentHtml()
+            sourceViewIsStale = true
         }
     }
 
