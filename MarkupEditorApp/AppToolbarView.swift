@@ -64,7 +64,7 @@ struct AppToolbarView: ToolbarContent {
                     toolbarConfig?.visibility["toolbar"] = newVisible
                     markupConfiguration.toolbarConfig = toolbarConfig
                     // Then save it, which triggers the .onChange(of: toolbarConfigJSON) in MarkupDocumentView
-                    if let toolbarConfig, let json = toolbarConfig.asJSON(), json != toolbarConfig.asJSON() {
+                    if let toolbarConfig, let json = toolbarConfig.asJSON(), json != toolbarConfigJSON {
                         toolbarConfigJSON = json
                     } else {
                         assertionFailure("ToolbarConfig encoding failed unexpectedly")

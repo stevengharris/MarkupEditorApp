@@ -237,6 +237,7 @@ struct MarkupDocumentView: View {
     private func setCurrentHtml(_ handler: (()->Void)? = nil) {
         MarkupEditor.selectedWebView?.getHtml { html in
             currentHtml = html ?? ""
+            sourceViewIsStale = false
             handler?()
         }
     }

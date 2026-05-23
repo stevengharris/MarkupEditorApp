@@ -17,13 +17,14 @@ struct SourceView: View {
 
     @Binding var currentHtml: String
     @Binding var sourceViewIsStale: Bool
+    var headerTitle: String = "HTML Document"
 
     var body: some View {
         VStack(spacing: 0) {
             Divider()
             HStack {
                 Spacer()
-                Text("HTML Document")
+                Text(headerTitle)
                 Spacer()
             }
             .background(
