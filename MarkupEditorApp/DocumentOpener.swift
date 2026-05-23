@@ -102,6 +102,18 @@ func pluginId(forExtension ext: String, in config: AppConfig = AppConfig.fromDef
     config.plugins?.first(where: { $0.fileExtension == ext })?.name
 }
 
+/// Decoded envelope returned by every `invokePlugin` call.
+/// The JS plugin wraps its output as `{ "result": string|null, "warnings": [string] }`.
+struct PluginResult: Decodable {
+    let result: String?
+    let warnings: [String]
+
+    static func decode(from jsonString: String?) -> PluginResult? {
+        guard let data = jsonString?.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(PluginResult.self, from: data)
+    }
+}
+
 // MARK: - Types
 
 enum DocumentType: Equatable { case html, htmd, md }

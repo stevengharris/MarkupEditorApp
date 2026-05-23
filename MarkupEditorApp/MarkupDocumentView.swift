@@ -108,7 +108,8 @@ struct MarkupDocumentView: View {
                 panel.allowedContentTypes = [.plainText]
                 guard panel.runModal() == .OK, let url = panel.url else { return }
                 MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
-                    guard let output = result else {
+                    guard let pluginResult = PluginResult.decode(from: result),
+                          let output = pluginResult.result else {
                         let alert = NSAlert()
                         alert.messageText = "Plugin '\(name)' could not complete the operation."
                         alert.runModal()
@@ -140,7 +141,8 @@ struct MarkupDocumentView: View {
                 return
             }
             MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: fileContent) { result in
-                guard let html = result else {
+                guard let pluginResult = PluginResult.decode(from: result),
+                      let html = pluginResult.result else {
                     let alert = NSAlert()
                     alert.messageText = "Plugin '\(name)' could not complete the operation."
                     alert.runModal()
@@ -399,22 +401,46 @@ struct MarkupDocumentView: View {
             handler?()
             return
         }
-        guard let markdownText = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        let markdownText: String
+        do {
+            markdownText = try String(contentsOf: fileURL, encoding: .utf8)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Could not read file: \(error.localizedDescription)"
+            alert.runModal()
             handler?()
             return
         }
         MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: markdownText) { result in
-            if let warnings = result, !warnings.isEmpty {
+            guard let pluginResult = PluginResult.decode(from: result) else {
                 let alert = NSAlert()
-                alert.messageText = warnings
+                alert.messageText = "Plugin returned an unexpected response."
+                alert.runModal()
+                handler?()
+                return
+            }
+            if !pluginResult.warnings.isEmpty {
+                let alert = NSAlert()
+                alert.messageText = pluginResult.warnings.joined(separator: "\n")
                 alert.runModal()
             }
+            guard let html = pluginResult.result else {
+                let alert = NSAlert()
+                alert.messageText = "Plugin could not convert the file."
+                alert.runModal()
+                handler?()
+                return
+            }
+            MarkupEditor.selectedWebView?.setHtml(html)
             self.activeDocumentType = .md
             self.hasChanges = false
-            self.currentFileURL = fileURL
-            self.setRepresentedURL(fileURL)
-            NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-            handler?()
+            self.setCurrentHtml {
+                self.initialHtml = self.currentHtml
+                self.currentFileURL = fileURL
+                self.setRepresentedURL(fileURL)
+                NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
+                handler?()
+            }
         }
     }
 
@@ -440,7 +466,8 @@ struct MarkupDocumentView: View {
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else { completion?(); return }
                 MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
-                    guard let markdown = result else {
+                    guard let pluginResult = PluginResult.decode(from: result),
+                          let markdown = pluginResult.result else {
                         let alert = NSAlert()
                         alert.messageText = "Export failed."
                         alert.runModal()
@@ -533,7 +560,8 @@ struct MarkupDocumentView: View {
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else { completion?(); return }
                 MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
-                    guard let markdown = result else {
+                    guard let pluginResult = PluginResult.decode(from: result),
+                          let markdown = pluginResult.result else {
                         let alert = NSAlert()
                         alert.messageText = "Export failed."
                         alert.runModal()
