@@ -31,6 +31,7 @@
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAB800602FC4C2CC00212250 /* markupeditor-markdown */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-markdown"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -100,6 +101,7 @@
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
+				AAB800602FC4C2CC00212250 /* markupeditor-markdown */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -451,9 +453,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
@@ -500,9 +500,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;

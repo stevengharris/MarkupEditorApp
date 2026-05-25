@@ -145,4 +145,30 @@ import AppKit
         #expect(item.target === delegate)
         #expect(NSStringFromSelector(item.action!) == "importPluginAction:")
     }
+
+    // MARK: - Plugin action userInfo content
+    //
+    // The action methods are @objc private. Triggering them via performClick posts to
+    // NotificationCenter.default, which the live MarkupDocumentView also observes —
+    // handleExport/handleImport may present NSSavePanel/NSOpenPanel in the test run.
+    // Instead, we verify that populatePluginMenus stores the full entry
+    // (including fileExtension) as representedObject on each menu item. The action
+    // methods read representedObject and place entry.fileExtension into userInfo["fileExtension"],
+    // so verifying representedObject covers the end-to-end data flow without panel risk.
+
+    @Test func exportMenuItemRepresentedObjectCarriesFileExtension() {
+        let delegate = makeDelegate()
+        let entry = AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+        delegate.populatePluginMenus([entry])
+        let stored = delegate.exportSubmenu.items[0].representedObject as? AppConfig.PluginConfigEntry
+        #expect(stored?.fileExtension == "md")
+    }
+
+    @Test func importMenuItemRepresentedObjectCarriesFileExtension() {
+        let delegate = makeDelegate()
+        let entry = AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+        delegate.populatePluginMenus([entry])
+        let stored = delegate.importSubmenu.items[0].representedObject as? AppConfig.PluginConfigEntry
+        #expect(stored?.fileExtension == "md")
+    }
 }

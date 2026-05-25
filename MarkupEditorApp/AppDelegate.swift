@@ -96,12 +96,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func clearUserDefaults(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuClearUserDefaults, object: nil)
     }
+#endif
 
     /// Fills Export and Import submenus from the plugin manifest.
     ///
     /// Safe to call multiple times — existing items are replaced on each call.
     /// Each Export item posts `.menuExportPlugin`; each Import item posts `.menuImportPlugin`.
-    /// Both notifications carry `userInfo` with `"name"` and `"filename"` from the entry.
+    /// Both notifications carry `userInfo` with `"name"`, `"filename"`, and `"fileExtension"` from the entry.
     public func populatePluginMenus(_ entries: [AppConfig.PluginConfigEntry]) {
         exportSubmenu.removeAllItems()
         importSubmenu.removeAllItems()
@@ -123,7 +124,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(
             name: .menuExportPlugin,
             object: nil,
-            userInfo: ["name": entry.name, "filename": entry.filename]
+            userInfo: ["name": entry.name, "filename": entry.filename, "fileExtension": entry.fileExtension ?? ""]
         )
     }
 
@@ -132,10 +133,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(
             name: .menuImportPlugin,
             object: nil,
-            userInfo: ["name": entry.name, "filename": entry.filename]
+            userInfo: ["name": entry.name, "filename": entry.filename, "fileExtension": entry.fileExtension ?? ""]
         )
     }
-#endif
 
     func buildMenu() -> NSMenu {
         let mainMenu = NSMenu()

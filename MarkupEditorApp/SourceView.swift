@@ -21,7 +21,7 @@ import MarkupEditor
 /// `SourceView` remains side-effect-free.
 struct SourceView: View {
 
-    @Binding var currentHtml: String
+    @Binding var currentSource: String
     @Binding var sourceViewIsStale: Bool
     var docType: DocumentType?
     var onRefresh: () -> Void = {}
@@ -51,7 +51,7 @@ struct SourceView: View {
                 Color(nsColor: NSColor.unemphasizedSelectedContentBackgroundColor)
             )
             ScrollView {
-                Text(currentHtml)
+                Text(currentSource)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .font(Font.system(size: StyleContext.P.fontSize))
                     .padding([.top, .bottom, .leading, .trailing], 8)

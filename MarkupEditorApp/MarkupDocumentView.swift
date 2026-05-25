@@ -22,7 +22,7 @@ struct MarkupDocumentView: View {
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var selectImage = MarkupEditor.selectImage
     @State private var initialHtml = ""     // Used to create a MarkupEditorView w/initial content
-    @State private var currentHtml = ""     // Used to display the raw HTML but avoid MarkupEditorView redrawing
+    @State private var currentSource = ""   // Used to display the raw HTML or imported document but avoid MarkupEditorView redrawing
     @State private var documentPickerShowing: Bool = false
     @State private var rawShowing: Bool = false
     @State var sourceViewIsStale: Bool = false
@@ -46,7 +46,7 @@ struct MarkupDocumentView: View {
                 .id(configVersion)
             if rawShowing {
                 SourceView(
-                    currentHtml: $currentHtml,
+                    currentSource: $currentSource,
                     sourceViewIsStale: $sourceViewIsStale,
                     docType: activeDocumentType,
                     onRefresh: refreshSourceView
@@ -91,72 +91,26 @@ struct MarkupDocumentView: View {
             handleSaveAs()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSource)) { _ in
-            handleShowHtml()
+            handleShowSource()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
             openSettings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
             guard let url = notification.object as? URL else { return }
-            checkSave { shouldProceed in
-                guard shouldProceed else { return }
-                openDocument(at: url)
-            }
+            handleOpenRecent(url: url)
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuExportPlugin)) { notification in
-            guard let name = notification.userInfo?["name"] as? String,
-                  let pluginId = notification.userInfo?["filename"] as? String else { return }
             // pluginId == manifest 'name' == JS registry key (set by markupPluginsDidLoad)
-            MarkupEditor.selectedWebView?.getHtml { html in
-                let panel = NSSavePanel()
-                panel.nameFieldStringValue = name
-                panel.allowedContentTypes = [.plainText]
-                guard panel.runModal() == .OK, let url = panel.url else { return }
-                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
-                    guard let pluginResult = PluginResult.decode(from: result),
-                          let output = pluginResult.result else {
-                        let alert = NSAlert()
-                        alert.messageText = "Plugin '\(name)' could not complete the operation."
-                        alert.runModal()
-                        return
-                    }
-                    do {
-                        try output.write(to: url, atomically: true, encoding: .utf8)
-                    } catch {
-                        let alert = NSAlert()
-                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                        alert.runModal()
-                    }
-                }
-            }
+            guard let pluginId = notification.userInfo?["name"] as? String else { return }
+            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
+            handleExport(pluginId: pluginId, fileExt: fileExt)
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuImportPlugin)) { notification in
-            guard let name = notification.userInfo?["name"] as? String,
-                  let pluginId = notification.userInfo?["filename"] as? String else { return }
             // pluginId == manifest 'name' == JS registry key (set by markupPluginsDidLoad)
-            let panel = NSOpenPanel()
-            panel.allowsMultipleSelection = false
-            panel.canChooseDirectories = false
-            panel.allowedContentTypes = [.plainText]
-            guard panel.runModal() == .OK, let url = panel.url else { return }
-            guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
-                let alert = NSAlert()
-                alert.messageText = "Could not read file."
-                alert.runModal()
-                return
-            }
-            MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: fileContent) { result in
-                guard let pluginResult = PluginResult.decode(from: result),
-                      let html = pluginResult.result else {
-                    let alert = NSAlert()
-                    alert.messageText = "Plugin '\(name)' could not complete the operation."
-                    alert.runModal()
-                    return
-                }
-                MarkupEditor.selectedWebView?.setHtml(html)
-            }
+            guard let pluginId = notification.userInfo?["name"] as? String else { return }
+            handleImport(pluginId: pluginId)
         }
-        // Dismiss the SettingsView when this one will close
 #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .menuClearUserDefaults)) { _ in
             UserDefaults.standard.removeObject(forKey: ConfigKeys.toolbar)
@@ -165,6 +119,7 @@ struct MarkupDocumentView: View {
             UserDefaults.standard.removeObject(forKey: ConfigKeys.app)
         }
 #endif
+        // Dismiss the SettingsView when this one will close
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
             NotificationCenter.default.post(name: .dismissSettings, object: nil)
         }
@@ -242,9 +197,9 @@ struct MarkupDocumentView: View {
         NSApplication.shared.mainWindow?.representedURL = url
     }
 
-    private func setCurrentHtml(_ handler: (()->Void)? = nil) {
+    private func setCurrentSource(_ handler: (()->Void)? = nil) {
         MarkupEditor.selectedWebView?.getHtml { html in
-            currentHtml = html ?? ""
+            currentSource = html ?? ""
             sourceViewIsStale = false
             handler?()
         }
@@ -289,9 +244,9 @@ struct MarkupDocumentView: View {
         checkSave { [self] shouldProceed in
             guard shouldProceed else { return }
             MarkupEditor.selectedWebView?.emptyDocument {
-                setCurrentHtml()
+                setCurrentSource()
             }
-            initialHtml = currentHtml
+            initialHtml = currentSource
             currentFileURL = nil
             setRepresentedURL(nil)
             rootHtmlFilename = "index.html"
@@ -359,9 +314,9 @@ struct MarkupDocumentView: View {
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         activeDocumentType = .htmd
         hasChanges = false
-        setCurrentHtml() {
+        setCurrentSource() {
             currentFileURL = packageURL
-            initialHtml = currentHtml
+            initialHtml = currentSource
             setRepresentedURL(packageURL)
             handler?()
         }
@@ -387,8 +342,8 @@ struct MarkupDocumentView: View {
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
         activeDocumentType = .html
         hasChanges = false
-        setCurrentHtml() {
-            initialHtml = currentHtml
+        setCurrentSource() {
+            initialHtml = currentSource
             currentFileURL = fileURL
             setRepresentedURL(fileURL)
             handler?()
@@ -437,12 +392,12 @@ struct MarkupDocumentView: View {
                 return
             }
             MarkupEditor.selectedWebView?.setHtml(html)
-            self.activeDocumentType = .md
-            self.hasChanges = false
-            self.setCurrentHtml {
-                self.initialHtml = self.currentHtml
-                self.currentFileURL = fileURL
-                self.setRepresentedURL(fileURL)
+            activeDocumentType = .md
+            hasChanges = false
+            setCurrentSource {
+                initialHtml = currentSource
+                currentFileURL = fileURL
+                setRepresentedURL(fileURL)
                 NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
                 handler?()
             }
@@ -528,18 +483,18 @@ struct MarkupDocumentView: View {
     
     /// Refreshes the source view content based on the active document type.
     ///
-    /// For `.html` and `.htmd`, delegates to `setCurrentHtml()` which fetches raw HTML
+    /// For `.html` and `.htmd`, delegates to `setCurrentSource()` which fetches raw HTML
     /// and clears `sourceViewIsStale`. For `.md`, invokes the registered Markdown plugin's
     /// `export` action to convert the current editor HTML to Markdown, then updates
-    /// `currentHtml` with the result and clears `sourceViewIsStale`.
+    /// `currentSource` with the result and clears `sourceViewIsStale`.
     private func refreshSourceView() {
         guard let docType = activeDocumentType else {
-            sourceViewIsStale = false
+            setCurrentSource()
             return
         }
         switch docType {
         case .html, .htmd:
-            setCurrentHtml()
+            setCurrentSource()
         case .md:
             guard let pluginId = pluginId(forExtension: "md") else {
                 sourceViewIsStale = false
@@ -553,7 +508,7 @@ struct MarkupDocumentView: View {
                 MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
                     if let pluginResult = PluginResult.decode(from: result),
                        let markdown = pluginResult.result {
-                        self.currentHtml = markdown
+                        currentSource = markdown
                     }
                     self.sourceViewIsStale = false
                 }
@@ -561,9 +516,73 @@ struct MarkupDocumentView: View {
         }
     }
 
-    /// Open the HTML view
-    private func handleShowHtml() {
+    /// Toggles the source view. Triggers a content refresh when opening.
+    private func handleShowSource() {
+        let isOpening = !rawShowing
         withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
+        if isOpening { refreshSourceView() }
+    }
+    
+    private func handleOpenRecent(url: URL) {
+        checkSave { shouldProceed in
+            guard shouldProceed else { return }
+            openDocument(at: url)
+        }
+    }
+    
+    private func handleExport(pluginId: String, fileExt: String) {
+        MarkupEditor.selectedWebView?.getHtml { html in
+            guard let html else { return }
+            let panel = NSSavePanel()
+            let baseName = currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+            panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
+            panel.allowedContentTypes = [.markdown]
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                guard let pluginResult = PluginResult.decode(from: result),
+                      let output = pluginResult.result else {
+                    let alert = NSAlert()
+                    alert.messageText = "Plugin '\(pluginId)' could not complete the operation."
+                    alert.runModal()
+                    return
+                }
+                do {
+                    try output.write(to: url, atomically: true, encoding: .utf8)
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                    alert.runModal()
+                }
+            }
+        }
+    }
+    
+    /// Replaces the editor content with the imported file's converted HTML.
+    /// Document identity (URL, type, hasChanges) is intentionally left unchanged — use Open to change identity.
+    private func handleImport(pluginId: String) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.markdown]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
+            let alert = NSAlert()
+            alert.messageText = "Could not read file."
+            alert.runModal()
+            return
+        }
+        MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: fileContent) { result in
+            guard let pluginResult = PluginResult.decode(from: result),
+                  let html = pluginResult.result else {
+                let alert = NSAlert()
+                alert.messageText = "Plugin '\(pluginId)' could not complete the operation."
+                alert.runModal()
+                return
+            }
+            MarkupEditor.selectedWebView?.setHtml(html)
+            initialHtml = html
+            currentSource = html
+        }
     }
 
     private func handleSaveAs() {
@@ -678,7 +697,7 @@ extension MarkupDocumentView: MarkupDelegate {
         if let url = AppDelegate.consumePendingURL() {
             openDocument(at: url, handler: handler)
         } else {
-            setCurrentHtml(handler)
+            setCurrentSource(handler)
         }
     }
     

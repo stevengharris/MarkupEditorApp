@@ -18,7 +18,7 @@ const MU = muEl.MU
  * @param {string} _content - unused; content comes from the active view
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-function exportFn(_content) {
+export function exportFn(_content) {
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -36,7 +36,7 @@ function exportFn(_content) {
  * @param {string} content - Markdown string to import
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-function importFn(content) {
+export function importFn(content) {
   const warnings = makeWarnings()
   const parser = makeParser(schema, warnings)
   const doc = parser.parse(content)

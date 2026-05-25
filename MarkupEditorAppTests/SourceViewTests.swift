@@ -20,7 +20,7 @@ import SwiftUI
 
     @Test func sourceViewLabelIsHtmlForNilDocType() {
         let view = SourceView(
-            currentHtml: .constant(""),
+            currentSource: .constant(""),
             sourceViewIsStale: .constant(false),
             docType: nil
         )
@@ -29,7 +29,7 @@ import SwiftUI
 
     @Test func sourceViewLabelIsHtmlForHtmlDocType() {
         let view = SourceView(
-            currentHtml: .constant(""),
+            currentSource: .constant(""),
             sourceViewIsStale: .constant(false),
             docType: .html
         )
@@ -38,7 +38,7 @@ import SwiftUI
 
     @Test func sourceViewLabelIsHtmlForHtmdDocType() {
         let view = SourceView(
-            currentHtml: .constant(""),
+            currentSource: .constant(""),
             sourceViewIsStale: .constant(false),
             docType: .htmd
         )
@@ -47,7 +47,7 @@ import SwiftUI
 
     @Test func sourceViewLabelIsMdForMdDocType() {
         let view = SourceView(
-            currentHtml: .constant(""),
+            currentSource: .constant(""),
             sourceViewIsStale: .constant(false),
             docType: .md
         )
