@@ -101,15 +101,13 @@ struct MarkupDocumentView: View {
             handleOpenRecent(url: url)
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuExportPlugin)) { notification in
-            // pluginId == manifest 'name' == JS registry key (set by markupPluginsDidLoad)
-            guard let pluginId = notification.userInfo?["name"] as? String else { return }
+            guard let pluginName = notification.userInfo?["name"] as? String else { return }
             let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
-            handleExport(pluginId: pluginId, fileExt: fileExt)
+            handleExport(pluginName: pluginName, fileExt: fileExt)
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuImportPlugin)) { notification in
-            // pluginId == manifest 'name' == JS registry key (set by markupPluginsDidLoad)
-            guard let pluginId = notification.userInfo?["name"] as? String else { return }
-            handleImport(pluginId: pluginId)
+            guard let pluginName = notification.userInfo?["name"] as? String else { return }
+            handleImport(pluginName: pluginName)
         }
 #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .menuClearUserDefaults)) { _ in
@@ -354,7 +352,7 @@ struct MarkupDocumentView: View {
     /// plugin for the "md" extension.  The plugin converts Markdown to HTML and sets
     /// the editor content.  Any warnings returned by the plugin are shown in an alert.
     private func openMarkdown(at fileURL: URL, handler: (() -> Void)? = nil) {
-        guard let pluginId = pluginId(forExtension: "md") else {
+        guard let pluginName = pluginName(forExtension: "md") else {
             let alert = NSAlert()
             alert.messageText = "No plugin available for .md files."
             alert.runModal()
@@ -371,7 +369,7 @@ struct MarkupDocumentView: View {
             handler?()
             return
         }
-        MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: markdownText) { result in
+        MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: markdownText) { result in
             guard let pluginResult = PluginResult.decode(from: result) else {
                 let alert = NSAlert()
                 alert.messageText = "Plugin returned an unexpected response."
@@ -416,7 +414,7 @@ struct MarkupDocumentView: View {
         let docType = activeDocumentType ?? .html
         // Markdown save is async (plugin-driven); handle it before the image-sync path.
         if docType == .md {
-            guard let pluginId = pluginId(forExtension: "md") else {
+            guard let pluginName = pluginName(forExtension: "md") else {
                 let alert = NSAlert()
                 alert.messageText = "No plugin available for .md files."
                 alert.runModal()
@@ -425,7 +423,7 @@ struct MarkupDocumentView: View {
             }
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else { completion?(); return }
-                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                     guard let pluginResult = PluginResult.decode(from: result),
                           let markdown = pluginResult.result else {
                         let alert = NSAlert()
@@ -496,7 +494,7 @@ struct MarkupDocumentView: View {
         case .html, .htmd:
             setCurrentSource()
         case .md:
-            guard let pluginId = pluginId(forExtension: "md") else {
+            guard let pluginName = pluginName(forExtension: "md") else {
                 sourceViewIsStale = false
                 return
             }
@@ -505,7 +503,7 @@ struct MarkupDocumentView: View {
                     self.sourceViewIsStale = false
                     return
                 }
-                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                     if let pluginResult = PluginResult.decode(from: result),
                        let markdown = pluginResult.result {
                         currentSource = markdown
@@ -530,7 +528,7 @@ struct MarkupDocumentView: View {
         }
     }
     
-    private func handleExport(pluginId: String, fileExt: String) {
+    private func handleExport(pluginName: String, fileExt: String) {
         MarkupEditor.selectedWebView?.getHtml { html in
             guard let html else { return }
             let panel = NSSavePanel()
@@ -538,11 +536,11 @@ struct MarkupDocumentView: View {
             panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
             panel.allowedContentTypes = [.markdown]
             guard panel.runModal() == .OK, let url = panel.url else { return }
-            MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                 guard let pluginResult = PluginResult.decode(from: result),
                       let output = pluginResult.result else {
                     let alert = NSAlert()
-                    alert.messageText = "Plugin '\(pluginId)' could not complete the operation."
+                    alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
                     alert.runModal()
                     return
                 }
@@ -559,7 +557,7 @@ struct MarkupDocumentView: View {
     
     /// Replaces the editor content with the imported file's converted HTML.
     /// Document identity (URL, type, hasChanges) is intentionally left unchanged — use Open to change identity.
-    private func handleImport(pluginId: String) {
+    private func handleImport(pluginName: String) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -571,11 +569,11 @@ struct MarkupDocumentView: View {
             alert.runModal()
             return
         }
-        MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "import", content: fileContent) { result in
+        MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: fileContent) { result in
             guard let pluginResult = PluginResult.decode(from: result),
                   let html = pluginResult.result else {
                 let alert = NSAlert()
-                alert.messageText = "Plugin '\(pluginId)' could not complete the operation."
+                alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
                 alert.runModal()
                 return
             }
@@ -609,7 +607,7 @@ struct MarkupDocumentView: View {
         }
         // Markdown save-as is async (plugin-driven); handle it before the image-scan path.
         if targetExt == "md" {
-            guard let pluginId = pluginId(forExtension: "md") else {
+            guard let pluginName = pluginName(forExtension: "md") else {
                 let alert = NSAlert()
                 alert.messageText = "No plugin available for .md files."
                 alert.runModal()
@@ -618,7 +616,7 @@ struct MarkupDocumentView: View {
             }
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else { completion?(); return }
-                MarkupEditor.selectedWebView?.invokePlugin(id: pluginId, action: "export", content: html) { result in
+                MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                     guard let pluginResult = PluginResult.decode(from: result),
                           let markdown = pluginResult.result else {
                         let alert = NSAlert()
@@ -681,9 +679,7 @@ struct MarkupDocumentView: View {
     }
 
     /// Returns the JS registry key for the plugin registered for `ext`, or `nil` if none.
-    /// Delegates to the free function `pluginId(forExtension:in:)` in DocumentOpener.swift
-    /// using the current `appConfig`.
-    private func pluginId(forExtension ext: String) -> String? {
+    private func pluginName(forExtension ext: String) -> String? {
         appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
     }
 
@@ -720,7 +716,7 @@ extension MarkupDocumentView: MarkupDelegate {
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
         let entries = plugins.compactMap { dict -> AppConfig.PluginConfigEntry? in
-            // Manifest shape from JS: {id, name, extension} — no "filename" key.
+            // Manifest shape from JS: { name, extension } — no "id" or "filename" key.
             // "name" is the JS registry key passed to invokePlugin.
             // "extension" (JS key) is bridged here to fileExtension (Swift field).
             guard let name = dict["name"] else { return nil }

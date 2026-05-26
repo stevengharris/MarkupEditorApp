@@ -47,7 +47,6 @@ export function importFn(content) {
 }
 
 MU.registerPlugin({
-  id: 'markdown',
   name: 'Markdown',
   extension: 'md',
   export: exportFn,
