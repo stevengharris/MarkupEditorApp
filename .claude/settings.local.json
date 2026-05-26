@@ -40,7 +40,10 @@
       "Skill(nx:rdr-list)",
       "Skill(nx:rdr-research)",
       "Skill(nx:rdr-gate)",
-      "Skill(update-config)"
+      "Skill(update-config)",
+      "mcp__serena__insert_before_symbol",
+      "mcp__serena__create_text_file",
+      "Bash(bd *)"
     ]
   },
   "enableAllProjectMcpServers": true,
