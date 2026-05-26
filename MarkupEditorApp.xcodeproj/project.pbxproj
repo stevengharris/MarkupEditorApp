@@ -32,13 +32,13 @@
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAB800602FC4C2CC00212250 /* markupeditor-markdown */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-markdown"; sourceTree = "<group>"; };
+		AAB8007C2FC5036A00212250 /* docs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = docs; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				docs,
 				Info.plist,
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
@@ -50,9 +50,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */,
-			);
-			explicitFolders = (
-				docs,
 			);
 			path = MarkupEditorApp;
 			sourceTree = "<group>";
@@ -102,6 +99,7 @@
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
 				AAB800602FC4C2CC00212250 /* markupeditor-markdown */,
+				AAB8007C2FC5036A00212250 /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
 			sourceTree = "<group>";
