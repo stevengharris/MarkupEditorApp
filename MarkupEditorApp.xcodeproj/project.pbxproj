@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */ = {isa = PBXBuildFile; productRef = AA7B99C22F9291B90085425B /* MarkupEditor */; };
+		AAB801F52FC7471300212250 /* SplitView in Frameworks */ = {isa = PBXBuildFile; productRef = AAB801F42FC7471300212250 /* SplitView */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAB801F52FC7471300212250 /* SplitView in Frameworks */,
 				AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -135,6 +137,7 @@
 			name = MarkupEditorApp;
 			packageProductDependencies = (
 				AA7B99C22F9291B90085425B /* MarkupEditor */,
+				AAB801F42FC7471300212250 /* SplitView */,
 			);
 			productName = MarkupEditorApp;
 			productReference = AA7B99972F9290DF0085425B /* MarkupEditor.app */;
@@ -220,6 +223,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AA7B99C12F9291B90085425B /* XCLocalSwiftPackageReference "../MarkupEditor" */,
+				AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA7B99982F9290DF0085425B /* Products */;
@@ -645,10 +649,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stevengharris/SplitView.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.5.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		AA7B99C22F9291B90085425B /* MarkupEditor */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkupEditor;
+		};
+		AAB801F42FC7471300212250 /* SplitView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */;
+			productName = SplitView;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

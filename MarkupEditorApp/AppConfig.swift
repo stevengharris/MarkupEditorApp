@@ -11,12 +11,12 @@ import MarkupEditor
 
 public struct AppConfig: JSONConfigurable {
 
-    // Keys used to store config JSON in UserDefaults.standard
+    // Keys used in UserDefaults.standard for configuration JSON
     public enum ConfigKey {
-        static let toolbar = "toolbarConfigJSON"
-        static let keymap = "keymapConfigJSON"
-        static let behavior = "behaviorConfigJSON"
-        static let app = "appConfigJSON"
+        static let toolbar = "toolbarConfigJSON"    // Local values for toolbarconfig.json
+        static let keymap = "keymapConfigJSON"      // Local values for keymapconfig.json
+        static let behavior = "behaviorConfigJSON"  // Local values for behaviorconfig.json
+        static let app = "appConfigJSON"            // Local values for appconfig.json
     }
 
     public enum ToolbarVisibility: String, CaseIterable, Identifiable {
