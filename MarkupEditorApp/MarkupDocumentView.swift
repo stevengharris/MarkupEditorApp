@@ -7,6 +7,8 @@
 
 import SwiftUI
 import MarkupEditor
+import SplitView
+
 internal import UniformTypeIdentifiers
 
 private extension UTType {
@@ -30,6 +32,8 @@ struct MarkupDocumentView: View {
     @State private var currentFileURL: URL?
     @State private var activeDocumentType: DocumentType?
     @State private var rootHtmlFilename: String = "index.html"
+    @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
+    let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
 
     @AppStorage(ConfigKeys.toolbar) private var toolbarConfigJSON = ""
     @AppStorage(ConfigKeys.keymap) private var keymapConfigJSON = ""
@@ -41,18 +45,29 @@ struct MarkupDocumentView: View {
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
 
     var body: some View {
-        VStack(spacing: 0) {
-            MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Edit document...", id: "Document")
-                .id(configVersion)
-            if rawShowing {
-                SourceView(
-                    currentSource: $currentSource,
-                    sourceViewIsStale: $sourceViewIsStale,
-                    docType: activeDocumentType,
-                    onRefresh: refreshSourceView
-                )
+        HSplit(
+            left: {
+                VStack(spacing: 0) {
+                    Divider()
+                    MarkupEditorView(markupDelegate: self, configuration: markupConfiguration, html: $initialHtml, placeholder: "Edit document...", id: "Document")
+                        .id(configVersion)
+                    if rawShowing {
+                        SourceView(
+                            currentSource: $currentSource,
+                            sourceViewIsStale: $sourceViewIsStale,
+                            docType: activeDocumentType,
+                            onRefresh: refreshSourceView
+                        )
+                    }
+                }
+            },
+            right: {
+                InfoView()
             }
-        }
+        )
+        .fraction(docFraction)
+        .hide(infoHide)
+        .styling(inset: 0, visibleThickness: 1, hideSplitter: true)
         .onChange(of: toolbarConfigJSON) { _, _ in
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
             MarkupEditor.selectedWebView?.getHtml { html in
@@ -157,7 +172,8 @@ struct MarkupDocumentView: View {
                 appConfig: $appConfig,
                 appConfigJSON: $appConfigJSON,
                 toolbarConfigJSON: $toolbarConfigJSON,
-                markupConfiguration: $markupConfiguration
+                markupConfiguration: $markupConfiguration,
+                infoHide: $infoHide
             )
         }
     }
