@@ -8,19 +8,12 @@
 import SwiftUI
 import MarkupEditor
 
-enum InfoType: String, CaseIterable, Identifiable {
-    case log = "Log"
-    case document = "Document"
-    case metadata = "Metadata"
-    var id: Self { self }
-}
-
 struct InfoView: View {
 
     @Binding var logInfo: String
     @Binding var documentInfo: String
     @Binding var metadataInfo: [String: String]
-    @State var infoType: InfoType
+    @State private var infoType: InfoType
 
     let height = ToolbarConfig.fromDefaults().toolbarHeight()
     
@@ -35,7 +28,7 @@ struct InfoView: View {
                 }
                 Spacer()
             }
-            .frame(width: .infinity, height: CGFloat(height), alignment: .center)
+            .frame(maxWidth: .infinity, maxHeight: CGFloat(height))
             .pickerStyle(.segmented)
             
             Divider()
@@ -60,7 +53,8 @@ struct InfoView: View {
         _logInfo = logInfo ?? .constant("")
         _documentInfo = documentInfo ?? .constant("")
         _metadataInfo = metadataInfo ?? .constant([:])
-        _infoType = State(initialValue: InfoType(rawValue: (UserDefaults.standard.string(forKey: "infoType") ?? InfoType.document.rawValue))!)
+        let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.document.rawValue
+        _infoType = State(initialValue: InfoType(rawValue: stored) ?? .document)
     }
 }
 
