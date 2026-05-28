@@ -15,6 +15,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor static var pendingFinderURL: URL?
     @MainActor static var docIcon: NSImage?
 
+    /// Submenu under File > Export, populated by populatePluginMenus(_:).
+    var exportSubmenu = NSMenu(title: "Export")
+    /// Submenu under File > Import, populated by populatePluginMenus(_:).
+    var importSubmenu = NSMenu(title: "Import")
+
     @MainActor static func consumePendingURL() -> URL? {
         guard let url = pendingFinderURL else { return nil }
         pendingFinderURL = nil
@@ -45,6 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // fully complete before we replace the menu.
         DispatchQueue.main.async { [self] in
             NSApplication.shared.mainMenu = buildMenu()
+            populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
         }
     }
 
@@ -70,7 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showHtml(_ sender: Any?) {
-        NotificationCenter.default.post(name: .menuShowHtml, object: nil)
+        NotificationCenter.default.post(name: .menuShowSource, object: nil)
     }
 
     @objc private func showSettings(_ sender: Any?) {
@@ -92,7 +98,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 #endif
 
-    private func buildMenu() -> NSMenu {
+    /// Fills Export and Import submenus from the plugin manifest.
+    ///
+    /// Safe to call multiple times — existing items are replaced on each call.
+    /// Each Export item posts `.menuExportPlugin`; each Import item posts `.menuImportPlugin`.
+    /// Both notifications carry `userInfo` with `"name"`, `"filename"`, and `"fileExtension"` from the entry.
+    public func populatePluginMenus(_ entries: [AppConfig.PluginConfigEntry]) {
+        exportSubmenu.removeAllItems()
+        importSubmenu.removeAllItems()
+        for entry in entries {
+            let exportItem = NSMenuItem(title: entry.name, action: #selector(exportPluginAction(_:)), keyEquivalent: "")
+            exportItem.target = self
+            exportItem.representedObject = entry
+            exportSubmenu.addItem(exportItem)
+
+            let importItem = NSMenuItem(title: entry.name, action: #selector(importPluginAction(_:)), keyEquivalent: "")
+            importItem.target = self
+            importItem.representedObject = entry
+            importSubmenu.addItem(importItem)
+        }
+    }
+
+    @objc private func exportPluginAction(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? AppConfig.PluginConfigEntry else { return }
+        NotificationCenter.default.post(
+            name: .menuExportPlugin,
+            object: nil,
+            userInfo: ["name": entry.name, "filename": entry.filename, "fileExtension": entry.fileExtension ?? ""]
+        )
+    }
+
+    @objc private func importPluginAction(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? AppConfig.PluginConfigEntry else { return }
+        NotificationCenter.default.post(
+            name: .menuImportPlugin,
+            object: nil,
+            userInfo: ["name": entry.name, "filename": entry.filename, "fileExtension": entry.fileExtension ?? ""]
+        )
+    }
+
+    func buildMenu() -> NSMenu {
         let mainMenu = NSMenu()
 
         // Standard app menu
@@ -135,6 +180,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         saveAsItem.image = NSImage(systemSymbolName: "square.and.arrow.down.on.square", accessibilityDescription: "Save As")
         fileMenu.addItem(saveAsItem)
+        fileMenu.addItem(.separator())
+        let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
+        exportItem.submenu = exportSubmenu
+        fileMenu.addItem(exportItem)
+        let importItem = NSMenuItem(title: "Import", action: nil, keyEquivalent: "")
+        importItem.submenu = importSubmenu
+        fileMenu.addItem(importItem)
         fileMenuItem.submenu = fileMenu
 
         // Standard edit menu
@@ -180,9 +232,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         toggleFullScreen.keyEquivalentModifierMask = [.command, .control]
         viewMenu.addItem(toggleFullScreen)
         viewMenu.addItem(.separator())
-        let showHtmlItem = NSMenuItem(title: "Show HTML", action: #selector(showHtml(_:)), keyEquivalent: "u")
+        let showHtmlItem = NSMenuItem(title: "Show Source", action: #selector(showHtml(_:)), keyEquivalent: "u")
         showHtmlItem.keyEquivalentModifierMask = [.command, .shift]
-        showHtmlItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Show HTML")
+        showHtmlItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Show Source")
         showHtmlItem.target = self
         viewMenu.addItem(showHtmlItem)
         viewMenuItem.submenu = viewMenu

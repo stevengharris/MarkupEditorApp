@@ -418,6 +418,54 @@ struct GetLocalImageSrcsTests {
     }
 }
 
+struct PluginResultDecodeTests {
+
+    @Test func validEnvelopeWithWarnings() {
+        let json = #"{"result":"<p>hello</p>","warnings":["warn1","warn2"]}"#
+        let decoded = PluginResult.decode(from: json)
+        #expect(decoded?.result == "<p>hello</p>")
+        #expect(decoded?.warnings == ["warn1", "warn2"])
+    }
+
+    @Test func nilResult() {
+        let json = #"{"result":null,"warnings":[]}"#
+        let decoded = PluginResult.decode(from: json)
+        #expect(decoded != nil)
+        #expect(decoded?.result == nil)
+        #expect(decoded?.warnings.isEmpty == true)
+    }
+
+    @Test func malformedJsonReturnsNil() {
+        #expect(PluginResult.decode(from: "not json") == nil)
+    }
+
+    @Test func missingWarningsKeyReturnsNil() {
+        let json = #"{"result":"<p>hi</p>"}"#
+        #expect(PluginResult.decode(from: json) == nil)
+    }
+}
+
+struct DocumentTypeTests {
+
+    @Test func mdCaseExists() {
+        let docType: DocumentType = .md
+        #expect(docType == .md)
+    }
+
+    @Test func mdIsDistinctFromHtml() {
+        #expect(DocumentType.md != .html)
+    }
+
+    @Test func mdIsDistinctFromHtmd() {
+        #expect(DocumentType.md != .htmd)
+    }
+
+    @Test func allThreeCasesAreDistinct() {
+        let cases: [DocumentType] = [.html, .htmd, .md]
+        #expect(Set(cases).count == 3)
+    }
+}
+
 struct CopyPackageAssetsTests {
 
     private func makeTempDir(suffix: String = "") throws -> URL {

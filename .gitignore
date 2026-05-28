@@ -12,3 +12,8 @@ DerivedData/
 .dolt/
 *.db
 .beads-credential-key
+
+# Claude Code tooling
+.agents/
+.claude/skills/
+skills-lock.json

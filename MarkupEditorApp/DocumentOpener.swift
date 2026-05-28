@@ -89,9 +89,34 @@ func saveAsHtml(srcs: [String], html: String, baseUrl: URL, to fileURL: URL) thr
     try copyImageAssets(srcs: srcs, from: baseUrl, to: parentDir, skipMissing: true)
 }
 
+// MARK: - Plugin lookup
+
+/// Returns the JS registry key (`name`) for the first plugin whose `fileExtension`
+/// matches `ext`, or `nil` if no matching plugin is configured.
+///
+/// - Parameters:
+///   - ext: The file extension to look up (e.g. `"md"`). Case-sensitive; callers
+///     are expected to lowercase the extension before calling.
+///   - config: The `AppConfig` to search. Defaults to `AppConfig.fromDefaults()`.
+func pluginId(forExtension ext: String, in config: AppConfig = AppConfig.fromDefaults()) -> String? {
+    config.plugins?.first(where: { $0.fileExtension == ext })?.name
+}
+
+/// Decoded envelope returned by every `invokePlugin` call.
+/// The JS plugin wraps its output as `{ "result": string|null, "warnings": [string] }`.
+struct PluginResult: Decodable {
+    let result: String?
+    let warnings: [String]
+
+    static func decode(from jsonString: String?) -> PluginResult? {
+        guard let data = jsonString?.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(PluginResult.self, from: data)
+    }
+}
+
 // MARK: - Types
 
-enum DocumentType: Equatable { case html, htmd }
+enum DocumentType: Equatable { case html, htmd, md }
 
 enum DocumentOpenError: Error, Equatable {
     case invalidExtension

@@ -11,12 +11,12 @@ import MarkupEditor
 
 public struct AppConfig: JSONConfigurable {
 
-    // Keys used to store config JSON in UserDefaults.standard
+    // Keys used in UserDefaults.standard for configuration JSON
     public enum ConfigKey {
-        static let toolbar = "toolbarConfigJSON"
-        static let keymap = "keymapConfigJSON"
-        static let behavior = "behaviorConfigJSON"
-        static let app = "appConfigJSON"
+        static let toolbar = "toolbarConfigJSON"    // Local values for toolbarconfig.json
+        static let keymap = "keymapConfigJSON"      // Local values for keymapconfig.json
+        static let behavior = "behaviorConfigJSON"  // Local values for behaviorconfig.json
+        static let app = "appConfigJSON"            // Local values for appconfig.json
     }
 
     public enum ToolbarVisibility: String, CaseIterable, Identifiable {
@@ -27,19 +27,39 @@ public struct AppConfig: JSONConfigurable {
     public enum ToggledState: String {
         case hidden, visible
     }
-    
+
+    /// A single plugin entry as recorded in appconfig.json.
+    /// `filename` is a bare filename (e.g. "markup-editor-markdown.js"); the app
+    /// resolves it to a full bundle path at runtime when building the plugin configuration.
+    public struct PluginConfigEntry: Codable {
+        public let name: String           // JS registry key for invokePlugin
+        public let filename: String       // JS bundle filename
+        public let fileExtension: String? // e.g. "md"; nil = backward-compatible
+
+        public init(name: String, filename: String, fileExtension: String? = nil) {
+            self.name = name
+            self.filename = filename
+            self.fileExtension = fileExtension
+        }
+    }
+
     public var toolbarVisibility: String
     public var toggledState: String
+    /// Optional array of plugins to load. Nil when the key is absent from the JSON,
+    /// which allows older appconfig.json files to decode cleanly (backward compatible).
+    public var plugins: [PluginConfigEntry]? = nil
     
-    public init(toolbarVisibility: String, toggledState: String) {
+    public init(toolbarVisibility: String, toggledState: String, plugins: [PluginConfigEntry]? = nil) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
+        self.plugins = plugins
     }
     
     public init() {
         let config = AppConfig.load()
         toolbarVisibility = config.toolbarVisibility
         toggledState = ToggledState.visible.rawValue
+        plugins = config.plugins
     }
     
     public static func fromDefaults() -> AppConfig {
@@ -95,6 +115,34 @@ public struct AppConfig: JSONConfigurable {
         toolbarVisibility ==
             ToolbarVisibility.hidden.rawValue ||
             (isToggled() && toggledState == ToggledState.hidden.rawValue)
+    }
+
+    /// Resolves plugin config entries into `PluginFileEntry` values by appending each
+    /// filename to `pluginDir` and checking for file existence.
+    ///
+    /// Missing files are logged and skipped; no error is thrown.
+    ///
+    /// - Parameters:
+    ///   - entries: The plugin entries from `AppConfig.plugins`. Pass `nil` or an empty
+    ///     array to get an empty result.
+    ///   - pluginDir: The directory to resolve filenames against (typically
+    ///     `PluginSetup.defaultPluginDir`).
+    /// - Returns: An array of `PluginFileEntry` values for files that exist on disk.
+    public static func pluginFiles(
+        from entries: [PluginConfigEntry]?,
+        pluginDir: URL
+    ) -> [PluginFileEntry] {
+        guard let entries, !entries.isEmpty else { return [] }
+        var result: [PluginFileEntry] = []
+        for entry in entries {
+            let fileURL = pluginDir.appendingPathComponent(entry.filename)
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                Logger.config.error("Plugin file not found at \(fileURL.path) — skipping \(entry.filename)")
+                continue
+            }
+            result.append(PluginFileEntry(name: entry.name, path: fileURL.path))
+        }
+        return result
     }
 
 }

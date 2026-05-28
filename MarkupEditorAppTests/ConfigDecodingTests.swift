@@ -95,3 +95,69 @@ struct ConfigDecodingTests {
         #expect(result == nil)
     }
 }
+
+// Tests for AppConfig.PluginConfigEntry decoding and the `plugins` optional property.
+struct AppConfigPluginDecodingTests {
+
+    // MARK: - plugins present: decodes entry correctly
+
+    @Test func pluginsArrayDecodesMarkdownEntry() throws {
+        let json = """
+        {
+            "toolbarVisibility": "toggled",
+            "toggledState": "visible",
+            "plugins": [{ "name": "Markdown", "filename": "markup-editor-markdown.js" }]
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let config = try JSONDecoder().decode(AppConfig.self, from: data)
+        let plugins = try #require(config.plugins)
+        #expect(plugins.count == 1)
+        #expect(plugins[0].name == "Markdown")
+        #expect(plugins[0].filename == "markup-editor-markdown.js")
+    }
+
+    // MARK: - plugins key absent: backward compatible → nil
+
+    @Test func pluginsAbsentDecodesAsNil() throws {
+        let json = """
+        { "toolbarVisibility": "toggled", "toggledState": "visible" }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let config = try JSONDecoder().decode(AppConfig.self, from: data)
+        #expect(config.plugins == nil)
+    }
+
+    // MARK: - plugins present but empty array
+
+    @Test func pluginsEmptyArrayDecodes() throws {
+        let json = """
+        { "toolbarVisibility": "toggled", "toggledState": "visible", "plugins": [] }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let config = try JSONDecoder().decode(AppConfig.self, from: data)
+        let plugins = try #require(config.plugins)
+        #expect(plugins.isEmpty)
+    }
+
+    // MARK: - fileExtension field on PluginConfigEntry
+
+    @Test func testFileExtensionDecodesFromJSON() throws {
+        let json = """
+        { "name": "X", "filename": "x.js", "fileExtension": "md" }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
+        #expect(entry.fileExtension == "md")
+    }
+
+    @Test func testFileExtensionIsNilWhenKeyAbsent() throws {
+        let json = """
+        { "name": "X", "filename": "x.js" }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
+        #expect(entry.fileExtension == nil)
+    }
+
+}
