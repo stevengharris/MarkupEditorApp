@@ -16,11 +16,6 @@ private extension UTType {
     static let markdown = UTType("public.markdown") ?? .plainText
 }
 
-enum MetadataValue: Equatable {
-    case scalar(String)
-    case array([String])
-}
-
 struct MarkupDocumentView: View {
     
     typealias ConfigKeys = AppConfig.ConfigKey
