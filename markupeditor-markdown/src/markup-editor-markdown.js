@@ -28,7 +28,8 @@ export function exportFn(_content) {
   const doc = view.state.doc
   const warnings = makeWarnings()
   const serializer = makeSerializer(warnings)
-  const markdown = serializer.serialize(doc)
+  // Escape bare < in text so re-import treats them as escaped characters, not html_inline
+  const markdown = serializer.serialize(doc, { escapeExtraCharacters: /</ })
   return JSON.stringify({ result: markdown, warnings: warnings.get() })
 }
 
