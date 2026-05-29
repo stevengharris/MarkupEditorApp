@@ -12,7 +12,7 @@ struct InfoView: View {
 
     @Binding var logInfo: String
     @Binding var documentInfo: String
-    @Binding var metadataInfo: [String: String]
+    @Binding var metadataInfo: [(key: String, value: MetadataValue)]
     @State private var infoType: InfoType
 
     let height = ToolbarConfig.fromDefaults().toolbarHeight()
@@ -49,10 +49,10 @@ struct InfoView: View {
         }
     }
     
-    init(logInfo: Binding<String>? = nil, documentInfo: Binding<String>? = nil, metadataInfo: Binding<[String : String]>? = nil) {
+    init(logInfo: Binding<String>? = nil, documentInfo: Binding<String>? = nil, metadataInfo: Binding<[(key: String, value: MetadataValue)]>? = nil) {
         _logInfo = logInfo ?? .constant("")
         _documentInfo = documentInfo ?? .constant("")
-        _metadataInfo = metadataInfo ?? .constant([:])
+        _metadataInfo = metadataInfo ?? .constant([])
         let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.document.rawValue
         _infoType = State(initialValue: InfoType(rawValue: stored) ?? .document)
     }

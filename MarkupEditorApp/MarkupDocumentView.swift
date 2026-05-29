@@ -16,6 +16,11 @@ private extension UTType {
     static let markdown = UTType("public.markdown") ?? .plainText
 }
 
+enum MetadataValue: Equatable {
+    case scalar(String)
+    case array([String])
+}
+
 struct MarkupDocumentView: View {
     
     typealias ConfigKeys = AppConfig.ConfigKey
@@ -42,6 +47,7 @@ struct MarkupDocumentView: View {
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @State private var appConfig: AppConfig = AppConfig.fromDefaults()
+    @State private var documentMetadata: [(key: String, value: MetadataValue)] = []
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
 
     var body: some View {
@@ -62,7 +68,7 @@ struct MarkupDocumentView: View {
                 }
             },
             right: {
-                InfoView()
+                InfoView(metadataInfo: $documentMetadata)
             }
         )
         .fraction(docFraction)
