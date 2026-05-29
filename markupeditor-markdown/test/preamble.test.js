@@ -40,6 +40,23 @@ describe('importFn — YAML frontmatter', () => {
   })
 })
 
+describe('importFn — YAML edge cases', () => {
+  test('CRLF line endings are normalized', () => {
+    const input = '---\r\ntitle: X\r\n---\r\n\r\n# Body\r\n'
+    const out = JSON.parse(importFn(input))
+    expect(out.metadata).toBe('title: X')
+    expect(out.result).toContain('Body')
+    expect(out.warnings).toEqual([])
+  })
+
+  test('empty YAML block produces no metadata field', () => {
+    const input = '---\n---\n\n# Body\n'
+    const out = JSON.parse(importFn(input))
+    expect(out.metadata).toBeUndefined()
+    expect(out.result).toContain('Body')
+  })
+})
+
 describe('importFn — HTML preamble', () => {
   test('leading HTML block converted to code_block in editor HTML', () => {
     const input = '<div align="center">\n  <img src="logo.png">\n</div>\n\n# Hello\n'
@@ -47,6 +64,15 @@ describe('importFn — HTML preamble', () => {
     expect(out.metadata).toBeUndefined()
     expect(out.result).toContain('<pre>')
     expect(out.result).toContain('logo.png')
+    expect(out.warnings).toEqual([])
+  })
+
+  test('HTML comment as leading block is treated as preamble', () => {
+    const input = '<!-- markdownlint-disable -->\n\n# Hello\n'
+    const out = JSON.parse(importFn(input))
+    expect(out.metadata).toBeUndefined()
+    expect(out.result).toContain('<pre>')
+    expect(out.result).toContain('markdownlint-disable')
     expect(out.warnings).toEqual([])
   })
 

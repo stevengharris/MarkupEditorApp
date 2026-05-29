@@ -73,6 +73,7 @@ export function importFn(content) {
   // Collect contiguous leading html_block tokens (skipping front_matter)
   let htmlStartLine = -1, htmlEndLine = -1
   for (const tok of tokens) {
+    // Skip frontmatter and structural (hidden) tokens — they don't represent content boundaries
     if (tok.type === 'front_matter' || tok.hidden) continue
     if (tok.type === 'html_block' && tok.map) {
       if (htmlStartLine === -1) htmlStartLine = tok.map[0]
@@ -104,7 +105,7 @@ export function importFn(content) {
   div.appendChild(domSerializer.serializeFragment(doc.content))
 
   const out = { result: div.innerHTML, warnings: warnings.get() }
-  if (yamlContent !== null) out.metadata = yamlContent
+  if (yamlContent !== null && yamlContent !== '') out.metadata = yamlContent
   return JSON.stringify(out)
 }
 
