@@ -212,7 +212,7 @@ func resolveParentDirBookmark(for fileURL: URL) -> URL? {
 
 /// Copies all non-HTML files from `packageURL` to `destDir`, preserving relative paths.
 /// Returns the set of relative path strings that were copied.
-/// Read the `.data` JSON metadata file from an htmd package, if present.
+/// Reads the `.data` JSON metadata file from an htmd package, if present.
 /// Returns an empty array when the file is absent or unreadable.
 func loadHtmdMetadata(from packageURL: URL) -> [(key: String, value: MetadataValue)] {
     let dataURL = packageURL.appendingPathComponent(".data")
@@ -231,12 +231,15 @@ func loadHtmdMetadata(from packageURL: URL) -> [(key: String, value: MetadataVal
     }
 }
 
-/// Write metadata as a JSON `.data` file into an htmd package.
+/// Writes metadata as a JSON `.data` file into an htmd package.
 /// Deletes any existing `.data` file when metadata is empty.
+/// Throws on write failure or on deletion failure for a non-empty-to-empty transition.
 func saveHtmdMetadata(_ metadata: [(key: String, value: MetadataValue)], to packageURL: URL) throws {
     let dataURL = packageURL.appendingPathComponent(".data")
     guard !metadata.isEmpty else {
-        try? FileManager.default.removeItem(at: dataURL)
+        if FileManager.default.fileExists(atPath: dataURL.path) {
+            try FileManager.default.removeItem(at: dataURL)
+        }
         return
     }
     let json: [[String: Any]] = metadata.map { entry in

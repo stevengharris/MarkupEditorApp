@@ -345,6 +345,7 @@ struct MarkupDocumentView: View {
     }
 
     private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
+        documentMetadata = []
         let html = try String(contentsOf: fileURL, encoding: .utf8)
         if let baseUrl = MarkupEditor.selectedWebView?.baseUrl {
             let parentDir = fileURL.deletingLastPathComponent()
@@ -406,7 +407,7 @@ struct MarkupDocumentView: View {
                 alert.messageText = pluginResult.warnings.joined(separator: "\n")
                 alert.runModal()
             }
-            var yamlWarnings: [String] = []
+            var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
             if let yamlString = pluginResult.metadata {
                 documentMetadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
             } else {
