@@ -62,9 +62,7 @@ export function makeParser(schema, warnings) {
     warnings.add(`Raw HTML block stripped (not supported in MarkupEditor): ${tok.content.slice(0, 60).trim()}`)
   }
   parser.tokenHandlers['html_inline'] = (state, tok) => {
-    // Insert as literal text rather than dropping — preserves content like \<substitutions>
-    // where the backslash escape was consumed by the JS string transport layer.
-    state.addText(tok.content)
+    warnings.add(`Raw HTML inline stripped (not supported in MarkupEditor): ${tok.content.trim()}`)
   }
 
   return parser

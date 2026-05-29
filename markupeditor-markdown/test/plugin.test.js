@@ -130,12 +130,10 @@ describe('importFn — embedded HTML warnings', () => {
     expect(envelope.result).not.toContain('blocked')
   })
 
-  test('inline HTML is preserved as literal text (no warning, no data loss)', () => {
-    // <span>inline</span> arrives as html_inline tokens; we insert the raw text
-    // rather than stripping silently, so content like \<substitutions> is preserved.
+  test('inline HTML emits a warning and is stripped from result', () => {
     const envelope = JSON.parse(importFn('text <span>inline</span> more'))
-    expect(envelope.warnings).toEqual([])
-    // Content is preserved as literal text in the paragraph
-    expect(envelope.result).toContain('span')
+    expect(envelope.warnings.length).toBeGreaterThan(0)
+    expect(envelope.warnings.some(w => w.toLowerCase().includes('html inline'))).toBe(true)
+    expect(envelope.result).not.toContain('<span>')
   })
 })
