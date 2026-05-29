@@ -212,6 +212,43 @@ func resolveParentDirBookmark(for fileURL: URL) -> URL? {
 
 /// Copies all non-HTML files from `packageURL` to `destDir`, preserving relative paths.
 /// Returns the set of relative path strings that were copied.
+/// Read the `.data` JSON metadata file from an htmd package, if present.
+/// Returns an empty array when the file is absent or unreadable.
+func loadHtmdMetadata(from packageURL: URL) -> [(key: String, value: MetadataValue)] {
+    let dataURL = packageURL.appendingPathComponent(".data")
+    guard FileManager.default.fileExists(atPath: dataURL.path),
+          let data = try? Data(contentsOf: dataURL),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+    else { return [] }
+    return json.compactMap { obj in
+        guard let key = obj["key"] as? String else { return nil }
+        if let scalar = obj["value"] as? String {
+            return (key: key, value: .scalar(scalar))
+        } else if let array = obj["value"] as? [String] {
+            return (key: key, value: .array(array))
+        }
+        return nil
+    }
+}
+
+/// Write metadata as a JSON `.data` file into an htmd package.
+/// Deletes any existing `.data` file when metadata is empty.
+func saveHtmdMetadata(_ metadata: [(key: String, value: MetadataValue)], to packageURL: URL) throws {
+    let dataURL = packageURL.appendingPathComponent(".data")
+    guard !metadata.isEmpty else {
+        try? FileManager.default.removeItem(at: dataURL)
+        return
+    }
+    let json: [[String: Any]] = metadata.map { entry in
+        switch entry.value {
+        case .scalar(let s): return ["key": entry.key, "value": s]
+        case .array(let elements): return ["key": entry.key, "value": elements]
+        }
+    }
+    let data = try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+    try data.write(to: dataURL)
+}
+
 func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<String> {
     let fm = FileManager.default
     guard let enumerator = fm.enumerator(

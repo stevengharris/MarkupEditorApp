@@ -271,6 +271,7 @@ struct MarkupDocumentView: View {
             setRepresentedURL(nil)
             rootHtmlFilename = "index.html"
             hasChanges = false
+            documentMetadata = []
         }
     }
 
@@ -330,6 +331,7 @@ struct MarkupDocumentView: View {
                 throw DocumentOpenError.missingPackageImage(src)
             }
         }
+        documentMetadata = loadHtmdMetadata(from: packageURL)
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         activeDocumentType = .htmd
@@ -403,6 +405,12 @@ struct MarkupDocumentView: View {
                 let alert = NSAlert()
                 alert.messageText = pluginResult.warnings.joined(separator: "\n")
                 alert.runModal()
+            }
+            var yamlWarnings: [String] = []
+            if let yamlString = pluginResult.metadata {
+                documentMetadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
+            } else {
+                documentMetadata = []
             }
             guard let html = pluginResult.result else {
                 let alert = NSAlert()
