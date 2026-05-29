@@ -17843,6 +17843,163 @@ const marks = {
 // `spec.nodes` and `spec.marks` [properties](#model.Schema.spec).
 const schema = new Schema({nodes, marks});
 
+function getDefaultExportFromCjs (x) {
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+}
+
+var markdownItFrontMatter;
+var hasRequiredMarkdownItFrontMatter;
+
+function requireMarkdownItFrontMatter () {
+	if (hasRequiredMarkdownItFrontMatter) return markdownItFrontMatter;
+	hasRequiredMarkdownItFrontMatter = 1;
+
+	markdownItFrontMatter = function front_matter_plugin(md, cb) {
+	  var min_markers = 3,
+	      marker_str  = '-',
+	      marker_char = marker_str.charCodeAt(0),
+	      marker_len  = marker_str.length;
+
+	  function frontMatter(state, startLine, endLine, silent) {
+	    var pos,
+	        nextLine,
+	        marker_count,
+	        token,
+	        old_parent,
+	        old_line_max,
+	        start_content,
+	        auto_closed = false,
+	        start = state.bMarks[startLine] + state.tShift[startLine],
+	        max = state.eMarks[startLine];
+
+	    // Check out the first character of the first line quickly,
+	    // this should filter out non-front matter
+	    if (startLine !== 0 || marker_char !== state.src.charCodeAt(0)) {
+	      return false;
+	    }
+
+	    // Check out the rest of the marker string
+	    // while pos <= 3
+	    for (pos = start + 1; pos <= max; pos++) {
+	      if (marker_str[(pos - start) % marker_len] !== state.src[pos]) {
+	        start_content = pos + 1;
+	        break;
+	      }
+	    }
+
+	    marker_count = Math.floor((pos - start) / marker_len);
+
+	    if (marker_count < min_markers) {
+	      return false;
+	    }
+	    pos -= (pos - start) % marker_len;
+
+	    // Since start is found, we can report success here in validation mode
+	    if (silent) {
+	      return true;
+	    }
+
+	    // Search for the end of the block
+	    nextLine = startLine;
+
+	    for (;;) {
+	      nextLine++;
+	      if (nextLine >= endLine) {
+	        // unclosed block should be autoclosed by end of document.
+	        // also block seems to be autoclosed by end of parent
+	        break;
+	      }
+
+	      if (state.src.slice(start, max) === '...') {
+	        break;
+	      }
+
+	      start = state.bMarks[nextLine] + state.tShift[nextLine];
+	      max = state.eMarks[nextLine];
+
+	      if (start < max && state.sCount[nextLine] < state.blkIndent) {
+	        // non-empty line with negative indent should stop the list:
+	        // - ```
+	        //  test
+	        break;
+	      }
+
+	      if (marker_char !== state.src.charCodeAt(start)) {
+	        continue;
+	      }
+
+	      if (state.sCount[nextLine] - state.blkIndent >= 4) {
+	        // closing fence should be indented less than 4 spaces
+	        continue;
+	      }
+
+	      for (pos = start + 1; pos <= max; pos++) {
+	        if (marker_str[(pos - start) % marker_len] !== state.src[pos]) {
+	          break;
+	        }
+	      }
+
+	      // closing code fence must be at least as long as the opening one
+	      if (Math.floor((pos - start) / marker_len) < marker_count) {
+	        continue;
+	      }
+
+	      // make sure tail has spaces only
+	      pos -= (pos - start) % marker_len;
+	      pos = state.skipSpaces(pos);
+
+	      if (pos < max) {
+	        continue;
+	      }
+
+	      // found!
+	      auto_closed = true;
+	      break;
+	    }
+
+	    old_parent = state.parentType;
+	    old_line_max = state.lineMax;
+	    state.parentType = 'container';
+
+	    // this will prevent lazy continuations from ever going past our end marker
+	    state.lineMax = nextLine;
+
+	    token        = state.push('front_matter', null, 0);
+	    token.hidden = true;
+	    token.markup = state.src.slice(startLine, pos);
+	    token.block  = true;
+	    token.map    = [ startLine, nextLine + (auto_closed ? 1 : 0) ];
+	    token.meta   = state.src.slice(start_content, start - 1);
+
+	    state.parentType = old_parent;
+	    state.lineMax = old_line_max;
+	    state.line = nextLine + (auto_closed ? 1 : 0);
+
+	    cb(token.meta);
+
+	    return true;
+	  }
+
+	  md.block.ruler.before(
+	    'table',
+	    'front_matter',
+	    frontMatter,
+	    {
+	      alt: [
+	        'paragraph',
+	        'reference',
+	        'blockquote',
+	        'list' 
+	      ]
+	    }
+	  );
+	};
+	return markdownItFrontMatter;
+}
+
+var markdownItFrontMatterExports = requireMarkdownItFrontMatter();
+var frontMatterPlugin = /*@__PURE__*/getDefaultExportFromCjs(markdownItFrontMatterExports);
+
 // ---------------------------------------------------------------------------
 // Plugin registration
 // ---------------------------------------------------------------------------
@@ -17871,18 +18028,78 @@ function exportFn(_content) {
 
 /**
  * Import Markdown content, converting it to HTML for the editor.
+ * Strips YAML frontmatter (returning it in `metadata`) and converts leading
+ * HTML blocks into a fenced code_block before the main parse.
  *
  * @param {string} content - Markdown string to import
- * @returns {string} JSON string { result: string|null, warnings: string[] }
+ * @returns {string} JSON string { result: string|null, warnings: string[], metadata?: string }
  */
 function importFn(content) {
   const warnings = makeWarnings();
+
+  // Step 1: Normalize line endings
+  const normalized = content.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+
+  // Convert a line index to its character offset in `normalized`
+  function lineOffset(i) {
+    let off = 0;
+    for (let n = 0; n < i && n < lines.length; n++) off += lines[n].length + 1;
+    return off
+  }
+
+  // Step 2: Single detection parse using a disposable markdown-it instance.
+  // html: true required so that leading HTML blocks are tokenized as html_block,
+  // not silently folded into paragraph tokens.
+  let yamlContent = null;
+  const md = new MarkdownIt({ html: true });
+  md.use(frontMatterPlugin, (yaml) => { yamlContent = yaml; });
+  const tokens = md.parse(normalized, {});
+
+  // Locate YAML frontmatter token (map holds [startLine, endLine] inclusive/exclusive)
+  let yamlStartLine = -1, yamlEndLine = -1;
+  const fmToken = tokens.find(t => t.type === 'front_matter');
+  if (fmToken && fmToken.map) {
+    yamlStartLine = fmToken.map[0];
+    yamlEndLine   = fmToken.map[1];
+  }
+
+  // Collect contiguous leading html_block tokens (skipping front_matter)
+  let htmlStartLine = -1, htmlEndLine = -1;
+  for (const tok of tokens) {
+    if (tok.type === 'front_matter' || tok.hidden) continue
+    if (tok.type === 'html_block' && tok.map) {
+      if (htmlStartLine === -1) htmlStartLine = tok.map[0];
+      htmlEndLine = tok.map[1];
+    } else {
+      break
+    }
+  }
+
+  // Step 3: Apply edits from end toward front so earlier offsets stay valid
+  let modified = normalized;
+
+  if (htmlStartLine !== -1) {
+    const htmlContent = lines.slice(htmlStartLine, htmlEndLine).join('\n');
+    const replacement = '```html\n' + htmlContent + '\n```\n';
+    modified = modified.slice(0, lineOffset(htmlStartLine)) + replacement + modified.slice(lineOffset(htmlEndLine));
+  }
+
+  if (yamlStartLine !== -1) {
+    // YAML is always before HTML, so its char offset in `modified` is still valid
+    modified = modified.slice(0, lineOffset(yamlStartLine)) + modified.slice(lineOffset(yamlEndLine));
+  }
+
+  // Step 4: Parse modified content with the main parser
   const parser = makeParser(schema, warnings);
-  const doc = parser.parse(content);
-  const serializer = DOMSerializer.fromSchema(schema);
+  const doc = parser.parse(modified);
+  const domSerializer = DOMSerializer.fromSchema(schema);
   const div = document.createElement('div');
-  div.appendChild(serializer.serializeFragment(doc.content));
-  return JSON.stringify({ result: div.innerHTML, warnings: warnings.get() })
+  div.appendChild(domSerializer.serializeFragment(doc.content));
+
+  const out = { result: div.innerHTML, warnings: warnings.get() };
+  if (yamlContent !== null) out.metadata = yamlContent;
+  return JSON.stringify(out)
 }
 
 MU.registerPlugin({

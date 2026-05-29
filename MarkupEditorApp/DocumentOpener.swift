@@ -107,6 +107,7 @@ func pluginId(forExtension ext: String, in config: AppConfig = AppConfig.fromDef
 struct PluginResult: Decodable {
     let result: String?
     let warnings: [String]
+    let metadata: String?
 
     static func decode(from jsonString: String?) -> PluginResult? {
         guard let data = jsonString?.data(using: .utf8) else { return nil }
