@@ -77,6 +77,24 @@ export function makeSerializer(warnings) {
       // Rendered by the parent table serializer
     },
 
+    // code_block: a code_block at position 0 in the doc root is treated as the
+    // HTML preamble block that was injected during import. Serialize it as raw
+    // HTML (no fences) so the round-trip produces the original preamble.
+    // The schema has no language attribute, so detection is purely positional.
+    // All other code_blocks serialize as standard fenced blocks.
+    code_block(state, node, parent, index) {
+      if (index === 0 && parent && parent.type.name === 'doc') {
+        state.write(node.textContent)
+        state.closeBlock(node)
+      } else {
+        state.write('```\n')
+        state.text(node.textContent, false)
+        state.ensureNewLine()
+        state.write('```')
+        state.closeBlock(node)
+      }
+    },
+
     // div: warn + serialize children as block content, drop wrapper
     div(state, node) {
       warnings.add('div element wrapper dropped (not supported in Markdown); serializing children')

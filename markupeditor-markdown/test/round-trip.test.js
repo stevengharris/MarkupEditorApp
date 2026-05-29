@@ -94,8 +94,20 @@ describe('ordered_list', () => {
 })
 
 describe('code_block', () => {
-  test('serializes to fenced ```', () => {
+  test('code_block at index 0 serializes as raw content (HTML preamble heuristic)', () => {
+    // The positional heuristic treats the first doc child as an HTML preamble block.
+    // This is intentional: import always produces the preamble at index 0.
     const doc = schema.nodes.doc.create(null, [
+      schema.nodes.code_block.create(null, [schema.text('<div>banner</div>')])
+    ])
+    const { md } = serialize(doc)
+    expect(md).toContain('<div>banner</div>')
+    expect(md).not.toMatch(/^```/m)
+  })
+
+  test('code_block at index > 0 serializes to fenced ```', () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, [schema.text('Intro.')]),
       schema.nodes.code_block.create(null, [schema.text('const x = 1')])
     ])
     const { md } = serialize(doc)

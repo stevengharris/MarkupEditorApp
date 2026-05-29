@@ -1,6 +1,5 @@
 /**
- * Tests for YAML frontmatter and HTML preamble handling in importFn.
- * Export preamble serializer (code_block → raw HTML) is bead 6ro and not yet implemented.
+ * Tests for YAML frontmatter and HTML preamble handling in importFn/exportFn.
  */
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
@@ -68,5 +67,34 @@ describe('importFn — YAML + HTML preamble', () => {
     expect(out.result).toContain('badge')
     expect(out.result).not.toContain('---')
     expect(out.warnings).toEqual([])
+  })
+})
+
+describe('exportFn — preamble serializer (AC6, AC7)', () => {
+  test('AC6: code_block at doc index 0 serializes as raw HTML (no fences)', async () => {
+    const { schema: s } = await import('markupeditor/src/schema/index.js')
+    const { makeSerializer } = await import('../src/serializer.js')
+    const { makeWarnings } = await import('../src/warnings.js')
+    const codeBlock = s.nodes.code_block.create(null, [s.text('<div align="center">\n  badge\n</div>')])
+    const para = s.nodes.paragraph.create(null, [s.text('Body.')])
+    const doc = s.nodes.doc.create(null, [codeBlock, para])
+    const warnings = makeWarnings()
+    const md = makeSerializer(warnings).serialize(doc)
+    expect(md).toContain('<div align="center">')
+    expect(md).not.toContain('```')
+    expect(warnings.get()).toEqual([])
+  })
+
+  test('AC7: code_block at index > 0 serializes as fenced block', async () => {
+    const { schema: s } = await import('markupeditor/src/schema/index.js')
+    const { makeSerializer } = await import('../src/serializer.js')
+    const { makeWarnings } = await import('../src/warnings.js')
+    const para = s.nodes.paragraph.create(null, [s.text('Intro.')])
+    const codeBlock = s.nodes.code_block.create(null, [s.text('<div>mid-doc html</div>')])
+    const doc = s.nodes.doc.create(null, [para, codeBlock])
+    const warnings = makeWarnings()
+    const md = makeSerializer(warnings).serialize(doc)
+    expect(md).toContain('```')
+    expect(md).toContain('<div>mid-doc html</div>')
   })
 })
