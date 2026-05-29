@@ -212,6 +212,32 @@ func resolveParentDirBookmark(for fileURL: URL) -> URL? {
 
 /// Copies all non-HTML files from `packageURL` to `destDir`, preserving relative paths.
 /// Returns the set of relative path strings that were copied.
+/// Extract the HTML preamble code block from the start of editor HTML, if present.
+/// The editor represents an HTML preamble as `<pre><code>…</code></pre>` at position 0.
+/// Returns the raw unescaped preamble HTML and the remaining body HTML, or (nil, html) when absent.
+func extractHTMLPreamble(from html: String) -> (preamble: String?, body: String) {
+    let trimmed = html.trimmingCharacters(in: .whitespacesAndNewlines)
+    let openTag = "<pre><code>"
+    let closeTag = "</code></pre>"
+    guard trimmed.hasPrefix(openTag) else { return (nil, html) }
+    guard let closeRange = trimmed.range(of: closeTag) else { return (nil, html) }
+    let contentStart = trimmed.index(trimmed.startIndex, offsetBy: openTag.count)
+    let escaped = String(trimmed[contentStart..<closeRange.lowerBound])
+    let preamble = unescapeHTMLEntities(escaped)
+    let afterBlock = String(trimmed[closeRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    return (preamble, afterBlock)
+}
+
+private func unescapeHTMLEntities(_ s: String) -> String {
+    // Order matters: &amp; must be last to avoid double-unescaping &amp;lt; → &lt; → <
+    s.replacingOccurrences(of: "&lt;",   with: "<")
+     .replacingOccurrences(of: "&gt;",   with: ">")
+     .replacingOccurrences(of: "&quot;", with: "\"")
+     .replacingOccurrences(of: "&#39;",  with: "'")
+     .replacingOccurrences(of: "&apos;", with: "'")
+     .replacingOccurrences(of: "&amp;",  with: "&")
+}
+
 /// Reads the `.data` JSON metadata file from an htmd package, if present.
 /// Returns an empty array when the file is absent or unreadable.
 func loadHtmdMetadata(from packageURL: URL) -> [(key: String, value: MetadataValue)] {

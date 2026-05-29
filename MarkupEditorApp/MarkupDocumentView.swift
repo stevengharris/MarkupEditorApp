@@ -452,27 +452,29 @@ struct MarkupDocumentView: View {
                 completion?()
                 return
             }
-            MarkupEditor.selectedWebView?.getHtml { html in
-                guard let html else { completion?(); return }
-                MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
-                    guard let pluginResult = PluginResult.decode(from: result),
-                          let markdown = pluginResult.result else {
-                        let alert = NSAlert()
-                        alert.messageText = "Export failed."
-                        alert.runModal()
-                        completion?()
-                        return
-                    }
-                    do {
-                        try markdown.write(to: url, atomically: true, encoding: .utf8)
-                        self.hasChanges = false
-                        completion?()
-                    } catch {
-                        let alert = NSAlert()
-                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                        alert.runModal()
-                        completion?()
-                    }
+            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
+                guard let pluginResult = PluginResult.decode(from: result),
+                      let markdown = pluginResult.result else {
+                    let alert = NSAlert()
+                    alert.messageText = "Export failed."
+                    alert.runModal()
+                    completion?()
+                    return
+                }
+                var output = markdown
+                if !self.documentMetadata.isEmpty {
+                    let yaml = serializeYAMLMetadata(self.documentMetadata)
+                    output = "---\n\(yaml)---\n\n\(markdown)"
+                }
+                do {
+                    try output.write(to: url, atomically: true, encoding: .utf8)
+                    self.hasChanges = false
+                    completion?()
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                    alert.runModal()
+                    completion?()
                 }
             }
             return
@@ -491,10 +493,15 @@ struct MarkupDocumentView: View {
                     switch docType {
                     case .htmd:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url, deleteOrphans: true)
-                        try html.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
+                        let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
+                        let htmdHtml = preamble.map { $0 + "\n" + bodyHtml } ?? html
+                        try htmdHtml.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
+                        try saveHtmdMetadata(documentMetadata, to: url)
                     case .html:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
-                        try html.write(to: url, atomically: true, encoding: .utf8)
+                        let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
+                        let htmlOut = preamble.map { $0 + "\n" + bodyHtml } ?? html
+                        try htmlOut.write(to: url, atomically: true, encoding: .utf8)
                     case .md:
                         // Handled above in the early-exit branch.
                         break
@@ -560,28 +567,30 @@ struct MarkupDocumentView: View {
     }
     
     private func handleExport(pluginName: String, fileExt: String) {
-        MarkupEditor.selectedWebView?.getHtml { html in
-            guard let html else { return }
-            let panel = NSSavePanel()
-            let baseName = currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
-            panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
-            panel.allowedContentTypes = [.markdown]
-            guard panel.runModal() == .OK, let url = panel.url else { return }
-            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
-                guard let pluginResult = PluginResult.decode(from: result),
-                      let output = pluginResult.result else {
-                    let alert = NSAlert()
-                    alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
-                    alert.runModal()
-                    return
-                }
-                do {
-                    try output.write(to: url, atomically: true, encoding: .utf8)
-                } catch {
-                    let alert = NSAlert()
-                    alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                    alert.runModal()
-                }
+        let panel = NSSavePanel()
+        let baseName = currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
+        panel.allowedContentTypes = [.markdown]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
+            guard let pluginResult = PluginResult.decode(from: result),
+                  let markdown = pluginResult.result else {
+                let alert = NSAlert()
+                alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
+                alert.runModal()
+                return
+            }
+            var output = markdown
+            if !self.documentMetadata.isEmpty {
+                let yaml = serializeYAMLMetadata(self.documentMetadata)
+                output = "---\n\(yaml)---\n\n\(markdown)"
+            }
+            do {
+                try output.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                alert.runModal()
             }
         }
     }
