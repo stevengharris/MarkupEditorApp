@@ -326,7 +326,7 @@ struct MarkupDocumentView: View {
                 throw DocumentOpenError.missingPackageImage(src)
             }
         }
-        documentMetadata = loadHtmdMetadata(from: packageURL)
+        documentMetadata = loadHtmdMetadata(from: packageURL, htmlFilename: rootHtmlFilename)
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         activeDocumentType = .htmd
@@ -491,7 +491,7 @@ struct MarkupDocumentView: View {
                         let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
                         let htmdHtml = preamble.map { $0 + "\n" + bodyHtml } ?? html
                         try htmdHtml.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
-                        try saveHtmdMetadata(documentMetadata, to: url)
+                        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
                     case .html:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
                         let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
@@ -661,7 +661,12 @@ struct MarkupDocumentView: View {
                         return
                     }
                     do {
-                        try markdown.write(to: url, atomically: true, encoding: .utf8)
+                        var output = markdown
+                        if !self.documentMetadata.isEmpty {
+                            let yaml = serializeYAMLMetadata(self.documentMetadata)
+                            output = "---\n\(yaml)---\n\n\(markdown)"
+                        }
+                        try output.write(to: url, atomically: true, encoding: .utf8)
                         self.currentFileURL = url
                         self.activeDocumentType = .md
                         self.hasChanges = false
@@ -692,6 +697,7 @@ struct MarkupDocumentView: View {
                     switch targetExt {
                     case "htmd":
                         try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
+                        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
                     default:
                         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
                     }

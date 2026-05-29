@@ -240,8 +240,9 @@ private func unescapeHTMLEntities(_ s: String) -> String {
 
 /// Reads the `.data` JSON metadata file from an htmd package, if present.
 /// Returns an empty array when the file is absent or unreadable.
-func loadHtmdMetadata(from packageURL: URL) -> [(key: String, value: MetadataValue)] {
-    let dataURL = packageURL.appendingPathComponent(".data")
+func loadHtmdMetadata(from packageURL: URL, htmlFilename: String) -> [(key: String, value: MetadataValue)] {
+    let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
+    let dataURL = packageURL.appendingPathComponent(dataFilename)
     guard FileManager.default.fileExists(atPath: dataURL.path),
           let data = try? Data(contentsOf: dataURL),
           let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
@@ -260,8 +261,9 @@ func loadHtmdMetadata(from packageURL: URL) -> [(key: String, value: MetadataVal
 /// Writes metadata as a JSON `.data` file into an htmd package.
 /// Deletes any existing `.data` file when metadata is empty.
 /// Throws on write failure or on deletion failure for a non-empty-to-empty transition.
-func saveHtmdMetadata(_ metadata: [(key: String, value: MetadataValue)], to packageURL: URL) throws {
-    let dataURL = packageURL.appendingPathComponent(".data")
+func saveHtmdMetadata(_ metadata: [(key: String, value: MetadataValue)], to packageURL: URL, htmlFilename: String) throws {
+    let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
+    let dataURL = packageURL.appendingPathComponent(dataFilename)
     guard !metadata.isEmpty else {
         if FileManager.default.fileExists(atPath: dataURL.path) {
             try FileManager.default.removeItem(at: dataURL)
