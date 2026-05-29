@@ -53,7 +53,8 @@ enum PluginSetup {
             return
         }
 
-        // 2. Copy each bundled plugin file if the destination does not already exist.
+        // 2. Copy each bundled plugin file, overwriting any existing file.
+        // Always overwrite so that app updates and user-replaced plugins are refreshed on launch.
         for entry in entries {
             let source = resourceRoot.appendingPathComponent(entry.filename)
             let destination = dir.appendingPathComponent(entry.filename)
@@ -63,12 +64,10 @@ enum PluginSetup {
                 continue
             }
 
-            guard !FileManager.default.fileExists(atPath: destination.path) else {
-                logger.debug("Plugin file already exists, skipping: \(entry.filename)")
-                continue
-            }
-
             do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
                 try FileManager.default.copyItem(at: source, to: destination)
                 logger.info("Copied bundled plugin: \(entry.filename)")
             } catch {
