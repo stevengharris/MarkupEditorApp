@@ -12,7 +12,7 @@ import { DOMSerializer } from 'prosemirror-model'
 function serialize(doc) {
   const warnings = makeWarnings()
   const serializer = makeSerializer(warnings)
-  return { md: serializer.serialize(doc, { escapeExtraCharacters: /</ }), warnings }
+  return { md: serializer.serialize(doc, { escapeExtraCharacters: /</g }), warnings }
 }
 
 function parse(md) {
@@ -228,12 +228,13 @@ describe('image node', () => {
 })
 
 describe('angle bracket escaping', () => {
-  test('< in paragraph text is escaped as \\< on export', () => {
+  test('all < in paragraph text are escaped as \\< on export', () => {
     const doc = schema.nodes.doc.create(null, [
-      schema.nodes.paragraph.create(null, [schema.text('use \<substitutions> here')])
+      schema.nodes.paragraph.create(null, [schema.text('<html> or <other> stuff')])
     ])
     const { md } = serialize(doc)
-    expect(md).toContain('\\<substitutions>')
+    expect(md).toContain('\\<html>')
+    expect(md).toContain('\\<other>')
   })
 
   test('escaped \\< round-trips through import without html_inline warning', () => {
