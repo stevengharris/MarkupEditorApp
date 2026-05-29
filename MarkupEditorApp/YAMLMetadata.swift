@@ -151,7 +151,7 @@ private func quoteIfNeeded(_ s: String) -> String {
     if indicators.contains(s.first!) { return doubleQuote(s) }
     if s.contains(": ") { return doubleQuote(s) }
     if s.contains(" #") { return doubleQuote(s) }
-    if s.contains("[") || s.contains("{") { return doubleQuote(s) }
+    if s.contains("[") || s.contains("]") || s.contains("{") || s.contains("}") { return doubleQuote(s) }
     return s
 }
 

@@ -39,7 +39,7 @@ struct InfoView: View {
             case .document:
                 DocumentInfoView()
             case .metadata:
-                MetadataInfoView()
+                MetadataInfoView()  // TODO: forward metadataInfo once MetadataInfoView supports editing (deferred)
             }
 
             Spacer()

@@ -241,4 +241,28 @@ struct YAMLMetadataTests {
         #expect(reparsed[0].value == .array(["swift", "ios", "macos"]))
         #expect(reparsed[1].value == .array(["Alice", "Bob"]))
     }
+
+    @Test func parseDoubleQuotedStringWithBackslash() {
+        var warnings: [String] = []
+        let yaml = "path: \"C:\\\\Users\\\\docs\""
+        let result = parseYAMLMetadata(yaml, warnings: &warnings)
+        #expect(result[0].value == .scalar("C:\\Users\\docs"))
+    }
+
+    @Test func roundTripBackslash() {
+        let meta: [(key: String, value: MetadataValue)] = [("path", .scalar("C:\\Users\\docs"))]
+        let serialized = serializeYAMLMetadata(meta)
+        var warnings: [String] = []
+        let reparsed = parseYAMLMetadata(serialized, warnings: &warnings)
+        #expect(reparsed[0].value == .scalar("C:\\Users\\docs"))
+    }
+
+    @Test func roundTripInteger() {
+        let meta: [(key: String, value: MetadataValue)] = [("count", .scalar("42"))]
+        let serialized = serializeYAMLMetadata(meta)
+        #expect(serialized == "count: 42\n")
+        var warnings: [String] = []
+        let reparsed = parseYAMLMetadata(serialized, warnings: &warnings)
+        #expect(reparsed[0].value == .scalar("42"))
+    }
 }
