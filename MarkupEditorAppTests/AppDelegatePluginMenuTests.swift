@@ -38,7 +38,7 @@ import AppKit
     // MARK: - buildMenu creates Export and Import submenus
 
     @Test func buildMenuCreatesExportItemInFileMenu() {
-        let delegate = makeDelegate()
+        _ = makeDelegate()
         let fileMenu = fileMenu(from: NSApp.mainMenu!)
         let exportItem = fileMenu?.items.first(where: { $0.title == "Export" })
         #expect(exportItem != nil)

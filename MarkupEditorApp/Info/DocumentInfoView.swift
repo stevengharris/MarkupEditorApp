@@ -8,11 +8,17 @@
 import SwiftUI
 
 struct DocumentInfoView: View {
+    @Binding var url: URL?
+    
     var body: some View {
-        Text("Hello, DocumentInfoView!")
+        Spacer()
+        VStack {
+            Text(url?.path() ?? "No file is open.")
+            Spacer()
+        }
     }
 }
 
 #Preview {
-    DocumentInfoView()
+    DocumentInfoView(url: .constant(nil))
 }

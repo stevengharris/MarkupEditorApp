@@ -445,6 +445,7 @@ struct PluginResultDecodeTests {
     }
 }
 
+@MainActor
 struct DocumentTypeTests {
 
     @Test func mdCaseExists() {

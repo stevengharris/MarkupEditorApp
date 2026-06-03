@@ -107,6 +107,7 @@ func pluginId(forExtension ext: String, in config: AppConfig = AppConfig.fromDef
 struct PluginResult: Decodable {
     let result: String?
     let warnings: [String]
+    let metadata: String?
 
     static func decode(from jsonString: String?) -> PluginResult? {
         guard let data = jsonString?.data(using: .utf8) else { return nil }
@@ -211,6 +212,74 @@ func resolveParentDirBookmark(for fileURL: URL) -> URL? {
 
 /// Copies all non-HTML files from `packageURL` to `destDir`, preserving relative paths.
 /// Returns the set of relative path strings that were copied.
+/// Extract the HTML preamble code block from the start of editor HTML, if present.
+/// The editor represents an HTML preamble as `<pre><code>…</code></pre>` at position 0.
+/// Returns the raw unescaped preamble HTML and the remaining body HTML, or (nil, html) when absent.
+func extractHTMLPreamble(from html: String) -> (preamble: String?, body: String) {
+    let trimmed = html.trimmingCharacters(in: .whitespacesAndNewlines)
+    let openTag = "<pre><code>"
+    let closeTag = "</code></pre>"
+    guard trimmed.hasPrefix(openTag) else { return (nil, html) }
+    guard let closeRange = trimmed.range(of: closeTag) else { return (nil, html) }
+    let contentStart = trimmed.index(trimmed.startIndex, offsetBy: openTag.count)
+    let escaped = String(trimmed[contentStart..<closeRange.lowerBound])
+    let preamble = unescapeHTMLEntities(escaped)
+    let afterBlock = String(trimmed[closeRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    return (preamble, afterBlock)
+}
+
+private func unescapeHTMLEntities(_ s: String) -> String {
+    // Order matters: &amp; must be last to avoid double-unescaping &amp;lt; → &lt; → <
+    s.replacingOccurrences(of: "&lt;",   with: "<")
+     .replacingOccurrences(of: "&gt;",   with: ">")
+     .replacingOccurrences(of: "&quot;", with: "\"")
+     .replacingOccurrences(of: "&#39;",  with: "'")
+     .replacingOccurrences(of: "&apos;", with: "'")
+     .replacingOccurrences(of: "&amp;",  with: "&")
+}
+
+/// Reads the `.data` JSON metadata file from an htmd package, if present.
+/// Returns an empty array when the file is absent or unreadable.
+func loadHtmdMetadata(from packageURL: URL, htmlFilename: String) -> [MetadataTuple] {
+    let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
+    let dataURL = packageURL.appendingPathComponent(dataFilename)
+    guard FileManager.default.fileExists(atPath: dataURL.path),
+          let data = try? Data(contentsOf: dataURL),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+    else { return [] }
+    return json.compactMap { obj in
+        guard let key = obj["key"] as? String else { return nil }
+        if let scalar = obj["value"] as? String {
+            return MetadataTuple(key: key, value: .scalar(scalar))
+        } else if let array = obj["value"] as? [String] {
+            return MetadataTuple(key: key, value: .array(array))
+        }
+        return nil
+    }
+}
+
+/// Writes metadata as a JSON `.data` file into an htmd package.
+/// Deletes any existing `.data` file when metadata is empty.
+/// Throws on write failure or on deletion failure for a non-empty-to-empty transition.
+func saveHtmdMetadata(_ metadata: [MetadataTuple], to packageURL: URL, htmlFilename: String) throws {
+    let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
+    let dataURL = packageURL.appendingPathComponent(dataFilename)
+    guard !metadata.isEmpty else {
+        if FileManager.default.fileExists(atPath: dataURL.path) {
+            try FileManager.default.removeItem(at: dataURL)
+        }
+        return
+    }
+    let json: [[String: Any]] = metadata.map { entry in
+        switch entry.value {
+        case .scalar(let s): return ["key": entry.key, "value": s]
+        case .array(let elements): return ["key": entry.key, "value": elements]
+        }
+    }
+    let data = try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+    try data.write(to: dataURL)
+}
+
 func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<String> {
     let fm = FileManager.default
     guard let enumerator = fm.enumerator(

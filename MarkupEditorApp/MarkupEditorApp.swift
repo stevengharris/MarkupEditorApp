@@ -12,9 +12,12 @@ import MarkupEditor
 struct MarkupEditorApp: App {
     
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var importLog = ImportLog()
+    
     var body: some Scene {
         Window("MarkupEditor", id: "main") {
             MarkupDocumentView()
+                .environment(importLog)
         }
         Settings {
             SettingsView()

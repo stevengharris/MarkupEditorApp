@@ -21,8 +21,11 @@ struct MarkupDocumentView: View {
     typealias ConfigKeys = AppConfig.ConfigKey
     typealias ToggledState = AppConfig.ToggledState
     
+    @Environment(ImportLog.self) private var importLog
     @Environment(\.openSettings) private var openSettings
+    
     @ObservedObject var selectImage = MarkupEditor.selectImage
+    
     @State private var initialHtml = ""     // Used to create a MarkupEditorView w/initial content
     @State private var currentSource = ""   // Used to display the raw HTML or imported document but avoid MarkupEditorView redrawing
     @State private var documentPickerShowing: Bool = false
@@ -32,6 +35,7 @@ struct MarkupDocumentView: View {
     @State private var currentFileURL: URL?
     @State private var activeDocumentType: DocumentType?
     @State private var rootHtmlFilename: String = "index.html"
+    
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
 
@@ -42,6 +46,7 @@ struct MarkupDocumentView: View {
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @State private var appConfig: AppConfig = AppConfig.fromDefaults()
+    @State private var documentMetadata: [MetadataTuple] = []
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
 
     var body: some View {
@@ -62,7 +67,7 @@ struct MarkupDocumentView: View {
                 }
             },
             right: {
-                InfoView()
+                InfoView(url: $currentFileURL, metadataInfo: $documentMetadata)
             }
         )
         .fraction(docFraction)
@@ -92,6 +97,9 @@ struct MarkupDocumentView: View {
                 self.initialHtml = html ?? ""   // Restore contents on redraw
                 self.configVersion += 1
             }
+        }
+        .onChange(of: documentMetadata) { _, _ in
+            hasChanges = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuNewDocument)) { _ in
             handleNew()
@@ -265,6 +273,7 @@ struct MarkupDocumentView: View {
             setRepresentedURL(nil)
             rootHtmlFilename = "index.html"
             hasChanges = false
+            documentMetadata = []
         }
     }
 
@@ -324,6 +333,7 @@ struct MarkupDocumentView: View {
                 throw DocumentOpenError.missingPackageImage(src)
             }
         }
+        documentMetadata = loadHtmdMetadata(from: packageURL, htmlFilename: rootHtmlFilename)
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         activeDocumentType = .htmd
@@ -337,6 +347,7 @@ struct MarkupDocumentView: View {
     }
 
     private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
+        documentMetadata = []
         let html = try String(contentsOf: fileURL, encoding: .utf8)
         if let baseUrl = MarkupEditor.selectedWebView?.baseUrl {
             let parentDir = fileURL.deletingLastPathComponent()
@@ -377,6 +388,7 @@ struct MarkupDocumentView: View {
         }
         let markdownText: String
         do {
+            importLog.info("Importing \(fileURL.path())")
             markdownText = try String(contentsOf: fileURL, encoding: .utf8)
         } catch {
             let alert = NSAlert()
@@ -397,6 +409,12 @@ struct MarkupDocumentView: View {
                 let alert = NSAlert()
                 alert.messageText = pluginResult.warnings.joined(separator: "\n")
                 alert.runModal()
+            }
+            var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
+            if let yamlString = pluginResult.metadata {
+                documentMetadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
+            } else {
+                documentMetadata = []
             }
             guard let html = pluginResult.result else {
                 let alert = NSAlert()
@@ -437,27 +455,29 @@ struct MarkupDocumentView: View {
                 completion?()
                 return
             }
-            MarkupEditor.selectedWebView?.getHtml { html in
-                guard let html else { completion?(); return }
-                MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
-                    guard let pluginResult = PluginResult.decode(from: result),
-                          let markdown = pluginResult.result else {
-                        let alert = NSAlert()
-                        alert.messageText = "Export failed."
-                        alert.runModal()
-                        completion?()
-                        return
-                    }
-                    do {
-                        try markdown.write(to: url, atomically: true, encoding: .utf8)
-                        self.hasChanges = false
-                        completion?()
-                    } catch {
-                        let alert = NSAlert()
-                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                        alert.runModal()
-                        completion?()
-                    }
+            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
+                guard let pluginResult = PluginResult.decode(from: result),
+                      let markdown = pluginResult.result else {
+                    let alert = NSAlert()
+                    alert.messageText = "Export failed."
+                    alert.runModal()
+                    completion?()
+                    return
+                }
+                var output = markdown
+                if !self.documentMetadata.isEmpty {
+                    let yaml = serializeYAMLMetadata(self.documentMetadata)
+                    output = "---\n\(yaml)---\n\n\(markdown)"
+                }
+                do {
+                    try output.write(to: url, atomically: true, encoding: .utf8)
+                    self.hasChanges = false
+                    completion?()
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                    alert.runModal()
+                    completion?()
                 }
             }
             return
@@ -476,10 +496,15 @@ struct MarkupDocumentView: View {
                     switch docType {
                     case .htmd:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url, deleteOrphans: true)
-                        try html.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
+                        let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
+                        let htmdHtml = preamble.map { $0 + "\n" + bodyHtml } ?? html
+                        try htmdHtml.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
+                        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
                     case .html:
                         try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
-                        try html.write(to: url, atomically: true, encoding: .utf8)
+                        let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
+                        let htmlOut = preamble.map { $0 + "\n" + bodyHtml } ?? html
+                        try htmlOut.write(to: url, atomically: true, encoding: .utf8)
                     case .md:
                         // Handled above in the early-exit branch.
                         break
@@ -545,28 +570,30 @@ struct MarkupDocumentView: View {
     }
     
     private func handleExport(pluginName: String, fileExt: String) {
-        MarkupEditor.selectedWebView?.getHtml { html in
-            guard let html else { return }
-            let panel = NSSavePanel()
-            let baseName = currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
-            panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
-            panel.allowedContentTypes = [.markdown]
-            guard panel.runModal() == .OK, let url = panel.url else { return }
-            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
-                guard let pluginResult = PluginResult.decode(from: result),
-                      let output = pluginResult.result else {
-                    let alert = NSAlert()
-                    alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
-                    alert.runModal()
-                    return
-                }
-                do {
-                    try output.write(to: url, atomically: true, encoding: .utf8)
-                } catch {
-                    let alert = NSAlert()
-                    alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                    alert.runModal()
-                }
+        let panel = NSSavePanel()
+        let baseName = currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
+        panel.allowedContentTypes = [.markdown]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
+            guard let pluginResult = PluginResult.decode(from: result),
+                  let markdown = pluginResult.result else {
+                let alert = NSAlert()
+                alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
+                alert.runModal()
+                return
+            }
+            var output = markdown
+            if !self.documentMetadata.isEmpty {
+                let yaml = serializeYAMLMetadata(self.documentMetadata)
+                output = "---\n\(yaml)---\n\n\(markdown)"
+            }
+            do {
+                try output.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Failed to write file: \(error.localizedDescription)"
+                alert.runModal()
             }
         }
     }
@@ -579,6 +606,7 @@ struct MarkupDocumentView: View {
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.markdown]
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        importLog.info("Importing \(url.path())")
         guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
             let alert = NSAlert()
             alert.messageText = "Could not read file."
@@ -642,7 +670,12 @@ struct MarkupDocumentView: View {
                         return
                     }
                     do {
-                        try markdown.write(to: url, atomically: true, encoding: .utf8)
+                        var output = markdown
+                        if !self.documentMetadata.isEmpty {
+                            let yaml = serializeYAMLMetadata(self.documentMetadata)
+                            output = "---\n\(yaml)---\n\n\(markdown)"
+                        }
+                        try output.write(to: url, atomically: true, encoding: .utf8)
                         self.currentFileURL = url
                         self.activeDocumentType = .md
                         self.hasChanges = false
@@ -673,6 +706,7 @@ struct MarkupDocumentView: View {
                     switch targetExt {
                     case "htmd":
                         try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
+                        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
                     default:
                         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
                     }
@@ -746,4 +780,5 @@ extension MarkupDocumentView: MarkupDelegate {
 
 #Preview {
     MarkupDocumentView()
+        .environment(ImportLog())
 }

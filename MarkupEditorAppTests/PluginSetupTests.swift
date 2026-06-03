@@ -88,7 +88,7 @@ struct PluginSetupTests {
         #expect(FileManager.default.fileExists(atPath: dest.path))
     }
 
-    @Test func doesNotOverwriteExistingPluginFile() throws {
+    @Test func overwritesExistingPluginFile() throws {
         let tmp = try makeTempDir()
         let pluginDir = tmp.appendingPathComponent("Plugins")
         try FileManager.default.createDirectory(at: pluginDir, withIntermediateDirectories: true)
@@ -96,13 +96,14 @@ struct PluginSetupTests {
         try FileManager.default.createDirectory(at: bundleDir, withIntermediateDirectories: true)
 
         let filename = "markup-editor-markdown.js"
-        // Pre-existing user-customised file
-        let existingContent = "// user customisation"
+        // Pre-existing file that should be replaced by the bundled version
+        let existingContent = "// old version"
         let destURL = pluginDir.appendingPathComponent(filename)
         try existingContent.write(to: destURL, atomically: true, encoding: .utf8)
 
-        // Bundle has a different version
-        _ = try writeBundleFile(named: filename, in: bundleDir)
+        // Bundle has a newer version
+        let bundleURL = try writeBundleFile(named: filename, in: bundleDir)
+        let bundleContent = try String(contentsOf: bundleURL, encoding: .utf8)
 
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: filename)]
         PluginSetup.setupPluginDirectory(
@@ -112,7 +113,7 @@ struct PluginSetupTests {
         )
 
         let content = try String(contentsOf: destURL, encoding: .utf8)
-        #expect(content == existingContent)
+        #expect(content == bundleContent)
     }
 
     // MARK: - Missing bundle file

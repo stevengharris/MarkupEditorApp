@@ -147,6 +147,26 @@ public struct AppConfig: JSONConfigurable {
 
 }
 
+extension AppConfig {
+    public nonisolated init(from decoder: any Decoder) throws {
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins }
+        let c = try decoder.container(keyedBy: Keys.self)
+        toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
+        toggledState = try c.decode(String.self, forKey: .toggledState)
+        plugins = try c.decodeIfPresent([PluginConfigEntry].self, forKey: .plugins)
+    }
+}
+
+extension AppConfig.PluginConfigEntry {
+    public nonisolated init(from decoder: any Decoder) throws {
+        enum Keys: String, CodingKey { case name, filename, fileExtension }
+        let c = try decoder.container(keyedBy: Keys.self)
+        name = try c.decode(String.self, forKey: .name)
+        filename = try c.decode(String.self, forKey: .filename)
+        fileExtension = try c.decodeIfPresent(String.self, forKey: .fileExtension)
+    }
+}
+
 extension ToolbarConfig {
     
     static func fromDefaults() -> ToolbarConfig {
