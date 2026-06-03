@@ -21,8 +21,11 @@ struct MarkupDocumentView: View {
     typealias ConfigKeys = AppConfig.ConfigKey
     typealias ToggledState = AppConfig.ToggledState
     
+    @Environment(ImportLog.self) private var importLog
     @Environment(\.openSettings) private var openSettings
+    
     @ObservedObject var selectImage = MarkupEditor.selectImage
+    
     @State private var initialHtml = ""     // Used to create a MarkupEditorView w/initial content
     @State private var currentSource = ""   // Used to display the raw HTML or imported document but avoid MarkupEditorView redrawing
     @State private var documentPickerShowing: Bool = false
@@ -32,6 +35,7 @@ struct MarkupDocumentView: View {
     @State private var currentFileURL: URL?
     @State private var activeDocumentType: DocumentType?
     @State private var rootHtmlFilename: String = "index.html"
+    
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
 
@@ -42,7 +46,7 @@ struct MarkupDocumentView: View {
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @State private var appConfig: AppConfig = AppConfig.fromDefaults()
-    @State private var documentMetadata: [(key: String, value: MetadataValue)] = []
+    @State private var documentMetadata: [MetadataTuple] = []
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
 
     var body: some View {
@@ -63,7 +67,7 @@ struct MarkupDocumentView: View {
                 }
             },
             right: {
-                InfoView(metadataInfo: $documentMetadata)
+                InfoView(url: $currentFileURL, metadataInfo: $documentMetadata)
             }
         )
         .fraction(docFraction)
@@ -93,6 +97,9 @@ struct MarkupDocumentView: View {
                 self.initialHtml = html ?? ""   // Restore contents on redraw
                 self.configVersion += 1
             }
+        }
+        .onChange(of: documentMetadata) { _, _ in
+            hasChanges = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuNewDocument)) { _ in
             handleNew()
@@ -381,6 +388,7 @@ struct MarkupDocumentView: View {
         }
         let markdownText: String
         do {
+            importLog.info("Importing \(fileURL.path())")
             markdownText = try String(contentsOf: fileURL, encoding: .utf8)
         } catch {
             let alert = NSAlert()
@@ -598,6 +606,7 @@ struct MarkupDocumentView: View {
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.markdown]
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        importLog.info("Importing \(url.path())")
         guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
             let alert = NSAlert()
             alert.messageText = "Could not read file."
@@ -771,4 +780,5 @@ extension MarkupDocumentView: MarkupDelegate {
 
 #Preview {
     MarkupDocumentView()
+        .environment(ImportLog())
 }

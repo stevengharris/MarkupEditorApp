@@ -9,52 +9,74 @@ import SwiftUI
 import MarkupEditor
 
 struct InfoView: View {
-
-    @Binding var logInfo: String
-    @Binding var documentInfo: String
-    @Binding var metadataInfo: [(key: String, value: MetadataValue)]
+    
+    @Binding var url: URL?
+    @Binding var metadataInfo: [MetadataTuple]
     @State private var infoType: InfoType
-
+    
     let height = ToolbarConfig.fromDefaults().toolbarHeight()
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Picker("", selection: $infoType) {
-                    ForEach(InfoType.allCases) { info in
-                        Text(info.rawValue).tag(info)
-                    }
+            Picker("", selection: $infoType) {
+                ForEach(InfoType.allCases) { info in
+                    Text(info.rawValue)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .tag(info)
                 }
-                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: CGFloat(height))
+            .frame(minWidth: 0, maxHeight: CGFloat(height))
+            .offset(x: -4, y: 0)    // Perfectly centered as SplitView drags
             .pickerStyle(.segmented)
             
             Divider()
-
+            
             switch infoType {
             case .log:
                 LogInfoView()
             case .document:
-                DocumentInfoView()
+                DocumentInfoView(url: $url)
             case .metadata:
-                MetadataInfoView()  // TODO: forward metadataInfo once MetadataInfoView supports editing (deferred)
+                MetadataInfoView(metadataInfo: $metadataInfo)
             }
-
+            
             Spacer()
         }
+        .clipped()  // Just clip all to avoid layout weirdness w/ very narrow SplitView
         .onChange(of: infoType) {
             UserDefaults.standard.set(infoType.rawValue, forKey: "infoType")
         }
     }
     
-    init(logInfo: Binding<String>? = nil, documentInfo: Binding<String>? = nil, metadataInfo: Binding<[(key: String, value: MetadataValue)]>? = nil) {
-        _logInfo = logInfo ?? .constant("")
-        _documentInfo = documentInfo ?? .constant("")
+    init(url: Binding<URL?>? = nil, metadataInfo: Binding<[MetadataTuple]>? = nil) {
+        _url = url ?? .constant(nil)
         _metadataInfo = metadataInfo ?? .constant([])
         let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.document.rawValue
         _infoType = State(initialValue: InfoType(rawValue: stored) ?? .document)
+    }
+}
+
+struct ResizablePicker: View {
+    
+    @Binding var infoType: InfoType
+    @Binding var infoWidth: CGFloat
+    
+    let height = ToolbarConfig.fromDefaults().toolbarHeight()
+    
+    var body: some View {
+        let _ = Self._printChanges()
+            Picker("", selection: $infoType) {
+                ForEach(InfoType.allCases) { info in
+                    Text(info.rawValue)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .tag(info)
+                }
+            }
+            .frame(minWidth: 0, idealWidth: max(0, infoWidth - 8), maxHeight: CGFloat(height))
+        //.frame(width: infoWidth - 8, height: CGFloat(height))
+        .pickerStyle(.segmented)
     }
 }
 

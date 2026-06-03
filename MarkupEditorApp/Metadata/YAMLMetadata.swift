@@ -14,8 +14,8 @@ import Foundation
 // MARK: - Parser
 
 /// Parse a raw YAML string (contents between `---` delimiters) into an ordered key-value array.
-func parseYAMLMetadata(_ yaml: String, warnings: inout [String]) -> [(key: String, value: MetadataValue)] {
-    var result: [(key: String, value: MetadataValue)] = []
+func parseYAMLMetadata(_ yaml: String, warnings: inout [String]) -> [MetadataTuple] {
+    var result: [MetadataTuple] = []
     let lines = yaml.components(separatedBy: "\n")
     var i = 0
     while i < lines.count {
@@ -56,17 +56,17 @@ func parseYAMLMetadata(_ yaml: String, warnings: inout [String]) -> [(key: Strin
                 }
             }
             if !items.isEmpty {
-                result.append((key: key, value: .array(items)))
+                result.append(MetadataTuple(key: key, value: .array(items)))
                 i = j
             } else {
-                result.append((key: key, value: .scalar("")))
+                result.append(MetadataTuple(key: key, value: .scalar("")))
                 i += 1
             }
         } else if rawValue.hasPrefix("[") {
-            result.append((key: key, value: .array(parseFlowSequence(rawValue))))
+            result.append(MetadataTuple(key: key, value: .array(parseFlowSequence(rawValue))))
             i += 1
         } else {
-            result.append((key: key, value: .scalar(parseScalar(rawValue))))
+            result.append(MetadataTuple(key: key, value: .scalar(parseScalar(rawValue))))
             i += 1
         }
     }
@@ -130,7 +130,7 @@ private func parseScalar(_ s: String) -> String {
 // MARK: - Serializer
 
 /// Serialize an ordered metadata array to a YAML string (without `---` delimiters).
-func serializeYAMLMetadata(_ metadata: [(key: String, value: MetadataValue)]) -> String {
+func serializeYAMLMetadata(_ metadata: [MetadataTuple]) -> String {
     var lines: [String] = []
     for entry in metadata {
         switch entry.value {

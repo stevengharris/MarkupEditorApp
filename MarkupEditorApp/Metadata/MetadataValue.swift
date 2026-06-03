@@ -5,9 +5,19 @@
 //  Created by Steven Harris on 5/29/26.
 //
 
-enum MetadataValue: Sendable {
+import Foundation
+
+enum MetadataValue: Sendable, CustomStringConvertible {
     case scalar(String)
     case array([String])
+    
+    var description: String {
+        switch self {
+        case .scalar(let s): return s
+        case .array(let elements): return "[" + elements.joined(separator: ", ") + "]"
+        }
+    }
+
 }
 
 extension MetadataValue: Equatable {
