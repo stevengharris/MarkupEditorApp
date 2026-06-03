@@ -113,9 +113,9 @@ struct YAMLMetadataTests {
         var warnings: [String] = []
         let result = parseYAMLMetadata(yaml, warnings: &warnings)
         #expect(result.count == 3)
-        #expect(result[0] == (key: "title", value: .scalar("My Post")))
-        #expect(result[1] == (key: "date", value: .scalar("2026-05-29")))
-        #expect(result[2] == (key: "draft", value: .scalar("false")))
+        #expect(result[0] == MetadataTuple(key: "title", value: .scalar("My Post")))
+        #expect(result[1] == MetadataTuple(key: "date", value: .scalar("2026-05-29")))
+        #expect(result[2] == MetadataTuple(key: "draft", value: .scalar("false")))
     }
 
     @Test func parseSkipsBlankLinesAndComments() {
@@ -130,67 +130,67 @@ struct YAMLMetadataTests {
     // MARK: - Serializer tests
 
     @Test func serializeSimpleScalar() {
-        let meta: [(key: String, value: MetadataValue)] = [("title", .scalar("Hello World"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "title", value: .scalar("Hello World"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == "title: Hello World\n")
     }
 
     @Test func serializeScalarWithColonSpace() {
-        let meta: [(key: String, value: MetadataValue)] = [("note", .scalar("key: value"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "note", value: .scalar("key: value"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == #"note: "key: value""# + "\n")
     }
 
     @Test func serializeScalarStartingWithHash() {
-        let meta: [(key: String, value: MetadataValue)] = [("color", .scalar("#FF0000"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "color", value: .scalar("#FF0000"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == "color: \"#FF0000\"\n")
     }
 
     @Test func serializeScalarStartingWithAmpersand() {
-        let meta: [(key: String, value: MetadataValue)] = [("ref", .scalar("&anchor"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "ref", value: .scalar("&anchor"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == #"ref: "&anchor""# + "\n")
     }
 
     @Test func serializeScalarStartingWithAsterisk() {
-        let meta: [(key: String, value: MetadataValue)] = [("alias", .scalar("*ref"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "alias", value: .scalar("*ref"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == #"alias: "*ref""# + "\n")
     }
 
     @Test func serializeScalarWithBracket() {
-        let meta: [(key: String, value: MetadataValue)] = [("data", .scalar("[1, 2, 3]"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "data", value: .scalar("[1, 2, 3]"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == #"data: "[1, 2, 3]""# + "\n")
     }
 
     @Test func serializeEmptyScalar() {
-        let meta: [(key: String, value: MetadataValue)] = [("empty", .scalar(""))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "empty", value: .scalar(""))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == "empty: \"\"\n")
     }
 
     @Test func serializeScalarStartingWithDash() {
-        let meta: [(key: String, value: MetadataValue)] = [("item", .scalar("- list item"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "item", value: .scalar("- list item"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == #"item: "- list item""# + "\n")
     }
 
     @Test func serializeArray() {
-        let meta: [(key: String, value: MetadataValue)] = [("tags", .array(["swift", "ios"]))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "tags", value: .array(["swift", "ios"]))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == "tags: [swift, ios]\n")
     }
 
     @Test func serializeArrayWithMetacharacterElements() {
-        let meta: [(key: String, value: MetadataValue)] = [("tags", .array(["#trending", "key: val"]))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "tags", value: .array(["#trending", "key: val"]))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == "tags: [\"#trending\", \"key: val\"]\n")
     }
 
     @Test func serializeSpaceHash() {
-        let meta: [(key: String, value: MetadataValue)] = [("desc", .scalar("hello #world"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "desc", value: .scalar("hello #world"))]
         let result = serializeYAMLMetadata(meta)
         #expect(result == #"desc: "hello #world""# + "\n")
     }
@@ -212,13 +212,13 @@ struct YAMLMetadataTests {
     }
 
     @Test func roundTripMetacharacters() {
-        let meta: [(key: String, value: MetadataValue)] = [
-            ("color", .scalar("#FF0000")),
-            ("ref", .scalar("&anchor")),
-            ("alias", .scalar("*ref")),
-            ("note", .scalar("key: value")),
-            ("url", .scalar("https://example.com/#section")),
-            ("tags", .array(["#trending", "swift", "*starred"]))
+        let meta: [MetadataTuple] = [
+            MetadataTuple(key: "color", value: .scalar("#FF0000")),
+            MetadataTuple(key: "ref",   value: .scalar("&anchor")),
+            MetadataTuple(key: "alias", value: .scalar("*ref")),
+            MetadataTuple(key: "note",  value: .scalar("key: value")),
+            MetadataTuple(key: "url",   value: .scalar("https://example.com/#section")),
+            MetadataTuple(key: "tags",  value: .array(["#trending", "swift", "*starred"]))
         ]
         let serialized = serializeYAMLMetadata(meta)
         var warnings: [String] = []
@@ -231,9 +231,9 @@ struct YAMLMetadataTests {
     }
 
     @Test func roundTripArrays() {
-        let meta: [(key: String, value: MetadataValue)] = [
-            ("tags", .array(["swift", "ios", "macos"])),
-            ("authors", .array(["Alice", "Bob"]))
+        let meta: [MetadataTuple] = [
+            MetadataTuple(key: "tags",    value: .array(["swift", "ios", "macos"])),
+            MetadataTuple(key: "authors", value: .array(["Alice", "Bob"]))
         ]
         let serialized = serializeYAMLMetadata(meta)
         var warnings: [String] = []
@@ -250,7 +250,7 @@ struct YAMLMetadataTests {
     }
 
     @Test func roundTripBackslash() {
-        let meta: [(key: String, value: MetadataValue)] = [("path", .scalar("C:\\Users\\docs"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "path", value: .scalar("C:\\Users\\docs"))]
         let serialized = serializeYAMLMetadata(meta)
         var warnings: [String] = []
         let reparsed = parseYAMLMetadata(serialized, warnings: &warnings)
@@ -258,7 +258,7 @@ struct YAMLMetadataTests {
     }
 
     @Test func roundTripInteger() {
-        let meta: [(key: String, value: MetadataValue)] = [("count", .scalar("42"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "count", value: .scalar("42"))]
         let serialized = serializeYAMLMetadata(meta)
         #expect(serialized == "count: 42\n")
         var warnings: [String] = []

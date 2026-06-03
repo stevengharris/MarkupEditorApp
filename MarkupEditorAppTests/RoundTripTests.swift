@@ -26,34 +26,34 @@ struct HtmdMetadataRoundTripTests {
         let dir = try makeTempPackage()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        let metadata: [(key: String, value: MetadataValue)] = [
-            ("title", .scalar("My Project")),
-            ("date", .scalar("2026-05-29")),
-            ("draft", .scalar("false"))
+        let metadata: [MetadataTuple] = [
+            MetadataTuple(key: "title", value: .scalar("My Project")),
+            MetadataTuple(key: "date",  value: .scalar("2026-05-29")),
+            MetadataTuple(key: "draft", value: .scalar("false"))
         ]
-        try saveHtmdMetadata(metadata, to: dir)
+        try saveHtmdMetadata(metadata, to: dir, htmlFilename: "index.html")
 
-        let dataURL = dir.appendingPathComponent(".data")
+        let dataURL = dir.appendingPathComponent("index.data")
         #expect(FileManager.default.fileExists(atPath: dataURL.path))
 
-        let loaded = loadHtmdMetadata(from: dir)
+        let loaded = loadHtmdMetadata(from: dir, htmlFilename: "index.html")
         #expect(loaded.count == 3)
-        #expect(loaded[0] == (key: "title", value: .scalar("My Project")))
-        #expect(loaded[1] == (key: "date", value: .scalar("2026-05-29")))
-        #expect(loaded[2] == (key: "draft", value: .scalar("false")))
+        #expect(loaded[0] == MetadataTuple(key: "title", value: .scalar("My Project")))
+        #expect(loaded[1] == MetadataTuple(key: "date",  value: .scalar("2026-05-29")))
+        #expect(loaded[2] == MetadataTuple(key: "draft", value: .scalar("false")))
     }
 
     @Test func saveAndLoadArrayValues() throws {
         let dir = try makeTempPackage()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        let metadata: [(key: String, value: MetadataValue)] = [
-            ("tags", .array(["swift", "ios", "macos"])),
-            ("authors", .array(["Alice", "Bob"]))
+        let metadata: [MetadataTuple] = [
+            MetadataTuple(key: "tags",    value: .array(["swift", "ios", "macos"])),
+            MetadataTuple(key: "authors", value: .array(["Alice", "Bob"]))
         ]
-        try saveHtmdMetadata(metadata, to: dir)
+        try saveHtmdMetadata(metadata, to: dir, htmlFilename: "index.html")
 
-        let loaded = loadHtmdMetadata(from: dir)
+        let loaded = loadHtmdMetadata(from: dir, htmlFilename: "index.html")
         #expect(loaded.count == 2)
         #expect(loaded[0].value == .array(["swift", "ios", "macos"]))
         #expect(loaded[1].value == .array(["Alice", "Bob"]))
@@ -64,13 +64,13 @@ struct HtmdMetadataRoundTripTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         // AC11 component: insertion order must survive save→load
-        let metadata: [(key: String, value: MetadataValue)] = [
-            ("z", .scalar("last")),
-            ("a", .scalar("first")),
-            ("m", .scalar("middle"))
+        let metadata: [MetadataTuple] = [
+            MetadataTuple(key: "z", value: .scalar("last")),
+            MetadataTuple(key: "a", value: .scalar("first")),
+            MetadataTuple(key: "m", value: .scalar("middle"))
         ]
-        try saveHtmdMetadata(metadata, to: dir)
-        let loaded = loadHtmdMetadata(from: dir)
+        try saveHtmdMetadata(metadata, to: dir, htmlFilename: "index.html")
+        let loaded = loadHtmdMetadata(from: dir, htmlFilename: "index.html")
         #expect(loaded.map(\.key) == ["z", "a", "m"])
     }
 
@@ -78,8 +78,8 @@ struct HtmdMetadataRoundTripTests {
         let dir = try makeTempPackage()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try saveHtmdMetadata([], to: dir)
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(".data").path))
+        try saveHtmdMetadata([], to: dir, htmlFilename: "index.html")
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path))
     }
 
     @Test func emptyMetadataDeletesExistingDataFile() throws {
@@ -87,18 +87,18 @@ struct HtmdMetadataRoundTripTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         // Write a .data file first, then save empty metadata — file should be removed
-        let initial: [(key: String, value: MetadataValue)] = [("k", .scalar("v"))]
-        try saveHtmdMetadata(initial, to: dir)
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent(".data").path))
+        let initial: [MetadataTuple] = [MetadataTuple(key: "k", value: .scalar("v"))]
+        try saveHtmdMetadata(initial, to: dir, htmlFilename: "index.html")
+        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path))
 
-        try saveHtmdMetadata([], to: dir)
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(".data").path))
+        try saveHtmdMetadata([], to: dir, htmlFilename: "index.html")
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path))
     }
 
     @Test func loadReturnsEmptyForAbsentDataFile() {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("absent-\(UUID().uuidString)")
-        let loaded = loadHtmdMetadata(from: dir)
+        let loaded = loadHtmdMetadata(from: dir, htmlFilename: "index.html")
         #expect(loaded.isEmpty)
     }
 
@@ -106,13 +106,13 @@ struct HtmdMetadataRoundTripTests {
         let dir = try makeTempPackage()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        let metadata: [(key: String, value: MetadataValue)] = [
-            ("title",  .scalar("Readme")),
-            ("tags",   .array(["#trending", "swift"])),
-            ("layout", .scalar("home"))
+        let metadata: [MetadataTuple] = [
+            MetadataTuple(key: "title",  value: .scalar("Readme")),
+            MetadataTuple(key: "tags",   value: .array(["#trending", "swift"])),
+            MetadataTuple(key: "layout", value: .scalar("home"))
         ]
-        try saveHtmdMetadata(metadata, to: dir)
-        let loaded = loadHtmdMetadata(from: dir)
+        try saveHtmdMetadata(metadata, to: dir, htmlFilename: "index.html")
+        let loaded = loadHtmdMetadata(from: dir, htmlFilename: "index.html")
         #expect(loaded.count == 3)
         for (a, b) in zip(metadata, loaded) {
             #expect(a.key == b.key)
@@ -125,7 +125,7 @@ struct HtmdMetadataRoundTripTests {
 
 struct AC11RoundTripTests {
 
-    private func roundTrip(_ yaml: String) -> [(key: String, value: MetadataValue)] {
+    private func roundTrip(_ yaml: String) -> [MetadataTuple] {
         var warnings: [String] = []
         let parsed = parseYAMLMetadata(yaml, warnings: &warnings)
         let serialized = serializeYAMLMetadata(parsed)
@@ -136,10 +136,10 @@ struct AC11RoundTripTests {
         let yaml = "title: My Post\ndate: 2026-05-29\ndraft: false\ncount: 42\n"
         let result = roundTrip(yaml)
         #expect(result.count == 4)
-        #expect(result[0] == (key: "title", value: .scalar("My Post")))
-        #expect(result[1] == (key: "date",  value: .scalar("2026-05-29")))
-        #expect(result[2] == (key: "draft", value: .scalar("false")))
-        #expect(result[3] == (key: "count", value: .scalar("42")))
+        #expect(result[0] == MetadataTuple(key: "title", value: .scalar("My Post")))
+        #expect(result[1] == MetadataTuple(key: "date",  value: .scalar("2026-05-29")))
+        #expect(result[2] == MetadataTuple(key: "draft", value: .scalar("false")))
+        #expect(result[3] == MetadataTuple(key: "count", value: .scalar("42")))
     }
 
     @Test func arrayValuesRoundTrip() {
@@ -187,7 +187,7 @@ struct AC11RoundTripTests {
 struct AC15MetacharacterTests {
 
     @Test func colonSpaceValueRoundTrips() {
-        let meta: [(key: String, value: MetadataValue)] = [("note", .scalar("key: value"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "note", value: .scalar("key: value"))]
         let yaml = serializeYAMLMetadata(meta)
         var warnings: [String] = []
         let result = parseYAMLMetadata(yaml, warnings: &warnings)
@@ -195,7 +195,7 @@ struct AC15MetacharacterTests {
     }
 
     @Test func hashValueRoundTrips() {
-        let meta: [(key: String, value: MetadataValue)] = [("color", .scalar("#FF0000"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "color", value: .scalar("#FF0000"))]
         let yaml = serializeYAMLMetadata(meta)
         var warnings: [String] = []
         let result = parseYAMLMetadata(yaml, warnings: &warnings)
@@ -203,9 +203,9 @@ struct AC15MetacharacterTests {
     }
 
     @Test func anchorAliasValuesRoundTrip() {
-        let meta: [(key: String, value: MetadataValue)] = [
-            ("ref",   .scalar("&anchor")),
-            ("alias", .scalar("*ref"))
+        let meta: [MetadataTuple] = [
+            MetadataTuple(key: "ref",   value: .scalar("&anchor")),
+            MetadataTuple(key: "alias", value: .scalar("*ref"))
         ]
         let yaml = serializeYAMLMetadata(meta)
         var warnings: [String] = []
@@ -215,7 +215,7 @@ struct AC15MetacharacterTests {
     }
 
     @Test func bracketValueRoundTrips() {
-        let meta: [(key: String, value: MetadataValue)] = [("data", .scalar("[1, 2, 3]"))]
+        let meta: [MetadataTuple] = [MetadataTuple(key: "data", value: .scalar("[1, 2, 3]"))]
         let yaml = serializeYAMLMetadata(meta)
         var warnings: [String] = []
         let result = parseYAMLMetadata(yaml, warnings: &warnings)
@@ -223,8 +223,8 @@ struct AC15MetacharacterTests {
     }
 
     @Test func arrayWithMetacharacterElementsRoundTrips() {
-        let meta: [(key: String, value: MetadataValue)] = [
-            ("tags", .array(["#trending", "key: val", "&anchor"]))
+        let meta: [MetadataTuple] = [
+            MetadataTuple(key: "tags", value: .array(["#trending", "key: val", "&anchor"]))
         ]
         let yaml = serializeYAMLMetadata(meta)
         var warnings: [String] = []
@@ -238,9 +238,9 @@ struct AC15MetacharacterTests {
 struct YAMLFrontmatterFormatTests {
 
     @Test func frontmatterFormatIsCorrect() {
-        let metadata: [(key: String, value: MetadataValue)] = [
-            ("title", .scalar("My Post")),
-            ("draft", .scalar("false"))
+        let metadata: [MetadataTuple] = [
+            MetadataTuple(key: "title", value: .scalar("My Post")),
+            MetadataTuple(key: "draft", value: .scalar("false"))
         ]
         let yaml = serializeYAMLMetadata(metadata)
         let markdown = "# Hello\n\nBody text.\n"
@@ -259,7 +259,7 @@ struct YAMLFrontmatterFormatTests {
     @Test func emptyMetadataProducesNoPrepend() {
         let markdown = "# Hello\n"
         var output = markdown
-        let metadata: [(key: String, value: MetadataValue)] = []
+        let metadata: [MetadataTuple] = []
         if !metadata.isEmpty {
             let yaml = serializeYAMLMetadata(metadata)
             output = "---\n\(yaml)---\n\n\(markdown)"
@@ -288,7 +288,7 @@ struct ExtractHTMLPreambleTests {
 
     @Test func returnsNilWhenPreCodeIsMidDocument() {
         let html = "<h1>Hello</h1>\n<pre><code>some code</code></pre>"
-        let (preamble, body) = extractHTMLPreamble(from: html)
+        let (preamble, _) = extractHTMLPreamble(from: html)
         #expect(preamble == nil)
     }
 
