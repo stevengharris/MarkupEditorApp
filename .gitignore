@@ -16,4 +16,6 @@ DerivedData/
 # Claude Code tooling
 .agents/
 .claude/skills/
+.claude/settings.local.json
+.claude/worktrees/
 skills-lock.json
