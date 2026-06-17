@@ -22,20 +22,20 @@ enum DocumentError: Error {
     }
 
     /// Reads an .htmd package: copies assets into the webview sandbox, loads metadata.
-    /// Returns the HTML string and parsed metadata; does not update model state.
-    /// Callers must follow with `setOpenResult(html:url:type:metadata:)`.
-    func openHtmd(at url: URL, baseUrl: URL) throws -> (html: String, metadata: [MetadataTuple]) {
+    /// Returns the HTML string, the root HTML filename, and parsed metadata without
+    /// mutating model state. Callers must follow with `setOpenResult(html:url:type:rootHtmlFilename:metadata:)`.
+    func openHtmd(at url: URL, baseUrl: URL) throws -> (html: String, rootHtmlFilename: String, metadata: [MetadataTuple]) {
         let rootHtmlURL = try findRootHTML(in: url)
         let html = try String(contentsOf: rootHtmlURL, encoding: .utf8)
-        rootHtmlFilename = rootHtmlURL.lastPathComponent
+        let filename = rootHtmlURL.lastPathComponent
         let copiedPaths = try copyPackageAssets(from: url, to: baseUrl)
         for src in localImageSrcs(in: html) {
             guard copiedPaths.contains(src) else {
                 throw DocumentOpenError.missingPackageImage(src)
             }
         }
-        let metadata = loadHtmdMetadata(from: url, htmlFilename: rootHtmlFilename)
-        return (html, metadata)
+        let metadata = loadHtmdMetadata(from: url, htmlFilename: filename)
+        return (html, filename, metadata)
     }
 
     /// Reads an .html file: copies referenced local images into the webview sandbox.
@@ -56,9 +56,11 @@ enum DocumentError: Error {
     }
 
     /// Updates model state after a successful open (any type). Sets hasChanges = false last
-    /// to override the documentMetadata didSet.
-    func setOpenResult(html: String, url: URL, type: DocumentType, metadata: [MetadataTuple]) {
+    /// to override the documentMetadata didSet. For .htmd, pass the rootHtmlFilename returned
+    /// by openHtmd; for .html and .md it defaults to "index.html".
+    func setOpenResult(html: String, url: URL, type: DocumentType, metadata: [MetadataTuple], rootHtmlFilename: String = "index.html") {
         activeDocumentType = type
+        self.rootHtmlFilename = rootHtmlFilename
         documentMetadata = metadata   // triggers didSet → hasChanges = true
         currentFileURL = url
         hasChanges = false            // override didSet — must be last
@@ -88,10 +90,11 @@ enum DocumentError: Error {
     }
 
     /// Writes HTML and images to a new .htmd package at the given URL (save-as).
+    /// saveAsHtmd always writes "index.html" as the root, so metadata is keyed to that name.
     /// Callers must follow with `willSaveTo(url:as:)` to update document identity.
     func saveHtmd(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
         try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
-        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
+        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: "index.html")
     }
 
     /// Writes HTML and images to a new .html file at the given URL (save-as).
@@ -100,10 +103,12 @@ enum DocumentError: Error {
         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
     }
 
-    /// Updates document identity after a successful save-as.
+    /// Updates document identity after a successful save-as. Resets rootHtmlFilename to
+    /// "index.html" for .htmd because saveAsHtmd always writes that filename.
     func willSaveTo(url: URL, as type: DocumentType) {
         currentFileURL = url
         activeDocumentType = type
+        if type == .htmd { rootHtmlFilename = "index.html" }
         hasChanges = false
     }
 

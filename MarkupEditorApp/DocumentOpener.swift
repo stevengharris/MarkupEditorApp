@@ -277,7 +277,7 @@ func saveHtmdMetadata(_ metadata: [MetadataTuple], to packageURL: URL, htmlFilen
         }
     }
     let data = try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
-    try data.write(to: dataURL)
+    try data.write(to: dataURL, options: .atomic)
 }
 
 func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<String> {
