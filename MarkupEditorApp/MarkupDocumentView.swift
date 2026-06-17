@@ -17,25 +17,22 @@ private extension UTType {
 }
 
 struct MarkupDocumentView: View {
-    
+
     typealias ConfigKeys = AppConfig.ConfigKey
     typealias ToggledState = AppConfig.ToggledState
-    
+
     @Environment(ImportLog.self) private var importLog
     @Environment(\.openSettings) private var openSettings
-    
+
     @ObservedObject var selectImage = MarkupEditor.selectImage
-    
+
     @State private var initialHtml = ""     // Used to create a MarkupEditorView w/initial content
     @State private var currentSource = ""   // Used to display the raw HTML or imported document but avoid MarkupEditorView redrawing
     @State private var documentPickerShowing: Bool = false
     @State private var rawShowing: Bool = false
     @State var sourceViewIsStale: Bool = false
-    @State private var hasChanges = false
-    @State private var currentFileURL: URL?
-    @State private var activeDocumentType: DocumentType?
-    @State private var rootHtmlFilename: String = "index.html"
-    
+    @State private var document = MarkupDocument()
+
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
 
@@ -46,10 +43,10 @@ struct MarkupDocumentView: View {
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @State private var appConfig: AppConfig = AppConfig.fromDefaults()
-    @State private var documentMetadata: [MetadataTuple] = []
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
 
     var body: some View {
+        @Bindable var doc = document
         HSplit(
             left: {
                 VStack(spacing: 0) {
@@ -60,14 +57,14 @@ struct MarkupDocumentView: View {
                         SourceView(
                             currentSource: $currentSource,
                             sourceViewIsStale: $sourceViewIsStale,
-                            docType: activeDocumentType,
+                            docType: document.activeDocumentType,
                             onRefresh: refreshSourceView
                         )
                     }
                 }
             },
             right: {
-                InfoView(url: $currentFileURL, metadataInfo: $documentMetadata)
+                InfoView(url: $doc.currentFileURL, metadataInfo: $doc.documentMetadata)
             }
         )
         .fraction(docFraction)
@@ -97,9 +94,6 @@ struct MarkupDocumentView: View {
                 self.initialHtml = html ?? ""   // Restore contents on redraw
                 self.configVersion += 1
             }
-        }
-        .onChange(of: documentMetadata) { _, _ in
-            hasChanges = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuNewDocument)) { _ in
             handleNew()
@@ -176,7 +170,7 @@ struct MarkupDocumentView: View {
         .toolbar(removing: .title)
         .toolbar {
             AppToolbarView(
-                currentFileURL: $currentFileURL,
+                currentFileURL: $doc.currentFileURL,
                 appConfig: $appConfig,
                 appConfigJSON: $appConfigJSON,
                 toolbarConfigJSON: $toolbarConfigJSON,
@@ -185,7 +179,7 @@ struct MarkupDocumentView: View {
             )
         }
     }
-    
+
     init() {
         // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
         // so stored overrides must be in markupConfiguration before the first render.
@@ -199,7 +193,7 @@ struct MarkupDocumentView: View {
         )
         _markupConfiguration = State(initialValue: config)
     }
-    
+
     private func applyStoredConfigOverrides() {
         markupConfiguration.toolbarConfig = Self.decodeConfig(ToolbarConfig.self, from: toolbarConfigJSON)
         markupConfiguration.keymapConfig = Self.decodeConfig(KeymapConfig.self, from: keymapConfigJSON)
@@ -226,7 +220,7 @@ struct MarkupDocumentView: View {
             handler?()
         }
     }
-    
+
     private func imageSelected(url: URL) {
         guard let selectedWebView = MarkupEditor.selectedWebView else { return }
         markupImageToAdd(selectedWebView, url: url)
@@ -239,7 +233,7 @@ struct MarkupDocumentView: View {
     /// On macOS, runs modally and calls completion synchronously.
     /// On Catalyst, presents a UIAlertController and calls completion asynchronously.
     private func checkSave(then proceed: @escaping (Bool) -> Void) {
-        guard hasChanges else {
+        guard document.hasChanges else {
             proceed(true)
             return
         }
@@ -255,7 +249,7 @@ struct MarkupDocumentView: View {
         case .alertFirstButtonReturn:
             handleSave { proceed(true) }
         case .alertSecondButtonReturn:
-            hasChanges = false
+            document.hasChanges = false
             proceed(true)
         default:
             proceed(false)
@@ -269,11 +263,8 @@ struct MarkupDocumentView: View {
                 setCurrentSource()
             }
             initialHtml = currentSource
-            currentFileURL = nil
             setRepresentedURL(nil)
-            rootHtmlFilename = "index.html"
-            hasChanges = false
-            documentMetadata = []
+            document.reset()
         }
     }
 
@@ -324,22 +315,11 @@ struct MarkupDocumentView: View {
         guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
             throw DocumentOpenError.noWebviewAvailable
         }
-        let rootHtmlURL = try findRootHTML(in: packageURL)
-        let html = try String(contentsOf: rootHtmlURL, encoding: .utf8)
-        rootHtmlFilename = rootHtmlURL.lastPathComponent
-        let copiedPaths = try copyPackageAssets(from: packageURL, to: baseUrl)
-        for src in localImageSrcs(in: html) {
-            guard copiedPaths.contains(src) else {
-                throw DocumentOpenError.missingPackageImage(src)
-            }
-        }
-        documentMetadata = loadHtmdMetadata(from: packageURL, htmlFilename: rootHtmlFilename)
-        MarkupEditor.selectedWebView?.setHtml(html)
+        let result = try document.openHtmd(at: packageURL, baseUrl: baseUrl)
+        MarkupEditor.selectedWebView?.setHtml(result.html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
-        activeDocumentType = .htmd
-        hasChanges = false
+        document.setOpenResult(html: result.html, url: packageURL, type: .htmd, metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
         setCurrentSource() {
-            currentFileURL = packageURL
             initialHtml = currentSource
             setRepresentedURL(packageURL)
             handler?()
@@ -347,29 +327,15 @@ struct MarkupDocumentView: View {
     }
 
     private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
-        documentMetadata = []
-        let html = try String(contentsOf: fileURL, encoding: .utf8)
-        if let baseUrl = MarkupEditor.selectedWebView?.baseUrl {
-            let parentDir = fileURL.deletingLastPathComponent()
-            let srcs = localImageSrcs(in: html)
-            if !srcs.isEmpty {
-                // Open Recent provides a file-only security scope; resolve a stored parent-dir
-                // bookmark to regain directory access for image copying.
-                let scopedParent = resolveParentDirBookmark(for: fileURL)
-                let accessingScoped = scopedParent?.startAccessingSecurityScopedResource() ?? false
-                defer { if accessingScoped { scopedParent?.stopAccessingSecurityScopedResource() } }
-                try copyImageAssets(srcs: srcs, from: parentDir, to: baseUrl, skipMissing: true)
-                // Store/refresh the bookmark while we still have sandbox access to parentDir.
-                storeParentDirBookmark(for: fileURL)
-            }
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+            throw DocumentOpenError.noWebviewAvailable
         }
+        let html = try document.openHtml(at: fileURL, baseUrl: baseUrl)
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-        activeDocumentType = .html
-        hasChanges = false
+        document.setOpenResult(html: html, url: fileURL, type: .html, metadata: [])
         setCurrentSource() {
             initialHtml = currentSource
-            currentFileURL = fileURL
             setRepresentedURL(fileURL)
             handler?()
         }
@@ -411,10 +377,11 @@ struct MarkupDocumentView: View {
                 alert.runModal()
             }
             var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
+            let metadata: [MetadataTuple]
             if let yamlString = pluginResult.metadata {
-                documentMetadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
+                metadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
             } else {
-                documentMetadata = []
+                metadata = []
             }
             guard let html = pluginResult.result else {
                 let alert = NSAlert()
@@ -424,12 +391,10 @@ struct MarkupDocumentView: View {
                 return
             }
             MarkupEditor.selectedWebView?.setHtml(html)
-            activeDocumentType = .md
-            hasChanges = false
-            setCurrentSource {
-                initialHtml = currentSource
-                currentFileURL = fileURL
-                setRepresentedURL(fileURL)
+            self.document.setOpenResult(html: html, url: fileURL, type: .md, metadata: metadata)
+            self.setCurrentSource {
+                self.initialHtml = self.currentSource
+                self.setRepresentedURL(fileURL)
                 NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
                 handler?()
             }
@@ -437,7 +402,7 @@ struct MarkupDocumentView: View {
     }
 
     private func handleSave(then completion: (()->Void)? = nil) {
-        guard let url = currentFileURL else {
+        guard let url = document.currentFileURL else {
             showSavePanel(then: completion)
             return
         }
@@ -445,7 +410,7 @@ struct MarkupDocumentView: View {
             completion?()
             return
         }
-        let docType = activeDocumentType ?? .html
+        let docType = document.activeDocumentType ?? .html
         // Markdown save is async (plugin-driven); handle it before the image-sync path.
         if docType == .md {
             guard let pluginName = pluginName(forExtension: "md") else {
@@ -465,13 +430,13 @@ struct MarkupDocumentView: View {
                     return
                 }
                 var output = markdown
-                if !self.documentMetadata.isEmpty {
-                    let yaml = serializeYAMLMetadata(self.documentMetadata)
+                if !self.document.documentMetadata.isEmpty {
+                    let yaml = serializeYAMLMetadata(self.document.documentMetadata)
                     output = "---\n\(yaml)---\n\n\(markdown)"
                 }
                 do {
                     try output.write(to: url, atomically: true, encoding: .utf8)
-                    self.hasChanges = false
+                    self.document.hasChanges = false
                     completion?()
                 } catch {
                     let alert = NSAlert()
@@ -493,23 +458,7 @@ struct MarkupDocumentView: View {
                     return
                 }
                 do {
-                    switch docType {
-                    case .htmd:
-                        try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url, deleteOrphans: true)
-                        let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
-                        let htmdHtml = preamble.map { $0 + "\n" + bodyHtml } ?? html
-                        try htmdHtml.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
-                        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
-                    case .html:
-                        try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
-                        let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
-                        let htmlOut = preamble.map { $0 + "\n" + bodyHtml } ?? html
-                        try htmlOut.write(to: url, atomically: true, encoding: .utf8)
-                    case .md:
-                        // Handled above in the early-exit branch.
-                        break
-                    }
-                    hasChanges = false
+                    try document.save(html: html, srcs: srcs, baseUrl: baseUrl)
                     completion?()
                 } catch {
                     let alert = NSAlert(error: error)
@@ -519,7 +468,7 @@ struct MarkupDocumentView: View {
             }
         }
     }
-    
+
     /// Refreshes the source view content based on the active document type.
     ///
     /// For `.html` and `.htmd`, delegates to `setCurrentSource()` which fetches raw HTML
@@ -527,7 +476,7 @@ struct MarkupDocumentView: View {
     /// `export` action to convert the current editor HTML to Markdown, then updates
     /// `currentSource` with the result and clears `sourceViewIsStale`.
     private func refreshSourceView() {
-        guard let docType = activeDocumentType else {
+        guard let docType = document.activeDocumentType else {
             setCurrentSource()
             return
         }
@@ -561,17 +510,17 @@ struct MarkupDocumentView: View {
         withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
         if isOpening { refreshSourceView() }
     }
-    
+
     private func handleOpenRecent(url: URL) {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             openDocument(at: url)
         }
     }
-    
+
     private func handleExport(pluginName: String, fileExt: String) {
         let panel = NSSavePanel()
-        let baseName = currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        let baseName = document.currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
         panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
         panel.allowedContentTypes = [.markdown]
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -584,8 +533,8 @@ struct MarkupDocumentView: View {
                 return
             }
             var output = markdown
-            if !self.documentMetadata.isEmpty {
-                let yaml = serializeYAMLMetadata(self.documentMetadata)
+            if !self.document.documentMetadata.isEmpty {
+                let yaml = serializeYAMLMetadata(self.document.documentMetadata)
                 output = "---\n\(yaml)---\n\n\(markdown)"
             }
             do {
@@ -597,7 +546,7 @@ struct MarkupDocumentView: View {
             }
         }
     }
-    
+
     /// Replaces the editor content with the imported file's converted HTML.
     /// Document identity (URL, type, hasChanges) is intentionally left unchanged — use Open to change identity.
     private func handleImport(pluginName: String) {
@@ -631,11 +580,10 @@ struct MarkupDocumentView: View {
         showSavePanel()
     }
 
-
     private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.html, .htmd, .markdown]
-        panel.nameFieldStringValue = currentFileURL?.lastPathComponent ?? "Untitled.htmd"
+        panel.nameFieldStringValue = document.currentFileURL?.lastPathComponent ?? "Untitled.htmd"
         guard panel.runModal() == .OK, let url = panel.url else {
             completion?()
             return
@@ -671,14 +619,12 @@ struct MarkupDocumentView: View {
                     }
                     do {
                         var output = markdown
-                        if !self.documentMetadata.isEmpty {
-                            let yaml = serializeYAMLMetadata(self.documentMetadata)
+                        if !self.document.documentMetadata.isEmpty {
+                            let yaml = serializeYAMLMetadata(self.document.documentMetadata)
                             output = "---\n\(yaml)---\n\n\(markdown)"
                         }
                         try output.write(to: url, atomically: true, encoding: .utf8)
-                        self.currentFileURL = url
-                        self.activeDocumentType = .md
-                        self.hasChanges = false
+                        self.document.willSaveTo(url: url, as: .md)
                         self.setRepresentedURL(url)
                         NSDocumentController.shared.noteNewRecentDocumentURL(url)
                         completion?()
@@ -705,16 +651,13 @@ struct MarkupDocumentView: View {
                 do {
                     switch targetExt {
                     case "htmd":
-                        try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
-                        try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
+                        try document.saveHtmd(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
                     default:
-                        try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
+                        try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
                     }
-                    currentFileURL = url
+                    document.willSaveTo(url: url, as: targetExt == "htmd" ? .htmd : .html)
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
                     setRepresentedURL(url)
-                    activeDocumentType = targetExt == "htmd" ? .htmd : .html
-                    hasChanges = false
                     completion?()
                 } catch {
                     let alert = NSAlert(error: error)
@@ -724,6 +667,7 @@ struct MarkupDocumentView: View {
             }
         }
     }
+
     func toolbarVisible() -> Bool {
         !appConfig.isHidden()
     }
@@ -736,7 +680,7 @@ struct MarkupDocumentView: View {
 }
 
 extension MarkupDocumentView: MarkupDelegate {
-    
+
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(toolbarVisible())
@@ -746,9 +690,9 @@ extension MarkupDocumentView: MarkupDelegate {
             setCurrentSource(handler)
         }
     }
-    
+
     func markupInput(_ view: MarkupWKWebView) {
-        hasChanges = true
+        document.hasChanges = true
         view.getSelectionState() { selectionState in
             MarkupEditor.selectionState.reset(from: selectionState)
             sourceViewIsStale = true
