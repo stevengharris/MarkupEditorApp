@@ -21,6 +21,7 @@ struct LogInfoView: View {
                         .font(.system(.body, design: .monospaced))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal)
+                        .textSelection(.enabled)
                 }
             }
         }
