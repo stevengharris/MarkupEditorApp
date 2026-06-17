@@ -56,6 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.set(false, forKey: "menuDebugSetupComplete")
         NSWindow.allowsAutomaticWindowTabbing = false
         keymap = KeymapConfig.fromDefaults()         // Use app's keymapconfig.json
         if let bundleURL = Bundle.main.url(forResource: "markupeditor-doc", withExtension: "icns") {
@@ -74,7 +75,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApplication.shared.mainMenu = buildMenu()
             populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
             NSApplication.shared.mainWindow?.delegate = self
+            NotificationCenter.default.addObserver(
+                forName: NSMenu.didRemoveItemNotification,
+                object: nil,
+                queue: .main
+            ) { notification in
+                guard let menu = notification.object as? NSMenu else { return }
+                print("[Menu] item removed from '\(menu.title)', remaining: \(menu.numberOfItems)")
+                print(Thread.callStackSymbols.prefix(12).joined(separator: "\n"))
+            }
+            UserDefaults.standard.set(true, forKey: "menuDebugSetupComplete")
         }
+    }
+
+    func applicationWillResignActive(_ notification: Notification) {
+        let titles = NSApp.mainMenu?.items.compactMap { $0.submenu?.title } ?? []
+        print("[Menu] resignActive, mainMenu: \(titles)")
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        let titles = NSApp.mainMenu?.items.compactMap { $0.submenu?.title } ?? []
+        print("[Menu] becomeActive, mainMenu: \(titles)")
     }
 
     // MARK: - File menu actions
