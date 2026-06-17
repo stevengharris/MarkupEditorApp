@@ -8,12 +8,18 @@
 import AppKit
 import MarkupEditor
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
     @MainActor static var pendingFinderURL: URL?
     @MainActor static var docIcon: NSImage?
+    /// Set by handleQuit after the user confirms quit via the window-close path,
+    /// so applicationShouldTerminate skips the second check.
+    static var skipTerminateCheck = false
+    /// Set by applicationShouldTerminate when it returns .terminateLater (Cmd+Q path),
+    /// so handleQuit knows to call NSApp.reply instead of NSApp.terminate.
+    static var isRespondingToTerminateQuery = false
 
     /// Submenu under File > Export, populated by populatePluginMenus(_:).
     var exportSubmenu = NSMenu(title: "Export")
@@ -32,7 +38,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
-    
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard !AppDelegate.skipTerminateCheck else { return true }
+        NotificationCenter.default.post(name: .menuQuitApplication, object: nil)
+        return false
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if AppDelegate.skipTerminateCheck {
+            AppDelegate.skipTerminateCheck = false
+            return .terminateNow
+        }
+        AppDelegate.isRespondingToTerminateQuery = true
+        NotificationCenter.default.post(name: .menuQuitApplication, object: nil)
+        return .terminateLater
+    }
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
         keymap = KeymapConfig.fromDefaults()         // Use app's keymapconfig.json
@@ -51,6 +73,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [self] in
             NSApplication.shared.mainMenu = buildMenu()
             populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+            NSApplication.shared.mainWindow?.delegate = self
         }
     }
 

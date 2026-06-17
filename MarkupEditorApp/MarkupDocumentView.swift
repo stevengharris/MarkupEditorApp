@@ -126,6 +126,9 @@ struct MarkupDocumentView: View {
             guard let pluginName = notification.userInfo?["name"] as? String else { return }
             handleImport(pluginName: pluginName)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .menuQuitApplication)) { _ in
+            handleQuit()
+        }
 #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .menuClearUserDefaults)) { _ in
             UserDefaults.standard.removeObject(forKey: ConfigKeys.toolbar)
@@ -265,6 +268,21 @@ struct MarkupDocumentView: View {
             initialHtml = currentSource
             setRepresentedURL(nil)
             document.reset()
+        }
+    }
+
+    private func handleQuit() {
+        checkSave { shouldProceed in
+            if AppDelegate.isRespondingToTerminateQuery {
+                // Cmd+Q path: applicationShouldTerminate returned .terminateLater
+                AppDelegate.isRespondingToTerminateQuery = false
+                NSApp.reply(toApplicationShouldTerminate: shouldProceed)
+            } else if shouldProceed {
+                // Close-button path: window is still open; terminate now
+                AppDelegate.skipTerminateCheck = true
+                NSApp.terminate(nil)
+            }
+            // Close-button cancel: window stays open, nothing to do
         }
     }
 
