@@ -92,6 +92,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 guard menu === NSApplication.shared.mainMenu else { return }
                 print("[Menu] main menu stripped by SwiftUI, remaining: \(menu.numberOfItems)")
                 print(Thread.callStackSymbols.prefix(12).joined(separator: "\n"))
+                // Only rebuild when the menu is fully empty. SwiftUI also runs
+                // partial pruning passes (PruneTrivialFileMenu, PruneTrivialEditMenu)
+                // on any menu we set, which would re-trigger this observer and create
+                // an infinite rebuild loop if we reacted to every removal.
+                guard menu.numberOfItems == 0 else { return }
                 DispatchQueue.main.async {
                     NSApplication.shared.mainMenu = self.buildMenu()
                     self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
@@ -113,6 +118,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // (via scenesDidChange → makeMainMenu), before applicationDidBecomeActive
         // fires. The didRemoveItemNotification observer only catches in-foreground
         // stripping; rebuilding here covers the background case.
+        // Guard against rebuilding when the menu is already correct — without this,
+        // the first-launch activation races with applicationDidFinishLaunching's
+        // deferred buildMenu() call and both try to attach the same submenu objects.
+        // SwiftUI's stripped menu has 5 items; our custom menu has 7+ items.
+        guard (NSApp.mainMenu?.numberOfItems ?? 0) < 6 else { return }
         NSApplication.shared.mainMenu = buildMenu()
         populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
     }
@@ -201,6 +211,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func buildMenu() -> NSMenu {
+        // Reset all instance-var submenus on every call so they can be
+        // re-attached to fresh NSMenuItems. NSMenu throws "already a submenu
+        // of some menu" if the same NSMenu object is set as a submenu a second
+        // time without being detached first.
+        openRecentMenu = NSMenu(title: "Open Recent")
+        exportSubmenu = NSMenu(title: "Export")
+        importSubmenu = NSMenu(title: "Import")
+
         let mainMenu = NSMenu()
 
         // Standard app menu
