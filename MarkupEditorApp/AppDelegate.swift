@@ -75,14 +75,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApplication.shared.mainMenu = buildMenu()
             populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
             NSApplication.shared.mainWindow?.delegate = self
+            // SwiftUI's internal AppDelegate runs makeMainMenu whenever the scene
+            // graph changes phase (background ↔ active, environment changes, etc.).
+            // It strips every item from NSApplication.shared.mainMenu and replaces
+            // it with its own 5-item default. This observer detects that stripping
+            // and rebuilds our custom menu. The rebuild is deferred one run-loop
+            // iteration so SwiftUI finishes all its removeItemAtIndex calls before
+            // we replace the menu object — SwiftUI removes all items synchronously,
+            // then our single async rebuild fires.
             NotificationCenter.default.addObserver(
                 forName: NSMenu.didRemoveItemNotification,
                 object: nil,
                 queue: .main
-            ) { notification in
-                guard let menu = notification.object as? NSMenu else { return }
-                print("[Menu] item removed from '\(menu.title)', remaining: \(menu.numberOfItems)")
+            ) { [weak self] notification in
+                guard let self, let menu = notification.object as? NSMenu else { return }
+                guard menu === NSApplication.shared.mainMenu else { return }
+                print("[Menu] main menu stripped by SwiftUI, remaining: \(menu.numberOfItems)")
                 print(Thread.callStackSymbols.prefix(12).joined(separator: "\n"))
+                DispatchQueue.main.async {
+                    NSApplication.shared.mainMenu = self.buildMenu()
+                    self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+                }
             }
             UserDefaults.standard.set(true, forKey: "menuDebugSetupComplete")
         }
@@ -96,6 +109,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidBecomeActive(_ notification: Notification) {
         let titles = NSApp.mainMenu?.items.compactMap { $0.submenu?.title } ?? []
         print("[Menu] becomeActive, mainMenu: \(titles)")
+        // SwiftUI can strip the main menu while the app is in the background
+        // (via scenesDidChange → makeMainMenu), before applicationDidBecomeActive
+        // fires. The didRemoveItemNotification observer only catches in-foreground
+        // stripping; rebuilding here covers the background case.
+        NSApplication.shared.mainMenu = buildMenu()
+        populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
     }
 
     // MARK: - File menu actions
