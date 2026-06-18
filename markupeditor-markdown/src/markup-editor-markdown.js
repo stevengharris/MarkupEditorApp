@@ -2,7 +2,6 @@ import { DOMSerializer } from 'prosemirror-model'
 import { makeSerializer } from './serializer.js'
 import { makeParser } from './parser.js'
 import { makeWarnings } from './warnings.js'
-import { schema } from 'markupeditor/src/schema/index.js'
 import MarkdownIt from 'markdown-it'
 import frontMatterPlugin from 'markdown-it-front-matter'
 
@@ -42,6 +41,11 @@ export function exportFn(_content) {
  * @returns {string} JSON string { result: string|null, warnings: string[], metadata?: string }
  */
 export function importFn(content) {
+  const view = MU.activeView()
+  if (!view) {
+    return JSON.stringify({ result: null, warnings: ['No active view'] })
+  }
+  const schema = view.state.schema
   const warnings = makeWarnings()
 
   // Step 1: Normalize line endings
