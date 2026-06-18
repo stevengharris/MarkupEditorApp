@@ -56,7 +56,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.set(false, forKey: "menuDebugSetupComplete")
         NSWindow.allowsAutomaticWindowTabbing = false
         keymap = KeymapConfig.fromDefaults()         // Use app's keymapconfig.json
         if let bundleURL = Bundle.main.url(forResource: "markupeditor-doc", withExtension: "icns") {
@@ -90,8 +89,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ) { [weak self] notification in
                 guard let self, let menu = notification.object as? NSMenu else { return }
                 guard menu === NSApplication.shared.mainMenu else { return }
-                print("[Menu] main menu stripped by SwiftUI, remaining: \(menu.numberOfItems)")
-                print(Thread.callStackSymbols.prefix(12).joined(separator: "\n"))
                 // Only rebuild when the menu is fully empty. SwiftUI also runs
                 // partial pruning passes (PruneTrivialFileMenu, PruneTrivialEditMenu)
                 // on any menu we set, which would re-trigger this observer and create
@@ -102,18 +99,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
                 }
             }
-            UserDefaults.standard.set(true, forKey: "menuDebugSetupComplete")
         }
     }
 
-    func applicationWillResignActive(_ notification: Notification) {
-        let titles = NSApp.mainMenu?.items.compactMap { $0.submenu?.title } ?? []
-        print("[Menu] resignActive, mainMenu: \(titles)")
-    }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        let titles = NSApp.mainMenu?.items.compactMap { $0.submenu?.title } ?? []
-        print("[Menu] becomeActive, mainMenu: \(titles)")
         // SwiftUI can strip the main menu while the app is in the background
         // (via scenesDidChange → makeMainMenu), before applicationDidBecomeActive
         // fires. The didRemoveItemNotification observer only catches in-foreground
