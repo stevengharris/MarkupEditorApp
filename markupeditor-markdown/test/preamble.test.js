@@ -3,13 +3,14 @@
  */
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
+import { schema } from 'markupeditor/src/schema/index.js'
 
 let importFn
 
 beforeAll(async () => {
   document.body.innerHTML = '<markup-editor></markup-editor>'
   const el = document.querySelector('markup-editor')
-  el.MU = { activeView: vi.fn().mockReturnValue(null), registerPlugin: vi.fn() }
+  el.MU = { activeView: vi.fn().mockReturnValue({ state: { schema } }), registerPlugin: vi.fn() }
   const mod = await import('../src/markup-editor-markdown.js')
   importFn = mod.importFn
 })
@@ -81,6 +82,15 @@ describe('importFn — HTML preamble', () => {
     const out = JSON.parse(importFn(input))
     expect(out.metadata).toBeUndefined()
     expect(out.warnings.length).toBeGreaterThan(0)
+  })
+
+  test('leading standalone <img> is treated as preamble, not image node (AC-4)', () => {
+    const input = '<img src="logo.png" alt="logo">\n\n# Body\n'
+    const out = JSON.parse(importFn(input))
+    expect(out.metadata).toBeUndefined()
+    expect(out.result).toContain('<pre>')
+    expect(out.result).toContain('logo.png')
+    expect(out.warnings).toEqual([])
   })
 })
 

@@ -9352,19 +9352,22 @@ function makeSerializer(warnings) {
   // Custom node rules extending the default set
   const nodes = Object.assign({}, defaultMarkdownSerializer.nodes, {
 
-    // image: emit ![alt](src), warn + drop width/height attrs if present
+    // image: emit <img> when width or height is set (preserves sizing); fall back to ![alt](src)
     image(state, node) {
       const { src, alt, width, height } = node.attrs;
-      if (width != null) {
-        warnings.add(`Image width attribute dropped (not supported in Markdown): ${width}`);
+      if (width != null || height != null) {
+        let tag = `<img src="${src}"`;
+        if (alt != null)    tag += ` alt="${alt}"`;
+        if (width != null)  tag += ` width="${width}"`;
+        if (height != null) tag += ` height="${height}"`;
+        tag += '>';
+        state.write(tag);
+      } else {
+        state.write(
+          '![' + state.esc(alt || '') + '](' +
+          (src || '').replace(/[()]/g, '\\$&') + ')'
+        );
       }
-      if (height != null) {
-        warnings.add(`Image height attribute dropped (not supported in Markdown): ${height}`);
-      }
-      state.write(
-        '![' + state.esc(alt || '') + '](' +
-        (src || '').replace(/[()]/g, '\\$&') + ')'
-      );
     },
 
     // table: GFM pipe-table serialization
@@ -9557,11 +9560,48 @@ function makeParser(schema, warnings) {
   parser.tokenHandlers['td_open']  = cellOpen;
   parser.tokenHandlers['td_close'] = cellClose;
 
+  // Minimal double-quoted attribute extractor for self-closing <img> tags.
+  // Single-quoted and unquoted attribute values are out of scope.
+  function parseImgTag(html) {
+    const m = html.match(/<img\s([^>]*)>/i);
+    if (!m) return null
+    const attrs = m[1];
+    const get = (name) => {
+      const r = attrs.match(new RegExp(`${name}="([^"]*)"`, 'i'));
+      return r ? r[1] : null
+    };
+    const w = get('width'), h = get('height');
+    return {
+      src:    get('src'),
+      alt:    get('alt'),
+      width:  w != null ? parseInt(w,  10) : null,
+      height: h != null ? parseInt(h,  10) : null,
+    }
+  }
+
+  // html_block: standalone <img> on its own line becomes a paragraph containing
+  // an image node. image is inline:true — adding it directly to doc context
+  // silently drops it, so the paragraph wrapper is required.
   parser.tokenHandlers['html_block'] = (state, tok) => {
-    warnings.add(`Raw HTML block stripped (not supported in MarkupEditor): ${tok.content.slice(0, 60).trim()}`);
+    const img = parseImgTag(tok.content.trim());
+    if (img && img.src) {
+      state.openNode(schema.nodes.paragraph, null);
+      state.addNode(schema.nodes.image, img);
+      state.closeNode();
+    } else {
+      warnings.add(`Raw HTML block stripped (not supported in MarkupEditor): ${tok.content.slice(0, 60).trim()}`);
+    }
   };
+
+  // html_inline: <img> within paragraph text becomes an inline image node;
+  // everything else warns and is dropped.
   parser.tokenHandlers['html_inline'] = (state, tok) => {
-    warnings.add(`Raw HTML inline stripped (not supported in MarkupEditor): ${tok.content.trim()}`);
+    const img = parseImgTag(tok.content);
+    if (img && img.src) {
+      state.addNode(schema.nodes.image, img);
+    } else {
+      warnings.add(`Raw HTML inline stripped (not supported in MarkupEditor): ${tok.content.trim()}`);
+    }
   };
 
   return parser

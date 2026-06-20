@@ -11,19 +11,22 @@ export function makeSerializer(warnings) {
   // Custom node rules extending the default set
   const nodes = Object.assign({}, defaultMarkdownSerializer.nodes, {
 
-    // image: emit ![alt](src), warn + drop width/height attrs if present
+    // image: emit <img> when width or height is set (preserves sizing); fall back to ![alt](src)
     image(state, node) {
       const { src, alt, width, height } = node.attrs
-      if (width != null) {
-        warnings.add(`Image width attribute dropped (not supported in Markdown): ${width}`)
+      if (width != null || height != null) {
+        let tag = `<img src="${src}"`
+        if (alt != null)    tag += ` alt="${alt}"`
+        if (width != null)  tag += ` width="${width}"`
+        if (height != null) tag += ` height="${height}"`
+        tag += '>'
+        state.write(tag)
+      } else {
+        state.write(
+          '![' + state.esc(alt || '') + '](' +
+          (src || '').replace(/[()]/g, '\\$&') + ')'
+        )
       }
-      if (height != null) {
-        warnings.add(`Image height attribute dropped (not supported in Markdown): ${height}`)
-      }
-      state.write(
-        '![' + state.esc(alt || '') + '](' +
-        (src || '').replace(/[()]/g, '\\$&') + ')'
-      )
     },
 
     // table: GFM pipe-table serialization

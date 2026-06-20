@@ -1,4 +1,4 @@
-import { beforeAll, describe, test, expect, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { schema } from 'markupeditor/src/schema/index.js'
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,10 @@ beforeAll(async () => {
   const mod = await import('../src/markup-editor-markdown.js')
   exportFn = mod.exportFn
   importFn = mod.importFn
+})
+
+beforeEach(() => {
+  mockMU.activeView.mockReturnValue({ state: { schema } })
 })
 
 // ---------------------------------------------------------------------------
@@ -65,7 +69,7 @@ describe('exportFn — plain document', () => {
 // ---------------------------------------------------------------------------
 
 describe('exportFn — warnings in envelope', () => {
-  test('image with width attribute: warning appears in envelope, result is non-null', () => {
+  test('image with width attribute: result contains <img> tag, no warning', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [
         schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: 200, height: null })
@@ -74,8 +78,8 @@ describe('exportFn — warnings in envelope', () => {
     mockMU.activeView.mockReturnValue({ state: { doc } })
     const envelope = JSON.parse(exportFn('unused'))
     expect(envelope.result).not.toBeNull()
-    expect(envelope.warnings.length).toBeGreaterThan(0)
-    expect(envelope.warnings.some(w => w.toLowerCase().includes('width'))).toBe(true)
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('<img')
   })
 
   test('underline mark: warning appears in envelope, text is preserved in result', () => {
@@ -135,5 +139,31 @@ describe('importFn — embedded HTML warnings', () => {
     expect(envelope.warnings.length).toBeGreaterThan(0)
     expect(envelope.warnings.some(w => w.toLowerCase().includes('html inline'))).toBe(true)
     expect(envelope.result).not.toContain('<span>')
+  })
+})
+
+describe('importFn — img tag import', () => {
+  test('mid-document block <img> with all attrs becomes image node; no warning (AC-3/AC-7)', () => {
+    const envelope = JSON.parse(importFn('# Heading\n\n<img src="logo.png" alt="logo" width="200" height="100">\n\nParagraph.'))
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('src="logo.png"')
+    expect(envelope.result).toContain('alt="logo"')
+    expect(envelope.result).toContain('width="200"')
+    expect(envelope.result).toContain('height="100"')
+  })
+
+  test('inline <img> within paragraph text becomes image node; no warning', () => {
+    const envelope = JSON.parse(importFn('Some text <img src="icon.png" alt="icon"> more text.'))
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('src="icon.png"')
+    expect(envelope.result).toContain('alt="icon"')
+  })
+
+  test('mid-document block <img> without dimensions: src and alt preserved, no width/height (AC-9)', () => {
+    const envelope = JSON.parse(importFn('# Heading\n\n<img src="logo.png" alt="logo">\n\nParagraph.'))
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('src="logo.png"')
+    expect(envelope.result).toContain('alt="logo"')
+    expect(envelope.result).not.toMatch(/width="\d+"|height="\d+"/)
   })
 })

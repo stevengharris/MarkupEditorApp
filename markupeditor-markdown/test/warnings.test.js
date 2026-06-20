@@ -18,47 +18,60 @@ function serialize(doc) {
 // Image size attributes
 // ---------------------------------------------------------------------------
 
-describe('image width warning', () => {
-  test('image with width attr emits a warning; image is still in output', () => {
+describe('image with width — emits img tag', () => {
+  test('image with width attr emits <img> tag with width; no warning', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [
         schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: 200, height: null })
       ])
     ])
     const { md, warnings } = serialize(doc)
-    expect(warnings.length).toBeGreaterThan(0)
-    expect(warnings.some(w => w.toLowerCase().includes('width'))).toBe(true)
-    expect(md).toMatch(/!\[photo\]\(photo\.jpg\)/)
+    expect(warnings).toHaveLength(0)
+    expect(md).toContain('<img')
+    expect(md).toContain('src="photo.jpg"')
+    expect(md).toContain('width="200"')
+    expect(md).not.toContain('height=')
   })
 })
 
-describe('image height warning', () => {
-  test('image with height attr emits a warning; image is still in output', () => {
+describe('image with height — emits img tag', () => {
+  test('image with height attr emits <img> tag with height; no warning', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [
         schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: null, height: 100 })
       ])
     ])
     const { md, warnings } = serialize(doc)
-    expect(warnings.length).toBeGreaterThan(0)
-    expect(warnings.some(w => w.toLowerCase().includes('height'))).toBe(true)
-    expect(md).toMatch(/!\[photo\]\(photo\.jpg\)/)
+    expect(warnings).toHaveLength(0)
+    expect(md).toContain('<img')
+    expect(md).toContain('src="photo.jpg"')
+    expect(md).toContain('height="100"')
+    expect(md).not.toContain('width=')
   })
 })
 
-describe('image width and height warning', () => {
-  test('image with both width and height emits at least one warning; image is still in output', () => {
+describe('image with width and height — emits img tag (AC-1)', () => {
+  test('image with both width and height emits <img> tag with both; no warning', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [
         schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: 300, height: 200 })
       ])
     ])
     const { md, warnings } = serialize(doc)
-    expect(warnings.length).toBeGreaterThan(0)
-    // At least width and height each get their own warning, or one combined one
-    const mentionsWidth = warnings.some(w => w.toLowerCase().includes('width'))
-    const mentionsHeight = warnings.some(w => w.toLowerCase().includes('height'))
-    expect(mentionsWidth || mentionsHeight).toBe(true)
+    expect(warnings).toHaveLength(0)
+    expect(md).toContain('<img src="photo.jpg" alt="photo" width="300" height="200">')
+  })
+})
+
+describe('image without dimensions — standard Markdown syntax (AC-2)', () => {
+  test('image with no width or height emits ![alt](src); no warning', () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, [
+        schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: null, height: null })
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+    expect(warnings).toHaveLength(0)
     expect(md).toMatch(/!\[photo\]\(photo\.jpg\)/)
   })
 })
