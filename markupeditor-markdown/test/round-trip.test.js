@@ -237,6 +237,33 @@ describe('image node', () => {
     expect(md).toContain('<img')
     expect(md).not.toContain('\\<img')
   })
+
+  test('standard ![alt](src) import continues to work unchanged (AC-5)', () => {
+    const { doc, warnings } = parse('![a cat](img.png)')
+    expect(warnings.get()).toHaveLength(0)
+    const html = docToHtml(doc)
+    expect(html).toContain('src="img.png"')
+    expect(html).toContain('alt="a cat"')
+  })
+
+  test('round-trip: image with dimensions exports as <img> and re-imports with same attrs (AC-6)', () => {
+    const original = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, [
+        schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: 300, height: 200 })
+      ])
+    ])
+    const { md, warnings: exportWarnings } = serialize(original)
+    expect(exportWarnings.get()).toHaveLength(0)
+    expect(md).toContain('<img')
+
+    const { doc: imported, warnings: importWarnings } = parse(md)
+    expect(importWarnings.get()).toHaveLength(0)
+    const html = docToHtml(imported)
+    expect(html).toContain('src="photo.jpg"')
+    expect(html).toContain('alt="photo"')
+    expect(html).toContain('width="300"')
+    expect(html).toContain('height="200"')
+  })
 })
 describe('angle bracket escaping', () => {
   test('all < in paragraph text are escaped as \\< on export', () => {
