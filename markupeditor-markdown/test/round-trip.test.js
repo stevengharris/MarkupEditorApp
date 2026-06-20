@@ -225,8 +225,19 @@ describe('image node', () => {
     expect(md).toMatch(/!\[a cat\]\(img\.png\)/)
     expect(warnings.get()).toHaveLength(0)
   })
-})
 
+  test('image with dimensions: <img> tag is not escaped even with escapeExtraCharacters (S1)', () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, [
+        schema.nodes.image.create({ src: 'img.png', alt: 'cat', width: 100, height: 50 })
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+    expect(warnings.get()).toHaveLength(0)
+    expect(md).toContain('<img')
+    expect(md).not.toContain('\\<img')
+  })
+})
 describe('angle bracket escaping', () => {
   test('all < in paragraph text are escaped as \\< on export', () => {
     const doc = schema.nodes.doc.create(null, [

@@ -69,7 +69,7 @@ describe('exportFn — plain document', () => {
 // ---------------------------------------------------------------------------
 
 describe('exportFn — warnings in envelope', () => {
-  test('image with width attribute: warning appears in envelope, result is non-null', () => {
+  test('image with width attribute: result contains <img> tag, no warning', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [
         schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: 200, height: null })
@@ -78,8 +78,8 @@ describe('exportFn — warnings in envelope', () => {
     mockMU.activeView.mockReturnValue({ state: { doc } })
     const envelope = JSON.parse(exportFn('unused'))
     expect(envelope.result).not.toBeNull()
-    expect(envelope.warnings.length).toBeGreaterThan(0)
-    expect(envelope.warnings.some(w => w.toLowerCase().includes('width'))).toBe(true)
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('<img')
   })
 
   test('underline mark: warning appears in envelope, text is preserved in result', () => {
