@@ -68,11 +68,12 @@ export function makeParser(schema, warnings) {
       const r = attrs.match(new RegExp(`${name}="([^"]*)"`, 'i'))
       return r ? r[1] : null
     }
+    const w = get('width'), h = get('height')
     return {
       src:    get('src'),
       alt:    get('alt'),
-      width:  get('width')  ? parseInt(get('width'))  : null,
-      height: get('height') ? parseInt(get('height')) : null,
+      width:  w != null ? parseInt(w,  10) : null,
+      height: h != null ? parseInt(h,  10) : null,
     }
   }
 

@@ -246,6 +246,27 @@ describe('image node', () => {
     expect(html).toContain('alt="a cat"')
   })
 
+  test('image with empty alt emits alt="" in <img> tag (not omitted)', () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, [
+        schema.nodes.image.create({ src: 'deco.png', alt: '', width: 100, height: 50 })
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+    expect(warnings.get()).toHaveLength(0)
+    expect(md).toContain('alt=""')
+  })
+
+  test('standalone block <img> is parsed via html_block handler with paragraph wrap', () => {
+    const { doc, warnings } = parse('Before.\n\n<img src="photo.jpg" alt="photo" width="300" height="200">\n\nAfter.')
+    expect(warnings.get()).toHaveLength(0)
+    const html = docToHtml(doc)
+    expect(html).toContain('src="photo.jpg"')
+    expect(html).toContain('alt="photo"')
+    expect(html).toContain('width="300"')
+    expect(html).toContain('height="200"')
+  })
+
   test('round-trip: image with dimensions exports as <img> and re-imports with same attrs (AC-6)', () => {
     const original = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [

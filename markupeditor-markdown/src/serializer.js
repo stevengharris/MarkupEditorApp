@@ -16,7 +16,7 @@ export function makeSerializer(warnings) {
       const { src, alt, width, height } = node.attrs
       if (width != null || height != null) {
         let tag = `<img src="${src}"`
-        if (alt)            tag += ` alt="${alt}"`
+        if (alt != null)    tag += ` alt="${alt}"`
         if (width != null)  tag += ` width="${width}"`
         if (height != null) tag += ` height="${height}"`
         tag += '>'
