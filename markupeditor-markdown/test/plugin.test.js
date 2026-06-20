@@ -1,4 +1,4 @@
-import { beforeAll, describe, test, expect, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { schema } from 'markupeditor/src/schema/index.js'
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,10 @@ beforeAll(async () => {
   const mod = await import('../src/markup-editor-markdown.js')
   exportFn = mod.exportFn
   importFn = mod.importFn
+})
+
+beforeEach(() => {
+  mockMU.activeView.mockReturnValue({ state: { schema } })
 })
 
 // ---------------------------------------------------------------------------
