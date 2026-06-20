@@ -141,3 +141,29 @@ describe('importFn — embedded HTML warnings', () => {
     expect(envelope.result).not.toContain('<span>')
   })
 })
+
+describe('importFn — img tag import', () => {
+  test('mid-document block <img> with all attrs becomes image node; no warning (AC-3/AC-7)', () => {
+    const envelope = JSON.parse(importFn('# Heading\n\n<img src="logo.png" alt="logo" width="200" height="100">\n\nParagraph.'))
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('src="logo.png"')
+    expect(envelope.result).toContain('alt="logo"')
+    expect(envelope.result).toContain('width="200"')
+    expect(envelope.result).toContain('height="100"')
+  })
+
+  test('inline <img> within paragraph text becomes image node; no warning', () => {
+    const envelope = JSON.parse(importFn('Some text <img src="icon.png" alt="icon"> more text.'))
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('src="icon.png"')
+    expect(envelope.result).toContain('alt="icon"')
+  })
+
+  test('mid-document block <img> without dimensions: src and alt preserved, no width/height (AC-9)', () => {
+    const envelope = JSON.parse(importFn('# Heading\n\n<img src="logo.png" alt="logo">\n\nParagraph.'))
+    expect(envelope.warnings).toHaveLength(0)
+    expect(envelope.result).toContain('src="logo.png"')
+    expect(envelope.result).toContain('alt="logo"')
+    expect(envelope.result).not.toMatch(/width="\d+"|height="\d+"/)
+  })
+})

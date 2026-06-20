@@ -83,6 +83,15 @@ describe('importFn — HTML preamble', () => {
     expect(out.metadata).toBeUndefined()
     expect(out.warnings.length).toBeGreaterThan(0)
   })
+
+  test('leading standalone <img> is treated as preamble, not image node (AC-4)', () => {
+    const input = '<img src="logo.png" alt="logo">\n\n# Body\n'
+    const out = JSON.parse(importFn(input))
+    expect(out.metadata).toBeUndefined()
+    expect(out.result).toContain('<pre>')
+    expect(out.result).toContain('logo.png')
+    expect(out.warnings).toEqual([])
+  })
 })
 
 describe('importFn — YAML + HTML preamble', () => {
