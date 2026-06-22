@@ -123,7 +123,8 @@ struct MarkupDocumentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuImportPlugin)) { notification in
             guard let pluginName = notification.userInfo?["name"] as? String else { return }
-            handleImport(pluginName: pluginName)
+            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
+            handleImport(pluginName: pluginName, fileExt: fileExt)
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuQuitApplication)) { _ in
             handleQuit()
@@ -531,7 +532,7 @@ struct MarkupDocumentView: View {
         let panel = NSSavePanel()
         let baseName = document.currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
         panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
-        panel.allowedContentTypes = [UTType("public.markdown") ?? .plainText]
+        panel.allowedContentTypes = MarkupDocumentView.allowedContentTypes(forExt: fileExt)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
             guard let pluginResult = PluginResult.decode(from: result),
@@ -558,11 +559,11 @@ struct MarkupDocumentView: View {
 
     /// Replaces the editor content with the imported file's converted HTML.
     /// Document identity (URL, type, hasChanges) is intentionally left unchanged — use Open to change identity.
-    private func handleImport(pluginName: String) {
+    private func handleImport(pluginName: String, fileExt: String) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [UTType("public.markdown") ?? .plainText]
+        panel.allowedContentTypes = MarkupDocumentView.allowedContentTypes(forExt: fileExt)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         importLog.info("Importing \(url.path())")
         guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
@@ -684,6 +685,10 @@ struct MarkupDocumentView: View {
     /// Returns the JS registry key for the plugin registered for `ext`, or `nil` if none.
     private func pluginName(forExtension ext: String) -> String? {
         appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
+    }
+
+    static func allowedContentTypes(forExt ext: String) -> [UTType] {
+        UTType(filenameExtension: ext).map { [$0] } ?? []
     }
 
 }

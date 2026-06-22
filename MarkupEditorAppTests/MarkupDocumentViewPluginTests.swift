@@ -5,6 +5,7 @@
 import Testing
 import Foundation
 import AppKit
+import UniformTypeIdentifiers
 @testable import MarkupEditorApp
 
 // Structural / smoke tests for MarkupDocumentView plugin wiring.
@@ -89,6 +90,25 @@ import AppKit
 
     @Test func menuImportPluginNotificationNameIsDefined() {
         #expect(Notification.Name.menuImportPlugin.rawValue == "menuImportPlugin")
+    }
+
+    // MARK: - allowedContentTypes(forExt:)
+
+    @Test func allowedContentTypesForMdReturnsMdUTType() {
+        let types = MarkupDocumentView.allowedContentTypes(forExt: "md")
+        #expect(types.count == 1)
+        #expect(types.first?.preferredFilenameExtension == "md")
+    }
+
+    @Test func allowedContentTypesForNonMdExtReturnsItsOwnUTType() {
+        let types = MarkupDocumentView.allowedContentTypes(forExt: "html")
+        #expect(types.count == 1)
+        #expect(types.first == .html)
+    }
+
+    @Test func allowedContentTypesForEmptyExtReturnsEmpty() {
+        let types = MarkupDocumentView.allowedContentTypes(forExt: "")
+        #expect(types.isEmpty)
     }
 
 }
