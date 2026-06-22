@@ -416,7 +416,7 @@ struct MarkupDocumentView: View {
             return
         }
         let docType = document.activeDocumentType ?? .html
-        // Markdown save is async (plugin-driven); handle it before the image-sync path.
+        // Plugin save is async (plugin-driven); handle it before the image-sync path.
         if docType == .md {
             guard let pluginName = pluginName(forExtension: "md") else {
                 let alert = NSAlert()
@@ -477,9 +477,10 @@ struct MarkupDocumentView: View {
     /// Refreshes the source view content based on the active document type.
     ///
     /// For `.html` and `.htmd`, delegates to `setCurrentSource()` which fetches raw HTML
-    /// and clears `sourceViewIsStale`. For `.md`, invokes the registered Markdown plugin's
-    /// `export` action to convert the current editor HTML to Markdown, then updates
-    /// `currentSource` with the result and clears `sourceViewIsStale`.
+    /// and clears `sourceViewIsStale`. For `.md`, invokes the registered plugin's `export`
+    /// action to convert the current editor HTML to the plugin's source format, then updates
+    /// `currentSource` with the result and clears `sourceViewIsStale`. The plugin is resolved
+    /// via `pluginName(forExtension: "md")` — `.md` is the sole plugin document type.
     private func refreshSourceView() {
         guard let docType = document.activeDocumentType else {
             setCurrentSource()

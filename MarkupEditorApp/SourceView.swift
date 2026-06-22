@@ -10,8 +10,8 @@ import MarkupEditor
 
 /// Displays the raw source of the current document.
 ///
-/// `docType` drives the header label: `.md` shows "Markdown Document"; all other
-/// types (including `nil`) show "HTML Document".
+/// `pluginLabel` drives the header label: a non-nil value produces "\(pluginLabel) Document"
+/// (e.g. "Markdown Document"); nil falls back to "HTML Document".
 ///
 /// `sourceViewIsStale` is wired as a `@Binding` so the parent can signal that the
 /// displayed content may be out of date (set to `true` by `markupInput`). A Refresh
