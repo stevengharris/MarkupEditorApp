@@ -428,6 +428,7 @@ struct MarkupDocumentView: View {
                     return
                 }
                 var output = pluginOutput
+                // YAML front matter is Markdown-specific; a second plugin with different metadata conventions would need its own handling here.
                 if !self.document.documentMetadata.isEmpty {
                     let yaml = serializeYAMLMetadata(self.document.documentMetadata)
                     output = "---\n\(yaml)---\n\n\(pluginOutput)"
@@ -524,6 +525,7 @@ struct MarkupDocumentView: View {
                 return
             }
             var output = pluginOutput
+            // YAML front matter is Markdown-specific; a second plugin with different metadata conventions would need its own handling here.
             if !self.document.documentMetadata.isEmpty {
                 let yaml = serializeYAMLMetadata(self.document.documentMetadata)
                 output = "---\n\(yaml)---\n\n\(pluginOutput)"
