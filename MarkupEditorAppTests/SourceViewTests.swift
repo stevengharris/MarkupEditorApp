@@ -2,7 +2,7 @@
 //  SourceViewTests.swift
 //  MarkupEditorAppTests
 //
-//  Tests for SourceView header label derivation from DocumentType.
+//  Tests for SourceView header label derivation from plugin registry.
 //
 //  Button presence cannot be tested without ViewInspector (a dependency we don't have).
 //  Instead, `headerText` is left `internal` (not `private`) so the computed property
@@ -18,39 +18,39 @@ import SwiftUI
 
     // MARK: - headerText derivation
 
-    @Test func sourceViewLabelIsHtmlForNilDocType() {
+    @Test func sourceViewLabelIsHtmlDocumentForNilPluginLabel() {
         let view = SourceView(
             currentSource: .constant(""),
             sourceViewIsStale: .constant(false),
-            docType: nil
+            pluginLabel: nil
         )
         #expect(view.headerText == "HTML Document")
     }
 
-    @Test func sourceViewLabelIsHtmlForHtmlDocType() {
+    @Test func sourceViewLabelIsMarkdownDocumentForMarkdownPluginLabel() {
         let view = SourceView(
             currentSource: .constant(""),
             sourceViewIsStale: .constant(false),
-            docType: .html
-        )
-        #expect(view.headerText == "HTML Document")
-    }
-
-    @Test func sourceViewLabelIsHtmlForHtmdDocType() {
-        let view = SourceView(
-            currentSource: .constant(""),
-            sourceViewIsStale: .constant(false),
-            docType: .htmd
-        )
-        #expect(view.headerText == "HTML Document")
-    }
-
-    @Test func sourceViewLabelIsMdForMdDocType() {
-        let view = SourceView(
-            currentSource: .constant(""),
-            sourceViewIsStale: .constant(false),
-            docType: .md
+            pluginLabel: "Markdown"
         )
         #expect(view.headerText == "Markdown Document")
+    }
+
+    @Test func sourceViewLabelIsPluginDocumentForArbitraryPluginLabel() {
+        let view = SourceView(
+            currentSource: .constant(""),
+            sourceViewIsStale: .constant(false),
+            pluginLabel: "reStructuredText"
+        )
+        #expect(view.headerText == "reStructuredText Document")
+    }
+
+    @Test func sourceViewLabelSuffixesDocumentToPluginName() {
+        let view = SourceView(
+            currentSource: .constant(""),
+            sourceViewIsStale: .constant(false),
+            pluginLabel: "AsciiDoc"
+        )
+        #expect(view.headerText == "AsciiDoc Document")
     }
 }

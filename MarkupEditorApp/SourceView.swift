@@ -10,8 +10,8 @@ import MarkupEditor
 
 /// Displays the raw source of the current document.
 ///
-/// `docType` drives the header label: `.md` shows "Markdown Document"; all other
-/// types (including `nil`) show "HTML Document".
+/// `pluginLabel` drives the header label: a non-nil value produces "\(pluginLabel) Document"
+/// (e.g. "Markdown Document"); nil falls back to "HTML Document".
 ///
 /// `sourceViewIsStale` is wired as a `@Binding` so the parent can signal that the
 /// displayed content may be out of date (set to `true` by `markupInput`). A Refresh
@@ -23,13 +23,13 @@ struct SourceView: View {
 
     @Binding var currentSource: String
     @Binding var sourceViewIsStale: Bool
-    var docType: DocumentType?
+    var pluginLabel: String?
     var onRefresh: () -> Void = {}
 
-    /// Derives the header label from the document type.
+    /// Derives the header label from the plugin name, or falls back to "HTML Document".
     /// `internal` (not `private`) so tests can verify it directly via @testable import.
     var headerText: String {
-        docType == .md ? "Markdown Document" : "HTML Document"
+        pluginLabel.map { "\($0) Document" } ?? "HTML Document"
     }
 
     var body: some View {

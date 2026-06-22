@@ -15,7 +15,7 @@ enum DocumentError: Error {
 
     var hasChanges: Bool = false
     var currentFileURL: URL?
-    var activeDocumentType: DocumentType?
+    var activeFileExtension: String?
     var rootHtmlFilename: String = "index.html"
     var documentMetadata: [MetadataTuple] = [] {
         didSet { hasChanges = true }
@@ -55,11 +55,11 @@ enum DocumentError: Error {
         return html
     }
 
-    /// Updates model state after a successful open (any type). Sets hasChanges = false last
+    /// Updates model state after a successful open. Sets hasChanges = false last
     /// to override the documentMetadata didSet. For .htmd, pass the rootHtmlFilename returned
-    /// by openHtmd; for .html and .md it defaults to "index.html".
-    func setOpenResult(html: String, url: URL, type: DocumentType, metadata: [MetadataTuple], rootHtmlFilename: String = "index.html") {
-        activeDocumentType = type
+    /// by openHtmd; for other types it defaults to "index.html".
+    func setOpenResult(html: String, url: URL, fileExtension: String, metadata: [MetadataTuple], rootHtmlFilename: String = "index.html") {
+        activeFileExtension = fileExtension
         self.rootHtmlFilename = rootHtmlFilename
         documentMetadata = metadata   // triggers didSet → hasChanges = true
         currentFileURL = url
@@ -67,23 +67,23 @@ enum DocumentError: Error {
     }
 
     /// Saves HTML and images to the document's current URL. Handles .htmd and .html only;
-    /// .md saves are plugin-driven and handled entirely by the view.
+    /// plugin saves are plugin-driven and handled entirely by the view.
     func save(html: String, srcs: [String], baseUrl: URL) throws {
-        guard let type = activeDocumentType else { throw DocumentError.unknownType }
+        guard let fileExtension = activeFileExtension else { throw DocumentError.unknownType }
         guard let url = currentFileURL else { throw DocumentError.noCurrentURL }
-        switch type {
-        case .htmd:
+        switch fileExtension {
+        case "htmd":
             try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url, deleteOrphans: true)
             let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
             let htmdHtml = preamble.map { $0 + "\n" + bodyHtml } ?? html
             try htmdHtml.write(to: url.appendingPathComponent(rootHtmlFilename), atomically: true, encoding: .utf8)
             try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: rootHtmlFilename)
-        case .html:
+        case "html":
             try syncImageAssets(srcs: srcs, baseUrl: baseUrl, docDir: url.deletingLastPathComponent(), deleteOrphans: false)
             let (preamble, bodyHtml) = extractHTMLPreamble(from: html)
             let htmlOut = preamble.map { $0 + "\n" + bodyHtml } ?? html
             try htmlOut.write(to: url, atomically: true, encoding: .utf8)
-        case .md:
+        default:
             break
         }
         hasChanges = false
@@ -91,28 +91,28 @@ enum DocumentError: Error {
 
     /// Writes HTML and images to a new .htmd package at the given URL (save-as).
     /// saveAsHtmd always writes "index.html" as the root, so metadata is keyed to that name.
-    /// Callers must follow with `willSaveTo(url:as:)` to update document identity.
+    /// Callers must follow with `willSaveTo(url:fileExtension:)` to update document identity.
     func saveHtmd(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
         try saveAsHtmd(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
         try saveHtmdMetadata(documentMetadata, to: url, htmlFilename: "index.html")
     }
 
     /// Writes HTML and images to a new .html file at the given URL (save-as).
-    /// Callers must follow with `willSaveTo(url:as:)` to update document identity.
+    /// Callers must follow with `willSaveTo(url:fileExtension:)` to update document identity.
     func saveHtml(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
         try saveAsHtml(srcs: srcs, html: html, baseUrl: baseUrl, to: url)
     }
 
     /// Updates document identity after a successful save-as. Resets rootHtmlFilename to
     /// "index.html" for .htmd because saveAsHtmd always writes that filename.
-    func willSaveTo(url: URL, as type: DocumentType) {
+    func willSaveTo(url: URL, fileExtension: String) {
         currentFileURL = url
-        activeDocumentType = type
-        if type == .htmd { rootHtmlFilename = "index.html" }
+        activeFileExtension = fileExtension
+        if fileExtension == "htmd" { rootHtmlFilename = "index.html" }
         hasChanges = false
     }
 
-    /// Resets document state for a new document. Does not clear activeDocumentType.
+    /// Resets document state for a new document. Does not clear activeFileExtension.
     /// Sets hasChanges = false last to override the documentMetadata didSet.
     func reset() {
         currentFileURL = nil

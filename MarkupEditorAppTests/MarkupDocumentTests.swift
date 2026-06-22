@@ -44,11 +44,11 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(doc.documentMetadata.isEmpty)
     }
 
-    @Test func preservesActiveDocumentType() {
+    @Test func preservesActiveFileExtension() {
         let doc = MarkupDocument()
-        doc.activeDocumentType = .htmd
+        doc.activeFileExtension = "htmd"
         doc.reset()
-        #expect(doc.activeDocumentType == .htmd)
+        #expect(doc.activeFileExtension == "htmd")
     }
 
     @Test func hasChangesIsFalseAfterReset() {
@@ -84,9 +84,9 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
 
 @MainActor struct MarkupDocumentSaveGuardTests {
 
-    @Test func nilActiveDocumentTypeThrowsUnknownType() {
+    @Test func nilActiveFileExtensionThrowsUnknownType() {
         let doc = MarkupDocument()
-        // activeDocumentType is nil by default
+        // activeFileExtension is nil by default
         #expect(throws: DocumentError.unknownType) {
             try doc.save(html: "<p></p>", srcs: [], baseUrl: URL(filePath: "/tmp"))
         }
@@ -94,7 +94,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
 
     @Test func nilCurrentFileURLThrowsNoCurrentURL() {
         let doc = MarkupDocument()
-        doc.activeDocumentType = .html
+        doc.activeFileExtension = "html"
         // currentFileURL is nil by default
         #expect(throws: DocumentError.noCurrentURL) {
             try doc.save(html: "<p></p>", srcs: [], baseUrl: URL(filePath: "/tmp"))
@@ -110,16 +110,16 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         let doc = MarkupDocument()
         let url = URL(filePath: "/tmp/test.html")
         let metadata = [makeMetadata("title", "Hello")]
-        doc.setOpenResult(html: "<p></p>", url: url, type: .html, metadata: metadata)
+        doc.setOpenResult(html: "<p></p>", url: url, fileExtension: "html", metadata: metadata)
         #expect(doc.currentFileURL == url)
-        #expect(doc.activeDocumentType == .html)
+        #expect(doc.activeFileExtension == "html")
         #expect(doc.documentMetadata == metadata)
     }
 
     @Test func hasChangesIsFalseAfterSetOpenResult() {
         let doc = MarkupDocument()
         let metadata = [makeMetadata()]
-        doc.setOpenResult(html: "<p></p>", url: URL(filePath: "/tmp/doc.html"), type: .html, metadata: metadata)
+        doc.setOpenResult(html: "<p></p>", url: URL(filePath: "/tmp/doc.html"), fileExtension: "html", metadata: metadata)
         // documentMetadata didSet fires inside setOpenResult but hasChanges must end false
         #expect(doc.hasChanges == false)
     }
@@ -127,7 +127,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     @Test func defaultsRootHtmlFilenameToIndexHtml() {
         let doc = MarkupDocument()
         doc.rootHtmlFilename = "notes.html"
-        doc.setOpenResult(html: "<p></p>", url: URL(filePath: "/tmp/doc.html"), type: .html, metadata: [])
+        doc.setOpenResult(html: "<p></p>", url: URL(filePath: "/tmp/doc.html"), fileExtension: "html", metadata: [])
         #expect(doc.rootHtmlFilename == "index.html")
     }
 
@@ -136,7 +136,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         doc.setOpenResult(
             html: "<p></p>",
             url: URL(filePath: "/tmp/doc.htmd"),
-            type: .htmd,
+            fileExtension: "htmd",
             metadata: [],
             rootHtmlFilename: "doc.html"
         )
@@ -170,7 +170,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         let doc = MarkupDocument()
         _ = try doc.openHtml(at: fileURL, baseUrl: baseUrl)
         #expect(doc.currentFileURL == nil)
-        #expect(doc.activeDocumentType == nil)
+        #expect(doc.activeFileExtension == nil)
         #expect(doc.documentMetadata.isEmpty)
         #expect(doc.hasChanges == false)
     }
@@ -213,7 +213,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         let doc = MarkupDocument()
         _ = try doc.openHtmd(at: pkg, baseUrl: baseUrl)
         #expect(doc.currentFileURL == nil)
-        #expect(doc.activeDocumentType == nil)
+        #expect(doc.activeFileExtension == nil)
         #expect(doc.hasChanges == false)
         #expect(doc.rootHtmlFilename == "index.html")  // default, not set by openHtmd
     }
@@ -261,7 +261,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     @Test func willSaveToResetsRootHtmlFilenameForHtmd() {
         let doc = MarkupDocument()
         doc.rootHtmlFilename = "notes.html"
-        doc.willSaveTo(url: URL(filePath: "/tmp/new.htmd"), as: .htmd)
+        doc.willSaveTo(url: URL(filePath: "/tmp/new.htmd"), fileExtension: "htmd")
         #expect(doc.rootHtmlFilename == "index.html")
     }
 
@@ -269,22 +269,58 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         // .html saves do not use rootHtmlFilename — it must not be reset.
         let doc = MarkupDocument()
         doc.rootHtmlFilename = "notes.html"
-        doc.willSaveTo(url: URL(filePath: "/tmp/new.html"), as: .html)
+        doc.willSaveTo(url: URL(filePath: "/tmp/new.html"), fileExtension: "html")
         #expect(doc.rootHtmlFilename == "notes.html")
     }
 
     @Test func willSaveToClearsHasChanges() {
         let doc = MarkupDocument()
         doc.documentMetadata = [makeMetadata()]  // triggers hasChanges = true
-        doc.willSaveTo(url: URL(filePath: "/tmp/new.html"), as: .html)
+        doc.willSaveTo(url: URL(filePath: "/tmp/new.html"), fileExtension: "html")
         #expect(doc.hasChanges == false)
     }
 
     @Test func willSaveToUpdatesDocumentIdentity() {
         let doc = MarkupDocument()
         let url = URL(filePath: "/tmp/saved.htmd")
-        doc.willSaveTo(url: url, as: .htmd)
+        doc.willSaveTo(url: url, fileExtension: "htmd")
         #expect(doc.currentFileURL == url)
-        #expect(doc.activeDocumentType == .htmd)
+        #expect(doc.activeFileExtension == "htmd")
+    }
+}
+
+// MARK: - plugin extension save (regression: DocumentType removal)
+//
+// handleSave dispatches to invokePlugin for plugin extensions and never calls
+// document.save(). These tests verify the document.save() safety-net behavior:
+// plugin extensions hit default:break (no write, no throw) rather than
+// throwing .unknownType. With the old DocumentType enum a second plugin
+// extension like "rst" had no enum case, so save() would have thrown .unknownType.
+
+@MainActor struct MarkupDocumentSavePluginTests {
+
+    @Test func pluginExtensionDoesNotThrowOnSave() throws {
+        let tempDir = try makeTempDir()
+        let rstURL = tempDir.appendingPathComponent("test.rst")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        try "".write(to: rstURL, atomically: true, encoding: .utf8)
+        let doc = MarkupDocument()
+        doc.setOpenResult(html: "", url: rstURL, fileExtension: "rst", metadata: [])
+        #expect(throws: Never.self) {
+            try doc.save(html: "<p>test</p>", srcs: [], baseUrl: tempDir)
+        }
+    }
+
+    @Test func pluginExtensionDoesNotWriteFileOnSave() throws {
+        let tempDir = try makeTempDir()
+        let rstURL = tempDir.appendingPathComponent("test.rst")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let original = "original content"
+        try original.write(to: rstURL, atomically: true, encoding: .utf8)
+        let doc = MarkupDocument()
+        doc.setOpenResult(html: "", url: rstURL, fileExtension: "rst", metadata: [])
+        try doc.save(html: "<p>new content</p>", srcs: [], baseUrl: tempDir)
+        let afterSave = try String(contentsOf: rstURL, encoding: .utf8)
+        #expect(afterSave == original)
     }
 }

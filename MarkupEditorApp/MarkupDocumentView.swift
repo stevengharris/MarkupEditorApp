@@ -13,7 +13,6 @@ internal import UniformTypeIdentifiers
 
 private extension UTType {
     static let htmd = UTType("com.stevengharris.htmd") ?? .data
-    static let markdown = UTType("public.markdown") ?? .plainText
 }
 
 struct MarkupDocumentView: View {
@@ -57,7 +56,7 @@ struct MarkupDocumentView: View {
                         SourceView(
                             currentSource: $currentSource,
                             sourceViewIsStale: $sourceViewIsStale,
-                            docType: document.activeDocumentType,
+                            pluginLabel: pluginLabel(for: document.currentFileURL),
                             onRefresh: refreshSourceView
                         )
                     }
@@ -124,7 +123,8 @@ struct MarkupDocumentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuImportPlugin)) { notification in
             guard let pluginName = notification.userInfo?["name"] as? String else { return }
-            handleImport(pluginName: pluginName)
+            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
+            handleImport(pluginName: pluginName, fileExt: fileExt)
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuQuitApplication)) { _ in
             handleQuit()
@@ -290,7 +290,7 @@ struct MarkupDocumentView: View {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.html, .htmd, .markdown]
+            panel.allowedContentTypes = [.html, .htmd] + pluginContentTypes()
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = true
             panel.canChooseFiles = true
@@ -301,21 +301,67 @@ struct MarkupDocumentView: View {
 
     private func openDocument(at url: URL, handler: (()->Void)? = nil) {
         let ext = url.pathExtension.lowercased()
-        guard ext == "html" || ext == "htmd" || ext == "md" else {
+        guard ext == "html" || ext == "htmd" || pluginName(forExtension: ext) != nil else {
+            let pluginExts = (appConfig.plugins ?? []).compactMap { $0.fileExtension }.map { ".\($0)" }
+            let supported = ([".html", ".htmd"] + pluginExts).joined(separator: ", ")
             let alert = NSAlert()
             alert.messageText = "Unsupported file type"
-            alert.informativeText = "Only .html, .htmd, and .md documents can be opened."
+            alert.informativeText = "Only \(supported) documents can be opened."
             alert.runModal()
-            return
-        }
-        if ext == "md" {
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-            openMarkdown(at: url, handler: handler)
             return
         }
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        if let pluginName = pluginName(forExtension: ext) {
+            let fileContent: String
+            do {
+                importLog.info("Importing \(url.path())")
+                fileContent = try String(contentsOf: url, encoding: .utf8)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Could not read file: \(error.localizedDescription)"
+                alert.runModal()
+                handler?()
+                return
+            }
+            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: fileContent) { result in
+                guard let pluginResult = PluginResult.decode(from: result) else {
+                    let alert = NSAlert()
+                    alert.messageText = "Plugin returned an unexpected response."
+                    alert.runModal()
+                    handler?()
+                    return
+                }
+                if !pluginResult.warnings.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = pluginResult.warnings.joined(separator: "\n")
+                    alert.runModal()
+                }
+                var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
+                let metadata: [MetadataTuple]
+                if let yamlString = pluginResult.metadata {
+                    metadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
+                } else {
+                    metadata = []
+                }
+                guard let html = pluginResult.result else {
+                    let alert = NSAlert()
+                    alert.messageText = "Plugin could not convert the file."
+                    alert.runModal()
+                    handler?()
+                    return
+                }
+                MarkupEditor.selectedWebView?.setHtml(html)
+                self.document.setOpenResult(html: html, url: url, fileExtension: ext, metadata: metadata)
+                self.setCurrentSource {
+                    self.initialHtml = self.currentSource
+                    self.setRepresentedURL(url)
+                    NSDocumentController.shared.noteNewRecentDocumentURL(url)
+                    handler?()
+                }
+            }
+            return
+        }
         do {
             switch ext {
             case "htmd":
@@ -336,7 +382,7 @@ struct MarkupDocumentView: View {
         let result = try document.openHtmd(at: packageURL, baseUrl: baseUrl)
         MarkupEditor.selectedWebView?.setHtml(result.html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
-        document.setOpenResult(html: result.html, url: packageURL, type: .htmd, metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
+        document.setOpenResult(html: result.html, url: packageURL, fileExtension: "htmd", metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
         setCurrentSource() {
             initialHtml = currentSource
             setRepresentedURL(packageURL)
@@ -351,7 +397,7 @@ struct MarkupDocumentView: View {
         let html = try document.openHtml(at: fileURL, baseUrl: baseUrl)
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-        document.setOpenResult(html: html, url: fileURL, type: .html, metadata: [])
+        document.setOpenResult(html: html, url: fileURL, fileExtension: "html", metadata: [])
         setCurrentSource() {
             initialHtml = currentSource
             setRepresentedURL(fileURL)
@@ -359,65 +405,6 @@ struct MarkupDocumentView: View {
         }
     }
 
-    /// Opens a Markdown file by reading its text and importing it through the registered
-    /// plugin for the "md" extension.  The plugin converts Markdown to HTML and sets
-    /// the editor content.  Any warnings returned by the plugin are shown in an alert.
-    private func openMarkdown(at fileURL: URL, handler: (() -> Void)? = nil) {
-        guard let pluginName = pluginName(forExtension: "md") else {
-            let alert = NSAlert()
-            alert.messageText = "No plugin available for .md files."
-            alert.runModal()
-            handler?()
-            return
-        }
-        let markdownText: String
-        do {
-            importLog.info("Importing \(fileURL.path())")
-            markdownText = try String(contentsOf: fileURL, encoding: .utf8)
-        } catch {
-            let alert = NSAlert()
-            alert.messageText = "Could not read file: \(error.localizedDescription)"
-            alert.runModal()
-            handler?()
-            return
-        }
-        MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: markdownText) { result in
-            guard let pluginResult = PluginResult.decode(from: result) else {
-                let alert = NSAlert()
-                alert.messageText = "Plugin returned an unexpected response."
-                alert.runModal()
-                handler?()
-                return
-            }
-            if !pluginResult.warnings.isEmpty {
-                let alert = NSAlert()
-                alert.messageText = pluginResult.warnings.joined(separator: "\n")
-                alert.runModal()
-            }
-            var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
-            let metadata: [MetadataTuple]
-            if let yamlString = pluginResult.metadata {
-                metadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
-            } else {
-                metadata = []
-            }
-            guard let html = pluginResult.result else {
-                let alert = NSAlert()
-                alert.messageText = "Plugin could not convert the file."
-                alert.runModal()
-                handler?()
-                return
-            }
-            MarkupEditor.selectedWebView?.setHtml(html)
-            self.document.setOpenResult(html: html, url: fileURL, type: .md, metadata: metadata)
-            self.setCurrentSource {
-                self.initialHtml = self.currentSource
-                self.setRepresentedURL(fileURL)
-                NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-                handler?()
-            }
-        }
-    }
 
     private func handleSave(then completion: (()->Void)? = nil) {
         guard let url = document.currentFileURL else {
@@ -428,29 +415,23 @@ struct MarkupDocumentView: View {
             completion?()
             return
         }
-        let docType = document.activeDocumentType ?? .html
-        // Markdown save is async (plugin-driven); handle it before the image-sync path.
-        if docType == .md {
-            guard let pluginName = pluginName(forExtension: "md") else {
-                let alert = NSAlert()
-                alert.messageText = "No plugin available for .md files."
-                alert.runModal()
-                completion?()
-                return
-            }
+        let ext = url.pathExtension.lowercased()
+        // Plugin save is async (plugin-driven); handle it before the image-sync path.
+        if let pluginName = pluginName(forExtension: ext) {
             MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
                 guard let pluginResult = PluginResult.decode(from: result),
-                      let markdown = pluginResult.result else {
+                      let pluginOutput = pluginResult.result else {
                     let alert = NSAlert()
                     alert.messageText = "Export failed."
                     alert.runModal()
                     completion?()
                     return
                 }
-                var output = markdown
+                var output = pluginOutput
+                // YAML front matter is Markdown-specific; a second plugin with different metadata conventions would need its own handling here.
                 if !self.document.documentMetadata.isEmpty {
                     let yaml = serializeYAMLMetadata(self.document.documentMetadata)
-                    output = "---\n\(yaml)---\n\n\(markdown)"
+                    output = "---\n\(yaml)---\n\n\(pluginOutput)"
                 }
                 do {
                     try output.write(to: url, atomically: true, encoding: .utf8)
@@ -490,22 +471,13 @@ struct MarkupDocumentView: View {
     /// Refreshes the source view content based on the active document type.
     ///
     /// For `.html` and `.htmd`, delegates to `setCurrentSource()` which fetches raw HTML
-    /// and clears `sourceViewIsStale`. For `.md`, invokes the registered Markdown plugin's
-    /// `export` action to convert the current editor HTML to Markdown, then updates
-    /// `currentSource` with the result and clears `sourceViewIsStale`.
+    /// and clears `sourceViewIsStale`. For `.md`, invokes the registered plugin's `export`
+    /// action to convert the current editor HTML to the plugin's source format, then updates
+    /// `currentSource` with the result and clears `sourceViewIsStale`. The plugin is resolved
+    /// from the current file URL's extension.
     private func refreshSourceView() {
-        guard let docType = document.activeDocumentType else {
-            setCurrentSource()
-            return
-        }
-        switch docType {
-        case .html, .htmd:
-            setCurrentSource()
-        case .md:
-            guard let pluginName = pluginName(forExtension: "md") else {
-                sourceViewIsStale = false
-                return
-            }
+        let ext = document.currentFileURL?.pathExtension.lowercased() ?? ""
+        if let pluginName = pluginName(forExtension: ext) {
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else {
                     self.sourceViewIsStale = false
@@ -513,12 +485,14 @@ struct MarkupDocumentView: View {
                 }
                 MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                     if let pluginResult = PluginResult.decode(from: result),
-                       let markdown = pluginResult.result {
-                        currentSource = markdown
+                       let pluginOutput = pluginResult.result {
+                        currentSource = pluginOutput
                     }
                     self.sourceViewIsStale = false
                 }
             }
+        } else {
+            setCurrentSource()
         }
     }
 
@@ -540,20 +514,21 @@ struct MarkupDocumentView: View {
         let panel = NSSavePanel()
         let baseName = document.currentFileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
         panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
-        panel.allowedContentTypes = [.markdown]
+        panel.allowedContentTypes = MarkupDocumentView.allowedContentTypes(forExt: fileExt)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
             guard let pluginResult = PluginResult.decode(from: result),
-                  let markdown = pluginResult.result else {
+                  let pluginOutput = pluginResult.result else {
                 let alert = NSAlert()
                 alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
                 alert.runModal()
                 return
             }
-            var output = markdown
+            var output = pluginOutput
+            // YAML front matter is Markdown-specific; a second plugin with different metadata conventions would need its own handling here.
             if !self.document.documentMetadata.isEmpty {
                 let yaml = serializeYAMLMetadata(self.document.documentMetadata)
-                output = "---\n\(yaml)---\n\n\(markdown)"
+                output = "---\n\(yaml)---\n\n\(pluginOutput)"
             }
             do {
                 try output.write(to: url, atomically: true, encoding: .utf8)
@@ -567,11 +542,11 @@ struct MarkupDocumentView: View {
 
     /// Replaces the editor content with the imported file's converted HTML.
     /// Document identity (URL, type, hasChanges) is intentionally left unchanged — use Open to change identity.
-    private func handleImport(pluginName: String) {
+    private func handleImport(pluginName: String, fileExt: String) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.markdown]
+        panel.allowedContentTypes = MarkupDocumentView.allowedContentTypes(forExt: fileExt)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         importLog.info("Importing \(url.path())")
         guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
@@ -600,7 +575,7 @@ struct MarkupDocumentView: View {
 
     private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html, .htmd, .markdown]
+        panel.allowedContentTypes = [.html, .htmd] + pluginContentTypes()
         panel.nameFieldStringValue = document.currentFileURL?.lastPathComponent ?? "Untitled.htmd"
         guard panel.runModal() == .OK, let url = panel.url else {
             completion?()
@@ -611,24 +586,17 @@ struct MarkupDocumentView: View {
             return
         }
         let targetExt = url.pathExtension.lowercased()
-        guard targetExt == "html" || targetExt == "htmd" || targetExt == "md" else {
+        guard targetExt == "html" || targetExt == "htmd" || pluginName(forExtension: targetExt) != nil else {
             completion?()
             return
         }
-        // Markdown save-as is async (plugin-driven); handle it before the image-scan path.
-        if targetExt == "md" {
-            guard let pluginName = pluginName(forExtension: "md") else {
-                let alert = NSAlert()
-                alert.messageText = "No plugin available for .md files."
-                alert.runModal()
-                completion?()
-                return
-            }
+        // Plugin save-as is async (plugin-driven); handle it before the image-scan path.
+        if let pluginName = pluginName(forExtension: targetExt) {
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else { completion?(); return }
                 MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                     guard let pluginResult = PluginResult.decode(from: result),
-                          let markdown = pluginResult.result else {
+                          let pluginOutput = pluginResult.result else {
                         let alert = NSAlert()
                         alert.messageText = "Export failed."
                         alert.runModal()
@@ -636,13 +604,13 @@ struct MarkupDocumentView: View {
                         return
                     }
                     do {
-                        var output = markdown
+                        var output = pluginOutput
                         if !self.document.documentMetadata.isEmpty {
                             let yaml = serializeYAMLMetadata(self.document.documentMetadata)
-                            output = "---\n\(yaml)---\n\n\(markdown)"
+                            output = "---\n\(yaml)---\n\n\(pluginOutput)"
                         }
                         try output.write(to: url, atomically: true, encoding: .utf8)
-                        self.document.willSaveTo(url: url, as: .md)
+                        self.document.willSaveTo(url: url, fileExtension: targetExt)
                         self.setRepresentedURL(url)
                         NSDocumentController.shared.noteNewRecentDocumentURL(url)
                         completion?()
@@ -673,7 +641,7 @@ struct MarkupDocumentView: View {
                     default:
                         try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
                     }
-                    document.willSaveTo(url: url, as: targetExt == "htmd" ? .htmd : .html)
+                    document.willSaveTo(url: url, fileExtension: targetExt)
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
                     setRepresentedURL(url)
                     completion?()
@@ -693,6 +661,23 @@ struct MarkupDocumentView: View {
     /// Returns the JS registry key for the plugin registered for `ext`, or `nil` if none.
     private func pluginName(forExtension ext: String) -> String? {
         appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
+    }
+
+    private func pluginLabel(for url: URL?) -> String? {
+        guard let ext = url?.pathExtension.lowercased() else { return nil }
+        return appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
+    }
+
+    static func allowedContentTypes(forExt ext: String) -> [UTType] {
+        UTType(filenameExtension: ext).map { [$0] } ?? []
+    }
+
+    static func pluginContentTypes(for plugins: [AppConfig.PluginConfigEntry]) -> [UTType] {
+        plugins.compactMap { $0.fileExtension.flatMap { UTType(filenameExtension: $0) } }
+    }
+
+    private func pluginContentTypes() -> [UTType] {
+        MarkupDocumentView.pluginContentTypes(for: appConfig.plugins ?? [])
     }
 
 }
