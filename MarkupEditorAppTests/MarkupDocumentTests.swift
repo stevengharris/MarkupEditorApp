@@ -288,3 +288,39 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(doc.activeFileExtension == "htmd")
     }
 }
+
+// MARK: - plugin extension save (regression: DocumentType removal)
+//
+// handleSave dispatches to invokePlugin for plugin extensions and never calls
+// document.save(). These tests verify the document.save() safety-net behavior:
+// plugin extensions hit default:break (no write, no throw) rather than
+// throwing .unknownType. With the old DocumentType enum a second plugin
+// extension like "rst" had no enum case, so save() would have thrown .unknownType.
+
+@MainActor struct MarkupDocumentSavePluginTests {
+
+    @Test func pluginExtensionDoesNotThrowOnSave() throws {
+        let tempDir = try makeTempDir()
+        let rstURL = tempDir.appendingPathComponent("test.rst")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        try "".write(to: rstURL, atomically: true, encoding: .utf8)
+        let doc = MarkupDocument()
+        doc.setOpenResult(html: "", url: rstURL, fileExtension: "rst", metadata: [])
+        #expect(throws: Never.self) {
+            try doc.save(html: "<p>test</p>", srcs: [], baseUrl: tempDir)
+        }
+    }
+
+    @Test func pluginExtensionDoesNotWriteFileOnSave() throws {
+        let tempDir = try makeTempDir()
+        let rstURL = tempDir.appendingPathComponent("test.rst")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let original = "original content"
+        try original.write(to: rstURL, atomically: true, encoding: .utf8)
+        let doc = MarkupDocument()
+        doc.setOpenResult(html: "", url: rstURL, fileExtension: "rst", metadata: [])
+        try doc.save(html: "<p>new content</p>", srcs: [], baseUrl: tempDir)
+        let afterSave = try String(contentsOf: rstURL, encoding: .utf8)
+        #expect(afterSave == original)
+    }
+}
