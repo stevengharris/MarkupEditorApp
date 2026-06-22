@@ -418,9 +418,10 @@ struct MarkupDocumentView: View {
         let docType = document.activeDocumentType ?? .html
         // Plugin save is async (plugin-driven); handle it before the image-sync path.
         if docType == .md {
-            guard let pluginName = pluginName(forExtension: "md") else {
+            let ext = url.pathExtension.lowercased()
+            guard let pluginName = pluginName(forExtension: ext) else {
                 let alert = NSAlert()
-                alert.messageText = "No plugin available for .md files."
+                alert.messageText = "No plugin available for .\(ext) files."
                 alert.runModal()
                 completion?()
                 return
@@ -480,7 +481,7 @@ struct MarkupDocumentView: View {
     /// and clears `sourceViewIsStale`. For `.md`, invokes the registered plugin's `export`
     /// action to convert the current editor HTML to the plugin's source format, then updates
     /// `currentSource` with the result and clears `sourceViewIsStale`. The plugin is resolved
-    /// via `pluginName(forExtension: "md")` — `.md` is the sole plugin document type.
+    /// from the current file URL's extension.
     private func refreshSourceView() {
         guard let docType = document.activeDocumentType else {
             setCurrentSource()
@@ -490,7 +491,8 @@ struct MarkupDocumentView: View {
         case .html, .htmd:
             setCurrentSource()
         case .md:
-            guard let pluginName = pluginName(forExtension: "md") else {
+            let ext = document.currentFileURL?.pathExtension.lowercased() ?? ""
+            guard let pluginName = pluginName(forExtension: ext) else {
                 sourceViewIsStale = false
                 return
             }
