@@ -117,8 +117,6 @@ struct PluginResult: Decodable {
 
 // MARK: - Types
 
-enum DocumentType: Equatable { case html, htmd, md }
-
 enum DocumentOpenError: Error, Equatable {
     case invalidExtension
     case rootHtmlNotFound

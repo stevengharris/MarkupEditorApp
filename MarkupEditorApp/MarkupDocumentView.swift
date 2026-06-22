@@ -352,7 +352,7 @@ struct MarkupDocumentView: View {
                     return
                 }
                 MarkupEditor.selectedWebView?.setHtml(html)
-                self.document.setOpenResult(html: html, url: url, type: .md, metadata: metadata)
+                self.document.setOpenResult(html: html, url: url, fileExtension: ext, metadata: metadata)
                 self.setCurrentSource {
                     self.initialHtml = self.currentSource
                     self.setRepresentedURL(url)
@@ -382,7 +382,7 @@ struct MarkupDocumentView: View {
         let result = try document.openHtmd(at: packageURL, baseUrl: baseUrl)
         MarkupEditor.selectedWebView?.setHtml(result.html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
-        document.setOpenResult(html: result.html, url: packageURL, type: .htmd, metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
+        document.setOpenResult(html: result.html, url: packageURL, fileExtension: "htmd", metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
         setCurrentSource() {
             initialHtml = currentSource
             setRepresentedURL(packageURL)
@@ -397,7 +397,7 @@ struct MarkupDocumentView: View {
         let html = try document.openHtml(at: fileURL, baseUrl: baseUrl)
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-        document.setOpenResult(html: html, url: fileURL, type: .html, metadata: [])
+        document.setOpenResult(html: html, url: fileURL, fileExtension: "html", metadata: [])
         setCurrentSource() {
             initialHtml = currentSource
             setRepresentedURL(fileURL)
@@ -415,17 +415,9 @@ struct MarkupDocumentView: View {
             completion?()
             return
         }
-        let docType = document.activeDocumentType ?? .html
+        let ext = url.pathExtension.lowercased()
         // Plugin save is async (plugin-driven); handle it before the image-sync path.
-        if docType == .md {
-            let ext = url.pathExtension.lowercased()
-            guard let pluginName = pluginName(forExtension: ext) else {
-                let alert = NSAlert()
-                alert.messageText = "No plugin available for .\(ext) files."
-                alert.runModal()
-                completion?()
-                return
-            }
+        if let pluginName = pluginName(forExtension: ext) {
             MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
                 guard let pluginResult = PluginResult.decode(from: result),
                       let pluginOutput = pluginResult.result else {
@@ -483,19 +475,8 @@ struct MarkupDocumentView: View {
     /// `currentSource` with the result and clears `sourceViewIsStale`. The plugin is resolved
     /// from the current file URL's extension.
     private func refreshSourceView() {
-        guard let docType = document.activeDocumentType else {
-            setCurrentSource()
-            return
-        }
-        switch docType {
-        case .html, .htmd:
-            setCurrentSource()
-        case .md:
-            let ext = document.currentFileURL?.pathExtension.lowercased() ?? ""
-            guard let pluginName = pluginName(forExtension: ext) else {
-                sourceViewIsStale = false
-                return
-            }
+        let ext = document.currentFileURL?.pathExtension.lowercased() ?? ""
+        if let pluginName = pluginName(forExtension: ext) {
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else {
                     self.sourceViewIsStale = false
@@ -509,6 +490,8 @@ struct MarkupDocumentView: View {
                     self.sourceViewIsStale = false
                 }
             }
+        } else {
+            setCurrentSource()
         }
     }
 
@@ -625,7 +608,7 @@ struct MarkupDocumentView: View {
                             output = "---\n\(yaml)---\n\n\(pluginOutput)"
                         }
                         try output.write(to: url, atomically: true, encoding: .utf8)
-                        self.document.willSaveTo(url: url, as: .md)
+                        self.document.willSaveTo(url: url, fileExtension: targetExt)
                         self.setRepresentedURL(url)
                         NSDocumentController.shared.noteNewRecentDocumentURL(url)
                         completion?()
@@ -656,7 +639,7 @@ struct MarkupDocumentView: View {
                     default:
                         try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
                     }
-                    document.willSaveTo(url: url, as: targetExt == "htmd" ? .htmd : .html)
+                    document.willSaveTo(url: url, fileExtension: targetExt)
                     NSDocumentController.shared.noteNewRecentDocumentURL(url)
                     setRepresentedURL(url)
                     completion?()
