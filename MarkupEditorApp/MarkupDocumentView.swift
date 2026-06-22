@@ -290,7 +290,7 @@ struct MarkupDocumentView: View {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.html, .htmd, UTType("public.markdown") ?? .plainText]
+            panel.allowedContentTypes = [.html, .htmd] + pluginContentTypes()
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = true
             panel.canChooseFiles = true
@@ -301,23 +301,18 @@ struct MarkupDocumentView: View {
 
     private func openDocument(at url: URL, handler: (()->Void)? = nil) {
         let ext = url.pathExtension.lowercased()
-        guard ext == "html" || ext == "htmd" || ext == "md" else {
+        guard ext == "html" || ext == "htmd" || pluginName(forExtension: ext) != nil else {
+            let pluginExts = (appConfig.plugins ?? []).compactMap { $0.fileExtension }.map { ".\($0)" }
+            let supported = ([".html", ".htmd"] + pluginExts).joined(separator: ", ")
             let alert = NSAlert()
             alert.messageText = "Unsupported file type"
-            alert.informativeText = "Only .html, .htmd, and .md documents can be opened."
+            alert.informativeText = "Only \(supported) documents can be opened."
             alert.runModal()
             return
         }
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        if ext == "md" {
-            guard let pluginName = pluginName(forExtension: "md") else {
-                let alert = NSAlert()
-                alert.messageText = "No plugin available for .md files."
-                alert.runModal()
-                handler?()
-                return
-            }
+        if let pluginName = pluginName(forExtension: ext) {
             let fileContent: String
             do {
                 importLog.info("Importing \(url.path())")
@@ -592,7 +587,7 @@ struct MarkupDocumentView: View {
 
     private func showSavePanel(then completion: (()->Void)? = nil) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html, .htmd, UTType("public.markdown") ?? .plainText]
+        panel.allowedContentTypes = [.html, .htmd] + pluginContentTypes()
         panel.nameFieldStringValue = document.currentFileURL?.lastPathComponent ?? "Untitled.htmd"
         guard panel.runModal() == .OK, let url = panel.url else {
             completion?()
@@ -603,19 +598,12 @@ struct MarkupDocumentView: View {
             return
         }
         let targetExt = url.pathExtension.lowercased()
-        guard targetExt == "html" || targetExt == "htmd" || targetExt == "md" else {
+        guard targetExt == "html" || targetExt == "htmd" || pluginName(forExtension: targetExt) != nil else {
             completion?()
             return
         }
-        // Markdown save-as is async (plugin-driven); handle it before the image-scan path.
-        if targetExt == "md" {
-            guard let pluginName = pluginName(forExtension: "md") else {
-                let alert = NSAlert()
-                alert.messageText = "No plugin available for .md files."
-                alert.runModal()
-                completion?()
-                return
-            }
+        // Plugin save-as is async (plugin-driven); handle it before the image-scan path.
+        if let pluginName = pluginName(forExtension: targetExt) {
             MarkupEditor.selectedWebView?.getHtml { html in
                 guard let html else { completion?(); return }
                 MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
@@ -689,6 +677,14 @@ struct MarkupDocumentView: View {
 
     static func allowedContentTypes(forExt ext: String) -> [UTType] {
         UTType(filenameExtension: ext).map { [$0] } ?? []
+    }
+
+    static func pluginContentTypes(for plugins: [AppConfig.PluginConfigEntry]) -> [UTType] {
+        plugins.compactMap { $0.fileExtension.flatMap { UTType(filenameExtension: $0) } }
+    }
+
+    private func pluginContentTypes() -> [UTType] {
+        MarkupDocumentView.pluginContentTypes(for: appConfig.plugins ?? [])
     }
 
 }
