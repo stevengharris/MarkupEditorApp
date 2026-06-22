@@ -23,13 +23,13 @@ struct SourceView: View {
 
     @Binding var currentSource: String
     @Binding var sourceViewIsStale: Bool
-    var docType: DocumentType?
+    var pluginLabel: String?
     var onRefresh: () -> Void = {}
 
-    /// Derives the header label from the document type.
+    /// Derives the header label from the plugin name, or falls back to "HTML Document".
     /// `internal` (not `private`) so tests can verify it directly via @testable import.
     var headerText: String {
-        docType == .md ? "Markdown Document" : "HTML Document"
+        pluginLabel.map { "\($0) Document" } ?? "HTML Document"
     }
 
     var body: some View {

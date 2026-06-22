@@ -56,7 +56,7 @@ struct MarkupDocumentView: View {
                         SourceView(
                             currentSource: $currentSource,
                             sourceViewIsStale: $sourceViewIsStale,
-                            docType: document.activeDocumentType,
+                            pluginLabel: pluginLabel(for: document.currentFileURL),
                             onRefresh: refreshSourceView
                         )
                     }
@@ -673,6 +673,11 @@ struct MarkupDocumentView: View {
     /// Returns the JS registry key for the plugin registered for `ext`, or `nil` if none.
     private func pluginName(forExtension ext: String) -> String? {
         appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
+    }
+
+    private func pluginLabel(for url: URL?) -> String? {
+        guard let ext = url?.pathExtension.lowercased() else { return nil }
+        return appConfig.plugins?.first(where: { $0.fileExtension == ext })?.name
     }
 
     static func allowedContentTypes(forExt ext: String) -> [UTType] {
