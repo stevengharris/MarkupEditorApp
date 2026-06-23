@@ -71,10 +71,7 @@ struct MarkupDocumentView: View {
         .styling(inset: 0, visibleThickness: 1, hideSplitter: true)
         .onChange(of: toolbarConfigJSON) { _, _ in
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
-            MarkupEditor.selectedWebView?.getHtml { html in
-                self.initialHtml = html ?? ""   // Restore contents on redraw
-                self.configVersion += 1
-            }
+            reloadEditorForConfigChange()
         }
         .onChange(of: appConfigJSON) { _, _ in
             appConfig = AppConfig.fromDefaults()
@@ -82,17 +79,11 @@ struct MarkupDocumentView: View {
                 from: appConfig.plugins,
                 pluginDir: PluginSetup.defaultPluginDir
             )
-            MarkupEditor.selectedWebView?.getHtml { html in
-                self.initialHtml = html ?? ""   // Restore contents on redraw
-                self.configVersion += 1
-            }
+            reloadEditorForConfigChange()
         }
         .onChange(of: keymapConfigJSON) { _, _ in
             markupConfiguration.keymapConfig = KeymapConfig.fromDefaults()
-            MarkupEditor.selectedWebView?.getHtml { html in
-                self.initialHtml = html ?? ""   // Restore contents on redraw
-                self.configVersion += 1
-            }
+            reloadEditorForConfigChange()
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuNewDocument)) { _ in
             handleNew()
@@ -208,6 +199,14 @@ struct MarkupDocumentView: View {
         return try? JSONDecoder().decode(type, from: data)
     }
 
+    // YAML front matter is Markdown-specific. A second plugin with different
+    // metadata conventions would require its own handling path here.
+    private static func injectYAMLFrontMatter(into output: String, metadata: [MetadataTuple]) -> String {
+        guard !metadata.isEmpty else { return output }
+        let yaml = serializeYAMLMetadata(metadata)
+        return "---\n\(yaml)---\n\n\(output)"
+    }
+
     private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
         fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
     }
@@ -222,6 +221,28 @@ struct MarkupDocumentView: View {
             sourceViewIsStale = false
             handler?()
         }
+    }
+
+    // Fetches current HTML and bumps configVersion, forcing MarkupEditorView to redraw via .id(configVersion).
+    private func reloadEditorForConfigChange() {
+        MarkupEditor.selectedWebView?.getHtml { html in
+            self.initialHtml = html ?? ""
+            self.configVersion += 1
+        }
+    }
+
+    private func finalizeOpen(url: URL, handler: (()->Void)?) {
+        setCurrentSource {
+            initialHtml = currentSource
+            setRepresentedURL(url)
+            handler?()
+        }
+    }
+
+    private func showAlert(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.runModal()
     }
 
     private func imageSelected(url: URL) {
@@ -318,24 +339,18 @@ struct MarkupDocumentView: View {
                 importLog.info("Importing \(url.path())")
                 fileContent = try String(contentsOf: url, encoding: .utf8)
             } catch {
-                let alert = NSAlert()
-                alert.messageText = "Could not read file: \(error.localizedDescription)"
-                alert.runModal()
+                showAlert("Could not read file: \(error.localizedDescription)")
                 handler?()
                 return
             }
             MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: fileContent) { result in
                 guard let pluginResult = PluginResult.decode(from: result) else {
-                    let alert = NSAlert()
-                    alert.messageText = "Plugin returned an unexpected response."
-                    alert.runModal()
+                    showAlert("Plugin returned an unexpected response.")
                     handler?()
                     return
                 }
                 if !pluginResult.warnings.isEmpty {
-                    let alert = NSAlert()
-                    alert.messageText = pluginResult.warnings.joined(separator: "\n")
-                    alert.runModal()
+                    showAlert(pluginResult.warnings.joined(separator: "\n"))
                 }
                 var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
                 let metadata: [MetadataTuple]
@@ -345,9 +360,7 @@ struct MarkupDocumentView: View {
                     metadata = []
                 }
                 guard let html = pluginResult.result else {
-                    let alert = NSAlert()
-                    alert.messageText = "Plugin could not convert the file."
-                    alert.runModal()
+                    showAlert("Plugin could not convert the file.")
                     handler?()
                     return
                 }
@@ -383,11 +396,7 @@ struct MarkupDocumentView: View {
         MarkupEditor.selectedWebView?.setHtml(result.html)
         NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
         document.setOpenResult(html: result.html, url: packageURL, fileExtension: "htmd", metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
-        setCurrentSource() {
-            initialHtml = currentSource
-            setRepresentedURL(packageURL)
-            handler?()
-        }
+        finalizeOpen(url: packageURL, handler: handler)
     }
 
     private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
@@ -398,11 +407,7 @@ struct MarkupDocumentView: View {
         MarkupEditor.selectedWebView?.setHtml(html)
         NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
         document.setOpenResult(html: html, url: fileURL, fileExtension: "html", metadata: [])
-        setCurrentSource() {
-            initialHtml = currentSource
-            setRepresentedURL(fileURL)
-            handler?()
-        }
+        finalizeOpen(url: fileURL, handler: handler)
     }
 
 
@@ -421,26 +426,17 @@ struct MarkupDocumentView: View {
             MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
                 guard let pluginResult = PluginResult.decode(from: result),
                       let pluginOutput = pluginResult.result else {
-                    let alert = NSAlert()
-                    alert.messageText = "Export failed."
-                    alert.runModal()
+                    showAlert("Export failed.")
                     completion?()
                     return
                 }
-                var output = pluginOutput
-                // YAML front matter is Markdown-specific; a second plugin with different metadata conventions would need its own handling here.
-                if !self.document.documentMetadata.isEmpty {
-                    let yaml = serializeYAMLMetadata(self.document.documentMetadata)
-                    output = "---\n\(yaml)---\n\n\(pluginOutput)"
-                }
+                let output = Self.injectYAMLFrontMatter(into: pluginOutput, metadata: self.document.documentMetadata)
                 do {
                     try output.write(to: url, atomically: true, encoding: .utf8)
                     self.document.hasChanges = false
                     completion?()
                 } catch {
-                    let alert = NSAlert()
-                    alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                    alert.runModal()
+                    showAlert("Failed to write file: \(error.localizedDescription)")
                     completion?()
                 }
             }
@@ -519,23 +515,14 @@ struct MarkupDocumentView: View {
         MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
             guard let pluginResult = PluginResult.decode(from: result),
                   let pluginOutput = pluginResult.result else {
-                let alert = NSAlert()
-                alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
-                alert.runModal()
+                showAlert("Plugin '\(pluginName)' could not complete the operation.")
                 return
             }
-            var output = pluginOutput
-            // YAML front matter is Markdown-specific; a second plugin with different metadata conventions would need its own handling here.
-            if !self.document.documentMetadata.isEmpty {
-                let yaml = serializeYAMLMetadata(self.document.documentMetadata)
-                output = "---\n\(yaml)---\n\n\(pluginOutput)"
-            }
+            let output = Self.injectYAMLFrontMatter(into: pluginOutput, metadata: self.document.documentMetadata)
             do {
                 try output.write(to: url, atomically: true, encoding: .utf8)
             } catch {
-                let alert = NSAlert()
-                alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                alert.runModal()
+                showAlert("Failed to write file: \(error.localizedDescription)")
             }
         }
     }
@@ -550,17 +537,13 @@ struct MarkupDocumentView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         importLog.info("Importing \(url.path())")
         guard let fileContent = try? String(contentsOf: url, encoding: .utf8) else {
-            let alert = NSAlert()
-            alert.messageText = "Could not read file."
-            alert.runModal()
+            showAlert("Could not read file.")
             return
         }
         MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: fileContent) { result in
             guard let pluginResult = PluginResult.decode(from: result),
                   let html = pluginResult.result else {
-                let alert = NSAlert()
-                alert.messageText = "Plugin '\(pluginName)' could not complete the operation."
-                alert.runModal()
+                showAlert("Plugin '\(pluginName)' could not complete the operation.")
                 return
             }
             MarkupEditor.selectedWebView?.setHtml(html)
@@ -597,27 +580,19 @@ struct MarkupDocumentView: View {
                 MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: html) { result in
                     guard let pluginResult = PluginResult.decode(from: result),
                           let pluginOutput = pluginResult.result else {
-                        let alert = NSAlert()
-                        alert.messageText = "Export failed."
-                        alert.runModal()
+                        showAlert("Export failed.")
                         completion?()
                         return
                     }
                     do {
-                        var output = pluginOutput
-                        if !self.document.documentMetadata.isEmpty {
-                            let yaml = serializeYAMLMetadata(self.document.documentMetadata)
-                            output = "---\n\(yaml)---\n\n\(pluginOutput)"
-                        }
+                        let output = Self.injectYAMLFrontMatter(into: pluginOutput, metadata: self.document.documentMetadata)
                         try output.write(to: url, atomically: true, encoding: .utf8)
                         self.document.willSaveTo(url: url, fileExtension: targetExt)
                         self.setRepresentedURL(url)
                         NSDocumentController.shared.noteNewRecentDocumentURL(url)
                         completion?()
                     } catch {
-                        let alert = NSAlert()
-                        alert.messageText = "Failed to write file: \(error.localizedDescription)"
-                        alert.runModal()
+                        showAlert("Failed to write file: \(error.localizedDescription)")
                         completion?()
                     }
                 }
