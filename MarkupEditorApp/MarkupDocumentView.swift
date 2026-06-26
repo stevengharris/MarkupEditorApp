@@ -90,7 +90,7 @@ struct MarkupDocumentView: View {
             let names: [Notification.Name] = [
                 .menuNewDocument, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuShowSource, .menuShowSettings,
-                .menuOpenRecentDocument, .menuExportPlugin, .menuImportPlugin,
+                .menuOpenRecentDocument, .menuExportPlugin,
                 .menuQuitApplication, NSWindow.willCloseNotification,
             ]
             await withTaskGroup(of: Void.self) { group in
@@ -300,10 +300,6 @@ struct MarkupDocumentView: View {
             guard let pluginName = notification.userInfo?["name"] as? String else { return }
             let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
             handleExport(pluginName: pluginName, fileExt: fileExt)
-        case .menuImportPlugin:
-            guard let pluginName = notification.userInfo?["name"] as? String else { return }
-            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
-            handleImport(pluginName: pluginName, fileExt: fileExt)
         case .menuQuitApplication:
             handleQuit()
         case NSWindow.willCloseNotification:

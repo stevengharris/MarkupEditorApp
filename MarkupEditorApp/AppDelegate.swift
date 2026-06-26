@@ -23,8 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Submenu under File > Export, populated by populatePluginMenus(_:).
     var exportSubmenu = NSMenu(title: "Export")
-    /// Submenu under File > Import, populated by populatePluginMenus(_:).
-    var importSubmenu = NSMenu(title: "Import")
 
     @MainActor static func consumePendingURL() -> URL? {
         guard let url = pendingFinderURL else { return nil }
@@ -172,17 +170,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Both notifications carry `userInfo` with `"name"`, `"filename"`, and `"fileExtension"` from the entry.
     public func populatePluginMenus(_ entries: [AppConfig.PluginConfigEntry]) {
         exportSubmenu.removeAllItems()
-        importSubmenu.removeAllItems()
         for entry in entries {
             let exportItem = NSMenuItem(title: entry.name, action: #selector(exportPluginAction(_:)), keyEquivalent: "")
             exportItem.target = self
             exportItem.representedObject = entry
             exportSubmenu.addItem(exportItem)
-
-            let importItem = NSMenuItem(title: entry.name, action: #selector(importPluginAction(_:)), keyEquivalent: "")
-            importItem.target = self
-            importItem.representedObject = entry
-            importSubmenu.addItem(importItem)
         }
     }
 
@@ -195,15 +187,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
     }
 
-    @objc private func importPluginAction(_ sender: NSMenuItem) {
-        guard let entry = sender.representedObject as? AppConfig.PluginConfigEntry else { return }
-        NotificationCenter.default.post(
-            name: .menuImportPlugin,
-            object: nil,
-            userInfo: ["name": entry.name, "filename": entry.filename, "fileExtension": entry.fileExtension ?? ""]
-        )
-    }
-
     func buildMenu() -> NSMenu {
         // Reset all instance-var submenus on every call so they can be
         // re-attached to fresh NSMenuItems. NSMenu throws "already a submenu
@@ -211,7 +194,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // time without being detached first.
         openRecentMenu = NSMenu(title: "Open Recent")
         exportSubmenu = NSMenu(title: "Export")
-        importSubmenu = NSMenu(title: "Import")
 
         let mainMenu = NSMenu()
 
@@ -259,9 +241,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
         exportItem.submenu = exportSubmenu
         fileMenu.addItem(exportItem)
-        let importItem = NSMenuItem(title: "Import", action: nil, keyEquivalent: "")
-        importItem.submenu = importSubmenu
-        fileMenu.addItem(importItem)
         fileMenuItem.submenu = fileMenu
 
         // Standard edit menu

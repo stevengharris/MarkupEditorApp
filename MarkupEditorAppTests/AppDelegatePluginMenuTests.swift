@@ -135,17 +135,6 @@ import AppKit
         #expect(NSStringFromSelector(item.action!) == "exportPluginAction:")
     }
 
-    @Test func importMenuItemIsWiredToDelegate() {
-        let delegate = makeDelegate()
-        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
-        delegate.populatePluginMenus(entries)
-
-        let item = delegate.importSubmenu.items[0]
-        #expect(item.action != nil)
-        #expect(item.target === delegate)
-        #expect(NSStringFromSelector(item.action!) == "importPluginAction:")
-    }
-
     // MARK: - Plugin action userInfo content
     //
     // The action methods are @objc private. Triggering them via performClick posts to
