@@ -23,6 +23,12 @@ class ImportLog {
         logger.warning("\(message)")
         entries.append("⚠️ \(message)")
     }
+    
+    func warnings(_ messages: [String]) {
+        for message in messages {
+            warning(message)
+        }
+    }
 
     func error(_ message: String) {
         logger.error("\(message)")

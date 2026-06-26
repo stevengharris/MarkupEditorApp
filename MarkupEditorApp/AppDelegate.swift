@@ -159,6 +159,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func clearUserDefaults(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuClearUserDefaults, object: nil)
     }
+    
+    @objc private func clearCacheDir(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuClearCacheDir, object: nil)
+    }
 #endif
 
     /// Fills Export and Import submenus from the plugin manifest.
@@ -326,6 +330,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let developMenuItem = NSMenuItem()
         let developMenu = NSMenu(title: "Develop")
         developMenu.addItem(NSMenuItem(title: "Clear UserDefaults", action: #selector(clearUserDefaults(_:)), keyEquivalent: ""))
+        developMenu.addItem(NSMenuItem(title: "Clear Cache Directory", action: #selector(clearCacheDir(_:)), keyEquivalent: ""))
         developMenuItem.submenu = developMenu
         mainMenu.addItem(developMenuItem)
 #endif
@@ -629,7 +634,7 @@ extension AppDelegate: NSMenuDelegate {
                 )
                 item.representedObject = url
                 item.target = self
-                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                let icon = NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
                 icon.size = NSSize(width: 16, height: 16)
                 item.image = icon
                 menu.addItem(item)

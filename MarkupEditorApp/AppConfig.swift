@@ -136,11 +136,11 @@ public struct AppConfig: JSONConfigurable {
         var result: [PluginFileEntry] = []
         for entry in entries {
             let fileURL = pluginDir.appendingPathComponent(entry.filename)
-            guard FileManager.default.fileExists(atPath: fileURL.path) else {
-                Logger.config.error("Plugin file not found at \(fileURL.path) — skipping \(entry.filename)")
+            guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
+                Logger.config.error("Plugin file not found at \(fileURL.path(percentEncoded: false)) — skipping \(entry.filename)")
                 continue
             }
-            result.append(PluginFileEntry(name: entry.name, path: fileURL.path))
+            result.append(PluginFileEntry(name: entry.name, path: fileURL.path(percentEncoded: false)))
         }
         return result
     }

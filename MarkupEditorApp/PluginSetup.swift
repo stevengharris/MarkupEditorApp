@@ -44,7 +44,7 @@ enum PluginSetup {
                 attributes: nil
             )
         } catch {
-            logger.error("Failed to create plugin directory at \(dir.path): \(error.localizedDescription)")
+            logger.error("Failed to create plugin directory at \(dir.path(percentEncoded: false)): \(error.localizedDescription)")
             return
         }
 
@@ -59,13 +59,13 @@ enum PluginSetup {
             let source = resourceRoot.appendingPathComponent(entry.filename)
             let destination = dir.appendingPathComponent(entry.filename)
 
-            guard FileManager.default.fileExists(atPath: source.path) else {
+            guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
                 logger.warning("Bundled plugin file not found: \(entry.filename) — skipping")
                 continue
             }
 
             do {
-                if FileManager.default.fileExists(atPath: destination.path) {
+                if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
                     try FileManager.default.removeItem(at: destination)
                 }
                 try FileManager.default.copyItem(at: source, to: destination)

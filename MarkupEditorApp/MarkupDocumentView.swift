@@ -63,7 +63,7 @@ struct MarkupDocumentView: View {
                 }
             },
             right: {
-                InfoView(url: $doc.currentFileURL, metadataInfo: $doc.documentMetadata)
+                InfoView(url: $doc.currentFileURL, metadataInfo: $doc.metadata)
             }
         )
         .fraction(docFraction)
@@ -85,59 +85,66 @@ struct MarkupDocumentView: View {
             markupConfiguration.keymapConfig = KeymapConfig.fromDefaults()
             reloadEditorForConfigChange()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .menuNewDocument)) { _ in
-            handleNew()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuOpenDocument)) { _ in
-            handleOpen()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuSaveDocument)) { _ in
-            handleSave()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuSaveAsDocument)) { _ in
-            handleSaveAs()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuShowSource)) { _ in
-            handleShowSource()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuShowSettings)) { _ in
-            openSettings()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuOpenRecentDocument)) { notification in
-            guard let url = notification.object as? URL else { return }
-            handleOpenRecent(url: url)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuExportPlugin)) { notification in
-            guard let pluginName = notification.userInfo?["name"] as? String else { return }
-            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
-            handleExport(pluginName: pluginName, fileExt: fileExt)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuImportPlugin)) { notification in
-            guard let pluginName = notification.userInfo?["name"] as? String else { return }
-            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
-            handleImport(pluginName: pluginName, fileExt: fileExt)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .menuQuitApplication)) { _ in
-            handleQuit()
+        // Consolidate menu items into a single .task modifier
+        .task {
+            let names: [Notification.Name] = [
+                .menuNewDocument, .menuOpenDocument, .menuSaveDocument,
+                .menuSaveAsDocument, .menuShowSource, .menuShowSettings,
+                .menuOpenRecentDocument, .menuExportPlugin, .menuImportPlugin,
+                .menuQuitApplication, NSWindow.willCloseNotification,
+            ]
+            await withTaskGroup(of: Void.self) { group in
+                for name in names {
+                    group.addTask { @MainActor in
+                        for await notification in NotificationCenter.default.notifications(named: name) {
+                            handleMenuNotification(notification)
+                        }
+                    }
+                }
+            }
         }
 #if DEBUG
-        .onReceive(NotificationCenter.default.publisher(for: .menuClearUserDefaults)) { _ in
-            UserDefaults.standard.removeObject(forKey: ConfigKeys.toolbar)
-            UserDefaults.standard.removeObject(forKey: ConfigKeys.keymap)
-            UserDefaults.standard.removeObject(forKey: ConfigKeys.behavior)
-            UserDefaults.standard.removeObject(forKey: ConfigKeys.app)
+        .task {
+            for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {
+                let ud = UserDefaults.standard
+                ud.removeObject(forKey: ConfigKeys.toolbar)
+                ud.removeObject(forKey: ConfigKeys.keymap)
+                ud.removeObject(forKey: ConfigKeys.behavior)
+                ud.removeObject(forKey: ConfigKeys.app)
+                for key in ud.dictionaryRepresentation().keys where key.hasPrefix("parentDirBookmark:") {
+                    ud.removeObject(forKey: key)
+                }
+            }
+        }
+        .task {
+            for await _ in NotificationCenter.default.notifications(named: .menuClearCacheDir) {
+                guard let cacheUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+                let alert = NSAlert()
+                alert.messageText = "Clear all files in \(cacheUrl.path(percentEncoded: false))?"
+                alert.addButton(withTitle: "Clear")
+                alert.addButton(withTitle: "Cancel")
+                alert.alertStyle = .warning
+                let response = alert.runModal()
+                switch response {
+                case .alertFirstButtonReturn:
+                    do {
+                        try FileManager.default.contentsOfDirectory(at: cacheUrl, includingPropertiesForKeys: nil)
+                            .forEach { try FileManager.default.removeItem(at: $0) }
+                    } catch let error {
+                        print("Error: \(error.localizedDescription)")
+                    }
+                default:
+                    return
+                }
+            }
         }
 #endif
-        // Dismiss the SettingsView when this one will close
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
-            NotificationCenter.default.post(name: .dismissSettings, object: nil)
-        }
         .onOpenURL { url in
             if MarkupEditor.selectedWebView != nil {
                 AppDelegate.pendingFinderURL = nil
                 checkSave { shouldProceed in
                     guard shouldProceed else { return }
-                    openDocument(at: url)
+                    Task { await openDocument(at: url) }
                 }
             } else {
                 AppDelegate.pendingFinderURL = url
@@ -149,7 +156,7 @@ struct MarkupDocumentView: View {
         // are intentionally asymmetric.
         .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html, .htmd], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
-                openDocument(at: url)
+                Task { await openDocument(at: url) }
             }
         }
         .fileImporter(isPresented: $selectImage.value, allowedContentTypes: MarkupEditor.supportedImageTypes, allowsMultipleSelection: false) { result in
@@ -199,14 +206,6 @@ struct MarkupDocumentView: View {
         return try? JSONDecoder().decode(type, from: data)
     }
 
-    // YAML front matter is Markdown-specific. A second plugin with different
-    // metadata conventions would require its own handling path here.
-    private static func injectYAMLFrontMatter(into output: String, metadata: [MetadataTuple]) -> String {
-        guard !metadata.isEmpty else { return output }
-        let yaml = serializeYAMLMetadata(metadata)
-        return "---\n\(yaml)---\n\n\(output)"
-    }
-
     private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
         fetchLocalImageSrcs(from: MarkupEditor.selectedWebView, completion: completion)
     }
@@ -232,6 +231,7 @@ struct MarkupDocumentView: View {
     }
 
     private func finalizeOpen(url: URL, handler: (()->Void)?) {
+        NSDocumentController.shared.noteNewRecentDocumentURL(url)
         setCurrentSource {
             initialHtml = currentSource
             setRepresentedURL(url)
@@ -251,34 +251,6 @@ struct MarkupDocumentView: View {
     }
 
     // MARK: - File operations (driven by menu notifications on macOS)
-
-    /// Present a save/discard/cancel alert if the document has unsaved changes.
-    /// Calls the completion with true to proceed, false to cancel.
-    /// On macOS, runs modally and calls completion synchronously.
-    /// On Catalyst, presents a UIAlertController and calls completion asynchronously.
-    private func checkSave(then proceed: @escaping (Bool) -> Void) {
-        guard document.hasChanges else {
-            proceed(true)
-            return
-        }
-        let alert = NSAlert()
-        alert.messageText = "Do you want to save the changes to this document?"
-        alert.informativeText = "Your changes will be lost if you don't save them."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Don't Save")
-        alert.addButton(withTitle: "Cancel")
-        alert.alertStyle = .warning
-        let response = alert.runModal()
-        switch response {
-        case .alertFirstButtonReturn:
-            handleSave { proceed(true) }
-        case .alertSecondButtonReturn:
-            document.hasChanges = false
-            proceed(true)
-        default:
-            proceed(false)
-        }
-    }
 
     private func handleNew() {
         checkSave { [self] shouldProceed in
@@ -307,24 +279,109 @@ struct MarkupDocumentView: View {
         }
     }
 
+    private func handleMenuNotification(_ notification: Notification) {
+        switch notification.name {
+        case .menuNewDocument:
+            handleNew()
+        case .menuOpenDocument:
+            handleOpen()
+        case .menuSaveDocument:
+            handleSave()
+        case .menuSaveAsDocument:
+            handleSaveAs()
+        case .menuShowSource:
+            handleShowSource()
+        case .menuShowSettings:
+            openSettings()
+        case .menuOpenRecentDocument:
+            guard let url = notification.object as? URL else { return }
+            handleOpenRecent(url: url)
+        case .menuExportPlugin:
+            guard let pluginName = notification.userInfo?["name"] as? String else { return }
+            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
+            handleExport(pluginName: pluginName, fileExt: fileExt)
+        case .menuImportPlugin:
+            guard let pluginName = notification.userInfo?["name"] as? String else { return }
+            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
+            handleImport(pluginName: pluginName, fileExt: fileExt)
+        case .menuQuitApplication:
+            handleQuit()
+        case NSWindow.willCloseNotification:
+            NotificationCenter.default.post(name: .dismissSettings, object: nil)
+        default:
+            break
+        }
+    }
+    
     private func handleOpen() {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.html, .htmd] + pluginContentTypes()
+            panel.allowedContentTypes = DocumentType.utTypes()
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = true
             panel.canChooseFiles = true
             guard panel.runModal() == .OK, let url = panel.url else { return }
-            openDocument(at: url)
+            if url.pathExtension.lowercased() == "md",
+               let content = try? String(contentsOf: url, encoding: .utf8),
+               !localImageSrcsInMarkdown(content).isEmpty,
+               resolveParentDirBookmark(for: url) == nil {
+                // NSOpenPanel's powerbox grant implicitly extends to the parent directory for
+                // web-content UTIs (public.html, .htmd), but NOT for public.plain-text (.md).
+                // Confirmed empirically: FileManager.contentsOfDirectory on the parent succeeds
+                // synchronously after selecting .html but fails with a sandbox denial after .md.
+                // Request explicit directory access via a second panel so images can be cached.
+                // Skipped when a bookmark for this directory is already stored from a prior open.
+                let dirPanel = NSOpenPanel()
+                dirPanel.canChooseFiles = false
+                dirPanel.canChooseDirectories = true
+                dirPanel.directoryURL = url.deletingLastPathComponent()
+                dirPanel.prompt = "Grant Access"
+                dirPanel.message = "This document references images. Grant read access to the containing folder to display them."
+                if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
+                    storeParentDirBookmark(for: url, using: dirURL)
+                }
+            } else {
+                storeParentDirBookmark(for: url)
+            }
+            Task { await openDocument(at: url) }
+        }
+    }
+    
+    //MARK: Shared functions
+    
+    /// Present a save/discard/cancel alert if the document has unsaved changes.
+    /// Calls the completion with true to proceed, false to cancel.
+    private func checkSave(then proceed: @escaping (Bool) -> Void) {
+        guard document.hasChanges else {
+            proceed(true)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Do you want to save the changes to this document?"
+        alert.informativeText = "Your changes will be lost if you don't save them."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Don't Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:
+            handleSave { proceed(true) }
+        case .alertSecondButtonReturn:
+            document.hasChanges = false
+            proceed(true)
+        default:
+            proceed(false)
         }
     }
 
-    private func openDocument(at url: URL, handler: (()->Void)? = nil) {
+    //MARK: Opening files
+    
+    private func openDocument(at url: URL, handler: (()->Void)? = nil) async {
         let ext = url.pathExtension.lowercased()
-        guard ext == "html" || ext == "htmd" || pluginName(forExtension: ext) != nil else {
-            let pluginExts = (appConfig.plugins ?? []).compactMap { $0.fileExtension }.map { ".\($0)" }
-            let supported = ([".html", ".htmd"] + pluginExts).joined(separator: ", ")
+        guard let docType = DocumentType.forExt(ext) else {
+            let supported = DocumentType.exts().joined(separator: ", ")
             let alert = NSAlert()
             alert.messageText = "Unsupported file type"
             alert.informativeText = "Only \(supported) documents can be opened."
@@ -333,84 +390,85 @@ struct MarkupDocumentView: View {
         }
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        if let pluginName = pluginName(forExtension: ext) {
-            let fileContent: String
-            do {
-                importLog.info("Importing \(url.path())")
-                fileContent = try String(contentsOf: url, encoding: .utf8)
-            } catch {
-                showAlert("Could not read file: \(error.localizedDescription)")
-                handler?()
-                return
-            }
-            MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "import", content: fileContent) { result in
-                guard let pluginResult = PluginResult.decode(from: result) else {
-                    showAlert("Plugin returned an unexpected response.")
-                    handler?()
-                    return
-                }
-                if !pluginResult.warnings.isEmpty {
-                    showAlert(pluginResult.warnings.joined(separator: "\n"))
-                }
-                var yamlWarnings: [String] = []   // YAML parse warnings suppressed for now; surface in a future pass
-                let metadata: [MetadataTuple]
-                if let yamlString = pluginResult.metadata {
-                    metadata = parseYAMLMetadata(yamlString, warnings: &yamlWarnings)
-                } else {
-                    metadata = []
-                }
-                guard let html = pluginResult.result else {
-                    showAlert("Plugin could not convert the file.")
-                    handler?()
-                    return
-                }
-                MarkupEditor.selectedWebView?.setHtml(html)
-                self.document.setOpenResult(html: html, url: url, fileExtension: ext, metadata: metadata)
-                self.setCurrentSource {
-                    self.initialHtml = self.currentSource
-                    self.setRepresentedURL(url)
-                    NSDocumentController.shared.noteNewRecentDocumentURL(url)
-                    handler?()
-                }
-            }
-            return
-        }
         do {
-            switch ext {
-            case "htmd":
-                try openHtmd(at: url, handler: handler)
-            default:
+            switch docType {
+            case .html:
                 try openHtml(at: url, handler: handler)
+            case .md:
+                try openMd(at: url, handler: handler)
+            case .htmd:
+                try openHtmd(at: url, handler: handler)
             }
-        } catch {
+        } catch let error {
             let alert = NSAlert(error: error)
             alert.runModal()
         }
     }
 
     private func openHtmd(at packageURL: URL, handler: (()->Void)? = nil) throws {
-        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
-            throw DocumentOpenError.noWebviewAvailable
+        guard let webView = MarkupEditor.selectedWebView else {
+            throw DocumentOpenError.noWebViewAvailable
         }
-        let result = try document.openHtmd(at: packageURL, baseUrl: baseUrl)
-        MarkupEditor.selectedWebView?.setHtml(result.html)
-        NSDocumentController.shared.noteNewRecentDocumentURL(packageURL)
-        document.setOpenResult(html: result.html, url: packageURL, fileExtension: "htmd", metadata: result.metadata, rootHtmlFilename: result.rootHtmlFilename)
+        let html = try document.openHtmd(at: packageURL, baseUrl: webView.baseUrl)
+        webView.setHtml(html)
         finalizeOpen(url: packageURL, handler: handler)
     }
 
     private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
-        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
-            throw DocumentOpenError.noWebviewAvailable
+        guard let webView = MarkupEditor.selectedWebView else {
+            throw DocumentOpenError.noWebViewAvailable
         }
-        let html = try document.openHtml(at: fileURL, baseUrl: baseUrl)
-        MarkupEditor.selectedWebView?.setHtml(html)
-        NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-        document.setOpenResult(html: html, url: fileURL, fileExtension: "html", metadata: [])
+        let html = try document.openHtml(at: fileURL, baseUrl: webView.baseUrl)
+        webView.setHtml(html)
         finalizeOpen(url: fileURL, handler: handler)
     }
+    
+    private func openMd(at url: URL, handler: (()->Void)? = nil) throws {
+        guard let webView = MarkupEditor.selectedWebView else {
+            throw DocumentOpenError.noWebViewAvailable
+        }
+        let fileContent: String
+        do {
+            importLog.info("Opening \(url.path())")
+            fileContent = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            showAlert("Could not read file: \(error.localizedDescription)")
+            handler?()
+            return
+        }
+        webView.invokePlugin(name: "Markdown", action: "import", content: fileContent) { result in
+            guard let pluginResult = PluginResult.decode(from: result) else {
+                showAlert("Plugin returned an unexpected response.")
+                handler?()
+                return
+            }
+            guard let html = pluginResult.result else {
+                showAlert("Could not convert to HTML.")
+                handler?()
+                return
+            }
+            var warnings = pluginResult.warnings
+            let metadata: [MetadataTuple]
+            if let yamlString = pluginResult.metadata {
+                metadata = parseYAMLMetadata(yamlString, warnings: &warnings)
+            } else {
+                metadata = []
+            }
+            importLog.warnings(warnings)
+            do {
+                try document.openMd(at: url, baseUrl: webView.baseUrl, html: html, metadata: metadata)
+                MarkupEditor.selectedWebView?.setHtml(html)
+                finalizeOpen(url: url, handler: handler)
+            } catch let error {
+                showAlert("Could not prepare file: \(error.localizedDescription)")
+                handler?()
+                return
+            }
+        }
+    }
 
-
+    //MARK: Saving
+    
     private func handleSave(then completion: (()->Void)? = nil) {
         guard let url = document.currentFileURL else {
             showSavePanel(then: completion)
@@ -430,7 +488,7 @@ struct MarkupDocumentView: View {
                     completion?()
                     return
                 }
-                let output = Self.injectYAMLFrontMatter(into: pluginOutput, metadata: self.document.documentMetadata)
+                let output = document.injectYAMLFrontMatter(into: pluginOutput)
                 do {
                     try output.write(to: url, atomically: true, encoding: .utf8)
                     self.document.hasChanges = false
@@ -502,7 +560,7 @@ struct MarkupDocumentView: View {
     private func handleOpenRecent(url: URL) {
         checkSave { shouldProceed in
             guard shouldProceed else { return }
-            openDocument(at: url)
+            Task { await openDocument(at: url) }
         }
     }
 
@@ -518,7 +576,7 @@ struct MarkupDocumentView: View {
                 showAlert("Plugin '\(pluginName)' could not complete the operation.")
                 return
             }
-            let output = Self.injectYAMLFrontMatter(into: pluginOutput, metadata: self.document.documentMetadata)
+            let output = document.injectYAMLFrontMatter(into: pluginOutput)
             do {
                 try output.write(to: url, atomically: true, encoding: .utf8)
             } catch {
@@ -585,7 +643,7 @@ struct MarkupDocumentView: View {
                         return
                     }
                     do {
-                        let output = Self.injectYAMLFrontMatter(into: pluginOutput, metadata: self.document.documentMetadata)
+                        let output = document.injectYAMLFrontMatter(into: pluginOutput)
                         try output.write(to: url, atomically: true, encoding: .utf8)
                         self.document.willSaveTo(url: url, fileExtension: targetExt)
                         self.setRepresentedURL(url)
@@ -663,7 +721,7 @@ extension MarkupDocumentView: MarkupDelegate {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(toolbarVisible())
         if let url = AppDelegate.consumePendingURL() {
-            openDocument(at: url, handler: handler)
+            Task { await openDocument(at: url, handler: handler) }
         } else {
             setCurrentSource(handler)
         }

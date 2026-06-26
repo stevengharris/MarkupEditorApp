@@ -27,7 +27,7 @@ struct SaveAsHtmdTests {
         let pkg = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".htmd")
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: pkg) }
         try saveAsHtmd(srcs: [], html: "<p></p>", baseUrl: base, to: pkg)
-        #expect(fm.fileExists(atPath: pkg.path))
+        #expect(fm.fileExists(atPath: pkg.path(percentEncoded: false)))
     }
 
     @Test func writesIndexHtml() throws {
@@ -47,7 +47,7 @@ struct SaveAsHtmdTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: pkg) }
         try "img".write(to: base.appendingPathComponent("photo.png"), atomically: true, encoding: .utf8)
         try saveAsHtmd(srcs: ["photo.png"], html: "<p></p>", baseUrl: base, to: pkg)
-        #expect(fm.fileExists(atPath: pkg.appendingPathComponent("photo.png").path))
+        #expect(fm.fileExists(atPath: pkg.appendingPathComponent("photo.png").path(percentEncoded: false)))
     }
 
     @Test func preservesSubdirectoryInPackage() throws {
@@ -58,7 +58,7 @@ struct SaveAsHtmdTests {
         try fm.createDirectory(at: base.appendingPathComponent("resources"), withIntermediateDirectories: true)
         try "img".write(to: base.appendingPathComponent("resources/img.png"), atomically: true, encoding: .utf8)
         try saveAsHtmd(srcs: ["resources/img.png"], html: "<p></p>", baseUrl: base, to: pkg)
-        #expect(fm.fileExists(atPath: pkg.appendingPathComponent("resources/img.png").path))
+        #expect(fm.fileExists(atPath: pkg.appendingPathComponent("resources/img.png").path(percentEncoded: false)))
     }
 
     @Test func silentlySkipsMissingBaseUrlSrc() throws {
@@ -67,7 +67,7 @@ struct SaveAsHtmdTests {
         let pkg = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".htmd")
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: pkg) }
         try saveAsHtmd(srcs: ["absent.png"], html: "<p></p>", baseUrl: base, to: pkg)
-        #expect(!fm.fileExists(atPath: pkg.appendingPathComponent("absent.png").path))
+        #expect(!fm.fileExists(atPath: pkg.appendingPathComponent("absent.png").path(percentEncoded: false)))
     }
 
     @Test func replacesExistingPackage() throws {
@@ -78,7 +78,7 @@ struct SaveAsHtmdTests {
         try "old".write(to: pkg.appendingPathComponent("stale.png"), atomically: true, encoding: .utf8)
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: pkg) }
         try saveAsHtmd(srcs: [], html: "<p></p>", baseUrl: base, to: pkg)
-        #expect(!fm.fileExists(atPath: pkg.appendingPathComponent("stale.png").path))
+        #expect(!fm.fileExists(atPath: pkg.appendingPathComponent("stale.png").path(percentEncoded: false)))
     }
 }
 
@@ -109,7 +109,7 @@ struct SaveAsHtmlTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: dir) }
         try "img".write(to: base.appendingPathComponent("photo.png"), atomically: true, encoding: .utf8)
         try saveAsHtml(srcs: ["photo.png"], html: "<p></p>", baseUrl: base, to: dest)
-        #expect(fm.fileExists(atPath: dir.appendingPathComponent("photo.png").path))
+        #expect(fm.fileExists(atPath: dir.appendingPathComponent("photo.png").path(percentEncoded: false)))
     }
 
     @Test func preservesSubdirectoryAlongsideHtml() throws {
@@ -121,7 +121,7 @@ struct SaveAsHtmlTests {
         try fm.createDirectory(at: base.appendingPathComponent("resources"), withIntermediateDirectories: true)
         try "img".write(to: base.appendingPathComponent("resources/img.png"), atomically: true, encoding: .utf8)
         try saveAsHtml(srcs: ["resources/img.png"], html: "<p></p>", baseUrl: base, to: dest)
-        #expect(fm.fileExists(atPath: dir.appendingPathComponent("resources/img.png").path))
+        #expect(fm.fileExists(atPath: dir.appendingPathComponent("resources/img.png").path(percentEncoded: false)))
     }
 
     @Test func silentlySkipsMissingBaseUrlSrc() throws {
@@ -131,7 +131,7 @@ struct SaveAsHtmlTests {
         let dest = dir.appendingPathComponent("out.html")
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: dir) }
         try saveAsHtml(srcs: ["absent.png"], html: "<p></p>", baseUrl: base, to: dest)
-        #expect(!fm.fileExists(atPath: dir.appendingPathComponent("absent.png").path))
+        #expect(!fm.fileExists(atPath: dir.appendingPathComponent("absent.png").path(percentEncoded: false)))
     }
 
     @Test func doesNotDeleteExistingFiles() throws {
@@ -142,7 +142,7 @@ struct SaveAsHtmlTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: dir) }
         try "other".write(to: dir.appendingPathComponent("other.png"), atomically: true, encoding: .utf8)
         try saveAsHtml(srcs: [], html: "<p></p>", baseUrl: base, to: dest)
-        #expect(fm.fileExists(atPath: dir.appendingPathComponent("other.png").path))
+        #expect(fm.fileExists(atPath: dir.appendingPathComponent("other.png").path(percentEncoded: false)))
     }
 }
 
@@ -161,7 +161,7 @@ struct SyncImageAssetsTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: doc) }
         try "img".write(to: base.appendingPathComponent("foo.png"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: ["foo.png"], baseUrl: base, docDir: doc, deleteOrphans: false)
-        #expect(fm.fileExists(atPath: doc.appendingPathComponent("foo.png").path))
+        #expect(fm.fileExists(atPath: doc.appendingPathComponent("foo.png").path(percentEncoded: false)))
     }
 
     @Test func skipsExistingImage() throws {
@@ -182,7 +182,7 @@ struct SyncImageAssetsTests {
         let doc = try makeTempDir()
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: doc) }
         try syncImageAssets(srcs: ["missing.png"], baseUrl: base, docDir: doc, deleteOrphans: false)
-        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("missing.png").path))
+        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("missing.png").path(percentEncoded: false)))
     }
 
     @Test func deletesOrphanWhenEnabled() throws {
@@ -192,7 +192,7 @@ struct SyncImageAssetsTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: doc) }
         try "orphan".write(to: doc.appendingPathComponent("orphan.png"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: [], baseUrl: base, docDir: doc, deleteOrphans: true)
-        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("orphan.png").path))
+        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("orphan.png").path(percentEncoded: false)))
     }
 
     @Test func keepsOrphanWhenDisabled() throws {
@@ -202,7 +202,7 @@ struct SyncImageAssetsTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: doc) }
         try "orphan".write(to: doc.appendingPathComponent("orphan.png"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: [], baseUrl: base, docDir: doc, deleteOrphans: false)
-        #expect(fm.fileExists(atPath: doc.appendingPathComponent("orphan.png").path))
+        #expect(fm.fileExists(atPath: doc.appendingPathComponent("orphan.png").path(percentEncoded: false)))
     }
 
     @Test func preservesSubdirectoryStructure() throws {
@@ -213,7 +213,7 @@ struct SyncImageAssetsTests {
         try fm.createDirectory(at: base.appendingPathComponent("resources"), withIntermediateDirectories: true)
         try "img".write(to: base.appendingPathComponent("resources/bar.png"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: ["resources/bar.png"], baseUrl: base, docDir: doc, deleteOrphans: false)
-        #expect(fm.fileExists(atPath: doc.appendingPathComponent("resources/bar.png").path))
+        #expect(fm.fileExists(atPath: doc.appendingPathComponent("resources/bar.png").path(percentEncoded: false)))
     }
 
     @Test func doesNotDeleteHtmlWhenOrphaning() throws {
@@ -223,7 +223,7 @@ struct SyncImageAssetsTests {
         defer { try? fm.removeItem(at: base); try? fm.removeItem(at: doc) }
         try "html".write(to: doc.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: [], baseUrl: base, docDir: doc, deleteOrphans: true)
-        #expect(fm.fileExists(atPath: doc.appendingPathComponent("index.html").path))
+        #expect(fm.fileExists(atPath: doc.appendingPathComponent("index.html").path(percentEncoded: false)))
     }
 
     @Test func deletesSubdirectoryOrphan() throws {
@@ -234,7 +234,7 @@ struct SyncImageAssetsTests {
         try fm.createDirectory(at: doc.appendingPathComponent("resources"), withIntermediateDirectories: true)
         try "img".write(to: doc.appendingPathComponent("resources/old.png"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: [], baseUrl: base, docDir: doc, deleteOrphans: true)
-        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("resources/old.png").path))
+        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("resources/old.png").path(percentEncoded: false)))
     }
 
     @Test func keepsReferencedImageDeletesOrphan() throws {
@@ -245,8 +245,8 @@ struct SyncImageAssetsTests {
         try "img".write(to: doc.appendingPathComponent("kept.png"), atomically: true, encoding: .utf8)
         try "img".write(to: doc.appendingPathComponent("orphan.png"), atomically: true, encoding: .utf8)
         try syncImageAssets(srcs: ["kept.png"], baseUrl: base, docDir: doc, deleteOrphans: true)
-        #expect(fm.fileExists(atPath: doc.appendingPathComponent("kept.png").path))
-        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("orphan.png").path))
+        #expect(fm.fileExists(atPath: doc.appendingPathComponent("kept.png").path(percentEncoded: false)))
+        #expect(!fm.fileExists(atPath: doc.appendingPathComponent("orphan.png").path(percentEncoded: false)))
     }
 }
 
@@ -324,7 +324,7 @@ struct CopyImageAssetsTests {
         defer { try? fm.removeItem(at: src); try? fm.removeItem(at: dst) }
         try "data".write(to: src.appendingPathComponent("foo.png"), atomically: true, encoding: .utf8)
         try copyImageAssets(srcs: ["foo.png"], from: src, to: dst, skipMissing: false)
-        #expect(fm.fileExists(atPath: dst.appendingPathComponent("foo.png").path))
+        #expect(fm.fileExists(atPath: dst.appendingPathComponent("foo.png").path(percentEncoded: false)))
     }
 
     @Test func skipsMissingWhenAllowed() throws {
@@ -333,7 +333,7 @@ struct CopyImageAssetsTests {
         let dst = try makeTempDir()
         defer { try? fm.removeItem(at: src); try? fm.removeItem(at: dst) }
         try copyImageAssets(srcs: ["missing.png"], from: src, to: dst, skipMissing: true)
-        #expect(!fm.fileExists(atPath: dst.appendingPathComponent("missing.png").path))
+        #expect(!fm.fileExists(atPath: dst.appendingPathComponent("missing.png").path(percentEncoded: false)))
     }
 
     @Test func throwsForMissingWhenNotSkipping() throws {
@@ -354,7 +354,7 @@ struct CopyImageAssetsTests {
         try fm.createDirectory(at: src.appendingPathComponent("resources"), withIntermediateDirectories: true)
         try "data".write(to: src.appendingPathComponent("resources/foo.png"), atomically: true, encoding: .utf8)
         try copyImageAssets(srcs: ["resources/foo.png"], from: src, to: dst, skipMissing: false)
-        #expect(fm.fileExists(atPath: dst.appendingPathComponent("resources/foo.png").path))
+        #expect(fm.fileExists(atPath: dst.appendingPathComponent("resources/foo.png").path(percentEncoded: false)))
     }
 
     @Test func overwritesExistingFile() throws {
@@ -469,7 +469,7 @@ struct CopyPackageAssetsTests {
         try "html".write(to: pkg.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         let paths = try copyPackageAssets(from: pkg, to: dst)
         #expect(paths.isEmpty)
-        #expect(!fm.fileExists(atPath: dst.appendingPathComponent("index.html").path))
+        #expect(!fm.fileExists(atPath: dst.appendingPathComponent("index.html").path(percentEncoded: false)))
     }
 
     @Test func copiesImageFile() throws {
@@ -480,7 +480,7 @@ struct CopyPackageAssetsTests {
         try "img".write(to: pkg.appendingPathComponent("foo.png"), atomically: true, encoding: .utf8)
         let paths = try copyPackageAssets(from: pkg, to: dst)
         #expect(paths == ["foo.png"])
-        #expect(fm.fileExists(atPath: dst.appendingPathComponent("foo.png").path))
+        #expect(fm.fileExists(atPath: dst.appendingPathComponent("foo.png").path(percentEncoded: false)))
     }
 
     @Test func preservesSubdirectories() throws {
@@ -492,7 +492,7 @@ struct CopyPackageAssetsTests {
         try "img".write(to: pkg.appendingPathComponent("resources/bar.png"), atomically: true, encoding: .utf8)
         let paths = try copyPackageAssets(from: pkg, to: dst)
         #expect(paths == ["resources/bar.png"])
-        #expect(fm.fileExists(atPath: dst.appendingPathComponent("resources/bar.png").path))
+        #expect(fm.fileExists(atPath: dst.appendingPathComponent("resources/bar.png").path(percentEncoded: false)))
     }
 
     @Test func copiesMultipleFiles() throws {
@@ -506,8 +506,8 @@ struct CopyPackageAssetsTests {
         try "html".write(to: pkg.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         let paths = try copyPackageAssets(from: pkg, to: dst)
         #expect(paths == Set(["a.png", "resources/b.png"]))
-        #expect(fm.fileExists(atPath: dst.appendingPathComponent("a.png").path))
-        #expect(fm.fileExists(atPath: dst.appendingPathComponent("resources/b.png").path))
-        #expect(!fm.fileExists(atPath: dst.appendingPathComponent("index.html").path))
+        #expect(fm.fileExists(atPath: dst.appendingPathComponent("a.png").path(percentEncoded: false)))
+        #expect(fm.fileExists(atPath: dst.appendingPathComponent("resources/b.png").path(percentEncoded: false)))
+        #expect(!fm.fileExists(atPath: dst.appendingPathComponent("index.html").path(percentEncoded: false)))
     }
 }

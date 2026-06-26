@@ -34,11 +34,11 @@ func syncImageAssets(srcs: [String], baseUrl: URL, docDir: URL, deleteOrphans: B
     let srcSet = Set(srcs)
     for src in srcs {
         let dest = docDir.appendingPathComponent(src)
-        guard !fm.fileExists(atPath: dest.path) else { continue }
+        guard !fm.fileExists(atPath: dest.path(percentEncoded: false)) else { continue }
         let source = baseUrl.appendingPathComponent(src)
-        guard fm.fileExists(atPath: source.path) else { continue }
+        guard fm.fileExists(atPath: source.path(percentEncoded: false)) else { continue }
         let parent = dest.deletingLastPathComponent()
-        if !fm.fileExists(atPath: parent.path) {
+        if !fm.fileExists(atPath: parent.path(percentEncoded: false)) {
             try fm.createDirectory(at: parent, withIntermediateDirectories: true)
         }
         try fm.copyItem(at: source, to: dest)
@@ -49,7 +49,7 @@ func syncImageAssets(srcs: [String], baseUrl: URL, docDir: URL, deleteOrphans: B
         includingPropertiesForKeys: [.isRegularFileKey],
         options: [.skipsHiddenFiles]
     ) else { return }
-    var docDirPath = docDir.path
+    var docDirPath = docDir.path(percentEncoded: false)
     if docDirPath.hasSuffix("/") { docDirPath.removeLast() }
     for case let fileURL as URL in enumerator {
         let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
@@ -59,7 +59,7 @@ func syncImageAssets(srcs: [String], baseUrl: URL, docDir: URL, deleteOrphans: B
         // Preserve spec-defined non-image package files regardless of image-srcs list.
         let preservedExtensions: Set<String> = ["data", "css", "htmd"]
         guard !preservedExtensions.contains(ext) else { continue }
-        let relativePath = String(fileURL.path.dropFirst(docDirPath.count + 1))
+        let relativePath = String(fileURL.path(percentEncoded: false).dropFirst(docDirPath.count + 1))
         if !srcSet.contains(relativePath) {
             try fm.removeItem(at: fileURL)
         }
@@ -73,7 +73,7 @@ func syncImageAssets(srcs: [String], baseUrl: URL, docDir: URL, deleteOrphans: B
 /// If a package already exists at `packageURL` it is replaced.
 func saveAsHtmd(srcs: [String], html: String, baseUrl: URL, to packageURL: URL) throws {
     let fm = FileManager.default
-    if fm.fileExists(atPath: packageURL.path) {
+    if fm.fileExists(atPath: packageURL.path(percentEncoded: false)) {
         try fm.removeItem(at: packageURL)
     }
     try fm.createDirectory(at: packageURL, withIntermediateDirectories: true)
@@ -118,11 +118,11 @@ struct PluginResult: Decodable {
 // MARK: - Types
 
 enum DocumentOpenError: Error, Equatable {
-    case invalidExtension
     case rootHtmlNotFound
     case ambiguousRootHtml(Int)
     case missingPackageImage(String)
-    case noWebviewAvailable
+    case noWebViewAvailable
+    case parentSecurityScope(String)
 }
 
 /// Returns the single .html file at the root of `packageURL`, or throws if there are zero or more than one.
@@ -154,6 +154,43 @@ func localImageSrcs(in html: String) -> [String] {
     }
 }
 
+func localImageSrcsInMarkdown(_ content: String) -> [String] {
+    // Strip code regions first — image syntax inside code spans/blocks is literal text,
+    // not a real image reference.
+    var stripped = content
+    let stripPatterns = [
+        #"```[\s\S]*?```"#,  // fenced code blocks (backtick)
+        #"~~~[\s\S]*?~~~"#,  // fenced code blocks (tilde)
+        #"`[^`\n]+`"#,       // inline code spans
+    ]
+    for pattern in stripPatterns {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+        stripped = regex.stringByReplacingMatches(
+            in: stripped,
+            range: NSRange(stripped.startIndex..., in: stripped),
+            withTemplate: ""
+        )
+    }
+    let nsStripped = stripped as NSString
+    let fullRange = NSRange(location: 0, length: nsStripped.length)
+    var srcs = Set<String>()
+    let patterns = [
+        #"!\[[^\]]*\]\(([^\s)]+)"#,                        // ![alt](path)
+        #"(?i)<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']"#  // <img src="path">
+    ]
+    for pattern in patterns {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+        for match in regex.matches(in: stripped, range: fullRange) {
+            guard match.numberOfRanges > 1 else { continue }
+            let srcRange = match.range(at: 1)
+            guard srcRange.location != NSNotFound else { continue }
+            let src = nsStripped.substring(with: srcRange)
+            if isLocalRelativeSrc(src) { srcs.insert(src) }
+        }
+    }
+    return Array(srcs)
+}
+
 func isLocalRelativeSrc(_ src: String) -> Bool {
     guard !src.isEmpty else { return false }
     let lower = src.lowercased()
@@ -172,38 +209,47 @@ func copyImageAssets(srcs: [String], from sourceDir: URL, to destDir: URL, skipM
     for src in srcs {
         let source = sourceDir.appendingPathComponent(src)
         let dest = destDir.appendingPathComponent(src)
-        guard fm.fileExists(atPath: source.path) else {
+        guard fm.fileExists(atPath: source.path(percentEncoded: false)) else {
             if skipMissing { continue }
             throw DocumentOpenError.missingPackageImage(src)
         }
         let parent = dest.deletingLastPathComponent()
-        if !fm.fileExists(atPath: parent.path) {
+        if !fm.fileExists(atPath: parent.path(percentEncoded: false)) {
             try fm.createDirectory(at: parent, withIntermediateDirectories: true)
         }
-        if fm.fileExists(atPath: dest.path) {
+        if fm.fileExists(atPath: dest.path(percentEncoded: false)) {
             try fm.removeItem(at: dest)
         }
         try fm.copyItem(at: source, to: dest)
     }
 }
 
-/// Stores a security-scoped bookmark for the parent directory of `fileURL` in UserDefaults.
-/// Must be called while the sandbox already has access to that directory (e.g. via NSOpenPanel).
+/// Stores a security-scoped bookmark for the parent directory in UserDefaults, keyed by the
+/// directory path. Must be called while the granting NSOpenPanel is on the call stack.
+///
+/// Pass `dirURL` for .md files: UTI public.plain-text does NOT receive the implicit
+/// parent-directory powerbox grant that web-content UTIs (public.html, com.apple.package) get
+/// from NSOpenPanel, so a second panel must explicitly grant directory access and its URL is
+/// passed here. When `dirURL` is nil the parent is derived from `fileURL`, which works for
+/// .html and .htmd because their powerbox grant already extends to the parent directory.
+///
 /// Silently does nothing if a bookmark cannot be created.
-func storeParentDirBookmark(for fileURL: URL) {
-    let parentDir = fileURL.deletingLastPathComponent()
-    guard let data = try? parentDir.bookmarkData(
+func storeParentDirBookmark(for fileURL: URL, using dirURL: URL? = nil) {
+    let parentDir = dirURL ?? fileURL.deletingLastPathComponent()
+    if let data = try? parentDir.bookmarkData(
         options: .withSecurityScope,
         includingResourceValuesForKeys: nil,
         relativeTo: nil
-    ) else { return }
-    UserDefaults.standard.set(data, forKey: "parentDirBookmark:\(fileURL.path)")
+    ) {
+        UserDefaults.standard.set(data, forKey: "parentDirBookmark:\(parentDir.path(percentEncoded: false))")
+    }
 }
 
 /// Resolves a previously stored security-scoped bookmark for the parent directory of `fileURL`.
 /// Returns the scoped URL ready for `startAccessingSecurityScopedResource()`, or nil if none stored.
 func resolveParentDirBookmark(for fileURL: URL) -> URL? {
-    guard let data = UserDefaults.standard.data(forKey: "parentDirBookmark:\(fileURL.path)") else { return nil }
+    let parentDir = fileURL.deletingLastPathComponent()
+    guard let data = UserDefaults.standard.data(forKey: "parentDirBookmark:\(parentDir.path(percentEncoded: false))") else { return nil }
     var isStale = false
     return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
 }
@@ -241,7 +287,7 @@ private func unescapeHTMLEntities(_ s: String) -> String {
 func loadHtmdMetadata(from packageURL: URL, htmlFilename: String) -> [MetadataTuple] {
     let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
     let dataURL = packageURL.appendingPathComponent(dataFilename)
-    guard FileManager.default.fileExists(atPath: dataURL.path),
+    guard FileManager.default.fileExists(atPath: dataURL.path(percentEncoded: false)),
           let data = try? Data(contentsOf: dataURL),
           let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
     else { return [] }
@@ -263,7 +309,7 @@ func saveHtmdMetadata(_ metadata: [MetadataTuple], to packageURL: URL, htmlFilen
     let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
     let dataURL = packageURL.appendingPathComponent(dataFilename)
     guard !metadata.isEmpty else {
-        if FileManager.default.fileExists(atPath: dataURL.path) {
+        if FileManager.default.fileExists(atPath: dataURL.path(percentEncoded: false)) {
             try FileManager.default.removeItem(at: dataURL)
         }
         return
@@ -285,20 +331,20 @@ func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<Stri
         includingPropertiesForKeys: [.isRegularFileKey],
         options: [.skipsHiddenFiles]
     ) else { return [] }
-    var pkgPath = packageURL.path
+    var pkgPath = packageURL.path(percentEncoded: false)
     if pkgPath.hasSuffix("/") { pkgPath.removeLast() }
     var copied = Set<String>()
     for case let fileURL as URL in enumerator {
         let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
         guard values.isRegularFile == true else { continue }
         guard fileURL.pathExtension.lowercased() != "html" else { continue }
-        let relativePath = String(fileURL.path.dropFirst(pkgPath.count + 1))
+        let relativePath = String(fileURL.path(percentEncoded: false).dropFirst(pkgPath.count + 1))
         let dest = destDir.appendingPathComponent(relativePath)
         let parent = dest.deletingLastPathComponent()
-        if !fm.fileExists(atPath: parent.path) {
+        if !fm.fileExists(atPath: parent.path(percentEncoded: false)) {
             try fm.createDirectory(at: parent, withIntermediateDirectories: true)
         }
-        if fm.fileExists(atPath: dest.path) {
+        if fm.fileExists(atPath: dest.path(percentEncoded: false)) {
             try fm.removeItem(at: dest)
         }
         try fm.copyItem(at: fileURL, to: dest)

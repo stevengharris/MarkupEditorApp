@@ -42,7 +42,7 @@ struct PluginFilesConfigTests {
 
         #expect(result.count == 1)
         #expect(result[0].name == "Markdown")
-        let expectedPath = pluginDir.appendingPathComponent(filename).path
+        let expectedPath = pluginDir.appendingPathComponent(filename).path(percentEncoded: false)
         #expect(result[0].path == expectedPath)
     }
 

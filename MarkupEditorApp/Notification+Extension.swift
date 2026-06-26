@@ -20,5 +20,6 @@ extension Notification.Name {
     static let menuImportPlugin = Notification.Name("menuImportPlugin")
 #if DEBUG
     static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
+    static let menuClearCacheDir = Notification.Name("menuClearCacheDir")
 #endif
 }

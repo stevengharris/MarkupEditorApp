@@ -29,7 +29,7 @@ struct AppToolbarView: ToolbarContent {
         ToolbarItem(placement: .navigation) {
             HStack(alignment: .center, spacing: 4) {
                 if let url = currentFileURL {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false)))
                         .resizable()
                         .scaledToFit()
                         .frame(width: iconSize, height: iconSize)

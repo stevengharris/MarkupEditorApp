@@ -38,7 +38,7 @@ struct PluginSetupTests {
         try FileManager.default.createDirectory(at: bundleDir, withIntermediateDirectories: true)
 
         // Directory does not exist yet
-        #expect(!FileManager.default.fileExists(atPath: pluginDir.path))
+        #expect(!FileManager.default.fileExists(atPath: pluginDir.path(percentEncoded: false)))
 
         PluginSetup.setupPluginDirectory(
             entries: [],
@@ -46,7 +46,7 @@ struct PluginSetupTests {
             bundleResourceURL: bundleDir
         )
 
-        #expect(FileManager.default.fileExists(atPath: pluginDir.path))
+        #expect(FileManager.default.fileExists(atPath: pluginDir.path(percentEncoded: false)))
     }
 
     @Test func doesNotFailWhenPluginDirectoryAlreadyExists() throws {
@@ -63,7 +63,7 @@ struct PluginSetupTests {
             bundleResourceURL: bundleDir
         )
 
-        #expect(FileManager.default.fileExists(atPath: pluginDir.path))
+        #expect(FileManager.default.fileExists(atPath: pluginDir.path(percentEncoded: false)))
     }
 
     // MARK: - Bundle copy
@@ -85,7 +85,7 @@ struct PluginSetupTests {
         )
 
         let dest = pluginDir.appendingPathComponent(filename)
-        #expect(FileManager.default.fileExists(atPath: dest.path))
+        #expect(FileManager.default.fileExists(atPath: dest.path(percentEncoded: false)))
     }
 
     @Test func overwritesExistingPluginFile() throws {
@@ -136,10 +136,10 @@ struct PluginSetupTests {
         )
 
         // Plugin directory should still have been created
-        #expect(FileManager.default.fileExists(atPath: pluginDir.path))
+        #expect(FileManager.default.fileExists(atPath: pluginDir.path(percentEncoded: false)))
         // Destination should NOT exist (nothing to copy from)
         let dest = pluginDir.appendingPathComponent(filename)
-        #expect(!FileManager.default.fileExists(atPath: dest.path))
+        #expect(!FileManager.default.fileExists(atPath: dest.path(percentEncoded: false)))
     }
 
     // MARK: - Empty entries
@@ -157,8 +157,8 @@ struct PluginSetupTests {
         )
 
         // Directory is created, but no files
-        #expect(FileManager.default.fileExists(atPath: pluginDir.path))
-        let contents = try FileManager.default.contentsOfDirectory(atPath: pluginDir.path)
+        #expect(FileManager.default.fileExists(atPath: pluginDir.path(percentEncoded: false)))
+        let contents = try FileManager.default.contentsOfDirectory(atPath: pluginDir.path(percentEncoded: false))
         #expect(contents.isEmpty)
     }
 

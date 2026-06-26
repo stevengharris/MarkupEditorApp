@@ -34,7 +34,7 @@ struct HtmdMetadataRoundTripTests {
         try saveHtmdMetadata(metadata, to: dir, htmlFilename: "index.html")
 
         let dataURL = dir.appendingPathComponent("index.data")
-        #expect(FileManager.default.fileExists(atPath: dataURL.path))
+        #expect(FileManager.default.fileExists(atPath: dataURL.path(percentEncoded: false)))
 
         let loaded = loadHtmdMetadata(from: dir, htmlFilename: "index.html")
         #expect(loaded.count == 3)
@@ -79,7 +79,7 @@ struct HtmdMetadataRoundTripTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try saveHtmdMetadata([], to: dir, htmlFilename: "index.html")
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path))
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path(percentEncoded: false)))
     }
 
     @Test func emptyMetadataDeletesExistingDataFile() throws {
@@ -89,10 +89,10 @@ struct HtmdMetadataRoundTripTests {
         // Write a .data file first, then save empty metadata — file should be removed
         let initial: [MetadataTuple] = [MetadataTuple(key: "k", value: .scalar("v"))]
         try saveHtmdMetadata(initial, to: dir, htmlFilename: "index.html")
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path))
+        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path(percentEncoded: false)))
 
         try saveHtmdMetadata([], to: dir, htmlFilename: "index.html")
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path))
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path(percentEncoded: false)))
     }
 
     @Test func loadReturnsEmptyForAbsentDataFile() {
