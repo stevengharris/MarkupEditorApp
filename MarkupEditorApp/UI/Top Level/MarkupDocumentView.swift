@@ -188,6 +188,7 @@ struct MarkupDocumentView: View {
         config.toolbarConfig = ToolbarConfig.fromDefaults()
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
+        config.userScriptFile = "markup-editor-markdown.js"
         config.pluginFiles = AppConfig.pluginFiles(
             from: AppConfig.fromDefaults().plugins,
             pluginDir: PluginSetup.defaultPluginDir
@@ -432,9 +433,9 @@ struct MarkupDocumentView: View {
             handler?()
             return
         }
-        webView.invokePlugin(name: "Markdown", action: "import", content: fileContent) { result in
+        webView.importMarkdown(content: fileContent) { result in
             guard let pluginResult = PluginResult.decode(from: result) else {
-                showAlert("Plugin returned an unexpected response.")
+                showAlert("Unexpected response.")
                 handler?()
                 return
             }
