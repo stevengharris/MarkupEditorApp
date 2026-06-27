@@ -1,3 +1,4 @@
+import { MU } from './markup-editor.js';
 import { Schema, Mark, DOMSerializer } from './markup-editor.js';
 
 /* eslint-disable no-bitwise */
@@ -9776,21 +9777,13 @@ function requireMarkdownItFrontMatter () {
 var markdownItFrontMatterExports = requireMarkdownItFrontMatter();
 var frontMatterPlugin = /*@__PURE__*/getDefaultExportFromCjs(markdownItFrontMatterExports);
 
-// ---------------------------------------------------------------------------
-// Plugin registration
-// ---------------------------------------------------------------------------
-
-const muEl = document.querySelector('markup-editor');
-if (!muEl) throw new Error('markup-editor element not found; plugin loaded too early')
-const MU = muEl.MU;
-
 /**
  * Export the active editor content as Markdown.
  *
  * @param {string} _content - unused; content comes from the active view
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-function exportFn(_content) {
+MU.exportMarkdown = function exportMarkdown(_content) {
   const view = MU.activeView();
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -9801,7 +9794,7 @@ function exportFn(_content) {
   // Escape bare < in text so re-import treats them as escaped characters, not html_inline
   const markdown = serializer.serialize(doc, { escapeExtraCharacters: /</g });
   return JSON.stringify({ result: markdown, warnings: warnings.get() })
-}
+};
 
 /**
  * Import Markdown content, converting it to HTML for the editor.
@@ -9811,7 +9804,7 @@ function exportFn(_content) {
  * @param {string} content - Markdown string to import
  * @returns {string} JSON string { result: string|null, warnings: string[], metadata?: string }
  */
-function importFn(content) {
+MU.importMarkdown = function importMarkdown(content) {
   const view = MU.activeView();
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -9883,13 +9876,4 @@ function importFn(content) {
   const out = { result: div.innerHTML, warnings: warnings.get() };
   if (yamlContent !== null && yamlContent !== '') out.metadata = yamlContent;
   return JSON.stringify(out)
-}
-
-MU.registerPlugin({
-  name: 'Markdown',
-  extension: 'md',
-  export: exportFn,
-  import: importFn
-});
-
-export { exportFn, importFn };
+};

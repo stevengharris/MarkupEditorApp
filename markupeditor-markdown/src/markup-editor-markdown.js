@@ -1,3 +1,4 @@
+import { MU } from "markupeditor"
 import { DOMSerializer } from 'prosemirror-model'
 import { makeSerializer } from './serializer.js'
 import { makeParser } from './parser.js'
@@ -5,21 +6,13 @@ import { makeWarnings } from './warnings.js'
 import MarkdownIt from 'markdown-it'
 import frontMatterPlugin from 'markdown-it-front-matter'
 
-// ---------------------------------------------------------------------------
-// Plugin registration
-// ---------------------------------------------------------------------------
-
-const muEl = document.querySelector('markup-editor')
-if (!muEl) throw new Error('markup-editor element not found; plugin loaded too early')
-const MU = muEl.MU
-
 /**
  * Export the active editor content as Markdown.
  *
  * @param {string} _content - unused; content comes from the active view
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-export function exportFn(_content) {
+MU.exportMarkdown = function exportMarkdown(_content) {
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -40,7 +33,7 @@ export function exportFn(_content) {
  * @param {string} content - Markdown string to import
  * @returns {string} JSON string { result: string|null, warnings: string[], metadata?: string }
  */
-export function importFn(content) {
+MU.importMarkdown = function importMarkdown(content) {
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -113,10 +106,3 @@ export function importFn(content) {
   if (yamlContent !== null && yamlContent !== '') out.metadata = yamlContent
   return JSON.stringify(out)
 }
-
-MU.registerPlugin({
-  name: 'Markdown',
-  extension: 'md',
-  export: exportFn,
-  import: importFn
-})
