@@ -84,9 +84,13 @@ struct MarkupDocumentView: View {
                     document.setSource(currentSource)
                 } else {
                     Task {
-                        guard let html = try? await getHTML(from: currentSource) else { return }
-                        currentHtml = html
-                        document.setSource(currentSource)
+                        do {
+                            let html = try await getHTML(from: currentSource)
+                            currentHtml = html
+                            document.setSource(currentSource)
+                        } catch {
+                            showError(error.localizedDescription)
+                        }
                     }
                 }
             }
@@ -264,7 +268,7 @@ struct MarkupDocumentView: View {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard await checkSave() else { return }
         await webView.emptyDocument()
-        guard let html = await webView.getHtml() else { return }
+        guard let html = await getCurrentHTML() else { return }
         document.setSource(html, documentType: .html)
         currentHtml = document.source
         NSApplication.shared.mainWindow?.representedURL = nil
@@ -362,6 +366,7 @@ struct MarkupDocumentView: View {
         alert.alertStyle = .warning
         switch alert.runModal() {
         case .alertFirstButtonReturn:
+            await handleSave()
             return true
         case .alertSecondButtonReturn:
             document.hasChanges = false
@@ -454,10 +459,10 @@ struct MarkupDocumentView: View {
         editLog.warnings(warnings)
         do {
             try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
-            try setHTML(html)
         } catch {
             throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
         }
+        try setHTML(html)
         track(url: url)
     }
     
@@ -560,8 +565,11 @@ struct MarkupDocumentView: View {
         if document.isHTMLish {
             currentHtml = currentSource
         } else {
-            guard let html = try? await getHTML(from: currentSource) else { return }
-            currentHtml = html
+            do {
+                currentHtml = try await getHTML(from: currentSource)
+            } catch {
+                showError(error.localizedDescription)
+            }
         }
     }
 
@@ -654,7 +662,7 @@ extension MarkupDocumentView: MarkupDelegate {
 
     func markupInput(_ view: MarkupWKWebView) {
         document.hasChanges = true
-        Task {
+        Task { @MainActor in
             let selectionState = await view.getSelectionState()
             MarkupEditor.selectionState.reset(from: selectionState)
         }
