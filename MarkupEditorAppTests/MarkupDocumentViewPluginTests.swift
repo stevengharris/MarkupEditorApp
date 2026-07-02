@@ -31,16 +31,14 @@ import UniformTypeIdentifiers
     @Test func populatePluginMenusChangesSubmenuCount() {
         let delegate = makeDelegate()
 
-        // Submenus start empty
+        // Export submenu starts empty
         #expect(delegate.exportSubmenu.items.isEmpty)
-        #expect(delegate.importSubmenu.items.isEmpty)
 
         // After populate, count increases — this is exactly what markupPluginsDidLoad calls
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
         delegate.populatePluginMenus(entries)
 
         #expect(delegate.exportSubmenu.items.count == 1)
-        #expect(delegate.importSubmenu.items.count == 1)
     }
 
     @Test func populatePluginMenusWithMultipleEntriesMatchesPluginCount() {
@@ -51,7 +49,6 @@ import UniformTypeIdentifiers
         ]
         delegate.populatePluginMenus(entries)
         #expect(delegate.exportSubmenu.items.count == entries.count)
-        #expect(delegate.importSubmenu.items.count == entries.count)
     }
 
     // MARK: - markupPluginsDidLoad manifest mapping

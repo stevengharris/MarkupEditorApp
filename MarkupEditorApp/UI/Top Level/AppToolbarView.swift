@@ -15,7 +15,7 @@ struct AppToolbarView: ToolbarContent {
 
     @Environment(\.openSettings) private var openSettings
     
-    @Binding var currentFileURL: URL?
+    @Binding var url: URL?
     @Binding var appConfig: AppConfig
     @Binding var appConfigJSON: String
     @Binding var toolbarConfigJSON: String
@@ -28,7 +28,7 @@ struct AppToolbarView: ToolbarContent {
         // Sidebar toggle: insert ToolbarItem(placement: .navigation) here when adding a sidebar.
         ToolbarItem(placement: .navigation) {
             HStack(alignment: .center, spacing: 4) {
-                if let url = currentFileURL {
+                if let url {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false)))
                         .resizable()
                         .scaledToFit()
@@ -39,7 +39,7 @@ struct AppToolbarView: ToolbarContent {
                         .scaledToFit()
                         .frame(width: iconSize, height: iconSize)
                 }
-                Text(currentFileURL?.lastPathComponent ?? "MarkupEditor")
+                Text(url?.lastPathComponent ?? "MarkupEditor")
                     .font(.title3)
             }
             .allowsHitTesting(false)
@@ -47,7 +47,7 @@ struct AppToolbarView: ToolbarContent {
         .sharedBackgroundVisibility(.hidden)
         ToolbarSpacer(.flexible)
         ToolbarItemGroup {
-            if let url = currentFileURL {
+            if let url {
                 ShareLink(item: url)
             }
             if appConfig.isToggled() {

@@ -1,5 +1,5 @@
 //
-//  ImportLog.swift
+//  EditLog.swift
 //  MarkupEditorApp
 //
 //  Created by Steven Harris on 6/1/26.
@@ -8,9 +8,9 @@
 import OSLog
 
 @Observable
-class ImportLog {
+class EditLog {
     private(set) var entries: [String] = []
-    private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "Import")
+    private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "Edit")
     
     public init() {}
 

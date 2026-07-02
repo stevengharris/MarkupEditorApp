@@ -9,15 +9,15 @@ import SwiftUI
 
 struct LogInfoView: View {
     
-    @Environment(ImportLog.self) private var importLog
+    @Environment(EditLog.self) private var editLog
     
     var body: some View {
         Spacer()
-        if importLog.entries.isEmpty { Text("Log is empty.") }
+        if editLog.entries.isEmpty { Text("Log is empty.") }
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 2) {
-                ForEach(importLog.entries.indices, id: \.self) { index in
-                    Text(importLog.entries[index])
+                ForEach(editLog.entries.indices, id: \.self) { index in
+                    Text(editLog.entries[index])
                         .font(.system(.body, design: .monospaced))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal)

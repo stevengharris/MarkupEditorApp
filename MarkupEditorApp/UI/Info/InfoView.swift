@@ -14,7 +14,7 @@ struct InfoView: View {
     @Binding var metadataInfo: [MetadataTuple]
     @State private var infoType: InfoType
     
-    let height = ToolbarConfig.fromDefaults().toolbarHeight()
+    let height = ToolbarConfig.fromDefaults().toolbarHeight() - 1
     
     var body: some View {
         VStack(spacing: 0) {

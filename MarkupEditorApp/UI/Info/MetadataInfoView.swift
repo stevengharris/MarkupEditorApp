@@ -61,7 +61,7 @@ struct MetadataInfoView: View {
         .sheet(isPresented: $showAddItem) {
             AddItemView(isPresented: $showAddItem, title: "Add Metadata Item", namePrompt: "key", valuePrompt: "value or [value, value...]") { key, string in
                 var warnings: [String] = []
-                let tuples = parseYAMLMetadata("\(key): \(string)", warnings: &warnings)
+                let tuples = YAMLMetadata.parse("\(key): \(string)", warnings: &warnings)
                 guard tuples.count == 1 else {
                     print("\(warnings)")
                     return

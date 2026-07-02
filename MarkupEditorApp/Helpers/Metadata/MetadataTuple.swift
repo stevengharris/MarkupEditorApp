@@ -18,7 +18,7 @@ class MetadataTuple: Sendable, CustomStringConvertible {
     
     static func from(_ string: String) -> MetadataTuple? {
         var warnings: [String] = []
-        let tuples = parseYAMLMetadata(string, warnings: &warnings)
+        let tuples = YAMLMetadata.parse(string, warnings: &warnings)
         if warnings.count > 0 {
             print("\(warnings)")
         }

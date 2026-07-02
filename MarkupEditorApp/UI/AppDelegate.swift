@@ -136,8 +136,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NotificationCenter.default.post(name: .menuSaveAsDocument, object: nil)
     }
 
-    @objc private func showHtml(_ sender: Any?) {
-        NotificationCenter.default.post(name: .menuShowSource, object: nil)
+    @objc private func toggleSource(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuToggleSource, object: nil)
     }
 
     @objc private func showSettings(_ sender: Any?) {
@@ -286,11 +286,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         toggleFullScreen.keyEquivalentModifierMask = [.command, .control]
         viewMenu.addItem(toggleFullScreen)
         viewMenu.addItem(.separator())
-        let showHtmlItem = NSMenuItem(title: "Show Source", action: #selector(showHtml(_:)), keyEquivalent: "u")
-        showHtmlItem.keyEquivalentModifierMask = [.command, .shift]
-        showHtmlItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Show Source")
-        showHtmlItem.target = self
-        viewMenu.addItem(showHtmlItem)
+        let toggleSourceItem = NSMenuItem(title: "Toggle Source", action: #selector(toggleSource(_:)), keyEquivalent: "/")
+        toggleSourceItem.keyEquivalentModifierMask = [.command]
+        toggleSourceItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Toggle Source")
+        toggleSourceItem.target = self
+        viewMenu.addItem(toggleSourceItem)
         viewMenuItem.submenu = viewMenu
 
         // Standard window menu

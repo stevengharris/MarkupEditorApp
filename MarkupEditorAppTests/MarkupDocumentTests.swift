@@ -23,18 +23,11 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
 
 @MainActor struct MarkupDocumentResetTests {
 
-    @Test func clearsCurrentFileURL() {
+    @Test func clearsUrl() {
         let doc = MarkupDocument()
-        doc.currentFileURL = URL(filePath: "/tmp/test.html")
+        doc.url = URL(filePath: "/tmp/test.html")
         doc.reset()
-        #expect(doc.currentFileURL == nil)
-    }
-
-    @Test func resetsRootFilename() {
-        let doc = MarkupDocument()
-        doc.rootFilename = "notes.html"
-        doc.reset()
-        #expect(doc.rootFilename == "index.html")
+        #expect(doc.url == nil)
     }
 
     @Test func clearsMetadata() {
@@ -44,11 +37,12 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(doc.metadata.isEmpty)
     }
 
-    @Test func preservesActiveType() {
+    @Test func resetsDocumentTypeToHtml() {
+        // reset() sets url = nil, which triggers url.didSet → documentType = .html
         let doc = MarkupDocument()
-        doc.activeType = .htmd
+        doc.documentType = .htmd
         doc.reset()
-        #expect(doc.activeType == .htmd)
+        #expect(doc.documentType == .html)
     }
 
     @Test func hasChangesIsFalseAfterReset() {
@@ -80,28 +74,6 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 }
 
-// MARK: - save() guard conditions
-
-@MainActor struct MarkupDocumentSaveGuardTests {
-
-    @Test func nilActiveTypeThrowsUnknownType() {
-        let doc = MarkupDocument()
-        // activeType is nil by default
-        #expect(throws: DocumentError.unknownType) {
-            try doc.save(html: "<p></p>", srcs: [], baseUrl: URL(filePath: "/tmp"))
-        }
-    }
-
-    @Test func nilCurrentFileURLThrowsNoCurrentURL() {
-        let doc = MarkupDocument()
-        doc.activeType = .html
-        // currentFileURL is nil by default
-        #expect(throws: DocumentError.noCurrentURL) {
-            try doc.save(html: "<p></p>", srcs: [], baseUrl: URL(filePath: "/tmp"))
-        }
-    }
-}
-
 // MARK: - open methods set model state
 //
 // setOpenResult is private; these tests verify its contract through the
@@ -118,8 +90,8 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         try "<p>Hello</p>".write(to: fileURL, atomically: true, encoding: .utf8)
         let doc = MarkupDocument()
         _ = try doc.openHtml(at: fileURL, baseUrl: baseUrl)
-        #expect(doc.currentFileURL == fileURL)
-        #expect(doc.activeType == .html)
+        #expect(doc.url == fileURL)
+        #expect(doc.documentType == .html)
         #expect(doc.metadata.isEmpty)
     }
 
@@ -133,30 +105,6 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         let doc = MarkupDocument()
         _ = try doc.openHtml(at: fileURL, baseUrl: baseUrl)
         #expect(doc.hasChanges == false)
-    }
-
-    @Test func openHtmlDefaultsRootFilenameToIndexHtml() throws {
-        let fm = FileManager.default
-        let dir = try makeTempDir()
-        let baseUrl = try makeTempDir()
-        defer { try? fm.removeItem(at: dir); try? fm.removeItem(at: baseUrl) }
-        let fileURL = dir.appendingPathComponent("doc.html")
-        try "<p></p>".write(to: fileURL, atomically: true, encoding: .utf8)
-        let doc = MarkupDocument()
-        doc.rootFilename = "notes.html"
-        _ = try doc.openHtml(at: fileURL, baseUrl: baseUrl)
-        #expect(doc.rootFilename == "index.html")
-    }
-
-    @Test func openHtmdSetsCustomRootFilename() throws {
-        let fm = FileManager.default
-        let pkg = try makeTempDir(suffix: ".htmd")
-        let baseUrl = try makeTempDir()
-        defer { try? fm.removeItem(at: pkg); try? fm.removeItem(at: baseUrl) }
-        try "<p></p>".write(to: pkg.appendingPathComponent("doc.html"), atomically: true, encoding: .utf8)
-        let doc = MarkupDocument()
-        _ = try doc.openHtmd(at: pkg, baseUrl: baseUrl)
-        #expect(doc.rootFilename == "doc.html")
     }
 }
 
@@ -177,7 +125,6 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 
     @Test func setsModelStateOnOpen() throws {
-        // openHtml calls setOpenResult, updating model state.
         let fm = FileManager.default
         let dir = try makeTempDir()
         let baseUrl = try makeTempDir()
@@ -186,8 +133,8 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         try "<p>content</p>".write(to: fileURL, atomically: true, encoding: .utf8)
         let doc = MarkupDocument()
         _ = try doc.openHtml(at: fileURL, baseUrl: baseUrl)
-        #expect(doc.currentFileURL == fileURL)
-        #expect(doc.activeType == .html)
+        #expect(doc.url == fileURL)
+        #expect(doc.documentType == .html)
         #expect(doc.metadata.isEmpty)
         #expect(doc.hasChanges == false)
     }
@@ -207,7 +154,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
 
 @MainActor struct MarkupDocumentOpenHtmdTests {
 
-    @Test func returnsHtmlAndSetsRootFilename() throws {
+    @Test func returnsHtmlContent() throws {
         let fm = FileManager.default
         let pkg = try makeTempDir(suffix: ".htmd")
         let baseUrl = try makeTempDir()
@@ -216,11 +163,9 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         let doc = MarkupDocument()
         let html = try doc.openHtmd(at: pkg, baseUrl: baseUrl)
         #expect(html == "<p>Hello</p>")
-        #expect(doc.rootFilename == "root.html")
     }
 
     @Test func setsModelStateOnSuccess() throws {
-        // openHtmd calls setOpenResult after a successful read.
         let fm = FileManager.default
         let pkg = try makeTempDir(suffix: ".htmd")
         let baseUrl = try makeTempDir()
@@ -228,118 +173,36 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         try "<p></p>".write(to: pkg.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         let doc = MarkupDocument()
         _ = try doc.openHtmd(at: pkg, baseUrl: baseUrl)
-        #expect(doc.currentFileURL == pkg)
-        #expect(doc.activeType == .htmd)
+        #expect(doc.url == pkg)
+        #expect(doc.documentType == .htmd)
         #expect(doc.hasChanges == false)
-        #expect(doc.rootFilename == "index.html")
-    }
-
-    @Test func doesNotMutateRootFilenameOnThrow() throws {
-        // C1 regression: a failed open must leave rootFilename completely untouched.
-        // Setup: HTML references an image not present in the package → missingPackageImage throw.
-        let fm = FileManager.default
-        let pkg = try makeTempDir(suffix: ".htmd")
-        let baseUrl = try makeTempDir()
-        defer { try? fm.removeItem(at: pkg); try? fm.removeItem(at: baseUrl) }
-        try #"<img src="missing.png">"#.write(
-            to: pkg.appendingPathComponent("doc.html"),
-            atomically: true,
-            encoding: .utf8
-        )
-        let doc = MarkupDocument()
-        doc.rootFilename = "original.html"
-        #expect(throws: (any Error).self) {
-            try doc.openHtmd(at: pkg, baseUrl: baseUrl)
-        }
-        #expect(doc.rootFilename == "original.html")
     }
 }
 
-// MARK: - saveHtmd / willSaveTo
+// MARK: - saveHtmd
 
 @MainActor struct MarkupDocumentSaveHtmdTests {
 
-    @Test func metadataWrittenToIndexDataRegardlessOfRootFilename() throws {
-        // C2 regression: saveHtmd must write index.data because saveAsHtmd always
-        // writes index.html — the two must always use the same base name.
+    @Test func metadataWrittenToIndexData() throws {
         let fm = FileManager.default
         let baseUrl = try makeTempDir()
         let destPkg = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".htmd")
         defer { try? fm.removeItem(at: baseUrl); try? fm.removeItem(at: destPkg) }
         let doc = MarkupDocument()
-        doc.rootFilename = "notes.html"
         doc.metadata = [makeMetadata("title", "My Doc")]
         try doc.saveHtmd(html: "<p></p>", to: destPkg, srcs: [], baseUrl: baseUrl)
         #expect(fm.fileExists(atPath: destPkg.appendingPathComponent("index.data").path(percentEncoded: false)))
-        #expect(!fm.fileExists(atPath: destPkg.appendingPathComponent("notes.data").path(percentEncoded: false)))
     }
 
-    @Test func willSaveToResetsRootFilenameForHtmd() {
+    @Test func saveHtmdSetsUrl() throws {
+        let fm = FileManager.default
+        let baseUrl = try makeTempDir()
+        let destPkg = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".htmd")
+        defer { try? fm.removeItem(at: baseUrl); try? fm.removeItem(at: destPkg) }
         let doc = MarkupDocument()
-        doc.rootFilename = "notes.html"
-        doc.willSaveTo(url: URL(filePath: "/tmp/new.htmd"), fileExtension: "htmd")
-        #expect(doc.rootFilename == "index.html")
-    }
-
-    @Test func willSaveToPreservesRootFilenameForHtml() {
-        // .html saves do not use rootFilename — it must not be reset.
-        let doc = MarkupDocument()
-        doc.rootFilename = "notes.html"
-        doc.willSaveTo(url: URL(filePath: "/tmp/new.html"), fileExtension: "html")
-        #expect(doc.rootFilename == "notes.html")
-    }
-
-    @Test func willSaveToClearsHasChanges() {
-        let doc = MarkupDocument()
-        doc.metadata = [makeMetadata()]  // triggers hasChanges = true
-        doc.willSaveTo(url: URL(filePath: "/tmp/new.html"), fileExtension: "html")
+        try doc.saveHtmd(html: "<p></p>", to: destPkg, srcs: [], baseUrl: baseUrl)
+        #expect(doc.url == destPkg)
+        #expect(doc.documentType == .htmd)
         #expect(doc.hasChanges == false)
-    }
-
-    @Test func willSaveToUpdatesDocumentIdentity() {
-        let doc = MarkupDocument()
-        let url = URL(filePath: "/tmp/saved.htmd")
-        doc.willSaveTo(url: url, fileExtension: "htmd")
-        #expect(doc.currentFileURL == url)
-        #expect(doc.activeType == .htmd)
-    }
-}
-
-// MARK: - non-html/htmd extension save (safety net)
-//
-// handleSave dispatches to invokePlugin for plugin extensions (.md, .rst, etc.)
-// and never calls document.save(). These tests verify the document.save()
-// safety-net: DocumentType cases without an explicit save path hit default:break
-// (no write, no throw). We use .md as the representative case — DocumentType is
-// now an enum, so unknown extensions like "rst" return nil from forExt() and
-// would hit the .unknownType guard before the switch.
-
-@MainActor struct MarkupDocumentSavePluginTests {
-
-    @Test func nonHtmlTypeDoesNotThrowOnSave() throws {
-        let tempDir = try makeTempDir()
-        let mdURL = tempDir.appendingPathComponent("test.md")
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-        try "".write(to: mdURL, atomically: true, encoding: .utf8)
-        let doc = MarkupDocument()
-        doc.activeType = .md
-        doc.currentFileURL = mdURL
-        #expect(throws: Never.self) {
-            try doc.save(html: "<p>test</p>", srcs: [], baseUrl: tempDir)
-        }
-    }
-
-    @Test func nonHtmlTypeDoesNotWriteFileOnSave() throws {
-        let tempDir = try makeTempDir()
-        let mdURL = tempDir.appendingPathComponent("test.md")
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-        let original = "original content"
-        try original.write(to: mdURL, atomically: true, encoding: .utf8)
-        let doc = MarkupDocument()
-        doc.activeType = .md
-        doc.currentFileURL = mdURL
-        try doc.save(html: "<p>new content</p>", srcs: [], baseUrl: tempDir)
-        let afterSave = try String(contentsOf: mdURL, encoding: .utf8)
-        #expect(afterSave == original)
     }
 }
