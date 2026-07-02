@@ -83,8 +83,8 @@ struct MarkupDocumentView: View {
                     currentHtml = currentSource
                     document.setSource(currentSource)
                 } else {
-                    getHTML(from: currentSource) { html in
-                        guard let html else { return }
+                    Task {
+                        guard let html = try? await getHTML(from: currentSource) else { return }
                         currentHtml = html
                         document.setSource(currentSource)
                     }
@@ -119,7 +119,7 @@ struct MarkupDocumentView: View {
                 for name in names {
                     group.addTask { @MainActor in
                         for await notification in NotificationCenter.default.notifications(named: name) {
-                            handleMenuNotification(notification)
+                            await handleMenuNotification(notification)
                         }
                     }
                 }
@@ -164,8 +164,9 @@ struct MarkupDocumentView: View {
         .onOpenURL { url in
             if MarkupEditor.selectedWebView != nil {
                 AppDelegate.pendingFinderURL = nil
-                checkSave {
-                    Task { await openDocument(at: url) }
+                Task {
+                    guard await checkSave() else { return }
+                    await openDocument(at: url)
                 }
             } else {
                 AppDelegate.pendingFinderURL = url
@@ -228,24 +229,23 @@ struct MarkupDocumentView: View {
         return try? JSONDecoder().decode(type, from: data)
     }
     
-    private func getLocalImageSrcs(completion: @escaping ([String]) -> Void) {
-        guard let webView = MarkupEditor.selectedWebView else { completion([]); return }
-        webView.getLocalImages(handler: completion)
+    private func getLocalImageSrcs() async -> [String] {
+        guard let webView = MarkupEditor.selectedWebView else { return [] }
+        return await webView.getLocalImages()
     }
     
     // Fetches current HTML and bumps configVersion, forcing MarkupEditorView to redraw via .id(configVersion).
     private func reloadEditorForConfigChange() {
-        MarkupEditor.selectedWebView?.getHtml { html in
-            self.currentHtml = html ?? ""
-            self.configVersion += 1
+        Task {
+            currentHtml = await MarkupEditor.selectedWebView?.getHtml() ?? ""
+            configVersion += 1
         }
     }
-    
+
     // Keep track of the URL we are working on in recentDocuments and show in the window title bar
-    private func track(url: URL, handler: (()->Void)? = nil) {
+    private func track(url: URL) {
         NSDocumentController.shared.noteNewRecentDocumentURL(url)
         NSApplication.shared.mainWindow?.representedURL = url
-        handler?()
     }
     
     /// For now, just show an error in the log, but in longer run, show notification breadcrumbs
@@ -260,110 +260,99 @@ struct MarkupDocumentView: View {
     
     // MARK: - File operations (driven by menu notifications on macOS)
     
-    private func handleNew() {
+    private func handleNew() async {
         guard let webView = MarkupEditor.selectedWebView else { return }
-        checkSave {
-            webView.emptyDocument {
-                webView.getHtml { html in
-                    guard let html else { return }
-                    document.setSource(html, documentType: .html)
-                    currentHtml = document.source
-                    NSApplication.shared.mainWindow?.representedURL = nil
-                    document.reset()
-                }
-            }
+        guard await checkSave() else { return }
+        await webView.emptyDocument()
+        guard let html = await webView.getHtml() else { return }
+        document.setSource(html, documentType: .html)
+        currentHtml = document.source
+        NSApplication.shared.mainWindow?.representedURL = nil
+        document.reset()
+    }
+
+    private func handleQuit() async {
+        guard await checkSave() else { return }
+        if AppDelegate.isRespondingToTerminateQuery {
+            // Cmd+Q path: applicationShouldTerminate returned .terminateLater
+            AppDelegate.isRespondingToTerminateQuery = false
+            NSApp.reply(toApplicationShouldTerminate: true)
+        } else {
+            // Close-button path: window is still open; terminate now
+            AppDelegate.skipTerminateCheck = true
+            NSApp.terminate(nil)
         }
     }
-    
-    private func handleQuit() {
-        checkSave {
-            if AppDelegate.isRespondingToTerminateQuery {
-                // Cmd+Q path: applicationShouldTerminate returned .terminateLater
-                AppDelegate.isRespondingToTerminateQuery = false
-                NSApp.reply(toApplicationShouldTerminate: true)
-                return
-            } else {
-                // Close-button path: window is still open; terminate now
-                AppDelegate.skipTerminateCheck = true
-                NSApp.terminate(nil)
-            }
-            // Close-button cancel: window stays open, nothing to do
-        }
-    }
-    
-    private func handleMenuNotification(_ notification: Notification) {
+
+    private func handleMenuNotification(_ notification: Notification) async {
         switch notification.name {
         case .menuNewDocument:
-            handleNew()
+            await handleNew()
         case .menuOpenDocument:
-            handleOpen()
+            await handleOpen()
         case .menuSaveDocument:
-            handleSave()
+            await handleSave()
         case .menuSaveAsDocument:
-            handleSaveAs()
+            await handleSaveAs()
         case .menuToggleSource:
-            handleToggleSource()
+            await handleToggleSource()
         case .menuShowSettings:
             openSettings()
         case .menuOpenRecentDocument:
             guard let url = notification.object as? URL else { return }
-            handleOpenRecent(url: url)
+            await handleOpenRecent(url: url)
         case .menuExportPlugin:
             guard let pluginName = notification.userInfo?["name"] as? String else { return }
             let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
-            handleExport(pluginName: pluginName, fileExt: fileExt)
+            await handleExport(pluginName: pluginName, fileExt: fileExt)
         case .menuQuitApplication:
-            handleQuit()
+            await handleQuit()
         case NSWindow.willCloseNotification:
             NotificationCenter.default.post(name: .dismissSettings, object: nil)
         default:
             break
         }
     }
-    
-    private func handleOpen() {
-        checkSave {
-            let panel = NSOpenPanel()
-            panel.allowedContentTypes = DocumentType.utTypes()
-            panel.allowsMultipleSelection = false
-            panel.canChooseDirectories = true
-            panel.canChooseFiles = true
-            guard panel.runModal() == .OK, let url = panel.url else { return }
-            if url.pathExtension.lowercased() == "md",
-               let content = try? String(contentsOf: url, encoding: .utf8),
-               !document.localImageSrcsInMarkdown(content).isEmpty,
-               document.resolveParentDirBookmark(for: url) == nil {
-                // NSOpenPanel's powerbox grant implicitly extends to the parent directory for
-                // web-content UTIs (public.html, .htmd), but NOT for public.plain-text (.md).
-                // Confirmed empirically: FileManager.contentsOfDirectory on the parent succeeds
-                // synchronously after selecting .html but fails with a sandbox denial after .md.
-                // Request explicit directory access via a second panel so images can be cached.
-                // Skipped when a bookmark for this directory is already stored from a prior open.
-                let dirPanel = NSOpenPanel()
-                dirPanel.canChooseFiles = false
-                dirPanel.canChooseDirectories = true
-                dirPanel.directoryURL = url.deletingLastPathComponent()
-                dirPanel.prompt = "Grant Access"
-                dirPanel.message = "This document references images. Grant read access to the containing folder to display them."
-                if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
-                    document.storeParentDirBookmark(for: url, using: dirURL)
-                }
-            } else {
-                document.storeParentDirBookmark(for: url)
+
+    private func handleOpen() async {
+        guard await checkSave() else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = DocumentType.utTypes()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if url.pathExtension.lowercased() == "md",
+           let content = try? String(contentsOf: url, encoding: .utf8),
+           !document.localImageSrcsInMarkdown(content).isEmpty,
+           document.resolveParentDirBookmark(for: url) == nil {
+            // NSOpenPanel's powerbox grant implicitly extends to the parent directory for
+            // web-content UTIs (public.html, .htmd), but NOT for public.plain-text (.md).
+            // Confirmed empirically: FileManager.contentsOfDirectory on the parent succeeds
+            // synchronously after selecting .html but fails with a sandbox denial after .md.
+            // Request explicit directory access via a second panel so images can be cached.
+            // Skipped when a bookmark for this directory is already stored from a prior open.
+            let dirPanel = NSOpenPanel()
+            dirPanel.canChooseFiles = false
+            dirPanel.canChooseDirectories = true
+            dirPanel.directoryURL = url.deletingLastPathComponent()
+            dirPanel.prompt = "Grant Access"
+            dirPanel.message = "This document references images. Grant read access to the containing folder to display them."
+            if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
+                document.storeParentDirBookmark(for: url, using: dirURL)
             }
-            Task { await openDocument(at: url) }
+        } else {
+            document.storeParentDirBookmark(for: url)
         }
+        await openDocument(at: url)
     }
     
     //MARK: Shared functions
     
     /// Present a save/discard/cancel alert if the document has unsaved changes.
-    /// Calls the completion with true to proceed, false to cancel.
-    private func checkSave(then proceed: () -> Void) {
-        guard document.hasChanges else {
-            proceed()
-            return
-        }
+    /// Returns true to proceed, false if the user cancelled.
+    private func checkSave() async -> Bool {
+        guard document.hasChanges else { return true }
         let alert = NSAlert()
         alert.messageText = "Do you want to save the changes to this document?"
         alert.informativeText = "Your changes will be lost if you don't save them."
@@ -371,15 +360,14 @@ struct MarkupDocumentView: View {
         alert.addButton(withTitle: "Don't Save")
         alert.addButton(withTitle: "Cancel")
         alert.alertStyle = .warning
-        let response = alert.runModal()
-        switch response {
+        switch alert.runModal() {
         case .alertFirstButtonReturn:
-            proceed()
+            return true
         case .alertSecondButtonReturn:
             document.hasChanges = false
-            proceed()
+            return true
         default:
-            return
+            return false
         }
     }
     
@@ -393,7 +381,7 @@ struct MarkupDocumentView: View {
     
     //MARK: Opening files
     
-    private func openDocument(at url: URL, handler: (()->Void)? = nil) async {
+    private func openDocument(at url: URL) async {
         guard let docType = DocumentType.for(url: url) else {
             let supported = DocumentType.exts().joined(separator: ", ")
             let alert = NSAlert()
@@ -408,37 +396,38 @@ struct MarkupDocumentView: View {
         do {
             switch docType {
             case .html:
-                try openHtml(at: url, handler: handler)
+                try openHtml(at: url)
             case .md:
-                try openMd(at: url, handler: handler)
+                try await openMd(at: url)
             case .htmd:
-                try openHtmd(at: url, handler: handler)
+                try openHtmd(at: url)
             }
         } catch let error {
+            editLog.error(error.localizedDescription)
             let alert = NSAlert(error: error)
             alert.runModal()
         }
     }
     
-    private func openHtmd(at packageURL: URL, handler: (()->Void)? = nil) throws {
+    private func openHtmd(at packageURL: URL) throws {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
         let html = try document.openHtmd(at: packageURL, baseUrl: webView.baseUrl)
         try setHTML(html)
-        track(url: packageURL, handler: handler)
+        track(url: packageURL)
     }
-    
-    private func openHtml(at fileURL: URL, handler: (()->Void)? = nil) throws {
+
+    private func openHtml(at fileURL: URL) throws {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
         let html = try document.openHtml(at: fileURL, baseUrl: webView.baseUrl)
         try setHTML(html)
-        track(url: fileURL, handler: handler)
+        track(url: fileURL)
     }
-    
-    private func openMd(at url: URL, handler: (()->Void)? = nil) throws {
+
+    private func openMd(at url: URL) async throws {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
@@ -446,100 +435,71 @@ struct MarkupDocumentView: View {
         do {
             markdown = try String(contentsOf: url, encoding: .utf8)
         } catch {
-            showError("Could not read file: \(error.localizedDescription)")
-            handler?()
-            return
+            throw MarkupDocumentError.couldNotReadFile("\(error.localizedDescription)")
         }
-        webView.importMarkdown(content: markdown) { value in
-            guard let importValue = ImportExportValue.decode(from: value) else {
-                showError("Unexpected response on import.")
-                handler?()
-                return
-            }
-            guard let html = importValue.result else {
-                showError("Could not convert to HTML.")
-                handler?()
-                return
-            }
-            var warnings = importValue.warnings
-            let metadata: [MetadataTuple]
-            if let yamlString = importValue.metadata {
-                metadata = YAMLMetadata.parse(yamlString, warnings: &warnings)
-            } else {
-                metadata = []
-            }
-            editLog.warnings(warnings)
-            do {
-                try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
-                try setHTML(html)
-                track(url: url, handler: handler)
-            } catch let error {
-                showError("Could not prepare file: \(error.localizedDescription)")
-                handler?()
-                return
-            }
+        let value = await webView.importMarkdown(content: markdown)
+        guard let importValue = ImportExportValue.decode(from: value) else {
+            throw MarkupDocumentError.unexpectedImport
         }
+        guard let html = importValue.result else {
+            throw MarkupDocumentError.unableToImport
+        }
+        var warnings = importValue.warnings
+        let metadata: [MetadataTuple]
+        if let yamlString = importValue.metadata {
+            metadata = YAMLMetadata.parse(yamlString, warnings: &warnings)
+        } else {
+            metadata = []
+        }
+        editLog.warnings(warnings)
+        do {
+            try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
+            try setHTML(html)
+        } catch {
+            throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
+        }
+        track(url: url)
     }
     
-    private func getCurrentHTML(_ handler: ((String?)->Void)?) {
-        guard let webView = MarkupEditor.selectedWebView else {
-            handler?(nil)
-            return
-        }
-        webView.getHtml { html in
-            handler?(html)
-        }
+    private func getCurrentHTML() async -> String? {
+        guard let webView = MarkupEditor.selectedWebView else { return nil }
+        return await webView.getHtml()
     }
-    
-    func getMarkdown(from html: String, handler: ((String?) -> Void)?) {
+
+    func getMarkdown(from html: String) async throws -> String {
         guard let webView = MarkupEditor.selectedWebView else {
-            handler?(nil)
-            return
+            throw MarkupDocumentError.noWebViewAvailable
         }
-        webView.exportMarkdown(content: html) { value in
-            do {
-                guard let exportValue = ImportExportValue.decode(from: value) else {
-                    throw MarkupDocumentError.unexpectedExport
-                }
-                guard let markdown = exportValue.result else {
-                    throw MarkupDocumentError.unableToExport
-                }
-                editLog.warnings(exportValue.warnings)
-                handler?(markdown)
-            } catch let error {
-                editLog.error("Error exporting: \(error.localizedDescription)")
-                handler?(nil)
-            }
+        let value = await webView.exportMarkdown(content: html)
+        guard let exportValue = ImportExportValue.decode(from: value) else {
+            throw MarkupDocumentError.unexpectedExport
         }
+        guard let markdown = exportValue.result else {
+            throw MarkupDocumentError.unableToExport
+        }
+        editLog.warnings(exportValue.warnings)
+        return markdown
     }
-    
-    func getHTML(from markdown: String, handler: ((String?)->Void)?) {
+
+    func getHTML(from markdown: String) async throws -> String {
         guard let webView = MarkupEditor.selectedWebView else {
-            handler?(nil)
-            return
+            throw MarkupDocumentError.noWebViewAvailable
         }
-        webView.importMarkdown(content: markdown) { value in
-            do {
-                guard let importValue = ImportExportValue.decode(from: value) else {
-                    throw MarkupDocumentError.unexpectedImport
-                }
-                guard let html = importValue.result else {
-                    throw MarkupDocumentError.unableToImport
-                }
-                handler?(html)
-            } catch let error {
-                editLog.error("Error importing: \(error.localizedDescription)")
-                handler?(nil)
-            }
+        let value = await webView.importMarkdown(content: markdown)
+        guard let importValue = ImportExportValue.decode(from: value) else {
+            throw MarkupDocumentError.unexpectedImport
         }
+        guard let html = importValue.result else {
+            throw MarkupDocumentError.unableToImport
+        }
+        return html
     }
     
     //MARK: Saving
     
-    private func handleSave() {
+    private func handleSave() async {
         guard let webView = MarkupEditor.selectedWebView else { return }
         let oldURL = document.url
-        // Set the url and then reset in the event of an error
         if document.url == nil {
             document.url = getSaveURL()
         }
@@ -547,136 +507,93 @@ struct MarkupDocumentView: View {
             document.url = oldURL
             return
         }
-        getCurrentHTML { html in
-            guard let html else {
-                document.url = oldURL
-                return
+        guard let html = await getCurrentHTML() else {
+            document.url = oldURL
+            return
+        }
+        let srcs = await getLocalImageSrcs()
+        let baseUrl = webView.baseUrl
+        do {
+            switch document.documentType {
+            case .html:
+                try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
+            case .htmd:
+                try document.saveHtmd(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
+            case .md:
+                let markdown = try await getMarkdown(from: html)
+                try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
             }
-            getLocalImageSrcs { srcs in
-                let baseUrl = webView.baseUrl
-                // Because we have to get the markdown async, we need to do
-                // the do-catch block inside of the case(s) as does setting of the NS* values.
-                switch document.documentType {
-                case .html:
-                    do {
-                        try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
-                        track(url: url)
-                    } catch let error {
-                        editLog.error("Error saving: \(error.localizedDescription)")
-                        document.url = oldURL
-                    }
-                case .htmd:
-                    do {
-                        try document.saveHtmd(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
-                        track(url: url)
-                    } catch let error {
-                        editLog.error("Error saving: \(error.localizedDescription)")
-                        document.url = oldURL
-                    }
-                case .md:
-                    getMarkdown(from: html) { markdown in
-                        do {
-                            guard let markdown else {
-                                document.url = oldURL
-                                return
-                            }
-                            try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
-                            track(url: url)
-                        } catch let error {
-                            editLog.error("Error saving: \(error.localizedDescription)")
-                            document.url = oldURL
-                        }
-                    }
-                }
-            }
+            track(url: url)
+        } catch {
+            editLog.error("Error saving: \(error.localizedDescription)")
+            document.url = oldURL
         }
     }
     
     /// Toggles the source view. Triggers a content refresh of the new view that opens.
-    private func handleToggleSource() {
+    private func handleToggleSource() async {
         if !rawShowing {
             // If we are viewing the MarkupEditor, then set the document source
             // to what is currently in the view before showing the source.
-            setDocumentSourceFromView {
-                withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
-            }
+            await setDocumentSourceFromView()
         } else {
             // Else, the document.source contains any changes to source,
             // so we need to set the initialSource (HTML) based on it.
-            setCurrentHtmlFromSource {
-                withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
-            }
+            await setCurrentHtmlFromSource()
         }
+        withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
     }
     
-    /// Set the document's `source` based on the contents of the MarkupWKWebView,
-    private func setDocumentSourceFromView(handler: (()->Void)?) {
-        getCurrentHTML { html in
-            guard let html else {
-                handler?()
-                return
-            }
-            if document.isHTMLish {
-                document.setSource(html)
-                handler?()
-            } else {
-                getMarkdown(from: html) { markdown in
-                    guard let markdown else {
-                        handler?()
-                        return
-                    }
-                    document.setSource(markdown)
-                    handler?()
-                }
-            }
+    /// Set the document's `source` based on the contents of the MarkupWKWebView.
+    private func setDocumentSourceFromView() async {
+        guard let html = await getCurrentHTML() else { return }
+        if document.isHTMLish {
+            document.setSource(html)
+        } else {
+            guard let markdown = try? await getMarkdown(from: html) else { return }
+            document.setSource(markdown)
         }
     }
-    
+
     /// Set the `currentHtml` based on the `currentSource` that was set in SourceView.
-    private func setCurrentHtmlFromSource(handler: (()->Void)?) {
+    private func setCurrentHtmlFromSource() async {
         if document.isHTMLish {
             currentHtml = currentSource
-            handler?()
         } else {
-            getHTML(from: currentSource) { html in
-                guard let html else { return }
-                currentHtml = html
-                handler?()
-            }
+            guard let html = try? await getHTML(from: currentSource) else { return }
+            currentHtml = html
         }
     }
 
-    private func handleOpenRecent(url: URL) {
-        checkSave {
-            Task { await openDocument(at: url) }
-        }
+    private func handleOpenRecent(url: URL) async {
+        guard await checkSave() else { return }
+        await openDocument(at: url)
     }
 
-    private func handleExport(pluginName: String, fileExt: String) {
+    private func handleExport(pluginName: String, fileExt: String) async {
         let panel = NSSavePanel()
         let baseName = document.url?.deletingPathExtension().lastPathComponent ?? "Untitled"
         panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
         panel.allowedContentTypes = MarkupDocumentView.allowedContentTypes(forExt: fileExt)
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil) { result in
-            guard let exportResult = ImportExportValue.decode(from: result),
-                  let exportOutput = exportResult.result else {
-                showError("Plugin '\(pluginName)' could not complete the operation.")
-                return
-            }
-            let output = document.injectYAMLFrontMatter(into: exportOutput)
-            do {
-                try output.write(to: url, atomically: true, encoding: .utf8)
-            } catch {
-                showError("Failed to write file: \(error.localizedDescription)")
-            }
+        let result = await MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil)
+        guard let exportResult = ImportExportValue.decode(from: result),
+              let exportOutput = exportResult.result else {
+            showError("Plugin '\(pluginName)' could not complete the operation.")
+            return
+        }
+        let output = document.injectYAMLFrontMatter(into: exportOutput)
+        do {
+            try output.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            showError("Failed to write file: \(error.localizedDescription)")
         }
     }
 
-    private func handleSaveAs() {
+    private func handleSaveAs() async {
         if let url = getSaveURL() {
             document.url = url
-            handleSave()
+            await handleSave()
         }
     }
 
@@ -728,13 +645,17 @@ extension MarkupDocumentView: MarkupDelegate {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(toolbarVisible())
         if let url = AppDelegate.consumePendingURL() {
-            Task { await openDocument(at: url, handler: handler) }
+            Task {
+                await openDocument(at: url)
+                handler?()
+            }
         }
     }
 
     func markupInput(_ view: MarkupWKWebView) {
         document.hasChanges = true
-        view.getSelectionState() { selectionState in
+        Task {
+            let selectionState = await view.getSelectionState()
             MarkupEditor.selectionState.reset(from: selectionState)
         }
     }
