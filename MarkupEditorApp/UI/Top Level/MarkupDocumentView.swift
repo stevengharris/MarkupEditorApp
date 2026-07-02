@@ -367,7 +367,7 @@ struct MarkupDocumentView: View {
         switch alert.runModal() {
         case .alertFirstButtonReturn:
             await handleSave()
-            return true
+            return !document.hasChanges
         case .alertSecondButtonReturn:
             document.hasChanges = false
             return true
@@ -377,8 +377,11 @@ struct MarkupDocumentView: View {
     }
     
     func setHTML(_ html: String?) throws {
-        guard let html, let webView = MarkupEditor.selectedWebView else {
+        guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
+        }
+        guard let html else {
+            throw MarkupDocumentError.couldNotSetHTML
         }
         webView.setHtml(html)
         currentHtml = html
@@ -497,6 +500,7 @@ struct MarkupDocumentView: View {
         guard let html = importValue.result else {
             throw MarkupDocumentError.unableToImport
         }
+        editLog.warnings(importValue.warnings)
         return html
     }
     
@@ -555,8 +559,12 @@ struct MarkupDocumentView: View {
         if document.isHTMLish {
             document.setSource(html)
         } else {
-            guard let markdown = try? await getMarkdown(from: html) else { return }
-            document.setSource(markdown)
+            do {
+                let markdown = try await getMarkdown(from: html)
+                document.setSource(markdown)
+            } catch {
+                showError(error.localizedDescription)
+            }
         }
     }
 
