@@ -6,14 +6,21 @@ A macOS SwiftUI document editor built on the local `MarkupEditor` Swift package.
 
 ```
 MarkupEditorApp/
-  MarkupEditorApp.swift      - App entry point, MarkupEditor global config
-  MarkupDocumentView.swift   - Main view, MarkupDelegate conformance, file I/O, plugin dispatch
-  MarkupDocument.swift       - Document model (URL, metadata, save/open operations)
-  AppDelegate.swift          - NSMenu construction, menu action notifications
-  SourceView.swift           - Source view panel (raw HTML or plugin output)
-  DocumentOpener.swift       - File open/save-as helpers, image asset operations
-  PluginSetup.swift          - Plugin registration at app startup
-  AppConfig.swift            - Codable config loaded from appconfig.json
+  UI/
+    MarkupEditorApp.swift      - App entry point, MarkupEditor global config
+    AppDelegate.swift          - NSMenu construction, menu action notifications
+    Top Level/
+      MarkupDocumentView.swift - Main view, MarkupDelegate conformance, file I/O, plugin dispatch
+      SourceView.swift         - Source view panel (raw HTML or plugin output)
+    Info/                      - Document info UI
+    Settings/                  - App settings UI
+  Helpers/
+    MarkupDocument.swift       - Document model (URL, metadata, save/open operations)
+    PluginSetup.swift          - Plugin registration at app startup
+    AppConfig.swift            - Codable config loaded from appconfig.json
+    SyntaxHighlighter.swift    - Source view syntax highlighting
+    Metadata/                  - YAML frontmatter parsing/encoding
+  Extensions/
 ```
 
 The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (sibling directory).
@@ -22,7 +29,7 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 
 - **Entry point**: `MarkupEditorApp` (`@main`) wires up `AppDelegate` via `@NSApplicationDelegateAdaptor`
 - **Menu system**: `AppDelegate` builds the full `NSMenu` once, deferred to the next run loop iteration in `didFinishLaunching`. SwiftUI strips the menu between `willFinishLaunching` and `didFinishLaunching`, so the build is deferred. If an early menu is ever needed again, cache the result of `buildMenu()` rather than calling it twice.
-- **Menu → View communication**: Menu actions post `NotificationCenter` notifications (e.g. `.menuSaveDocument`). `MarkupDocumentView` listens with `.onReceive`. Do not use AppKit delegates or callbacks directly into the view.
+- **Menu → View communication**: Menu actions post `NotificationCenter` notifications (e.g. `.menuSaveDocument`). `MarkupDocumentView` listens via `.task { for await notification in NotificationCenter.default.notifications(named:) }`. `SettingsView` still uses `.onReceive`. Do not use AppKit delegates or callbacks directly into the view.
 - **Editor interaction**: All rich-text operations go through `MarkupEditor.selectedWebView` (a `MarkupWKWebView`). JavaScript commands use the `MU.*` namespace (e.g. `MU.insertTable()`).
 - **Image selection**: Driven by `MarkupEditor.selectImage` (`@ObservedObject`) toggling a `fileImporter`.
 - **Plugin dispatch**: `handleSave`, `refreshSourceView`, `handleExport`, `handleImport` all resolve the active plugin via `pluginName(forExtension:)` against `appConfig.plugins`. No hardcoded plugin names in dispatch logic.
@@ -32,15 +39,107 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 - `MarkupEditorView` — SwiftUI view wrapping the WKWebView editor
 - `MarkupWKWebViewConfiguration` — holds userResourceFiles config
 - `MarkupDelegate` — protocol for editor lifecycle callbacks (`markupDidLoad`, `markupInput`, `markupSelectImage`, `markupImageAdded`)
-- `ToolbarConfig.markdown()` — returns a markdown-oriented toolbar/menu config
-- `KeymapConfig.standard()` — returns default keyboard shortcut bindings
+- `ToolbarConfig` / `KeymapConfig` — factories are `.empty()`, `.load(...)`, `.fromJSON` in the `MarkupEditor` package. The app itself calls `.fromDefaults()` (app-side extensions in `AppConfig.swift`), not a package-provided `.markdown()` or `.standard()`.
 
 ## Build
 
 - Platform: macOS only
 - Deployment target: macOS 26.3
-- Swift 5.0, SwiftUI, AppKit
-- Build via Xcode (use `BuildProject` tool or Xcode UI)
+- Swift 6.0, SwiftUI, AppKit. `SWIFT_VERSION` is set once at the project level in the `.pbxproj` and inherited by all three targets (`MarkupEditorApp`, `MarkupEditorAppTests`, `MarkupEditorAppUITests`) — no per-target overrides.
+- Build via `xcodebuild` or Xcode UI
+
+## Swift
+
+Toolchain: Swift 6.3.3 / Xcode 26.6 (`swift --version` / `xcodebuild -version`;
+re-check periodically, don't assume these stay current).
+
+### Ground rules
+
+- **The compiler is the oracle.** After EVERY edit: build, read the first error,
+  fix, repeat. Never stack speculative edits on an unverified build.
+- **API drift is your #1 failure mode.** Never assert an API exists from
+  memory — verify against the local SDK or package first:
+  - grep the SDK's textual interfaces:
+    `grep -rl 'someModifier' "$(xcrun --show-sdk-path)"/**/*.swiftinterface`
+  - or type-check a throwaway probe (no full build needed):
+    `swift -typecheck /tmp/_probe.swift` — five lines importing the module
+    and calling the API; delete the file after.
+  - `MarkupEditor` package APIs: use Serena (`find_symbol`), not memory —
+    see Code Navigation below.
+- **Prefer the modern idiom** unless the file says otherwise: `@Observable`
+  (not `ObservableObject`/`@Published`), `async/await` (not completion
+  handlers), typed `throws(E)` where it clarifies. Deployment target is
+  macOS 26.3, so no availability gating needed for any of these. Match the
+  file you're editing — don't mix eras within a file.
+
+### Build / test / run
+
+    xcodebuild -showdestinations -scheme "MarkupEditorApp"   # never guess the destination string
+    xcodebuild -scheme "MarkupEditorApp" -destination "platform=macOS" build | xcbeautify
+    xcodebuild test -scheme "MarkupEditorApp" -destination "platform=macOS" \
+      -only-testing:"MarkupEditorAppTests/SuiteName/testName" | xcbeautify   # narrowest scope while iterating
+
+- `xcbeautify` is installed — pipe `xcodebuild` output through it. It only
+  formats CLI `xcodebuild` output; Xcode.app's own Cmd+B build doesn't shell
+  out to `xcodebuild`, so there's no in-IDE integration point for it.
+- No SwiftLint/SwiftFormat config in this repo.
+- This is a pure `.xcodeproj` (no `Package.swift`, no `.xcworkspace`) — the
+  `MarkupEditor` and `SplitView` dependencies are resolved via Xcode's own
+  package manager (`project.xcworkspace/.../Package.resolved`), not `swift
+  build`/`swift test`. Those commands don't apply to this target.
+
+### Concurrency (Swift 6 strict mode — where agents die)
+
+- Understand the error class before editing: most Sendable/isolation errors
+  mean "this crosses an isolation boundary" — fix the DESIGN, don't silence
+  the compiler.
+- This project's actor-isolation default is `@MainActor`
+  (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`), not per-declaration
+  annotation. Most view/document code is implicitly main-actor already —
+  check that setting before adding `@MainActor` out of habit.
+- `@Sendable` closure parameters (e.g. `NotificationCenter.addObserver`'s
+  `using:`) do NOT inherit isolation from `queue: .main` — the compiler
+  can't see that runtime guarantee. When you know it holds, the pattern
+  that actually compiles is `nonisolated(unsafe) let x = x` followed by
+  `MainActor.assumeIsolated { ... }` — a bare `@MainActor` closure literal,
+  `Task { @MainActor in }`, and pre-extracting values all fail with "sending
+  X risks causing data races" on non-`Sendable` types like `Notification`.
+  Reach for `nonisolated(unsafe)` only inside that specific pattern, never
+  as a general first fix.
+- Test targets calling `@testable import`-ed `@MainActor` app symbols from
+  synchronous test bodies: fix by marking the **test** struct/function
+  `@MainActor`, not by loosening production isolation.
+- "pattern that the region-based isolation checker does not understand how
+  to check" is a real compiler gap, not a sign your code is wrong — the fix
+  is usually structural (extract the closure body into a named function)
+  rather than an annotation workaround.
+
+### Language discipline
+
+- NO force-unwraps (`!`), `try!`, or `as!` in production paths. Use
+  `guard let`, `??`, `do/catch`. (Tests and previews may force-unwrap
+  fixtures.)
+- Structs + protocols first; classes only for identity, reference semantics,
+  or framework requirements.
+- Closures capturing self in escaping/long-lived contexts: `[weak self]`
+  and `guard let self`. `unowned` only with a lifetime proof in a comment.
+- Errors: throw typed, meaningful errors; never `catch {}`-and-swallow.
+
+### SwiftUI
+
+- State ownership: `@State` for local, `@Observable` model objects passed by
+  reference, `@Environment` for dependencies. A body over ~40 lines or mixing
+  concerns is a smell — extract child views for a real reason, never solely
+  to hit a line count.
+- Don't invent modifiers. If unsure one exists, compile-probe it before use.
+
+### When stuck
+
+- 2 failed attempts at the same compiler error: stop, print the FULL error
+  including notes, and re-read it — the fix is usually in the second line
+  of the note.
+- The Swift Evolution proposal (SE-NNNN) named in a diagnostic is the actual
+  spec — search for it before improvising a workaround.
 
 ## Communication
 
