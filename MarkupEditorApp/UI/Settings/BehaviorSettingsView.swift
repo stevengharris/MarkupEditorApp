@@ -62,7 +62,7 @@ struct BehaviorSettingsView: View {
     }
     
     init() {
-        _toolbarVisibility = State(initialValue: ToolbarVisibility(rawValue: _appConfig.wrappedValue.toolbarVisibility)!)
+        _toolbarVisibility = State(initialValue: ToolbarVisibility(rawValue: _appConfig.wrappedValue.toolbarVisibility) ?? .toggled)
     }
     
     /// Set the toolbarVisibility to the new value, keeping the config in proper sync and saving when done.

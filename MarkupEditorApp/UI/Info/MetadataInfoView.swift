@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct MetadataInfoView: View {
+    @Environment(EditLog.self) private var editLog
     @Binding var metadataInfo: [MetadataTuple]
     @FocusState private var focusedKey: String?
     @State private var editingValues: [String: String] = [:]
@@ -63,7 +64,7 @@ struct MetadataInfoView: View {
                 var warnings: [String] = []
                 let tuples = YAMLMetadata.parse("\(key): \(string)", warnings: &warnings)
                 guard tuples.count == 1 else {
-                    print("\(warnings)")
+                    editLog.warnings(warnings)
                     return
                 }
                 let tuple = tuples[0]

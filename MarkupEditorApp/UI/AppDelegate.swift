@@ -12,8 +12,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
-    @MainActor static var pendingFinderURL: URL?
-    @MainActor static var docIcon: NSImage?
+    static var pendingFinderURL: URL?
+    static var docIcon: NSImage?
     /// Set by handleQuit after the user confirms quit via the window-close path,
     /// so applicationShouldTerminate skips the second check.
     static var skipTerminateCheck = false
@@ -24,7 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Submenu under File > Export, populated by populatePluginMenus(_:).
     var exportSubmenu = NSMenu(title: "Export")
 
-    @MainActor static func consumePendingURL() -> URL? {
+    static func consumePendingURL() -> URL? {
         guard let url = pendingFinderURL else { return nil }
         pendingFinderURL = nil
         return url
@@ -402,7 +402,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Execute a JavaScript command on the selected MarkupWKWebView.
     /// Menu items store their JS command string in representedObject.
-    @MainActor @objc private func executeMenuJS(_ sender: NSMenuItem) {
+    @objc private func executeMenuJS(_ sender: NSMenuItem) {
         guard let js = sender.representedObject as? String else { return }
         MarkupEditor.selectedWebView?.executeJavaScript(js)
     }

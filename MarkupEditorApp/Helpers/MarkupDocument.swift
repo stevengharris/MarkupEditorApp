@@ -16,7 +16,7 @@ import Observation
  1. When we set the URL, we set the documentType based on the url (.html, .md, or .htmd)
  2.
  */
-@MainActor @Observable class MarkupDocument {
+@Observable class MarkupDocument {
 
     var hasChanges: Bool = false
     var url: URL? {
@@ -36,7 +36,7 @@ import Observation
     
     func setSource(_ source: String, documentType: DocumentType? = nil) {
         self.source = source
-        if documentType != nil { self.documentType = documentType! }
+        if let documentType { self.documentType = documentType }
     }
 
     // MARK: - Open

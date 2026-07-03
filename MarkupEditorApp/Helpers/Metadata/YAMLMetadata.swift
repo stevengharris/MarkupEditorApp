@@ -151,7 +151,7 @@ struct YAMLMetadata {
     private static func quoteIfNeeded(_ s: String) -> String {
         guard !s.isEmpty else { return "\"\"" }
         let indicators: Set<Character> = ["-", "?", ",", "!", "|", ">", "'", "\"", "%", "@", "`", "&", "*", "#"]
-        if indicators.contains(s.first!) { return doubleQuote(s) }
+        if let first = s.first, indicators.contains(first) { return doubleQuote(s) }
         if s.contains(": ") { return doubleQuote(s) }
         if s.contains(" #") { return doubleQuote(s) }
         if s.contains("[") || s.contains("]") || s.contains("{") || s.contains("}") { return doubleQuote(s) }
