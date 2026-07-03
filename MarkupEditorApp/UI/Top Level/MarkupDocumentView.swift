@@ -52,7 +52,7 @@ struct MarkupDocumentView: View {
                     if rawShowing {
                         SourceView(
                             document: $document,
-                            currentSource: $currentSource
+                            source: $currentSource
                         )
                     } else {
                         MarkupEditorView(
