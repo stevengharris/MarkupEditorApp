@@ -68,7 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // since their parent reference was cleared during removal.
         // Defer to the next run loop iteration so SwiftUI's window setup is
         // fully complete before we replace the menu.
-        DispatchQueue.main.async { [self] in
+        Task { @MainActor [self] in
             NSApplication.shared.mainMenu = buildMenu()
             populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
             NSApplication.shared.mainWindow?.delegate = self
@@ -97,7 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     // on any menu we set, which would re-trigger this observer and create
                     // an infinite rebuild loop if we reacted to every removal.
                     guard menu.numberOfItems == 0 else { return }
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         NSApplication.shared.mainMenu = self.buildMenu()
                         self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
                     }
