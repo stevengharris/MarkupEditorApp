@@ -122,6 +122,7 @@ import Foundation
 
 // MARK: - YAML parse/serialize round-trip
 
+@MainActor
 struct YAMLRoundTripTests {
 
     private func roundTrip(_ yaml: String) -> [MetadataTuple] {
@@ -229,6 +230,7 @@ struct YAMLRoundTripTests {
 
 // MARK: - YAML frontmatter prepend format
 
+@MainActor
 struct YAMLFrontmatterFormatTests {
 
     @Test func frontmatterFormatIsCorrect() {

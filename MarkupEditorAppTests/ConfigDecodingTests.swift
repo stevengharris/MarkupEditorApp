@@ -13,6 +13,7 @@ import MarkupEditor
 // The nil-return contract is load-bearing: nil means "no override stored, use
 // package bundle defaults." An empty-struct fallback would silently zero out
 // config and override the bundle defaults, which is wrong.
+@MainActor
 struct ConfigDecodingTests {
 
     // MARK: - Empty / missing input
@@ -97,6 +98,7 @@ struct ConfigDecodingTests {
 }
 
 // Tests for AppConfig.PluginConfigEntry decoding and the `plugins` optional property.
+@MainActor
 struct AppConfigPluginDecodingTests {
 
     // MARK: - plugins present: decodes entry correctly

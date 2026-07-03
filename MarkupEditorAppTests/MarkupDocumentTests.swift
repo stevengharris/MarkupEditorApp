@@ -15,6 +15,7 @@ private func makeTempDir(suffix: String = "") throws -> URL {
     return url
 }
 
+@MainActor
 private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> MetadataTuple {
     MetadataTuple(key: key, value: .scalar(value))
 }

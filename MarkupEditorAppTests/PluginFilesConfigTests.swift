@@ -11,6 +11,7 @@ import MarkupEditor
 // PluginConfigEntry values into PluginFileEntry values by resolving each filename
 // against a plugin directory and filtering out missing files.
 
+@MainActor
 struct PluginFilesConfigTests {
 
     // MARK: - Helpers

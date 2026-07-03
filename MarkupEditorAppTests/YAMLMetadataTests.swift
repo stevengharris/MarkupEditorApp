@@ -6,6 +6,7 @@
 import Testing
 @testable import MarkupEditorApp
 
+@MainActor
 struct YAMLMetadataTests {
 
     // MARK: - Parser tests

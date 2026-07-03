@@ -85,16 +85,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                guard let self, let menu = notification.object as? NSMenu else { return }
-                guard menu === NSApplication.shared.mainMenu else { return }
-                // Only rebuild when the menu is fully empty. SwiftUI also runs
-                // partial pruning passes (PruneTrivialFileMenu, PruneTrivialEditMenu)
-                // on any menu we set, which would re-trigger this observer and create
-                // an infinite rebuild loop if we reacted to every removal.
-                guard menu.numberOfItems == 0 else { return }
-                DispatchQueue.main.async {
-                    NSApplication.shared.mainMenu = self.buildMenu()
-                    self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+                // addObserver's `using` closure is typed `@Sendable`, so the compiler can't see
+                // that `queue: .main` guarantees this runs on the main actor. assumeIsolated
+                // asserts that guarantee; nonisolated(unsafe) is safe here for the same reason.
+                nonisolated(unsafe) let notification = notification
+                MainActor.assumeIsolated {
+                    guard let self, let menu = notification.object as? NSMenu else { return }
+                    guard menu === NSApplication.shared.mainMenu else { return }
+                    // Only rebuild when the menu is fully empty. SwiftUI also runs
+                    // partial pruning passes (PruneTrivialFileMenu, PruneTrivialEditMenu)
+                    // on any menu we set, which would re-trigger this observer and create
+                    // an infinite rebuild loop if we reacted to every removal.
+                    guard menu.numberOfItems == 0 else { return }
+                    DispatchQueue.main.async {
+                        NSApplication.shared.mainMenu = self.buildMenu()
+                        self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+                    }
                 }
             }
         }

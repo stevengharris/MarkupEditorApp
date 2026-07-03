@@ -363,6 +363,7 @@ import Foundation
     }
 }
 
+@MainActor
 struct PluginResultDecodeTests {
 
     @Test func validEnvelopeWithWarnings() {

@@ -121,10 +121,8 @@ struct MarkupDocumentView: View {
             ]
             await withTaskGroup(of: Void.self) { group in
                 for name in names {
-                    group.addTask { @MainActor in
-                        for await notification in NotificationCenter.default.notifications(named: name) {
-                            await handleMenuNotification(notification)
-                        }
+                    group.addTask {
+                        await listenForMenuNotifications(named: name)
                     }
                 }
             }
@@ -208,8 +206,7 @@ struct MarkupDocumentView: View {
     }
     
     init() {
-        // populateMarkupHtml runs synchronously inside makeNSView, before onAppear fires,
-        // so stored overrides must be in markupConfiguration before the first render.
+        // The markupConfiguration must be set before the first render.
         let config = MarkupWKWebViewConfiguration()
         config.toolbarConfig = ToolbarConfig.fromDefaults()
         config.keymapConfig = KeymapConfig.fromDefaults()
@@ -246,7 +243,14 @@ struct MarkupDocumentView: View {
     }
     
     // MARK: - Menu operations
-    
+
+    /// Listen for and dispatch all notifications posted under `name`.
+    private func listenForMenuNotifications(named name: Notification.Name) async {
+        for await notification in NotificationCenter.default.notifications(named: name) {
+            await handleMenuNotification(notification)
+        }
+    }
+
     /// Handle the notifications we get when a menu item is picked. This style avoids having lots of
     /// .onChange modifiers and makes it easier to see in one place.
     private func handleMenuNotification(_ notification: Notification) async {
@@ -284,6 +288,7 @@ struct MarkupDocumentView: View {
     private func handleNew() async {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard await checkSave() else { return }
+        editLog.info("Opening a new document")
         await webView.emptyDocument()
         guard let html = await getCurrentHTML() else { return }
         document.setSource(html, documentType: .html)
@@ -320,7 +325,7 @@ struct MarkupDocumentView: View {
             dirPanel.canChooseDirectories = true
             dirPanel.directoryURL = url.deletingLastPathComponent()
             dirPanel.prompt = "Grant Access"
-            dirPanel.message = "This document references images. Grant read access to the containing folder to display them."
+            dirPanel.message = "This document uses local images. Grant read access to the containing folder to display them."
             if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
                 document.storeParentDirBookmark(for: url, using: dirURL)
             }

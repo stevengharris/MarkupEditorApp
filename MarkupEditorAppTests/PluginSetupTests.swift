@@ -10,6 +10,7 @@ import Foundation
 //
 // All tests use a temporary directory to avoid touching the real Application Support
 // folder and to allow full control over the filesystem state.
+@MainActor
 struct PluginSetupTests {
 
     // MARK: - Helpers
