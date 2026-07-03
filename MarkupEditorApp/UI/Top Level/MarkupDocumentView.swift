@@ -287,9 +287,10 @@ struct MarkupDocumentView: View {
         await webView.emptyDocument()
         guard let html = await getCurrentHTML() else { return }
         document.setSource(html, documentType: .html)
-        currentHtml = document.source
-        NSApplication.shared.mainWindow?.representedURL = nil
+        currentHtml = html
+        currentSource = html
         document.reset()
+        NSApplication.shared.mainWindow?.representedURL = nil
     }
 
     /// Let the user select a file to open, and then open it
@@ -489,6 +490,7 @@ struct MarkupDocumentView: View {
         }
         let html = try document.openHtmd(at: packageURL, baseUrl: webView.baseUrl)
         try setHTML(html)
+        currentSource = html
         track(url: packageURL)
     }
 
@@ -499,6 +501,7 @@ struct MarkupDocumentView: View {
         }
         let html = try document.openHtml(at: fileURL, baseUrl: webView.baseUrl)
         try setHTML(html)
+        currentSource = html
         track(url: fileURL)
     }
 
@@ -534,6 +537,7 @@ struct MarkupDocumentView: View {
             throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
         }
         try setHTML(html)
+        currentSource = markdown
         track(url: url)
     }
     
