@@ -178,11 +178,90 @@ Use `get_symbols_overview` before reading whole files. Use `find_referencing_sym
 
 **Constraint**: `MarkupEditor` and `markupeditor-base` must not receive any commits, files, or directories that indicate Claude was used. Work on feature branches only; the user manually pushes.
 
+## Cross-Project Changes (markupeditor-base → MarkupEditor → MarkupEditorApp)
+
+Some changes originate in `markupeditor-base` (the ProseMirror schema/JS layer) and must propagate through `MarkupEditor` (the Swift package) before they're usable in `MarkupEditorApp`. RDR-020 (Add Language Attribute to Code) established the working pattern below.
+
+### Order of work
+
+Strictly sequential, one repo at a time, each with its own approval gate before commit:
+
+1. **`markupeditor-base`** — implement the schema/behavior change, TDD with vitest.
+2. **`MarkupEditor`** — verify the change end-to-end via the Swift Testing suite, which consumes `markupeditor-base`'s own `test/*.json` fixtures.
+3. **`MarkupEditorApp`** (`markupeditor-markdown`, or app-layer code) — build on the verified change.
+
+Do not skip straight to step 3 assuming step 1's change "obviously works" — the Swift package's WKWebView-based execution is a different runtime than markupeditor-base's Node/vitest environment, and only step 2 proves the compiled bundle behaves correctly there.
+
+### Local iteration: getting an unpublished markupeditor-base change into MarkupEditor
+
+`markupeditor-js/prepare.sh` copies `dist/markup-editor.js` and `test/*.json` from `./node_modules/markupeditor/` into `MarkupEditor/Resources/` and `MarkupEditorTests/BaseTests/Data/`. By default that's the **npm-installed registry package**, not your local checkout — and the registry package excludes `test/` entirely (its `package.json` `"files"` field is `["dist","bin","styles","config"]`), so a plain registry install can never pick up test fixtures, regardless of how recently it was published.
+
+To point at a local, unpublished checkout:
+
+```json
+// markupeditor-js/package.json
+"devDependencies": {
+  "markupeditor": "file:/absolute/path/to/markupeditor-base"
+}
+```
+
+```bash
+cd markupeditor-js
+npm update        # or: npm install
+```
+
+`npm update`/`npm install` alone is sufficient — `prepare` is an npm-reserved lifecycle hook name, and this project's `"prepare": "sh prepare.sh"` script runs automatically as part of that command. Verified empirically: deleting a copied fixture and re-running plain `npm install` restored it without invoking `prepare.sh` separately. No need for a distinct `sh prepare.sh` step.
+
+**Use a `file:` dependency, not `npm link`.** Both resolve to a symlink in this npm version (so `test/` is fully visible either way), but `file:` is declared in `package.json` — visible in diffs, trivially greppable, and easy to revert — where `npm link` registers untracked global npm state that's easy to forget about.
+
+**This is temporary and must be reverted before merging.** The `file:` path is absolute and machine-specific; `npm install`/`npm ci` breaks on any other machine or in CI while it's in place. Reverting is *not* a plain text edit: switching to `file:` prunes the transitive dependency tree out of `package-lock.json` (npm resolves those packages through the linked checkout's own `node_modules` instead of flattening them locally), so reverting means bumping `devDependencies.markupeditor` to a real registry semver range (once `markupeditor-base` publishes the merged change) *and* regenerating the lockfile via a real `npm install` — not a hand-edit. Track this as its own bead/task blocked on the publish, not just "something to remember."
+
+### Testing MarkupEditor from the CLI
+
+The `MarkupEditor` package schemes are **not** Xcode-GUI-only — the CLI works fine, but two things matter:
+
+- **Use `-scheme MarkupEditor`**, not `-scheme BaseTests` alone — the `MarkupEditor` scheme is the one configured with valid macOS/Mac Catalyst/iOS destinations. `-showdestinations -scheme BaseTests` only lists iOS Simulator, which will mislead you into thinking macOS isn't supported at all.
+- **Always use `xcodebuild clean test`, not `test`.** Switching between destinations (e.g. iOS Simulator, then macOS) against the same `DerivedData` without cleaning produces spurious "Undefined symbol" linker failures that look like a fundamental platform incompatibility but are actually just stale build products from the previous destination. `.github/workflows/swift.yml` always does `clean test` — mirror that.
+
+```bash
+xcodebuild clean test -scheme MarkupEditor -destination 'platform=macOS,arch=arm64' -parallel-testing-enabled NO
+xcodebuild clean test -scheme MarkupEditor -destination 'platform=macOS,variant=Mac Catalyst,arch=arm64' -parallel-testing-enabled NO
+xcodebuild clean test -scheme MarkupEditor -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' -parallel-testing-enabled NO
+```
+
+All three should pass. CI (`.github/workflows/swift.yml`) only runs the macOS and Mac Catalyst legs of this matrix — iOS Simulator is skipped there purely because it's unreliable in GitHub Actions, not because it doesn't work. Verify iOS Simulator locally too when a change might affect UIKit-specific code paths.
+
+### New files aren't picked up automatically
+
+`MarkupEditor.xcodeproj` uses Xcode 16 file-system-synchronized groups with explicit per-file target membership exceptions in `project.pbxproj`. A new `.swift` test file or a new `.json` fixture copied into `MarkupEditorTests/BaseTests/Data/` will **not** be included in the `BaseTests` target just by existing on disk — `xcodebuild` will report `0 tests` for it silently (or "Data file could not be located in bundle resources" for a fixture) rather than erroring.
+
+**Do not edit `project.pbxproj` directly to fix this** (same rule as `MarkupEditorApp`'s constraint) — ask the user to add the new file(s) to the target in Xcode, then re-run the CLI build to confirm.
+
+### Writing a new Swift Testing suite for a markupeditor-base fixture
+
+Each `test/*.json` fixture in `markupeditor-base` needs a **hand-written, parallel Swift file** in `MarkupEditorTests/BaseTests/` — there is no generic fixture-to-test translator. Mirror an existing file with a similar shape (`Style.swift` for style-only actions, `PasteHtmlPreprocessing.swift` for a combined set+get string action, `Baseline.swift` for pure round-trip fixtures with no `action` field at all):
+
+- A fixture test case with **no `action` field** in the JSON → use `HtmlTest.run(action: nil, in: webView)`. Note this path only asserts `setTestHtml`'s return against `startHtml`, but `setTestHtml` itself round-trips through a real `parseDOM`/`toDOM` parse — it's a meaningful check, not a no-op, as long as `startHtml == endHtml` in the fixture (i.e. it's genuinely a round-trip-identity case).
+- A fixture test case with **`skipSet: true`** and a combined JS action (e.g. `MU.setTestHTML(startHtml, '|'); return MU.getTestHTML('|')`) → write a Swift closure combining `webview.setTestHtml(...)` and `webview.getTestHtml(...)`, matching the second `HtmlTest.run(action:in:)` overload (`(MarkupWKWebView) async -> String?`).
+- If a single fixture file mixes both kinds of test case (as `code-language.json` does), build a per-index array of *optional* closures and branch on `nil` vs. present at the call site — don't force every test case in a file through the same overload.
+
+### Namespace discipline for review/critique agents
+
+When dispatching `code-review-expert` or `substantive-critic` against `markupeditor-base` or `MarkupEditor` files, **explicitly tell them to write any T2/T3 findings under `project="MarkupEditorApp"`, never the downstream repo's own name.** Those agents' own post-flight instructions default to `memory_put(project="<repo>", ...)`, inferring `<repo>` from the file paths they were given — without an explicit override they will infer `project="markupeditor-base"` or `project="MarkupEditor"`, scattering RDR-related notes outside the project where all RDR/T2 activity is supposed to live. Confirmed as a near-miss during RDR-020 (caught in a permission prompt before it happened).
+
+### Branch and commit conventions (all three repos)
+
+- **No `feature/` prefix.** Bare descriptive branch names (e.g. `addCodeLanguage`), matched across repos for the same piece of work.
+- **No commit without explicit user approval**, at every repo, every phase boundary — present the diff and test results, wait for an explicit yes.
+- **`markupeditor-base` and `MarkupEditor`**: single-line commit messages, no RDR/MarkupEditor/MarkupEditorApp references, nothing indicating Claude was used.
+- **`MarkupEditorApp`**: commits may reference the RDR.
+- User pushes manually in all three repos — never push on their behalf.
+
 ## Testing
 
 - New tests use **Swift Testing** (`@Suite`, `@Test`, `#expect`) — not XCTest for new test suites.
 - `xcodebuild test -scheme MarkupEditorApp -destination 'platform=macOS'` works for unit tests.
-- The `MarkupEditor` package schemes (BaseTests, SwiftTests) have a pre-existing linker failure in xcodebuild — run those from Xcode only.
+- For `MarkupEditor` package tests (BaseTests, SwiftTests), see "Testing MarkupEditor from the CLI" under Cross-Project Changes above — use `-scheme MarkupEditor` with `xcodebuild clean test`, not `-scheme BaseTests` with a bare `test`.
 - Integration over mocks: the WKWebView boundary means some flows can only be verified manually or via UI tests. Don't fake the web view in unit tests — test the model and static helpers instead.
 - Swift Testing test counts in xcodebuild output reflect only XCTestCase-based tests. Count Swift Testing tests by grepping for `"Test case '.*' passed"` lines.
 
