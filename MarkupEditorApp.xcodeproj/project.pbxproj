@@ -458,7 +458,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;
@@ -504,7 +504,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;
