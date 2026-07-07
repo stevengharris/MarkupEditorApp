@@ -9342,6 +9342,33 @@ class MarkdownSerializerState {
     }
 }
 
+// Characters allowed in a Markdown fence info string. Restricts to a safe
+// language-identifier set that still covers real-world tags with punctuation
+// (c++, c#, objective-c, etc.) while excluding backtick and any other
+// character that could break out of the ``` fence-open line on export.
+// node.attrs.language comes from the schema's getAttrs (markupeditor-base),
+// which extracts the class token verbatim after stripping the `language-`
+// prefix — it does not itself restrict characters. Markdown import is safe
+// (markdown-it's fence tokenizer forbids backticks in a backtick-fence info
+// string) and paste is safe (classes are stripped before reaching the
+// schema), but a hand-authored/directly-opened HTML file could carry an
+// arbitrary class token, so this export path sanitizes defensively.
+const FENCE_LANGUAGE_UNSAFE_CHARS = /[^A-Za-z0-9_+#.-]/g;
+
+/**
+ * Sanitize a code_block's language attribute for use as a Markdown fence
+ * info string. Strips any character outside a safe identifier set; if
+ * nothing survives, returns '' so the fence is emitted bare (no info
+ * string) rather than malformed.
+ *
+ * @param {string|null|undefined} language
+ * @returns {string}
+ */
+function sanitizeFenceLanguage(language) {
+  if (!language) return ''
+  return language.replace(FENCE_LANGUAGE_UNSAFE_CHARS, '')
+}
+
 /**
  * Build a MarkdownSerializer that extends the default one with custom
  * node and mark rules for the MarkupEditor schema.
@@ -9425,14 +9452,21 @@ function makeSerializer(warnings) {
     // code_block: a code_block at position 0 in the doc root is treated as the
     // HTML preamble block that was injected during import. Serialize it as raw
     // HTML (no fences) so the round-trip produces the original preamble.
-    // The schema has no language attribute, so detection is purely positional.
-    // All other code_blocks serialize as standard fenced blocks.
+    // Detection is purely positional — this branch intentionally ignores
+    // node.attrs (including language, RDR-020) entirely, even though the
+    // preamble node does carry attrs.language === "html" after import.
+    // All other code_blocks serialize as standard fenced blocks, with
+    // node.attrs.language (if set) emitted as the fence info string.
     code_block(state, node, parent, index) {
       if (index === 0 && parent && parent.type.name === 'doc') {
         state.write(node.textContent);
         state.closeBlock(node);
       } else {
-        state.write('```\n');
+        const sanitizedLanguage = sanitizeFenceLanguage(node.attrs.language);
+        if (sanitizedLanguage !== (node.attrs.language || '')) {
+          warnings.add(`Code block language attribute contained unsafe characters and was stripped: ${node.attrs.language}`);
+        }
+        state.write('```' + sanitizedLanguage + '\n');
         state.text(node.textContent, false);
         state.ensureNewLine();
         state.write('```');
@@ -9538,7 +9572,24 @@ function makeParser(schema, warnings) {
     // th maps to table_cell (header status is not preserved in the schema)
 
     // Strikethrough mark
-    s:        { mark: 's' }
+    s:        { mark: 's' },
+
+    // fence: prosemirror-markdown's built-in default maps tok.info to a
+    // `params` attr, but the code_block schema (RDR-020) declares `language`
+    // instead — the built-in default is a silent no-op against this schema.
+    // Only the first whitespace-delimited word of the info string is the
+    // language per CommonMark convention (e.g. "js {1,3}" -> "js", discarding
+    // the rest). An absent/empty info string must map to `null`, matching the
+    // schema's `attrs: {language: {default: null}}` — a naive split would
+    // yield "" instead, breaking attrs equality on round-trip.
+    fence: {
+      block: 'code_block',
+      getAttrs: tok => {
+        const first = (tok.info || '').trim().split(/\s+/)[0];
+        return { language: first || null }
+      },
+      noCloseToken: true
+    }
   });
 
   // Manually add cell handlers that wrap content in a paragraph.
