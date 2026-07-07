@@ -601,13 +601,11 @@ struct MarkupDocumentView: View {
     /// The issue here is that we have 3 different types of documents we can be editing, and the save
     /// operation is specific to the `documentType`. The `document` can be out-of-sync with the
     /// current contents we are editing, as determined by whether `document.hasChanges`.
-    private func handleSave() async {
-        guard document.hasChanges else { return }   // No need to save if it hasn't changed
+    private func handleSave(_ newURL: URL? = nil) async {
+        guard document.hasChanges || newURL != nil else { return }   // newURL passed for saveAs
         guard let webView = MarkupEditor.selectedWebView else { return }
         let oldURL = document.url
-        if document.url == nil {
-            document.url = getSaveURL()
-        }
+        document.url = newURL ?? getSaveURL()
         guard let url = document.url else {
             document.url = oldURL
             return
@@ -658,8 +656,7 @@ struct MarkupDocumentView: View {
     /// Identify a new URL to save the current document as
     private func handleSaveAs() async {
         if let url = getSaveURL() {
-            document.url = url
-            await handleSave()
+            await handleSave(url)
         }
     }
 
