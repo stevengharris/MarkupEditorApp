@@ -35,7 +35,24 @@ export function makeParser(schema, warnings) {
     // th maps to table_cell (header status is not preserved in the schema)
 
     // Strikethrough mark
-    s:        { mark: 's' }
+    s:        { mark: 's' },
+
+    // fence: prosemirror-markdown's built-in default maps tok.info to a
+    // `params` attr, but the code_block schema (RDR-020) declares `language`
+    // instead — the built-in default is a silent no-op against this schema.
+    // Only the first whitespace-delimited word of the info string is the
+    // language per CommonMark convention (e.g. "js {1,3}" -> "js", discarding
+    // the rest). An absent/empty info string must map to `null`, matching the
+    // schema's `attrs: {language: {default: null}}` — a naive split would
+    // yield "" instead, breaking attrs equality on round-trip.
+    fence: {
+      block: 'code_block',
+      getAttrs: tok => {
+        const first = (tok.info || '').trim().split(/\s+/)[0]
+        return { language: first || null }
+      },
+      noCloseToken: true
+    }
   })
 
   // Manually add cell handlers that wrap content in a paragraph.
