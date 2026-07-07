@@ -1,36 +1,28 @@
 import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { schema } from 'markupeditor/src/schema/index.js'
+import { MU } from 'markupeditor'
+import '../src/markup-editor-markdown.js'
 
 // ---------------------------------------------------------------------------
 // Module setup
 //
-// markup-editor-markdown.js runs a module-level document.querySelector guard
-// that throws if the <markup-editor> element is absent. We set up the element
-// (with a minimal MU mock) before dynamically importing the module so the guard
-// passes. The dynamic import must come after DOM setup — static imports run
-// before beforeAll and would throw in the jsdom environment.
+// Since 303c562 moved markdown import/export from a plugin to a userscript,
+// markup-editor-markdown.js attaches exportMarkdown/importMarkdown directly
+// onto the real MU singleton imported from the markupeditor package, rather
+// than exporting them or registering via MU.registerPlugin. Importing the
+// module (above) triggers that attachment; MU.activeView is stubbed per test.
 // ---------------------------------------------------------------------------
 
-let exportFn
-let importFn
-let mockMU
+const exportFn = MU.exportMarkdown
+const importFn = MU.importMarkdown
+let activeViewSpy
 
-beforeAll(async () => {
-  document.body.innerHTML = '<markup-editor></markup-editor>'
-  const el = document.querySelector('markup-editor')
-  mockMU = {
-    activeView: vi.fn().mockReturnValue(null),
-    registerPlugin: vi.fn()
-  }
-  el.MU = mockMU
-
-  const mod = await import('../src/markup-editor-markdown.js')
-  exportFn = mod.exportFn
-  importFn = mod.importFn
+beforeAll(() => {
+  activeViewSpy = vi.spyOn(MU, 'activeView')
 })
 
 beforeEach(() => {
-  mockMU.activeView.mockReturnValue({ state: { schema } })
+  activeViewSpy.mockReturnValue({ state: { schema } })
 })
 
 // ---------------------------------------------------------------------------
@@ -39,7 +31,7 @@ beforeEach(() => {
 
 describe('exportFn — no active view', () => {
   test('returns result:null and a warning when MU has no active view', () => {
-    mockMU.activeView.mockReturnValue(null)
+    activeViewSpy.mockReturnValue(null)
     const envelope = JSON.parse(exportFn('unused'))
     expect(envelope.result).toBeNull()
     expect(Array.isArray(envelope.warnings)).toBe(true)
@@ -52,7 +44,7 @@ describe('exportFn — plain document', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [schema.text('Hello')])
     ])
-    mockMU.activeView.mockReturnValue({ state: { doc } })
+    activeViewSpy.mockReturnValue({ state: { doc } })
     const envelope = JSON.parse(exportFn('unused'))
     expect(typeof envelope.result).toBe('string')
     expect(Array.isArray(envelope.warnings)).toBe(true)
@@ -75,7 +67,7 @@ describe('exportFn — warnings in envelope', () => {
         schema.nodes.image.create({ src: 'photo.jpg', alt: 'photo', width: 200, height: null })
       ])
     ])
-    mockMU.activeView.mockReturnValue({ state: { doc } })
+    activeViewSpy.mockReturnValue({ state: { doc } })
     const envelope = JSON.parse(exportFn('unused'))
     expect(envelope.result).not.toBeNull()
     expect(envelope.warnings).toHaveLength(0)
@@ -88,7 +80,7 @@ describe('exportFn — warnings in envelope', () => {
         schema.text('underlined', [schema.marks.u.create()])
       ])
     ])
-    mockMU.activeView.mockReturnValue({ state: { doc } })
+    activeViewSpy.mockReturnValue({ state: { doc } })
     const envelope = JSON.parse(exportFn('unused'))
     expect(envelope.result).toContain('underlined')
     expect(envelope.warnings.length).toBeGreaterThan(0)

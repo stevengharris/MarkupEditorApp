@@ -18,6 +18,8 @@ import { makeSerializer } from '../src/serializer.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 import { DOMSerializer } from 'prosemirror-model'
+import { MU } from 'markupeditor'
+import '../src/markup-editor-markdown.js'
 // The schema is created inside markupeditor-base, which resolves its own
 // 'prosemirror-model' dependency (a different installed version than the one
 // markupeditor-markdown resolves at its own top level). DOMParser does
@@ -235,33 +237,22 @@ describe('RDR-015 preamble regression — parser assigns language "html" to the 
 })
 
 describe('RDR-015 preamble regression — full importFn/exportFn pipeline', () => {
-  let importFn
-  let exportFn
-  let mockMU
+  // Since 303c562 moved markdown import/export from a plugin to a userscript,
+  // markup-editor-markdown.js attaches exportMarkdown/importMarkdown directly
+  // onto the real MU singleton imported from the markupeditor package (see
+  // plugin.test.js / preamble.test.js for the same pattern). The jsdom
+  // CSSStyleSheet.replaceSync gap that used to block this file's module load
+  // is fixed via test/vitest.setup.js (MarkupEditorApp-zl7a.2).
+  const importFn = MU.importMarkdown
+  const exportFn = MU.exportMarkdown
+  let activeViewSpy
 
-  beforeAll(async () => {
-    document.body.innerHTML = '<markup-editor></markup-editor>'
-    const el = document.querySelector('markup-editor')
-    mockMU = { activeView: vi.fn(), registerPlugin: vi.fn() }
-    el.MU = mockMU
-    const mod = await import('../src/markup-editor-markdown.js')
-    importFn = mod.importFn
-    exportFn = mod.exportFn
+  beforeAll(() => {
+    activeViewSpy = vi.spyOn(MU, 'activeView')
   })
 
-  // SKIPPED: pre-existing environment defect, not a Phase 3 regression.
-  // Importing markup-editor-markdown.js pulls in `import { MU } from
-  // "markupeditor"`, which loads markupeditor-base's compiled dist bundle.
-  // That bundle calls a CSSStyleSheet API (`replaceSync`, used for adopted
-  // stylesheets / Web Components) that this project's jsdom version does not
-  // implement, so the import throws at module-evaluation time — before any
-  // test body runs. Confirmed via `git stash`: test/plugin.test.js and
-  // test/preamble.test.js already fail identically on unmodified main, with
-  // the same "sheet$2.replaceSync is not a function" error. Unskip once that
-  // jsdom/dist-bundle incompatibility is fixed (out of scope here — it is
-  // unrelated to the parser.js/serializer.js changes in this phase).
-  test.skip('HTML preamble gets attrs.language "html" internally, but re-export stays fence-free raw HTML', () => {
-    mockMU.activeView.mockReturnValue({ state: { schema } })
+  test('HTML preamble gets attrs.language "html" internally, but re-export stays fence-free raw HTML', () => {
+    activeViewSpy.mockReturnValue({ state: { schema } })
     const input = '<div align="center">\n  <img src="logo.png">\n</div>\n\n# Hello\n'
     const out = JSON.parse(importFn(input))
     expect(out.warnings).toEqual([])
@@ -276,7 +267,7 @@ describe('RDR-015 preamble regression — full importFn/exportFn pipeline', () =
 
     // Re-export: must still be de-fenced raw HTML — no fences, no visible
     // language marker — i.e. unchanged from pre-Phase-3 behavior.
-    mockMU.activeView.mockReturnValue({ state: { doc } })
+    activeViewSpy.mockReturnValue({ state: { doc } })
     const exported = JSON.parse(exportFn('unused'))
     expect(exported.result).not.toContain('```')
     expect(exported.result).not.toContain('language-html')

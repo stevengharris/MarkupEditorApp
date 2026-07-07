@@ -4,15 +4,16 @@
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
 import { schema } from 'markupeditor/src/schema/index.js'
+import { MU } from 'markupeditor'
+import '../src/markup-editor-markdown.js'
 
-let importFn
+// Since 303c562 moved markdown import/export from a plugin to a userscript,
+// markup-editor-markdown.js attaches importMarkdown directly onto the real MU
+// singleton imported from the markupeditor package (see plugin.test.js).
+const importFn = MU.importMarkdown
 
-beforeAll(async () => {
-  document.body.innerHTML = '<markup-editor></markup-editor>'
-  const el = document.querySelector('markup-editor')
-  el.MU = { activeView: vi.fn().mockReturnValue({ state: { schema } }), registerPlugin: vi.fn() }
-  const mod = await import('../src/markup-editor-markdown.js')
-  importFn = mod.importFn
+beforeAll(() => {
+  vi.spyOn(MU, 'activeView').mockReturnValue({ state: { schema } })
 })
 
 describe('importFn — YAML frontmatter', () => {
