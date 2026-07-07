@@ -14,6 +14,8 @@ enum MarkupDocumentError: Error, Equatable {
     case couldNotSetHTML
     case missingImage(String)
     case noWebViewAvailable
+    case noHTMLSource
+    case noMarkdownSource
     case parentSecurityScope(String)
     case rootHtmlNotFound
     case unexpectedImport
@@ -31,6 +33,8 @@ extension MarkupDocumentError: LocalizedError {
         case .couldNotSetHTML:                  return "HTML was not available to set."
         case .missingImage(let src):            return "Missing image asset: \(src)"
         case .noWebViewAvailable:               return "No web view is available."
+        case .noHTMLSource:                     return "No HTML source is available."
+        case .noMarkdownSource:                 return "No Markdown source is available."
         case .parentSecurityScope(let path):    return "Could not access parent directory: \(path)"
         case .rootHtmlNotFound:                 return "No HTML file found in package."
         case .unexpectedImport:                 return "Unexpected response on import."

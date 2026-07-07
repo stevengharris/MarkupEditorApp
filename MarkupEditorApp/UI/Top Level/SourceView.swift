@@ -9,6 +9,14 @@ import SwiftUI
 import MarkupEditor
 
 /// Displays the raw source of the current document with syntax highlighting.
+///
+/// The `currentSource` is held in the MarkupDocumentView and tracks changes in the
+/// source while typing. The document's source is updated from `currentSource` when
+/// toggling back to the document view or when saving. Changes to `currentSource`
+/// while typing set the `document.hasChanged` state, so we know whether the
+/// `document` is out of sync with what is on the screen. This is similar to how the
+///  `hasChanges` state is set to true when typing in the MarkupDocumentView via
+///  the MarkupDelegate callback.
 struct SourceView: View {
 
     @Binding var document: MarkupDocument
@@ -31,6 +39,7 @@ struct SourceView: View {
                 .padding(8)
                 .onChange(of: attributedSource) { _, newAttributedSource in
                     source = String(newAttributedSource.characters)
+                    document.hasChanges = true
                 }
                 .onChange(of: source) { _, newSource in
                     attributedSource = highlighter.highlight(newSource)

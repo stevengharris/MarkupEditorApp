@@ -25,11 +25,11 @@ struct MarkupDocumentView: View {
     
     @ObservedObject var selectImage = MarkupEditor.selectImage
     
+    @State private var document = MarkupDocument()  // The document we are editing
     @State private var currentHtml = ""             // HTML for the MarkupEditorView when it starts or refreshes
     @State private var currentSource: String = ""   // HTML or Markdown that is shown in SourceView
     @State private var documentPickerShowing: Bool = false
-    @State private var rawShowing: Bool = false
-    @State private var document = MarkupDocument()
+    @State private var sourceShowing: Bool = false
     
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
@@ -49,7 +49,7 @@ struct MarkupDocumentView: View {
         HSplit(
             left: {
                 VStack(spacing: 0) {
-                    if rawShowing {
+                    if sourceShowing {
                         SourceView(
                             document: $document,
                             source: $currentSource
@@ -73,28 +73,6 @@ struct MarkupDocumentView: View {
         .fraction(docFraction)
         .hide(infoHide)
         .styling(inset: 0, visibleThickness: 1, hideSplitter: true)
-        .onChange(of: rawShowing) { _, showing in
-            if showing {
-                // Set the currentSource shown in the SourceView based on the document's source
-                currentSource = document.source
-            } else {
-                // Set the currentHtml and update the document based on currentSource updated in SourceView
-                if document.isHTMLish {
-                    currentHtml = currentSource
-                    document.setSource(currentSource)
-                } else {
-                    Task {
-                        do {
-                            let html = try await getHTML(from: currentSource)
-                            currentHtml = html
-                            document.setSource(currentSource)
-                        } catch {
-                            showError(error.localizedDescription)
-                        }
-                    }
-                }
-            }
-        }
         .onChange(of: toolbarConfigJSON) { _, _ in
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
             reloadEditorForConfigChange()
@@ -237,7 +215,7 @@ struct MarkupDocumentView: View {
     /// Fetch the current web view's HTML and bump configVersion, forcing MarkupEditorView to redraw via .id(configVersion).
     private func reloadEditorForConfigChange() {
         Task {
-            currentHtml = await getCurrentHTML() ?? ""
+            currentHtml = await getCurrentContents().html ?? ""
             configVersion += 1
         }
     }
@@ -290,7 +268,7 @@ struct MarkupDocumentView: View {
         guard await checkSave() else { return }
         editLog.info("Opening a new document")
         await webView.emptyDocument()
-        guard let html = await getCurrentHTML() else { return }
+        guard let html = await getCurrentContents().html else { return }
         document.setSource(html, documentType: .html)
         currentHtml = html
         currentSource = html
@@ -337,16 +315,17 @@ struct MarkupDocumentView: View {
     
     /// Toggle the source view. Trigger a content refresh of the new view that opens.
     private func handleToggleSource() async {
-        if !rawShowing {
+        if !sourceShowing {
             // If we are viewing the MarkupEditor, then set the document source
             // to what is currently in the view before showing the source.
             await setDocumentSourceFromView()
+            withAnimation(.easeInOut(duration: 0.25)) { sourceShowing.toggle() }
         } else {
             // Else, the document.source contains any changes to source,
             // so we need to set the initialSource (HTML) based on it.
             await setCurrentHtmlFromSource()
+            withAnimation(.easeInOut(duration: 0.25)) { sourceShowing.toggle() }
         }
-        withAnimation(.easeInOut(duration: 0.25)) { rawShowing.toggle() }
     }
 
     /// The user selected a file from the Open Recent menu
@@ -403,8 +382,7 @@ struct MarkupDocumentView: View {
         case .alertFirstButtonReturn:
             await handleSave()
             return !document.hasChanges
-        case .alertSecondButtonReturn:
-            document.hasChanges = false
+        case .alertSecondButtonReturn:  // Don't modify the hasChanges state
             return true
         default:
             return false
@@ -425,13 +403,16 @@ struct MarkupDocumentView: View {
     
     /// Set the document's `source` based on the contents of the MarkupWKWebView.
     private func setDocumentSourceFromView() async {
-        guard let html = await getCurrentHTML() else { return }
+        guard let webView = MarkupEditor.selectedWebView else { return }
+        guard let html = await webView.getHtml() else { return }
         if document.isHTMLish {
             document.setSource(html)
+            currentSource = html
         } else {
             do {
                 let markdown = try await getMarkdown(from: html)
                 document.setSource(markdown)
+                currentSource = markdown
             } catch {
                 showError(error.localizedDescription)
             }
@@ -548,11 +529,40 @@ struct MarkupDocumentView: View {
     
     //MARK: Getting HTML and Markdown
     
-    private func getCurrentHTML() async -> String? {
-        guard let webView = MarkupEditor.selectedWebView else { return nil }
-        return await webView.getHtml()
+    /// Return the HTML and/or Markdown that is currently showing in the view. If there are no errors encountered,
+    /// then HTML will always be returned. Sometimes Markdown will also be returned because we already have it,
+    /// and we want to avoid having to derive it from the HTML if possible.
+    ///
+    /// When showing source, the `currentSource` is modified while typing, so it is always the most up-to-date.
+    /// It might hold HTML or Markdown, depending on the `document.documentType`. If Markdown, then we
+    /// return both HTML obtained from `currentSource` as well as the Markdown. If HTML, then we return the
+    /// HTML.
+    ///
+    /// When showing HTML (the MarkupWebView), the most up-to-date source is always found from the
+    /// `webView` using `getHtml`. In that case, we return just the HTML, because we don't set the
+    /// `currentSource` until we open the SourceView, because it may involve a conversion to Markdown,
+    /// and we want to avoid that until we really need it.
+    private func getCurrentContents() async -> (html: String?, markdown: String?) {
+        var html: String? = nil
+        var markdown: String? = nil
+        guard let webView = MarkupEditor.selectedWebView else { return (html: html, markdown: markdown) }
+        if sourceShowing {
+            if document.isHTMLish {
+                html = currentSource
+            } else {
+                markdown = currentSource
+                html = try? await getHTML(from: currentSource)
+            }
+        } else if let htmlContents = await webView.getHtml() {
+            html = htmlContents
+            if !document.isHTMLish {
+                markdown = try? await getMarkdown(from: htmlContents)
+            }
+        }
+        return (html: html, markdown: markdown)
     }
 
+    /// Return Markdown that is imported from the `html` string.
     func getMarkdown(from html: String) async throws -> String {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
@@ -568,6 +578,7 @@ struct MarkupDocumentView: View {
         return markdown
     }
 
+    /// Return the HTML that is derived from the `markdown` string.
     func getHTML(from markdown: String) async throws -> String {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
@@ -585,7 +596,13 @@ struct MarkupDocumentView: View {
     
     //MARK: Saving
     
+    /// Handle saving of the current contents.
+    ///
+    /// The issue here is that we have 3 different types of documents we can be editing, and the save
+    /// operation is specific to the `documentType`. The `document` can be out-of-sync with the
+    /// current contents we are editing, as determined by whether `document.hasChanges`.
     private func handleSave() async {
+        guard document.hasChanges else { return }   // No need to save if it hasn't changed
         guard let webView = MarkupEditor.selectedWebView else { return }
         let oldURL = document.url
         if document.url == nil {
@@ -595,20 +612,20 @@ struct MarkupDocumentView: View {
             document.url = oldURL
             return
         }
-        guard let html = await getCurrentHTML() else {
-            document.url = oldURL
-            return
-        }
+        let contents = await getCurrentContents()
+        //TODO: Fix to get local images from the proper source
         let srcs = await webView.getLocalImages()
         let baseUrl = webView.baseUrl
         do {
             switch document.documentType {
             case .html:
+                guard let html = contents.html else { throw MarkupDocumentError.noHTMLSource }
                 try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
             case .htmd:
+                guard let html = contents.html else { throw MarkupDocumentError.noHTMLSource }
                 try document.saveHtmd(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
             case .md:
-                let markdown = try await getMarkdown(from: html)
+                guard let markdown = contents.markdown else { throw MarkupDocumentError.noMarkdownSource }
                 try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
             }
             track(url: url)
