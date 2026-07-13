@@ -64,7 +64,7 @@ re-check periodically, don't assume these stay current).
   - or type-check a throwaway probe (no full build needed):
     `swift -typecheck /tmp/_probe.swift` — five lines importing the module
     and calling the API; delete the file after.
-  - `MarkupEditor` package APIs: use Serena (`find_symbol`), not memory —
+  - `MarkupEditor` package APIs: use agent-lsp (`find_symbol`), not memory —
     see Code Navigation below.
 - **Prefer the modern idiom** unless the file says otherwise: `@Observable`
   (not `ObservableObject`/`@Published`), `async/await` (not completion
@@ -145,38 +145,44 @@ re-check periodically, don't assume these stay current).
 
 Terse. Answer first, reasoning only if needed. No summaries. No repeating instructions. No confirmation for low-risk local operations.
 
-## Code Navigation (Serena)
+## Code Navigation (agent-lsp)
 
-Serena is configured for this project via `.mcp.json`. When Serena is connected, use its LSP-backed tools for symbol navigation rather than grep or full-file reads. Three codebases are registered:
+agent-lsp is configured for this project via `.mcp.json` (single `lsp` MCP server, args `swift:sourcekit-lsp javascript:typescript-language-server,--stdio`). When connected, use its LSP-backed tools for symbol navigation rather than grep or full-file reads. Three codebases, navigated by root directory (agent-lsp has no named-project concept — unlike Serena, which it replaced):
 
-| Codebase | Project name | Root path | Language |
-|----------|-------------|-----------|----------|
-| MarkupEditorApp | `MarkupEditorApp` | (this project) | Swift |
-| MarkupEditor package | `MarkupEditor` | `../MarkupEditor/` | Swift |
-| markupeditor-base | `markupeditor-base` | `../../VSCodeProjects/markupeditor-base/` | JavaScript |
+| Codebase | Root path | Language |
+|----------|-----------|----------|
+| MarkupEditorApp | (this project) | Swift |
+| MarkupEditor package | `../MarkupEditor/` | Swift |
+| markupeditor-base | `../../VSCodeProjects/markupeditor-base/` | JavaScript |
 
-Serena project data is centralized at `~/.serena/projects/` — no `.serena` directory exists in any codebase directory. To navigate a sibling codebase, call `activate_project("<project name>")`.
+All state lives in `~/.agent-lsp/cache/` — verified empirically (repeated `git status --short --ignored` sweeps in both MarkupEditor and markupeditor-base after real symbol/reference queries) that no file or directory is ever written inside any of the three repos.
 
-**Tool quick reference (LSP backend):**
+**Switching between the three codebases**: call `start_lsp(root_dir: "<path>", language_id: "swift"|"javascript")` for the codebase you need. A second `start_lsp` call **replaces** the active root — it does not add to it. Re-open any file you're about to query with `open_document` after switching roots.
+
+**Do not use `add_workspace_folder` for Swift cross-repo work.** Verified broken: adding a second folder to an active Swift session breaks `list_symbols`/`find_references`/`inspect_symbol` for every file in the *original* root too (`-32001: No language service found`), even after re-opening the document and even though the index data is present on disk. Recovery requires a clean `start_lsp` restart on a single root. agent-lsp's own docs only list gopls/rust-analyzer/typescript-language-server as multi-root-capable — sourcekit-lsp isn't among them, so this isn't a surprise in hindsight. For cross-repo Swift references (e.g. a MarkupEditor symbol used in MarkupEditorApp), switch roots with `start_lsp` and re-query rather than trying to hold both open at once.
+
+**Tool quick reference:**
 
 | Task | Tool |
 |------|------|
-| Symbol definition | `find_symbol` |
-| All callers | `find_referencing_symbols` |
-| File structure | `get_symbols_overview` |
+| Symbol definition | `find_symbol` (workspace-wide, by name) |
+| All callers | `find_references` (file + line/column or `position_pattern`) |
+| Callers partitioned test/non-test, before any edit | `blast_radius` — call this before editing any file; replaces manual `find_references` loops |
+| File structure | `list_symbols` (pass `format: "outline"` for compact output) |
+| Full context on a symbol in one call | `explore_symbol` (type, source, callers, references, test-caller count) |
 | Replace function body | `replace_symbol_body` |
-| Insert code | `insert_before/after_symbol` |
+| Insert code | `insert_before_symbol` / `insert_after_symbol` |
 | Rename safely | `rename_symbol` |
-| Text/comment search | `search_for_pattern` |
+| Text/comment search | grep — agent-lsp has no pattern-search tool |
 
-Use `get_symbols_overview` before reading whole files. Use `find_referencing_symbols` before any signature change. Use grep for exact text or comment searches.
+Call `list_symbols` before reading whole files. Call `blast_radius` before any signature change.
 
-**Parameter gotchas:**
-- `find_referencing_symbols` requires `relative_path` to be a **file**, not a directory.
-- `replace_symbol_body` does not include preceding doc comments — update those separately with the Edit tool.
-- After `replace_symbol_body`, re-read the file before using Edit on the same file (Serena's replacement invalidates the Edit tool's file-state cache).
+**Gotchas:**
+- **Swift needs a warm-up.** The first `start_lsp` call against a Swift root triggers a real background build (`.build/index-build/`) to populate sourcekit-lsp's index. Document-scoped calls (`list_symbols`, `find_references`, `inspect_symbol`) fail with `-32001: No language service found` until that completes — only workspace-wide `find_symbol` works during the warm-up window. Pass a generous `ready_timeout_seconds` (60+) and retry once if a document-scoped call fails right after `start_lsp`. JavaScript (markupeditor-base) has no equivalent warm-up — it works on the first call.
+- **markupeditor-base needs a local `typescript` install** for `typescript-language-server` to resolve `tsserver` — the repo is plain JavaScript with no `typescript` devDependency of its own, and the *global* npm `typescript` (currently the v7 native-Go rewrite) doesn't ship the classic `tsserver.js` the LSP server needs. Fixed via `npm install typescript@5.4.5 --no-save` inside `markupeditor-base` — `--no-save` keeps it out of `package.json`/`package-lock.json`, landing only in the gitignored `node_modules/`. Don't add it as a real devDependency; re-run the same `--no-save` install if `node_modules` ever gets wiped.
+- Use `javascript` as the language ID for markupeditor-base, not `typescript` — the repo has zero `.ts` files (68 `.js`). Both language IDs route to the same `typescript-language-server` binary, but `javascript` is the one that actually matches the files.
 
-**Constraint**: `MarkupEditor` and `markupeditor-base` must not receive any commits, files, or directories that indicate Claude was used. Work on feature branches only; the user manually pushes.
+**Constraint**: `MarkupEditor` and `markupeditor-base` must not receive any commits, files, or directories that indicate Claude was used. Work on branches only; the user manually pushes.
 
 ## Cross-Project Changes (markupeditor-base → MarkupEditor → MarkupEditorApp)
 
@@ -277,4 +283,4 @@ At each phase boundary or before merging: run `/conexus:review-code` (correctnes
 ## Known Issues
 
 - Subagents cannot spawn other subagents. Multi-agent chains must be orchestrated by the main conversation or a skill.
-- Serena `find_referencing_symbols` does not resolve cross-file references without a full Xcode build index. Use grep to locate all usages across files, then Serena to edit precisely.
+- agent-lsp's `add_workspace_folder` breaks Swift document-scoped queries (`list_symbols`/`find_references`/`inspect_symbol`) across the *entire* session, not just the added folder — see Code Navigation's gotchas. Switch roots with `start_lsp` instead of adding a second workspace folder.

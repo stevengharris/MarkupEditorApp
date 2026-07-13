@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
+    "lsp": {
+      "command": "agent-lsp",
+      "args": ["swift:sourcekit-lsp", "javascript:typescript-language-server,--stdio"]
     }
   }
 }
