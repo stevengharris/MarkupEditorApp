@@ -2,5 +2,6 @@
     "focusAfterLoad": true,
     "selectImage": true,
     "insertLink": false,
-    "insertImage": false
+    "insertImage": false,
+    "highlightCode": true,
 }

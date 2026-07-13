@@ -36,6 +36,7 @@ struct BehaviorSettingsView: View {
             .onChange(of: toolbarVisibility) { oldValue, newValue in
                 setToolbarVisibility(newValue)
             }
+            .padding(.bottom, 8)
             LabeledContent("Installed Plugins:") {
                 let plugins = appConfig.plugins ?? []
                 if plugins.isEmpty {
@@ -47,6 +48,19 @@ struct BehaviorSettingsView: View {
                     }
                 }
             }
+            .padding(.bottom, 8)
+            LabeledContent("Installed Renderers:") {
+                let renderers = appConfig.renderers ?? []
+                if renderers.isEmpty {
+                    Text("No renderers installed.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(renderers, id: \.name) { renderer in
+                        Text(renderer.name)
+                    }
+                }
+            }
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {

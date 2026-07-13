@@ -10,6 +10,15 @@ import AppKit
 import SwiftUI
 
 extension ToolbarConfig {
+    
+    static func fromDefaults() -> ToolbarConfig {
+        let defaults = UserDefaults.standard
+        if let json = defaults.string(forKey: AppConfig.ConfigKey.toolbar), let config = ToolbarConfig.fromJSON(json) {
+            return config
+        } else {
+            return ToolbarConfig()
+        }
+    }
 
     func accentColor(_ colorScheme: ColorScheme) -> NSColor {
         guard let pair = appearance?.accentColor else { return .controlAccentColor }

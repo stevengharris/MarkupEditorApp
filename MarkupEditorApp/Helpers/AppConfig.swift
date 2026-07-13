@@ -41,18 +41,51 @@ public struct AppConfig: JSONConfigurable {
             self.filename = filename
             self.fileExtension = fileExtension
         }
+
+        public nonisolated init(from decoder: any Decoder) throws {
+            enum Keys: String, CodingKey { case name, filename, fileExtension }
+            let c = try decoder.container(keyedBy: Keys.self)
+            name = try c.decode(String.self, forKey: .name)
+            filename = try c.decode(String.self, forKey: .filename)
+            fileExtension = try c.decodeIfPresent(String.self, forKey: .fileExtension)
+        }
+    }
+    
+    /// A single renderer entry as recorded in appconfig.json.
+    /// `filename` is a bare filename (e.g. "markup-editor-markdown.js"); the app
+    /// resolves it to a full bundle path at runtime when building the plugin configuration.
+    public struct RendererConfigEntry: Codable {
+        public let name: String           // Name to display for the renderer
+        public let filename: String       // JS bundle filename
+
+        public init(name: String, filename: String) {
+            self.name = name
+            self.filename = filename
+        }
+        
+        public nonisolated init(from decoder: any Decoder) throws {
+            enum Keys: String, CodingKey { case name, filename }
+            let c = try decoder.container(keyedBy: Keys.self)
+            name = try c.decode(String.self, forKey: .name)
+            filename = try c.decode(String.self, forKey: .filename)
+        }
     }
 
     public var toolbarVisibility: String
     public var toggledState: String
-    /// Optional array of plugins to load. Nil when the key is absent from the JSON,
-    /// which allows older appconfig.json files to decode cleanly (backward compatible).
     public var plugins: [PluginConfigEntry]? = nil
+    public var renderers: [RendererConfigEntry]? = nil
     
-    public init(toolbarVisibility: String, toggledState: String, plugins: [PluginConfigEntry]? = nil) {
+    public init(
+        toolbarVisibility: String,
+        toggledState: String,
+        plugins: [PluginConfigEntry]? = nil,
+        renderers: [RendererConfigEntry]? = nil
+    ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
         self.plugins = plugins
+        self.renderers = renderers
     }
     
     public init() {
@@ -60,6 +93,16 @@ public struct AppConfig: JSONConfigurable {
         toolbarVisibility = config.toolbarVisibility
         toggledState = ToggledState.visible.rawValue
         plugins = config.plugins
+        renderers = config.renderers
+    }
+
+    public nonisolated init(from decoder: any Decoder) throws {
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins, renderers }
+        let c = try decoder.container(keyedBy: Keys.self)
+        toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
+        toggledState = try c.decode(String.self, forKey: .toggledState)
+        plugins = try c.decodeIfPresent([PluginConfigEntry].self, forKey: .plugins)
+        renderers = try c.decodeIfPresent([RendererConfigEntry].self, forKey: .renderers)
     }
     
     public static func fromDefaults() -> AppConfig {
@@ -145,63 +188,4 @@ public struct AppConfig: JSONConfigurable {
         return result
     }
 
-}
-
-extension AppConfig {
-    public nonisolated init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins }
-        let c = try decoder.container(keyedBy: Keys.self)
-        toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
-        toggledState = try c.decode(String.self, forKey: .toggledState)
-        plugins = try c.decodeIfPresent([PluginConfigEntry].self, forKey: .plugins)
-    }
-}
-
-extension AppConfig.PluginConfigEntry {
-    public nonisolated init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case name, filename, fileExtension }
-        let c = try decoder.container(keyedBy: Keys.self)
-        name = try c.decode(String.self, forKey: .name)
-        filename = try c.decode(String.self, forKey: .filename)
-        fileExtension = try c.decodeIfPresent(String.self, forKey: .fileExtension)
-    }
-}
-
-extension ToolbarConfig {
-    
-    static func fromDefaults() -> ToolbarConfig {
-        let defaults = UserDefaults.standard
-        if let json = defaults.string(forKey: AppConfig.ConfigKey.toolbar), let config = ToolbarConfig.fromJSON(json) {
-            return config
-        } else {
-            return ToolbarConfig()
-        }
-    }
-
-}
-
-extension KeymapConfig {
-    
-    static func fromDefaults() -> KeymapConfig {
-        
-        let defaults = UserDefaults.standard
-        if let json = defaults.string(forKey: AppConfig.ConfigKey.keymap), let config = KeymapConfig.fromJSON(json) {
-            return config
-        } else {
-            return KeymapConfig()
-        }
-    }
-}
-
-extension BehaviorConfig {
-    
-    static func fromDefaults() -> BehaviorConfig {
-        
-        let defaults = UserDefaults.standard
-        if let json = defaults.string(forKey: AppConfig.ConfigKey.behavior), let config = BehaviorConfig.fromJSON(json) {
-            return config
-        } else {
-            return BehaviorConfig()
-        }
-    }
 }
