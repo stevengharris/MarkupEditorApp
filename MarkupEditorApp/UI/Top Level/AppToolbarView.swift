@@ -16,8 +16,6 @@ struct AppToolbarView: ToolbarContent {
     @Environment(\.openSettings) private var openSettings
     
     @Binding var url: URL?
-    @Binding var appConfig: AppConfig
-    @Binding var appConfigJSON: String
     @Binding var toolbarConfigJSON: String
     @Binding var markupConfiguration: MarkupWKWebViewConfiguration
     @Binding var infoHide: SideHolder
@@ -50,18 +48,13 @@ struct AppToolbarView: ToolbarContent {
             if let url {
                 ShareLink(item: url)
             }
-            if appConfig.isToggled() {
+            if AppConfig.shared.isToggled() {
                 // The button will only appear if the behavior is set to toggled. The behavior
-                // can change from the BehaviorSettingsView, handled in .onChange(of: appConfigJSON) in MarkupDocumentView.
+                // can change from the BehaviorSettingsView; AppConfig's Observable tracking updates this view automatically.
                 Button(action: {
-                    let newVisible = appConfig.isHidden()
-                    // Toggle the appConfig setting
-                    appConfig.toggledState = newVisible ? ToggledState.visible.rawValue : ToggledState.hidden.rawValue
-                    // Then save it, which triggers the .onChange(of: appConfigJSON) in MarkupDocumentView
-                    if let json = appConfig.asJSON(), json != appConfigJSON {
-                        appConfigJSON = json
-                    } else {
-                        assertionFailure("AppConfig encoding failed unexpectedly")
+                    let newVisible = AppConfig.shared.isHidden()
+                    AppConfig.update { config in
+                        config.toggledState = newVisible ? ToggledState.visible.rawValue : ToggledState.hidden.rawValue
                     }
                     // Reset toolbarConfig inside of markupConfiguration so it displays properly initially
                     var toolbarConfig = markupConfiguration.toolbarConfig

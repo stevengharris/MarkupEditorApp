@@ -37,10 +37,8 @@ struct MarkupDocumentView: View {
     @AppStorage(ConfigKeys.toolbar) private var toolbarConfigJSON = ""
     @AppStorage(ConfigKeys.keymap) private var keymapConfigJSON = ""
     @AppStorage(ConfigKeys.behavior) private var behaviorConfigJSON = ""
-    @AppStorage(ConfigKeys.app) private var appConfigJSON = ""
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
-    @State private var appConfig: AppConfig = AppConfig.fromDefaults()
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
     
     var body: some View {
@@ -77,10 +75,9 @@ struct MarkupDocumentView: View {
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
             reloadEditorForConfigChange()
         }
-        .onChange(of: appConfigJSON) { _, _ in
-            appConfig = AppConfig.fromDefaults()
+        .onChange(of: AppConfig.shared.plugins) { _, _ in
             markupConfiguration.pluginFiles = AppConfig.pluginFiles(
-                from: appConfig.plugins,
+                from: AppConfig.shared.plugins,
                 pluginDir: PluginSetup.defaultPluginDir
             )
             reloadEditorForConfigChange()
@@ -174,8 +171,6 @@ struct MarkupDocumentView: View {
         .toolbar {
             AppToolbarView(
                 url: $doc.url,
-                appConfig: $appConfig,
-                appConfigJSON: $appConfigJSON,
                 toolbarConfigJSON: $toolbarConfigJSON,
                 markupConfiguration: $markupConfiguration,
                 infoHide: $infoHide
@@ -189,9 +184,9 @@ struct MarkupDocumentView: View {
         config.toolbarConfig = ToolbarConfig.fromDefaults()
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
-        config.userScriptFile = "markup-editor-markdown.js"
+        config.userScriptFile = "markupeditor-markdown.js"
         config.pluginFiles = AppConfig.pluginFiles(
-            from: AppConfig.fromDefaults().plugins,
+            from: AppConfig.shared.plugins,
             pluginDir: PluginSetup.defaultPluginDir
         )
         _markupConfiguration = State(initialValue: config)
@@ -680,7 +675,7 @@ extension MarkupDocumentView: MarkupDelegate {
 
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
-        view.setToolbarVisible(!appConfig.isHidden())
+        view.setToolbarVisible(!AppConfig.shared.isHidden())
         if let url = AppDelegate.consumePendingURL() {
             Task {
                 await openDocument(at: url)

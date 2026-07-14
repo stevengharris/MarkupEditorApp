@@ -8,6 +8,8 @@
 import SwiftUI
 import MarkupEditor
 
+internal import UniformTypeIdentifiers
+
 /// The BehaviorSettingsView addresses the behavior of the MarkupEditorApp, not the MarkupEditor.
 /// As such, it operates against the appconfig.json and stores overrides in UserDefaults. The
 /// behaviorConfig.json is really for the MarkupEditorApp developer, not for MarkupEditorApp users.
@@ -17,12 +19,14 @@ struct BehaviorSettingsView: View {
     typealias ToolbarVisibility = AppConfig.ToolbarVisibility
     typealias ToggledState = AppConfig.ToggledState
     
-    @AppStorage(ConfigKey.app) private var appConfigJSON: String = ""
     @AppStorage(ConfigKey.toolbar) private var toolbarConfigJSON: String = ""
-    @State private var appConfig: AppConfig = AppConfig.fromDefaults()
     @State private var toolbarConfig: ToolbarConfig = ToolbarConfig.fromDefaults()
     @State private var loaded = false
-    @State private var toolbarVisibility: ToolbarVisibility
+    @State private var toolbarVisibility: ToolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
+    @State private var renderers: [RendererConfigEntry] = AppConfig.shared.renderers ?? []
+    @FocusState private var focusedRenderer: String?
+    @State private var showAddRenderer: Bool = false
+    @State private var showDeleteRenderer: Bool = false
 
     var body: some View {
         Spacer()
@@ -38,7 +42,7 @@ struct BehaviorSettingsView: View {
             }
             .padding(.bottom, 8)
             LabeledContent("Installed Plugins:") {
-                let plugins = appConfig.plugins ?? []
+                let plugins = AppConfig.shared.plugins ?? []
                 if plugins.isEmpty {
                     Text("No plugins installed.")
                         .foregroundStyle(.secondary)
@@ -50,16 +54,30 @@ struct BehaviorSettingsView: View {
             }
             .padding(.bottom, 8)
             LabeledContent("Installed Renderers:") {
-                let renderers = appConfig.renderers ?? []
                 if renderers.isEmpty {
                     Text("No renderers installed.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(renderers, id: \.name) { renderer in
                         Text(renderer.name)
+                            .focusable()
+                            .focused($focusedRenderer, equals: renderer.name)
                     }
                 }
             }
+            LabeledContent("") {}
+            LabeledContent("") {
+                HStack {
+                    Button(action: { showAddRenderer = true }, label: { Image(systemName: "plus.square") })
+                    Button(action: { showDeleteRenderer = true }, label: { Image(systemName: "minus.square") })
+                        .disabled(focusedRenderer == nil)
+                    Text("Add or delete renderer")
+                        .lineLimit(1)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 8)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -67,46 +85,58 @@ struct BehaviorSettingsView: View {
             guard !loaded else { return }
             loaded = true
             toolbarConfig = ToolbarConfig.fromDefaults()
-            toolbarVisibility = ToolbarVisibility(rawValue: appConfig.toolbarVisibility) ?? .toggled
+            toolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
+            renderers = AppConfig.shared.renderers ?? []
         }
         .onChange(of: toolbarConfigJSON) {
             toolbarConfig = ToolbarConfig.fromJSON(toolbarConfigJSON)
         }
+        .fileImporter(isPresented: $showAddRenderer, allowedContentTypes: [.javaScript], allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                Task { await addRenderer(url) }
+            }
+        }
+        .confirmationDialog(
+            "Delete \"\(focusedRenderer ?? "")\"?",
+            isPresented: $showDeleteRenderer,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                deleteRenderer()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         Spacer()
     }
     
-    init() {
-        _toolbarVisibility = State(initialValue: ToolbarVisibility(rawValue: _appConfig.wrappedValue.toolbarVisibility) ?? .toggled)
-    }
-    
+    private func addRenderer(_ url: URL) async {}
+    private func deleteRenderer() {}
+
     /// Set the toolbarVisibility to the new value, keeping the config in proper sync and saving when done.
-    /// By "proper sync", we mean that we have to track appConfig.toggledState to match the end state of whether
+    /// By "proper sync", we mean that we have to track AppConfig's toggledState to match the end state of whether
     /// the toolbar will be visible or not. And, the toolbarConfig.visibility has to be set properly because when we
     /// open a new MarkupEditorApp, the initial toolbar has to be set up properly to avoid a redraw.
     private func setToolbarVisibility(_ value: ToolbarVisibility) {
-        appConfig.toolbarVisibility = value.rawValue
-        if value == .hidden {           // When always hidden, toolbarConfig.visibility muse be false
-            toolbarConfig.visibility["toolbar"] = false
-            appConfig.toggledState = ToggledState.hidden.rawValue
-        } else if value == .visible {   // When always visible, toolbarConfig.visibility must be true
-            toolbarConfig.visibility["toolbar"] = true
-            appConfig.toggledState = ToggledState.visible.rawValue
-        } else {                        // When toggled, toolbarConfig.visibility depends on the current state
-            toolbarConfig.visibility["toolbar"] = !appConfig.isHidden()
+        AppConfig.update { config in
+            config.toolbarVisibility = value.rawValue
+            if value == .hidden {           // When always hidden, toolbarConfig.visibility muse be false
+                toolbarConfig.visibility["toolbar"] = false
+                config.toggledState = ToggledState.hidden.rawValue
+            } else if value == .visible {   // When always visible, toolbarConfig.visibility must be true
+                toolbarConfig.visibility["toolbar"] = true
+                config.toggledState = ToggledState.visible.rawValue
+            } else {                        // When toggled, toolbarConfig.visibility depends on the current state
+                toolbarConfig.visibility["toolbar"] = !config.isHidden()
+            }
         }
-        save()
+        saveToolbarConfig()
     }
-    
-    private func save() {
+
+    private func saveToolbarConfig() {
         if let json = toolbarConfig.asJSON(), toolbarConfigJSON != json {
             toolbarConfigJSON = json
         } else {
             assertionFailure("ToolbarConfig encoding failed unexpectedly")
-        }
-        if let json = appConfig.asJSON(), appConfigJSON != json {
-            appConfigJSON = json
-        } else {
-            assertionFailure("AppConfig encoding failed unexpectedly")
         }
     }
 }

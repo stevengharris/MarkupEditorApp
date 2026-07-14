@@ -6,10 +6,12 @@
 //
 
 import Foundation
+import Observation
 import OSLog
 import MarkupEditor
 
-public struct AppConfig: JSONConfigurable {
+@Observable
+public final class AppConfig: JSONConfigurable {
 
     // Keys used in UserDefaults.standard for configuration JSON
     public enum ConfigKey {
@@ -29,9 +31,9 @@ public struct AppConfig: JSONConfigurable {
     }
 
     /// A single plugin entry as recorded in appconfig.json.
-    /// `filename` is a bare filename (e.g. "markup-editor-markdown.js"); the app
+    /// `filename` is a bare filename (e.g. "markupeditor-markdown.js"); the app
     /// resolves it to a full bundle path at runtime when building the plugin configuration.
-    public struct PluginConfigEntry: Codable {
+    public struct PluginConfigEntry: Codable, Equatable {
         public let name: String           // JS registry key for invokePlugin
         public let filename: String       // JS bundle filename
         public let fileExtension: String? // e.g. "md"; nil = backward-compatible
@@ -48,26 +50,6 @@ public struct AppConfig: JSONConfigurable {
             name = try c.decode(String.self, forKey: .name)
             filename = try c.decode(String.self, forKey: .filename)
             fileExtension = try c.decodeIfPresent(String.self, forKey: .fileExtension)
-        }
-    }
-    
-    /// A single renderer entry as recorded in appconfig.json.
-    /// `filename` is a bare filename (e.g. "markup-editor-markdown.js"); the app
-    /// resolves it to a full bundle path at runtime when building the plugin configuration.
-    public struct RendererConfigEntry: Codable {
-        public let name: String           // Name to display for the renderer
-        public let filename: String       // JS bundle filename
-
-        public init(name: String, filename: String) {
-            self.name = name
-            self.filename = filename
-        }
-        
-        public nonisolated init(from decoder: any Decoder) throws {
-            enum Keys: String, CodingKey { case name, filename }
-            let c = try decoder.container(keyedBy: Keys.self)
-            name = try c.decode(String.self, forKey: .name)
-            filename = try c.decode(String.self, forKey: .filename)
         }
     }
 
@@ -96,7 +78,7 @@ public struct AppConfig: JSONConfigurable {
         renderers = config.renderers
     }
 
-    public nonisolated init(from decoder: any Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins, renderers }
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
@@ -105,7 +87,24 @@ public struct AppConfig: JSONConfigurable {
         renderers = try c.decodeIfPresent([RendererConfigEntry].self, forKey: .renderers)
     }
     
-    public static func fromDefaults() -> AppConfig {
+    /// The single, process-wide instance. Read its properties directly; use `update(_:)` to mutate and persist.
+    public static let shared: AppConfig = loadCurrent()
+
+    /// Mutate `shared` and persist the result to UserDefaults.
+    public static func update(_ mutate: (AppConfig) -> Void) {
+        mutate(shared)
+        shared.persist()
+    }
+
+    private func persist() {
+        guard let json = asJSON() else {
+            assertionFailure("AppConfig encoding failed unexpectedly")
+            return
+        }
+        UserDefaults.standard.set(json, forKey: ConfigKey.app)
+    }
+
+    private static func loadCurrent() -> AppConfig {
         let defaults = UserDefaults.standard
         if let json = defaults.string(forKey: ConfigKey.app), let config = AppConfig.fromJSON(json) {
             return config
@@ -113,7 +112,7 @@ public struct AppConfig: JSONConfigurable {
             return AppConfig()
         }
     }
-    
+
     private static func load() -> AppConfig {
         let mainBundle = Bundle.main
         guard let path = mainBundle.path(forResource: "appconfig", ofType: "json") else {

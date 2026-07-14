@@ -70,7 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // fully complete before we replace the menu.
         Task { @MainActor [self] in
             NSApplication.shared.mainMenu = buildMenu()
-            populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+            populatePluginMenus(AppConfig.shared.plugins ?? [])
             NSApplication.shared.mainWindow?.delegate = self
             // SwiftUI's internal AppDelegate runs makeMainMenu whenever the scene
             // graph changes phase (background ↔ active, environment changes, etc.).
@@ -99,7 +99,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     guard menu.numberOfItems == 0 else { return }
                     Task { @MainActor in
                         NSApplication.shared.mainMenu = self.buildMenu()
-                        self.populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+                        self.populatePluginMenus(AppConfig.shared.plugins ?? [])
                     }
                 }
             }
@@ -118,7 +118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // SwiftUI's stripped menu has 5 items; our custom menu has 7+ items.
         guard (NSApp.mainMenu?.numberOfItems ?? 0) < 6 else { return }
         NSApplication.shared.mainMenu = buildMenu()
-        populatePluginMenus(AppConfig.fromDefaults().plugins ?? [])
+        populatePluginMenus(AppConfig.shared.plugins ?? [])
     }
 
     // MARK: - File menu actions

@@ -24,7 +24,7 @@ enum PluginSetup {
     /// Sets up the plugin directory and copies missing bundled plugin files.
     ///
     /// - Parameters:
-    ///   - entries: Plugin config entries (typically from `AppConfig.fromDefaults().plugins`).
+    ///   - entries: Plugin config entries (typically from `AppConfig.shared.plugins`).
     ///   - pluginDir: Destination directory (defaults to `defaultPluginDir`).
     ///   - bundleResourceURL: Directory to look up source files in (defaults to
     ///     `Bundle.main.resourceURL`). Injected for testability.
@@ -78,7 +78,7 @@ enum PluginSetup {
 
     /// Calls `setupPluginDirectory` using the app's current `AppConfig`.
     static func setupOnLaunch() {
-        let entries = AppConfig.fromDefaults().plugins ?? []
+        let entries = AppConfig.shared.plugins ?? []
         setupPluginDirectory(entries: entries)
     }
 
