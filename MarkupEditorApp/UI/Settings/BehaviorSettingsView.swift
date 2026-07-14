@@ -23,10 +23,12 @@ struct BehaviorSettingsView: View {
     @State private var toolbarConfig: ToolbarConfig = ToolbarConfig.fromDefaults()
     @State private var loaded = false
     @State private var toolbarVisibility: ToolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
-    @State private var renderers: [RendererConfigEntry] = AppConfig.shared.renderers
-    @FocusState private var focusedRenderer: String?
+    @FocusState private var focusedRenderer: Renderer?
     @State private var showAddRenderer: Bool = false
     @State private var showDeleteRenderer: Bool = false
+    @State private var showRendererNameDialog: Bool = false
+    @State private var newRendererURL: URL?
+    @State private var newRendererName: String = ""
 
     var body: some View {
         Spacer()
@@ -47,21 +49,24 @@ struct BehaviorSettingsView: View {
                     Text("No plugins installed.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(plugins, id: \.name) { plugin in
-                        Text(plugin.name)
-                    }
+                        ForEach(plugins, id: \.name) { plugin in
+                            Text(plugin.name)
+                        }
                 }
             }
             .padding(.bottom, 8)
             LabeledContent("Installed Renderers:") {
+                let renderers = AppConfig.shared.renderers
                 if renderers.isEmpty {
                     Text("No renderers installed.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(renderers, id: \.name) { renderer in
-                        Text(renderer.name)
-                            .focusable()
-                            .focused($focusedRenderer, equals: renderer.name)
+                    VStack(alignment: .leading) {
+                        ForEach(renderers, id: \.name) { renderer in
+                            Text(renderer.name)
+                                .focusable()
+                                .focused($focusedRenderer, equals: renderer)
+                        }
                     }
                 }
             }
@@ -86,18 +91,23 @@ struct BehaviorSettingsView: View {
             loaded = true
             toolbarConfig = ToolbarConfig.fromDefaults()
             toolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
-            renderers = AppConfig.shared.renderers
         }
         .onChange(of: toolbarConfigJSON) {
             toolbarConfig = ToolbarConfig.fromJSON(toolbarConfigJSON)
         }
         .fileImporter(isPresented: $showAddRenderer, allowedContentTypes: [.javaScript], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
+                // Must start the security scope synchronously here, in the fileImporter completion
+                // handler, not later inside addRenderer. The copy itself doesn't happen until the
+                // user confirms the name in the alert, so the access grant has to be held open across
+                // that whole interaction — RendererManager.add(name:url:) stops it once the copy is done,
+                // and the alert's Cancel button stops it if the user backs out instead.
+                guard url.startAccessingSecurityScopedResource() else { return }
                 Task { await addRenderer(url) }
             }
         }
         .confirmationDialog(
-            "Delete \"\(focusedRenderer ?? "")\"?",
+            "Delete \"\(focusedRenderer?.name ?? "")\"? The original source location for \"\(focusedRenderer?.name ?? "")\" will not be affected. You cannot undo this action.",
             isPresented: $showDeleteRenderer,
             titleVisibility: .visible
         ) {
@@ -106,11 +116,29 @@ struct BehaviorSettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .alert("New Renderer", isPresented: $showRendererNameDialog) {
+            TextField("Name", text: $newRendererName)
+            Button("OK") {
+                RendererManager.shared.add(name: newRendererName, url: newRendererURL)
+            }
+            Button("Cancel", role: .cancel) {
+                newRendererURL?.stopAccessingSecurityScopedResource()
+                newRendererURL = nil
+            }
+        } message: {
+            Text("Enter a name for the renderer.")
+        }
         Spacer()
     }
-    
-    private func addRenderer(_ url: URL) async {}
-    private func deleteRenderer() {}
+
+    private func addRenderer(_ url: URL) async {
+        newRendererURL = url
+        showRendererNameDialog = true
+    }
+
+    private func deleteRenderer() {
+        RendererManager.shared.delete(focusedRenderer)
+    }
 
     /// Set the toolbarVisibility to the new value, keeping the config in proper sync and saving when done.
     /// By "proper sync", we mean that we have to track AppConfig's toggledState to match the end state of whether

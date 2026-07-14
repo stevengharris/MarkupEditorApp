@@ -15,18 +15,17 @@ private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", cate
 class RendererManager {
     
     static let shared = RendererManager()
-    var renderers: [RendererConfigEntry] = []
 
     /// The URL of the renderer directory under Application Support.
-    static var defaultDir: URL {
+    var defaultDir: URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appendingPathComponent("renderers")
     }
-    static let mermaidFilename: String = "markupeditor-mermaid.js"
+    let mermaid = Renderer(name: "Mermaid", filename: "markupeditor-mermaid.js")
 
     /// Calls `setupRenderers` using the app's current `AppConfig`.
-    static func setupOnLaunch() {
+    func setupOnLaunch() {
         do {
             try FileManager.default.createDirectory(
                 at: defaultDir,
@@ -34,7 +33,7 @@ class RendererManager {
                 attributes: nil
             )
         } catch {
-            logger.error("Failed to create renderer directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
+            logger.error("Failed to create renderer directory at \(self.defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
             return
         }
 
@@ -44,15 +43,25 @@ class RendererManager {
         // something else, so we need to avoid overwriting that. By the same token, if we
         // are doing work on or updating the Mermaid renderer support, we need to replace
         // it if that exists.
-        // TODO: Tighten up the logic
-        guard let source = Bundle.main.resourceURL?.appendingPathComponent(mermaidFilename) else {
+        // TODO: Tighten up the logic to avoid edge cases
+        guard let source = Bundle.main.resourceURL?.appendingPathComponent(mermaid.filename) else {
             logger.warning("Resource URL was not found.")
             return
         }
-        let destination = defaultDir.appendingPathComponent(mermaidFilename)
+        add(name: mermaid.name, url: source)
+    }
+    
+    func add(name: String, url: URL?) {
+        guard !name.isEmpty, let source = url else { return }
+        // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
+        // in BehaviorSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
+        // URL, which was never subject to a matching start call.
+        defer { source.stopAccessingSecurityScopedResource() }
+        let renderer = Renderer(name: name, filename: source.lastPathComponent)
+        let destination = defaultDir.appendingPathComponent(renderer.filename)
 
         guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
-            logger.warning("Bundled renderer not found: \(mermaidFilename) — skipping")
+            logger.warning("Renderer not found: \(renderer.filename)")
             return
         }
 
@@ -61,22 +70,38 @@ class RendererManager {
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.copyItem(at: source, to: destination)
-            logger.info("Copied bundled renderer: \(mermaidFilename)")
+            logger.info("Saved renderer \(renderer.name): \(renderer.filename)")
+            AppConfig.update { config in
+                if let index = config.renderers.firstIndex(where: {existing in renderer.name == existing.name}) {
+                    config.renderers[index] = renderer
+                } else {
+                    config.renderers.append(renderer)
+                }
+            }
         } catch {
-            logger.error("Failed to copy renderer \(mermaidFilename): \(error.localizedDescription)")
+            logger.error("Failed to save renderer \(renderer.filename): \(error.localizedDescription)")
         }
     }
     
-    func add(_ renderer: RendererConfigEntry) {
-        if let index = renderers.firstIndex(where: {existing in renderer.name == existing.name}) {
-            renderers[index] = renderer
+    func delete(_ renderer: Renderer?) {
+        guard let renderer else { return }
+        AppConfig.update { config in
+            if let index = config.renderers.firstIndex(of: renderer) {
+                let url = defaultDir.appendingPathComponent(renderer.filename)
+                if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                config.renderers.remove(at: index)
+            }
         }
     }
     
-    func delete(_ renderer: RendererConfigEntry) {
-        if let index = renderers.firstIndex(where: {existing in renderer.name == existing.name}) {
-            renderers.remove(at: index)
-        }
+    func exists(_ renderer: Renderer) -> Bool {
+        AppConfig.shared.renderers.firstIndex(of: renderer) != nil
+    }
+    
+    func nameExists(_ name: String) -> Bool {
+        AppConfig.shared.renderers.first(where: {$0.name == name}) != nil
     }
     
 }

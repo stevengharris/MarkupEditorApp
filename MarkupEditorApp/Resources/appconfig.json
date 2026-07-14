@@ -2,10 +2,5 @@
     "toolbarVisibility": "toggled",
     "toggledState": "visible",
     "plugins": [],
-    "renderers": [
-        {
-            "name": "Mermaid",
-            "filename": "mermaid"
-        }
-    ]
+    "renderers": []
 }

@@ -179,7 +179,7 @@ struct AppConfigRoundTripTests {
             toolbarVisibility: "hidden",
             toggledState: "hidden",
             plugins: [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")],
-            renderers: [RendererConfigEntry(name: "Mermaid", filename: "markupeditor-mermaid.js")]
+            renderers: [Renderer(name: "Mermaid", filename: "markupeditor-mermaid.js")]
         )
 
         let json = try #require(original.asJSON())

@@ -56,13 +56,13 @@ public final class AppConfig: JSONConfigurable {
     public var toolbarVisibility: String
     public var toggledState: String
     public var plugins: [PluginConfigEntry]
-    public var renderers: [RendererConfigEntry]
+    public var renderers: [Renderer]
     
     public init(
         toolbarVisibility: String,
         toggledState: String,
         plugins: [PluginConfigEntry]? = nil,
-        renderers: [RendererConfigEntry]? = nil
+        renderers: [Renderer]? = nil
     ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
@@ -84,7 +84,7 @@ public final class AppConfig: JSONConfigurable {
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
         toggledState = try c.decode(String.self, forKey: .toggledState)
         plugins = try c.decode([PluginConfigEntry].self, forKey: .plugins)
-        renderers = try c.decode([RendererConfigEntry].self, forKey: .renderers)
+        renderers = try c.decode([Renderer].self, forKey: .renderers)
     }
 
     /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
