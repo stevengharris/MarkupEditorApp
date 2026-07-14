@@ -1,0 +1,29 @@
+{
+  "name": "markupeditor-mermaid",
+  "version": "0.1.0",
+  "description": "MarkupEditor renderer for Mermaid diagrams.",
+  "type": "module",
+  "main": "dist/markupeditor-mermaid.js",
+  "license": "MIT",
+  "author": "Steven G. Harris <steven.g.harris@gmail.com>",
+  "dependencies": {
+    "mermaid": "^11.16.0"
+  },
+  "peerDependencies": {
+    "markupeditor": ">=0.9.24",
+    "prosemirror-model": "^1.23.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "jsdom": "^27.0.1",
+    "rollup": "^4.31.0",
+    "vitest": "^3.2.4"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "prepare": "./prepare.sh",
+    "pretest": "npm run build",
+    "test": "vitest run"
+  }
+}

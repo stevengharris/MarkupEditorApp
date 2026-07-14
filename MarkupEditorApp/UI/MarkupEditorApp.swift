@@ -32,5 +32,6 @@ struct MarkupEditorApp: App {
         // menu in iOS/macCatalyst 16.4 or higher.
         MarkupEditor.isInspectable = true
         PluginSetup.setupOnLaunch()
+        RendererManager.setupOnLaunch()
     }
 }

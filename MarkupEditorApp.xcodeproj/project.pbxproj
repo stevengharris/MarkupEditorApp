@@ -32,6 +32,7 @@
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAB4738F30068DCB005F583D /* markupeditor-mermaid */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-mermaid"; sourceTree = "<group>"; };
 		AAB800602FC4C2CC00212250 /* markupeditor-markdown */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-markdown"; sourceTree = "<group>"; };
 		AAB8007C2FC5036A00212250 /* docs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = docs; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -99,6 +100,7 @@
 			children = (
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
+				AAB4738F30068DCB005F583D /* markupeditor-mermaid */,
 				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
 				AAB800602FC4C2CC00212250 /* markupeditor-markdown */,
 				AAB8007C2FC5036A00212250 /* docs */,
