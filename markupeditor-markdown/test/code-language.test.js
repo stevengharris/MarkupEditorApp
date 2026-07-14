@@ -19,7 +19,7 @@ import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 import { DOMSerializer } from 'prosemirror-model'
 import { MU } from 'markupeditor'
-import '../src/markup-editor-markdown.js'
+import '../src/markupeditor-markdown.js'
 // The schema is created inside markupeditor-base, which resolves its own
 // 'prosemirror-model' dependency (a different installed version than the one
 // markupeditor-markdown resolves at its own top level). DOMParser does
@@ -219,7 +219,7 @@ describe('RDR-015 preamble regression — serializer branch is language-attr-inv
 
 describe('RDR-015 preamble regression — parser assigns language "html" to the injected preamble fence', () => {
   test('the synthetic ```html fence importFn injects around a preamble parses to language: "html"', () => {
-    // importMarkdown (markup-editor-markdown.js) wraps a detected leading HTML
+    // importMarkdown (markupeditor-markdown.js) wraps a detected leading HTML
     // block in a synthetic ```html fence before handing off to makeParser —
     // see MU.importMarkdown's `replacement = '```html\n' + htmlContent + '\n```\n'`.
     // Exercise that exact fence shape directly through the parser (bypassing
@@ -238,7 +238,7 @@ describe('RDR-015 preamble regression — parser assigns language "html" to the 
 
 describe('RDR-015 preamble regression — full importFn/exportFn pipeline', () => {
   // Since 303c562 moved markdown import/export from a plugin to a userscript,
-  // markup-editor-markdown.js attaches exportMarkdown/importMarkdown directly
+  // markupeditor-markdown.js attaches exportMarkdown/importMarkdown directly
   // onto the real MU singleton imported from the markupeditor package (see
   // plugin.test.js / preamble.test.js for the same pattern). The jsdom
   // CSSStyleSheet.replaceSync gap that used to block this file's module load

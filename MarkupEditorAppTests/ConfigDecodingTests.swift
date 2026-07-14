@@ -108,7 +108,7 @@ struct AppConfigPluginDecodingTests {
         {
             "toolbarVisibility": "toggled",
             "toggledState": "visible",
-            "plugins": [{ "name": "Markdown", "filename": "markup-editor-markdown.js" }]
+            "plugins": [{ "name": "Markdown", "filename": "markupeditor-markdown.js" }]
         }
         """
         let data = try #require(json.data(using: .utf8))
@@ -116,7 +116,7 @@ struct AppConfigPluginDecodingTests {
         let plugins = try #require(config.plugins)
         #expect(plugins.count == 1)
         #expect(plugins[0].name == "Markdown")
-        #expect(plugins[0].filename == "markup-editor-markdown.js")
+        #expect(plugins[0].filename == "markupeditor-markdown.js")
     }
 
     // MARK: - plugins key absent: backward compatible → nil

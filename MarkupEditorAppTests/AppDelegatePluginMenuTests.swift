@@ -47,7 +47,7 @@ import AppKit
 
     @Test func populatePluginMenusAddsOneItemToExportSubmenu() {
         let delegate = makeDelegate()
-        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
+        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")]
         delegate.populatePluginMenus(entries)
         #expect(delegate.exportSubmenu.items.count == 1)
         #expect(delegate.exportSubmenu.items[0].title == "Markdown")
@@ -56,7 +56,7 @@ import AppKit
     @Test func populatePluginMenusAddsMultipleItems() {
         let delegate = makeDelegate()
         let entries = [
-            AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js"),
+            AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js"),
             AppConfig.PluginConfigEntry(name: "RST", filename: "markup-editor-rst.js")
         ]
         delegate.populatePluginMenus(entries)
@@ -68,7 +68,7 @@ import AppKit
 
     @Test func secondPopulateReplacesItems() {
         let delegate = makeDelegate()
-        let first = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
+        let first = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")]
         let second = [AppConfig.PluginConfigEntry(name: "RST", filename: "markup-editor-rst.js")]
         delegate.populatePluginMenus(first)
         delegate.populatePluginMenus(second)
@@ -80,7 +80,7 @@ import AppKit
 
     @Test func populateWithEmptyManifestClearsExportSubmenu() {
         let delegate = makeDelegate()
-        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
+        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")]
         delegate.populatePluginMenus(entries)
         #expect(delegate.exportSubmenu.items.count == 1)
         delegate.populatePluginMenus([])
@@ -96,7 +96,7 @@ import AppKit
 
     @Test func exportMenuItemIsWiredToDelegate() {
         let delegate = makeDelegate()
-        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js")]
+        let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")]
         delegate.populatePluginMenus(entries)
 
         let item = delegate.exportSubmenu.items[0]
@@ -114,7 +114,7 @@ import AppKit
 
     @Test func exportMenuItemRepresentedObjectCarriesFileExtension() {
         let delegate = makeDelegate()
-        let entry = AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+        let entry = AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js", fileExtension: "md")
         delegate.populatePluginMenus([entry])
         let stored = delegate.exportSubmenu.items[0].representedObject as? AppConfig.PluginConfigEntry
         #expect(stored?.fileExtension == "md")

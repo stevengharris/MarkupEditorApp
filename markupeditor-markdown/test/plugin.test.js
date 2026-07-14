@@ -1,13 +1,13 @@
 import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { schema } from 'markupeditor/src/schema/index.js'
 import { MU } from 'markupeditor'
-import '../src/markup-editor-markdown.js'
+import '../src/markupeditor-markdown.js'
 
 // ---------------------------------------------------------------------------
 // Module setup
 //
 // Since 303c562 moved markdown import/export from a plugin to a userscript,
-// markup-editor-markdown.js attaches exportMarkdown/importMarkdown directly
+// markupeditor-markdown.js attaches exportMarkdown/importMarkdown directly
 // onto the real MU singleton imported from the markupeditor package, rather
 // than exporting them or registering via MU.registerPlugin. Importing the
 // module (above) triggers that attachment; MU.activeView is stubbed per test.

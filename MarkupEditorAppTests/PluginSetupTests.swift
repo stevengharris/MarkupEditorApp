@@ -75,7 +75,7 @@ struct PluginSetupTests {
         let bundleDir = tmp.appendingPathComponent("Bundle")
         try FileManager.default.createDirectory(at: bundleDir, withIntermediateDirectories: true)
 
-        let filename = "markup-editor-markdown.js"
+        let filename = "markupeditor-markdown.js"
         _ = try writeBundleFile(named: filename, in: bundleDir)
 
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: filename)]
@@ -96,7 +96,7 @@ struct PluginSetupTests {
         let bundleDir = tmp.appendingPathComponent("Bundle")
         try FileManager.default.createDirectory(at: bundleDir, withIntermediateDirectories: true)
 
-        let filename = "markup-editor-markdown.js"
+        let filename = "markupeditor-markdown.js"
         // Pre-existing file that should be replaced by the bundled version
         let existingContent = "// old version"
         let destURL = pluginDir.appendingPathComponent(filename)
@@ -125,7 +125,7 @@ struct PluginSetupTests {
         let bundleDir = tmp.appendingPathComponent("Bundle")
         try FileManager.default.createDirectory(at: bundleDir, withIntermediateDirectories: true)
 
-        let filename = "markup-editor-markdown.js"
+        let filename = "markupeditor-markdown.js"
         // Bundle directory exists but file is NOT present
 
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: filename)]

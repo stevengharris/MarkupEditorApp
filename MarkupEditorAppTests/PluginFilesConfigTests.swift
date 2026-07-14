@@ -35,7 +35,7 @@ struct PluginFilesConfigTests {
 
     @Test func onePluginFileExistsProducesOneEntry() throws {
         let pluginDir = try makeTempDir()
-        let filename = "markup-editor-markdown.js"
+        let filename = "markupeditor-markdown.js"
         _ = try writePluginFile(named: filename, in: pluginDir)
 
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: filename)]
@@ -51,7 +51,7 @@ struct PluginFilesConfigTests {
 
     @Test func onePluginFileMissingProducesEmptyResult() throws {
         let pluginDir = try makeTempDir()
-        let filename = "markup-editor-markdown.js"
+        let filename = "markupeditor-markdown.js"
         // File is intentionally NOT written
 
         let entries = [AppConfig.PluginConfigEntry(name: "Markdown", filename: filename)]
@@ -84,7 +84,7 @@ struct PluginFilesConfigTests {
 
     @Test func mixedExistenceReturnsOnlyExistingEntries() throws {
         let pluginDir = try makeTempDir()
-        let presentFile = "markup-editor-markdown.js"
+        let presentFile = "markupeditor-markdown.js"
         let absentFile = "markup-editor-missing.js"
         _ = try writePluginFile(named: presentFile, in: pluginDir)
 

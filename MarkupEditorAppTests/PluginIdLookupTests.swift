@@ -25,7 +25,7 @@ import Foundation
             toolbarVisibility: "toggled",
             toggledState: "visible",
             plugins: [
-                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js", fileExtension: "md")
             ]
         )
         let result = MarkupDocument().pluginId(forExtension: "md", in: config)
@@ -38,7 +38,7 @@ import Foundation
             toolbarVisibility: "toggled",
             toggledState: "visible",
             plugins: [
-                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js", fileExtension: "md")
             ]
         )
         // "MD" (uppercase) should NOT match the "md" fileExtension entry.
@@ -53,7 +53,7 @@ import Foundation
             toolbarVisibility: "toggled",
             toggledState: "visible",
             plugins: [
-                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js", fileExtension: "md")
             ]
         )
         let result = MarkupDocument().pluginId(forExtension: "xyz", in: config)
@@ -80,7 +80,7 @@ import Foundation
             toggledState: "visible",
             plugins: [
                 AppConfig.PluginConfigEntry(name: "RST", filename: "markup-editor-rst.js", fileExtension: "rst"),
-                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markup-editor-markdown.js", fileExtension: "md")
+                AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js", fileExtension: "md")
             ]
         )
         #expect(MarkupDocument().pluginId(forExtension: "md", in: config) == "Markdown")

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Markdown conversion plugin for MarkupEditorApp using prosemirror-markdown.",
   "type": "module",
-  "main": "dist/markup-editor-markdown.js",
+  "main": "dist/markupeditor-markdown.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "dependencies": {
