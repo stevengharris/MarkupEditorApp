@@ -55,8 +55,8 @@ public final class AppConfig: JSONConfigurable {
 
     public var toolbarVisibility: String
     public var toggledState: String
-    public var plugins: [PluginConfigEntry]? = nil
-    public var renderers: [RendererConfigEntry]? = nil
+    public var plugins: [PluginConfigEntry]
+    public var renderers: [RendererConfigEntry]
     
     public init(
         toolbarVisibility: String,
@@ -66,8 +66,8 @@ public final class AppConfig: JSONConfigurable {
     ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
-        self.plugins = plugins
-        self.renderers = renderers
+        self.plugins = plugins ?? []
+        self.renderers = renderers ?? []
     }
     
     public init() {
@@ -83,10 +83,23 @@ public final class AppConfig: JSONConfigurable {
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
         toggledState = try c.decode(String.self, forKey: .toggledState)
-        plugins = try c.decodeIfPresent([PluginConfigEntry].self, forKey: .plugins)
-        renderers = try c.decodeIfPresent([RendererConfigEntry].self, forKey: .renderers)
+        plugins = try c.decode([PluginConfigEntry].self, forKey: .plugins)
+        renderers = try c.decode([RendererConfigEntry].self, forKey: .renderers)
     }
-    
+
+    /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
+    /// actual stored properties to `_propertyName` and adds `_$observationRegistrar`; synthesized
+    /// `Encodable` conformance would encode those instead of the public property names below,
+    /// producing JSON that `init(from:)` can't decode back.
+    public func encode(to encoder: Encoder) throws {
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins, renderers }
+        var c = encoder.container(keyedBy: Keys.self)
+        try c.encode(toolbarVisibility, forKey: .toolbarVisibility)
+        try c.encode(toggledState, forKey: .toggledState)
+        try c.encode(plugins, forKey: .plugins)
+        try c.encode(renderers, forKey: .renderers)
+    }
+
     /// The single, process-wide instance. Read its properties directly; use `update(_:)` to mutate and persist.
     public static let shared: AppConfig = loadCurrent()
 

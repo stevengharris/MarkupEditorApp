@@ -97,7 +97,7 @@ struct ConfigDecodingTests {
     }
 }
 
-// Tests for AppConfig.PluginConfigEntry decoding and the `plugins` optional property.
+// Tests for AppConfig.PluginConfigEntry decoding and the (non-optional) `plugins`/`renderers` properties.
 @MainActor
 struct AppConfigPluginDecodingTests {
 
@@ -108,38 +108,40 @@ struct AppConfigPluginDecodingTests {
         {
             "toolbarVisibility": "toggled",
             "toggledState": "visible",
-            "plugins": [{ "name": "Markdown", "filename": "markupeditor-markdown.js" }]
+            "plugins": [{ "name": "Markdown", "filename": "markupeditor-markdown.js" }],
+            "renderers": []
         }
         """
         let data = try #require(json.data(using: .utf8))
         let config = try JSONDecoder().decode(AppConfig.self, from: data)
-        let plugins = try #require(config.plugins)
-        #expect(plugins.count == 1)
-        #expect(plugins[0].name == "Markdown")
-        #expect(plugins[0].filename == "markupeditor-markdown.js")
+        #expect(config.plugins.count == 1)
+        #expect(config.plugins[0].name == "Markdown")
+        #expect(config.plugins[0].filename == "markupeditor-markdown.js")
     }
 
-    // MARK: - plugins key absent: backward compatible → nil
+    // MARK: - plugins/renderers keys required: absent → decode throws
 
-    @Test func pluginsAbsentDecodesAsNil() throws {
+    @Test func pluginsAndRenderersAbsentThrows() throws {
+        // plugins and renderers are non-optional; init(from:) requires both keys, so
+        // omitting either is a decode failure rather than defaulting to empty/nil.
         let json = """
         { "toolbarVisibility": "toggled", "toggledState": "visible" }
         """
         let data = try #require(json.data(using: .utf8))
-        let config = try JSONDecoder().decode(AppConfig.self, from: data)
-        #expect(config.plugins == nil)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(AppConfig.self, from: data)
+        }
     }
 
     // MARK: - plugins present but empty array
 
     @Test func pluginsEmptyArrayDecodes() throws {
         let json = """
-        { "toolbarVisibility": "toggled", "toggledState": "visible", "plugins": [] }
+        { "toolbarVisibility": "toggled", "toggledState": "visible", "plugins": [], "renderers": [] }
         """
         let data = try #require(json.data(using: .utf8))
         let config = try JSONDecoder().decode(AppConfig.self, from: data)
-        let plugins = try #require(config.plugins)
-        #expect(plugins.isEmpty)
+        #expect(config.plugins.isEmpty)
     }
 
     // MARK: - fileExtension field on PluginConfigEntry
@@ -160,6 +162,38 @@ struct AppConfigPluginDecodingTests {
         let data = try #require(json.data(using: .utf8))
         let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
         #expect(entry.fileExtension == nil)
+    }
+
+}
+
+// Tests for AppConfig's encode(to:) / init(from:) round trip. AppConfig is an @Observable
+// class, whose macro renames stored properties to `_propertyName` and adds
+// `_$observationRegistrar`; a synthesized Encodable conformance would serialize those instead
+// of the public property names, producing JSON that init(from:) can't decode back. encode(to:)
+// is hand-written to guard against that regression.
+@MainActor
+struct AppConfigRoundTripTests {
+
+    @Test func roundTripPreservesAllFieldsThroughEncodeAndDecode() throws {
+        let original = AppConfig(
+            toolbarVisibility: "hidden",
+            toggledState: "hidden",
+            plugins: [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")],
+            renderers: [RendererConfigEntry(name: "Mermaid", filename: "markupeditor-mermaid.js")]
+        )
+
+        let json = try #require(original.asJSON())
+        #expect(!json.contains("_$observationRegistrar"))
+        #expect(!json.contains("_toolbarVisibility"))
+
+        let data = try #require(json.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: data)
+
+        #expect(decoded.toolbarVisibility == original.toolbarVisibility)
+        #expect(decoded.toggledState == original.toggledState)
+        #expect(decoded.plugins == original.plugins)
+        #expect(decoded.renderers.first?.name == original.renderers.first?.name)
+        #expect(decoded.renderers.first?.filename == original.renderers.first?.filename)
     }
 
 }

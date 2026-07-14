@@ -23,7 +23,7 @@ struct BehaviorSettingsView: View {
     @State private var toolbarConfig: ToolbarConfig = ToolbarConfig.fromDefaults()
     @State private var loaded = false
     @State private var toolbarVisibility: ToolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
-    @State private var renderers: [RendererConfigEntry] = AppConfig.shared.renderers ?? []
+    @State private var renderers: [RendererConfigEntry] = AppConfig.shared.renderers
     @FocusState private var focusedRenderer: String?
     @State private var showAddRenderer: Bool = false
     @State private var showDeleteRenderer: Bool = false
@@ -42,7 +42,7 @@ struct BehaviorSettingsView: View {
             }
             .padding(.bottom, 8)
             LabeledContent("Installed Plugins:") {
-                let plugins = AppConfig.shared.plugins ?? []
+                let plugins = AppConfig.shared.plugins
                 if plugins.isEmpty {
                     Text("No plugins installed.")
                         .foregroundStyle(.secondary)
@@ -86,7 +86,7 @@ struct BehaviorSettingsView: View {
             loaded = true
             toolbarConfig = ToolbarConfig.fromDefaults()
             toolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
-            renderers = AppConfig.shared.renderers ?? []
+            renderers = AppConfig.shared.renderers
         }
         .onChange(of: toolbarConfigJSON) {
             toolbarConfig = ToolbarConfig.fromJSON(toolbarConfigJSON)
@@ -128,8 +128,8 @@ struct BehaviorSettingsView: View {
             } else {                        // When toggled, toolbarConfig.visibility depends on the current state
                 toolbarConfig.visibility["toolbar"] = !config.isHidden()
             }
+            saveToolbarConfig()
         }
-        saveToolbarConfig()
     }
 
     private func saveToolbarConfig() {

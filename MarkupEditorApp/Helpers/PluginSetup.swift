@@ -78,7 +78,7 @@ enum PluginSetup {
 
     /// Calls `setupPluginDirectory` using the app's current `AppConfig`.
     static func setupOnLaunch() {
-        let entries = AppConfig.shared.plugins ?? []
+        let entries = AppConfig.shared.plugins
         setupPluginDirectory(entries: entries)
     }
 
