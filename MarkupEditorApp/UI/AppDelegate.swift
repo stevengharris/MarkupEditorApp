@@ -21,7 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// so handleQuit knows to call NSApp.reply instead of NSApp.terminate.
     static var isRespondingToTerminateQuery = false
 
-    /// Submenu under File > Export, populated by populatePluginMenus(_:).
+    /// Submenu under File > Export, populated by populateExportMenus(_:).
     var exportSubmenu = NSMenu(title: "Export")
 
     static func consumePendingURL() -> URL? {
@@ -70,7 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // fully complete before we replace the menu.
         Task { @MainActor [self] in
             NSApplication.shared.mainMenu = buildMenu()
-            populatePluginMenus(AppConfig.shared.plugins)
+            populateExportMenus()
             NSApplication.shared.mainWindow?.delegate = self
             // SwiftUI's internal AppDelegate runs makeMainMenu whenever the scene
             // graph changes phase (background ↔ active, environment changes, etc.).
@@ -99,7 +99,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     guard menu.numberOfItems == 0 else { return }
                     Task { @MainActor in
                         NSApplication.shared.mainMenu = self.buildMenu()
-                        self.populatePluginMenus(AppConfig.shared.plugins)
+                        self.populateExportMenus()
                     }
                 }
             }
@@ -118,7 +118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // SwiftUI's stripped menu has 5 items; our custom menu has 7+ items.
         guard (NSApp.mainMenu?.numberOfItems ?? 0) < 6 else { return }
         NSApplication.shared.mainMenu = buildMenu()
-        populatePluginMenus(AppConfig.shared.plugins)
+        populateExportMenus()
     }
 
     // MARK: - File menu actions
@@ -174,22 +174,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Safe to call multiple times — existing items are replaced on each call.
     /// Each Export item posts `.menuExportPlugin`; each Import item posts `.menuImportPlugin`.
     /// Both notifications carry `userInfo` with `"name"`, `"filename"`, and `"fileExtension"` from the entry.
-    public func populatePluginMenus(_ entries: [AppConfig.PluginConfigEntry]) {
+    public func populateExportMenus() {
         exportSubmenu.removeAllItems()
-        for entry in entries {
-            let exportItem = NSMenuItem(title: entry.name, action: #selector(exportPluginAction(_:)), keyEquivalent: "")
+        for exporter in AppConfig.shared.exporters {
+            let exportItem = NSMenuItem(title: exporter.name, action: #selector(exportPluginAction(_:)), keyEquivalent: "")
             exportItem.target = self
-            exportItem.representedObject = entry
+            exportItem.representedObject = exporter
             exportSubmenu.addItem(exportItem)
         }
     }
 
     @objc private func exportPluginAction(_ sender: NSMenuItem) {
-        guard let entry = sender.representedObject as? AppConfig.PluginConfigEntry else { return }
+        guard let entry = sender.representedObject as? Plugin else { return }
         NotificationCenter.default.post(
             name: .menuExportPlugin,
             object: nil,
-            userInfo: ["name": entry.name, "filename": entry.filename, "fileExtension": entry.fileExtension ?? ""]
+            userInfo: ["name": entry.name, "filename": entry.filename]
         )
     }
 

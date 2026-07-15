@@ -75,11 +75,12 @@ struct MarkupDocumentView: View {
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
             reloadEditorForConfigChange()
         }
-        .onChange(of: AppConfig.shared.plugins) { _, _ in
-            markupConfiguration.pluginFiles = AppConfig.pluginFiles(
-                from: AppConfig.shared.plugins,
-                pluginDir: PluginSetup.defaultPluginDir
-            )
+        .onChange(of: AppConfig.shared.renderers) { _, _ in
+            markupConfiguration.pluginFiles = AppConfig.shared.pluginFilenames()
+            reloadEditorForConfigChange()
+        }
+        .onChange(of: AppConfig.shared.exporters) { _, _ in
+            markupConfiguration.pluginFiles = AppConfig.shared.pluginFilenames()
             reloadEditorForConfigChange()
         }
         .onChange(of: keymapConfigJSON) { _, _ in
@@ -185,10 +186,7 @@ struct MarkupDocumentView: View {
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
         config.userScriptFile = "markupeditor-markdown.js"
-        config.pluginFiles = AppConfig.pluginFiles(
-            from: AppConfig.shared.plugins,
-            pluginDir: PluginSetup.defaultPluginDir
-        )
+        config.pluginFiles = AppConfig.shared.pluginFilenames()
         _markupConfiguration = State(initialValue: config)
     }
     
@@ -702,15 +700,7 @@ extension MarkupDocumentView: MarkupDelegate {
 
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
-        let entries = plugins.compactMap { dict -> AppConfig.PluginConfigEntry? in
-            // Manifest shape from JS: { name, extension } — no "id" or "filename" key.
-            // "name" is the JS registry key passed to invokePlugin.
-            // "extension" (JS key) is bridged here to fileExtension (Swift field).
-            guard let name = dict["name"] else { return nil }
-            let fileExtension = dict["extension"]
-            return AppConfig.PluginConfigEntry(name: name, filename: name, fileExtension: fileExtension)
-        }
-        appDelegate.populatePluginMenus(entries)
+        appDelegate.populateExportMenus()
     }
 
 }

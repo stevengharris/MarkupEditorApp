@@ -23,12 +23,18 @@ struct BehaviorSettingsView: View {
     @State private var toolbarConfig: ToolbarConfig = ToolbarConfig.fromDefaults()
     @State private var loaded = false
     @State private var toolbarVisibility: ToolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
-    @FocusState private var focusedRenderer: Renderer?
-    @State private var showAddRenderer: Bool = false
-    @State private var showDeleteRenderer: Bool = false
-    @State private var showRendererNameDialog: Bool = false
-    @State private var newRendererURL: URL?
-    @State private var newRendererName: String = ""
+    @FocusState private var focusedPlugin: Plugin?
+    @State private var showAddPlugin: Bool = false
+    @State private var showDeletePlugin: Bool = false
+    @State private var showPluginNameDialog: Bool = false
+    @State private var newPluginURL: URL?
+    @State private var newPluginName: String = ""
+    
+    private enum PluginType: String {
+        case Renderer
+        case Exporter
+        case None = ""
+    }
 
     var body: some View {
         Spacer()
@@ -43,16 +49,31 @@ struct BehaviorSettingsView: View {
                 setToolbarVisibility(newValue)
             }
             .padding(.bottom, 8)
-            LabeledContent("Installed Plugins:") {
-                let plugins = AppConfig.shared.plugins
-                if plugins.isEmpty {
-                    Text("No plugins installed.")
+            LabeledContent("Installed Exporters:") {
+                let exporters = AppConfig.shared.exporters
+                if exporters.isEmpty {
+                    Text("No exporters installed.")
                         .foregroundStyle(.secondary)
                 } else {
-                        ForEach(plugins, id: \.name) { plugin in
-                            Text(plugin.name)
+                    VStack(alignment: .leading) {
+                        ForEach(exporters, id: \.name) { exporter in
+                            Text(exporter.name)
+                                .focusable()
+                                .focused($focusedPlugin, equals: exporter)
                         }
+                    }
                 }
+            }
+            LabeledContent("") {
+                HStack {
+                    Button(action: { showAddPlugin = true }, label: { Image(systemName: "plus.square") })
+                    Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
+                        .disabled(!ExporterManager.shared.exists(focusedPlugin))
+                    Text("Add or delete exporter")
+                        .lineLimit(1)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.bottom, 8)
             LabeledContent("Installed Renderers:") {
@@ -65,17 +86,16 @@ struct BehaviorSettingsView: View {
                         ForEach(renderers, id: \.name) { renderer in
                             Text(renderer.name)
                                 .focusable()
-                                .focused($focusedRenderer, equals: renderer)
+                                .focused($focusedPlugin, equals: renderer)
                         }
                     }
                 }
             }
-            LabeledContent("") {}
             LabeledContent("") {
                 HStack {
-                    Button(action: { showAddRenderer = true }, label: { Image(systemName: "plus.square") })
-                    Button(action: { showDeleteRenderer = true }, label: { Image(systemName: "minus.square") })
-                        .disabled(focusedRenderer == nil)
+                    Button(action: { showAddPlugin = true }, label: { Image(systemName: "plus.square") })
+                    Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
+                        .disabled(!RendererManager.shared.exists(focusedPlugin))
                     Text("Add or delete renderer")
                         .lineLimit(1)
                         .font(.subheadline)
@@ -95,7 +115,7 @@ struct BehaviorSettingsView: View {
         .onChange(of: toolbarConfigJSON) {
             toolbarConfig = ToolbarConfig.fromJSON(toolbarConfigJSON)
         }
-        .fileImporter(isPresented: $showAddRenderer, allowedContentTypes: [.javaScript], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $showAddPlugin, allowedContentTypes: [.javaScript], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 // Must start the security scope synchronously here, in the fileImporter completion
                 // handler, not later inside addRenderer. The copy itself doesn't happen until the
@@ -103,41 +123,60 @@ struct BehaviorSettingsView: View {
                 // that whole interaction — RendererManager.add(name:url:) stops it once the copy is done,
                 // and the alert's Cancel button stops it if the user backs out instead.
                 guard url.startAccessingSecurityScopedResource() else { return }
-                Task { await addRenderer(url) }
+                newPluginURL = url
+                showPluginNameDialog = true
             }
         }
         .confirmationDialog(
-            "Delete \"\(focusedRenderer?.name ?? "")\"? The original source location for \"\(focusedRenderer?.name ?? "")\" will not be affected. You cannot undo this action.",
-            isPresented: $showDeleteRenderer,
+            "Delete \"\(focusedPlugin?.name ?? "")\"? The original source location for \"\(focusedPlugin?.name ?? "")\" will not be affected. You cannot undo this action.",
+            isPresented: $showDeletePlugin,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                deleteRenderer()
+                deletePlugin()
             }
             Button("Cancel", role: .cancel) {}
         }
-        .alert("New Renderer", isPresented: $showRendererNameDialog) {
-            TextField("Name", text: $newRendererName)
+        .alert("Add New \(focusedPluginType().rawValue)", isPresented: $showPluginNameDialog) {
+            TextField("Name", text: $newPluginName)
             Button("OK") {
-                RendererManager.shared.add(name: newRendererName, url: newRendererURL)
+                Task { await addPlugin() }
             }
             Button("Cancel", role: .cancel) {
-                newRendererURL?.stopAccessingSecurityScopedResource()
-                newRendererURL = nil
+                newPluginURL?.stopAccessingSecurityScopedResource()
+                newPluginURL = nil
             }
         } message: {
-            Text("Enter a name for the renderer.")
+            Text("Enter a name.")
         }
         Spacer()
     }
-
-    private func addRenderer(_ url: URL) async {
-        newRendererURL = url
-        showRendererNameDialog = true
+    
+    private func focusedPluginType() -> PluginType {
+        if RendererManager.shared.exists(focusedPlugin) {
+            return .Renderer
+        } else if ExporterManager.shared.exists(focusedPlugin) {
+            return .Exporter
+        } else {
+            return .None
+        }
     }
 
-    private func deleteRenderer() {
-        RendererManager.shared.delete(focusedRenderer)
+    private func addPlugin() async {
+        if focusedPluginType() == .Renderer {
+            RendererManager.shared.add(name: newPluginName, url: newPluginURL)
+        } else if focusedPluginType() == .Exporter {
+            ExporterManager.shared.add(name: newPluginName, url: newPluginURL)
+        }
+        newPluginURL = nil
+    }
+
+    private func deletePlugin() {
+        if focusedPluginType() == .Renderer {
+            RendererManager.shared.delete(focusedPlugin)
+        } else if focusedPluginType() == .Exporter {
+            ExporterManager.shared.delete(focusedPlugin)
+        }
     }
 
     /// Set the toolbarVisibility to the new value, keeping the config in proper sync and saving when done.

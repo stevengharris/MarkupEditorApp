@@ -341,15 +341,6 @@ import Observation
                !lower.hasPrefix("/")
     }
 
-    // MARK: - Plugin
-
-    /// Returns the JS registry key (`name`) for the first plugin whose `fileExtension`
-    /// matches `ext`, or `nil` if no matching plugin is configured.
-    /// `ext` is case-sensitive; callers are expected to lowercase before calling.
-    func pluginId(forExtension ext: String, in config: AppConfig) -> String? {
-        config.plugins.first(where: { $0.fileExtension == ext })?.name
-    }
-
     // MARK: - Security-scoped bookmarks
 
     /// Stores a security-scoped bookmark for the parent directory in UserDefaults, keyed by the

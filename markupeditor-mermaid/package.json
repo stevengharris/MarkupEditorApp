@@ -9,10 +9,6 @@
   "dependencies": {
     "mermaid": "^11.16.0"
   },
-  "peerDependencies": {
-    "markupeditor": ">=0.9.24",
-    "prosemirror-model": "^1.23.0"
-  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.0",

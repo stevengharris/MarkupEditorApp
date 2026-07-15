@@ -22,7 +22,7 @@ class RendererManager {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appendingPathComponent("renderers")
     }
-    let mermaid = Renderer(name: "Mermaid", filename: "markupeditor-mermaid.js")
+    let mermaid = Plugin(name: "Mermaid", filename: "markupeditor-mermaid.js")
 
     /// Calls `setupRenderers` using the app's current `AppConfig`.
     func setupOnLaunch() {
@@ -33,7 +33,7 @@ class RendererManager {
                 attributes: nil
             )
         } catch {
-            logger.error("Failed to create renderer directory at \(self.defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
+            logger.error("Failed to create directory at \(self.defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
             return
         }
 
@@ -57,7 +57,7 @@ class RendererManager {
         // in BehaviorSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
         // URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
-        let renderer = Renderer(name: name, filename: source.lastPathComponent)
+        let renderer = Plugin(name: name, filename: source.lastPathComponent)
         let destination = defaultDir.appendingPathComponent(renderer.filename)
 
         guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
@@ -83,7 +83,7 @@ class RendererManager {
         }
     }
     
-    func delete(_ renderer: Renderer?) {
+    func delete(_ renderer: Plugin?) {
         guard let renderer else { return }
         AppConfig.update { config in
             if let index = config.renderers.firstIndex(of: renderer) {
@@ -96,8 +96,9 @@ class RendererManager {
         }
     }
     
-    func exists(_ renderer: Renderer) -> Bool {
-        AppConfig.shared.renderers.firstIndex(of: renderer) != nil
+    func exists(_ renderer: Plugin?) -> Bool {
+        guard let renderer else { return false }
+        return AppConfig.shared.renderers.firstIndex(of: renderer) != nil
     }
     
     func nameExists(_ name: String) -> Bool {

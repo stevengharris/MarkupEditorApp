@@ -30,43 +30,20 @@ public final class AppConfig: JSONConfigurable {
         case hidden, visible
     }
 
-    /// A single plugin entry as recorded in appconfig.json.
-    /// `filename` is a bare filename (e.g. "markupeditor-markdown.js"); the app
-    /// resolves it to a full bundle path at runtime when building the plugin configuration.
-    public struct PluginConfigEntry: Codable, Equatable {
-        public let name: String           // JS registry key for invokePlugin
-        public let filename: String       // JS bundle filename
-        public let fileExtension: String? // e.g. "md"; nil = backward-compatible
-
-        public init(name: String, filename: String, fileExtension: String? = nil) {
-            self.name = name
-            self.filename = filename
-            self.fileExtension = fileExtension
-        }
-
-        public nonisolated init(from decoder: any Decoder) throws {
-            enum Keys: String, CodingKey { case name, filename, fileExtension }
-            let c = try decoder.container(keyedBy: Keys.self)
-            name = try c.decode(String.self, forKey: .name)
-            filename = try c.decode(String.self, forKey: .filename)
-            fileExtension = try c.decodeIfPresent(String.self, forKey: .fileExtension)
-        }
-    }
-
     public var toolbarVisibility: String
     public var toggledState: String
-    public var plugins: [PluginConfigEntry]
-    public var renderers: [Renderer]
+    public var exporters: [Plugin]
+    public var renderers: [Plugin]
     
     public init(
         toolbarVisibility: String,
         toggledState: String,
-        plugins: [PluginConfigEntry]? = nil,
-        renderers: [Renderer]? = nil
+        exporters: [Plugin]? = nil,
+        renderers: [Plugin]? = nil
     ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
-        self.plugins = plugins ?? []
+        self.exporters = exporters ?? []
         self.renderers = renderers ?? []
     }
     
@@ -74,17 +51,17 @@ public final class AppConfig: JSONConfigurable {
         let config = AppConfig.load()
         toolbarVisibility = config.toolbarVisibility
         toggledState = ToggledState.visible.rawValue
-        plugins = config.plugins
+        exporters = config.exporters
         renderers = config.renderers
     }
 
     public init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins, renderers }
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, renderers }
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
         toggledState = try c.decode(String.self, forKey: .toggledState)
-        plugins = try c.decode([PluginConfigEntry].self, forKey: .plugins)
-        renderers = try c.decode([Renderer].self, forKey: .renderers)
+        exporters = try c.decode([Plugin].self, forKey: .exporters)
+        renderers = try c.decode([Plugin].self, forKey: .renderers)
     }
 
     /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
@@ -92,11 +69,11 @@ public final class AppConfig: JSONConfigurable {
     /// `Encodable` conformance would encode those instead of the public property names below,
     /// producing JSON that `init(from:)` can't decode back.
     public func encode(to encoder: Encoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, plugins, renderers }
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, renderers }
         var c = encoder.container(keyedBy: Keys.self)
         try c.encode(toolbarVisibility, forKey: .toolbarVisibility)
         try c.encode(toggledState, forKey: .toggledState)
-        try c.encode(plugins, forKey: .plugins)
+        try c.encode(exporters, forKey: .exporters)
         try c.encode(renderers, forKey: .renderers)
     }
 
@@ -171,33 +148,11 @@ public final class AppConfig: JSONConfigurable {
             ToolbarVisibility.hidden.rawValue ||
             (isToggled() && toggledState == ToggledState.hidden.rawValue)
     }
-
-    /// Resolves plugin config entries into `PluginFileEntry` values by appending each
-    /// filename to `pluginDir` and checking for file existence.
-    ///
-    /// Missing files are logged and skipped; no error is thrown.
-    ///
-    /// - Parameters:
-    ///   - entries: The plugin entries from `AppConfig.plugins`. Pass `nil` or an empty
-    ///     array to get an empty result.
-    ///   - pluginDir: The directory to resolve filenames against (typically
-    ///     `PluginSetup.defaultPluginDir`).
-    /// - Returns: An array of `PluginFileEntry` values for files that exist on disk.
-    public static func pluginFiles(
-        from entries: [PluginConfigEntry]?,
-        pluginDir: URL
-    ) -> [PluginFileEntry] {
-        guard let entries, !entries.isEmpty else { return [] }
-        var result: [PluginFileEntry] = []
-        for entry in entries {
-            let fileURL = pluginDir.appendingPathComponent(entry.filename)
-            guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
-                Logger.config.error("Plugin file not found at \(fileURL.path(percentEncoded: false)) — skipping \(entry.filename)")
-                continue
-            }
-            result.append(PluginFileEntry(name: entry.name, path: fileURL.path(percentEncoded: false)))
-        }
-        return result
+    
+    public func pluginFilenames() -> [String] {
+        let exporterFilenames = exporters.map { $0.filename }
+        let rendererFilenames = renderers.map { $0.filename }
+        return exporterFilenames + rendererFilenames
     }
 
 }

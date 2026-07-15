@@ -100,9 +100,9 @@
 			children = (
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
-				AAB4738F30068DCB005F583D /* markupeditor-mermaid */,
 				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
 				AAB800602FC4C2CC00212250 /* markupeditor-markdown */,
+				AAB4738F30068DCB005F583D /* markupeditor-mermaid */,
 				AAB8007C2FC5036A00212250 /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
