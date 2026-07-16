@@ -13,6 +13,7 @@
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "jsdom": "^27.0.1",
+    "markupeditor": "file:/Users/steve/VSCodeProjects/markupeditor-base",
     "rollup": "^4.31.0",
     "vitest": "^3.2.4"
   },
