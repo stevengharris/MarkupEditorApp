@@ -1,3 +1,5 @@
+import { MU } from './markup-editor.js';
+
 var __defProp$1 = Object.defineProperty;
 var __name$1 = (target, value) => __defProp$1(target, "name", { value, configurable: true });
 var __export$1 = (target, all) => {
@@ -30321,9 +30323,10 @@ var mermaid_default = mermaid;
  * Wait for document loaded before starting the execution
  */
 
-//import { MU } from "markupeditor"
-
 mermaid_default.initialize();
+
+const view = MU.activeView();
+console.log('markupeditor-mermaid: MU.activeView() ->', view);
 
 /**
  * This is the ParseError class, which is the main error thrown by KaTeX
