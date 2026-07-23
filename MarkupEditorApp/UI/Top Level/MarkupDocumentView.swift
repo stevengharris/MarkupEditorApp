@@ -186,6 +186,7 @@ struct MarkupDocumentView: View {
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
         config.userScriptFile = "markupeditor-markdown.js"
+        config.userCssFile = "custom.css"
         config.pluginFiles = AppConfig.shared.pluginFilenames()
         _markupConfiguration = State(initialValue: config)
     }
@@ -701,6 +702,14 @@ extension MarkupDocumentView: MarkupDelegate {
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
         appDelegate.populateExportMenus()
+    }
+
+    /// An error occurred on the JavaScript side (internal MUErrors, or a plugin using
+    /// MU.reportError, e.g. markupeditor-mermaid on a failed diagram render). Route it
+    /// through the same info-view log Swift-originated errors already use, rather than
+    /// the default MarkupDelegate implementation's OSLog-only behavior.
+    func markupError(code: String, message: String, info: String?, alert: Bool) {
+        showError("Error \(code): \(message)")
     }
 
 }
