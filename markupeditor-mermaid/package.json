@@ -15,6 +15,7 @@
     "jsdom": "^27.0.1",
     "markupeditor": "file:/Users/steve/VSCodeProjects/markupeditor-base",
     "rollup": "^4.31.0",
+    "rollup-plugin-import-css": "^4.0.1",
     "vitest": "^3.2.4"
   },
   "scripts": {

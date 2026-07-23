@@ -31,3 +31,11 @@ if (!('media' in CSSStyleSheet.prototype)) {
  * testing and can be no-ops.
  */
 if (typeof document.execCommand === 'undefined') document.execCommand = ()=>{}
+
+/**
+ * jsdom doesn't implement `document.adoptedStyleSheets` (a real browser
+ * initializes it to an empty, spreadable array). markupeditor-mermaid's
+ * adoptPluginStylesOnce reads and spreads it on first widget render, which
+ * only a real EditorView-based test ever exercises.
+ */
+if (!('adoptedStyleSheets' in document)) document.adoptedStyleSheets = []

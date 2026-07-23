@@ -1,5 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import css from 'rollup-plugin-import-css';
 
 export default {
 	input: 'src/markupeditor-mermaid.js',
@@ -23,6 +24,7 @@ export default {
 	},
 	plugins: [
 		resolve(),
-		commonjs()
+		commonjs(),
+		css()	// so we can import css, matching markupeditor-base's own approach
 	]
 };

@@ -1,147 +1,286 @@
-import { MU, Plugin, Decoration, DecorationSet } from "markupeditor"
+import { MU, Plugin, Selection, TextSelection, NodeSelection, __parseFromClipboard } from "markupeditor"
 import mermaid from "mermaid"
+import mermaidStyle from "../styles/mermaid.css" with { type: "css" }
+import { MermaidView, isMermaidLanguage } from "./mermaidview.js"
 
-mermaid.initialize()
+export { isMermaidLanguage }
 
-export function isMermaidLanguage(language) {
-  return (language ?? '').trim().toLowerCase() === 'mermaid'
-}
+// mermaid's render(id, text) (no container arg — our usage) appends its own
+// temp element to document.body even on a parse error, and rethrows before
+// its own cleanup runs; suppressErrorRendering takes an early cleanup path
+// instead. We show our own Source-mode fallback on error and never wanted
+// mermaid's own error SVG anyway. Not configurable per-call, only via
+// initialize() — see mermaid.core.mjs's render().
+const prefersDark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
+mermaid.initialize({ theme: prefersDark ? 'dark' : 'default', suppressErrorRendering: true })
 
-// Ported from markupeditor-base's src/setup/index.js (not exported from there,
-// so duplicated here rather than shared) — walks cur's children, comparing
-// against old's, skipping any subtree that's the same node object as before
-// (ProseMirror's persistent-tree structural sharing means an unchanged
-// subtree is reference-identical). Only visits nodes in the changed region.
-function changedDescendants(old, cur, offset, f) {
-  const oldSize = old.childCount, curSize = cur.childCount
-  outer: for (let i = 0, j = 0; i < curSize; i++) {
-    const child = cur.child(i)
-    for (let scan = j, e = Math.min(oldSize, i + 3); scan < e; scan++) if (old.child(scan) == child) {
-      j = scan + 1
-      offset += child.nodeSize
-      continue outer
-    }
-    f(child, offset)
-    if (j < oldSize && old.child(j).sameMarkup(child)) changedDescendants(old.child(j), child, offset + 1, f)
-    else child.nodesBetween(0, child.content.size, f, offset + 1)
-    offset += child.nodeSize
+const HIDE_CARET_CLASS = 'mermaid-hide-caret'
+
+function adoptMermaidStyles(view) {
+  const root = view.dom.getRootNode()
+  if (!root.adoptedStyleSheets?.includes(mermaidStyle)) {
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, mermaidStyle]
   }
 }
 
-/**
- * Build the mermaidRenderPlugin. `render` and `dispatch` are injectable so
- * tests can control render timing/outcome and observe dispatch without a
- * real EditorView. Defaults are what production actually uses.
- */
-export function createMermaidRenderPlugin({ render = mermaid.render.bind(mermaid), dispatch } = {}) {
-  // Keyed by ProseMirror Node object identity, matching markupeditor-base's
-  // codeHighlightCache pattern: a node that hasn't structurally changed keeps
-  // its cached result across unrelated edits elsewhere in the document. Holds
-  // one of {pending: true}, {svg: string}, or {error: string}.
-  const renderCache = new WeakMap()
-  let idCounter = 0
+function mermaidViewAt(view, pos) {
+  const instance = view.nodeDOM(pos)?.codeView
+  return instance instanceof MermaidView ? instance : null
+}
 
-  function triggerRender(node) {
-    const id = `mermaid-diagram-${idCounter++}`
-    let renderPromise
-    try {
-      renderPromise = render(id, node.textContent)
-    } catch (error) {
-      renderCache.set(node, { error: error?.message ?? String(error) })
-      dispatch()
-      return
+function diagramBlockAt(view, pos) {
+  const instance = mermaidViewAt(view, pos)
+  return instance?.mode === 'diagram' ? instance : null
+}
+
+// Plain ArrowLeft/ArrowRight treats a Diagram-mode code_block as a single
+// atomic hop, like an image: arrowing in lands on the canonical position
+// (blockPos + 1, a plain TextSelection — NOT a NodeSelection, which paints
+// a stray native selection highlight over the tabs in this Safari+Shadow-DOM
+// setup), arrowing again jumps past it.
+function handleDiagramArrowKey(view, event) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false
+  if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
+  const { state } = view
+  const sel = state.selection
+  if (!(sel instanceof TextSelection) || !sel.empty) return false
+  const dir = event.key === 'ArrowLeft' ? -1 : 1
+
+  if (sel.$from.depth > 0 && sel.$from.parent.type.name === 'code_block') {
+    const blockPos = sel.$from.before(sel.$from.depth)
+    if (diagramBlockAt(view, blockPos)) {
+      const node = state.doc.nodeAt(blockPos)
+      const targetPos = dir < 0 ? blockPos : blockPos + node.nodeSize
+      if (targetPos < 0 || targetPos > state.doc.content.size) return false
+      const newSel = Selection.near(state.doc.resolve(targetPos), dir)
+      view.dispatch(state.tr.setSelection(newSel).scrollIntoView())
+      return true
     }
-    renderPromise
-      .then((result) => { renderCache.set(node, { svg: result.svg }) })
-      .catch((error) => { renderCache.set(node, { error: error?.message ?? String(error) }) })
-      // dispatch() runs outside the render-outcome handling above, on its own
-      // branch, so a throwing dispatch() can never be mistaken for a render
-      // error and overwrite a correctly-cached success/error result.
-      .finally(() => { dispatch() })
   }
 
-  function widgetFor(cached) {
-    const div = document.createElement('div')
-    div.contentEditable = 'false'
-    if (cached.svg) {
-      div.className = 'mermaid-diagram'
-      div.innerHTML = cached.svg
-    } else if (cached.error) {
-      div.className = 'mermaid-error'
-      div.textContent = `Mermaid error: ${cached.error}`
-      div.style.border = '1px solid #c00'
-      div.style.color = '#c00'
-      div.style.padding = '8px'
-    } else {
-      div.className = 'mermaid-placeholder'
-      div.textContent = 'Rendering…'
-      div.style.border = '1px dashed #888'
-      div.style.padding = '8px'
+  const targetPos = sel.from + dir
+  if (targetPos < 0 || targetPos > state.doc.content.size) return false
+  let blockPos = null
+  if (dir > 0) {
+    const node = state.doc.nodeAt(targetPos)
+    if (node && node.type.name === 'code_block') blockPos = targetPos
+  } else {
+    const $target = state.doc.resolve(targetPos)
+    if ($target.depth === 0) {
+      const before = $target.nodeBefore
+      if (before && before.type.name === 'code_block') blockPos = targetPos - before.nodeSize
     }
-    return div
+  }
+  if (blockPos === null || !diagramBlockAt(view, blockPos)) return false
+  const newSel = Selection.near(state.doc.resolve(blockPos + 1))
+  view.dispatch(state.tr.setSelection(newSel).scrollIntoView())
+  return true
+}
+
+// Delete/Backspace on (or adjacent to) a Diagram-mode block removes the
+// WHOLE block atomically, like a selected image — not a single character of
+// its collapsed, invisible source text.
+function handleDiagramDeleteKey(view, event) {
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return false
+  if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
+  const { state } = view
+  const sel = state.selection
+  if (!(sel instanceof TextSelection) || !sel.empty) return false
+  const dir = event.key === 'Backspace' ? -1 : 1
+
+  if (sel.$from.depth > 0 && sel.$from.parent.type.name === 'code_block') {
+    const blockPos = sel.$from.before(sel.$from.depth)
+    const node = diagramBlockAt(view, blockPos) && state.doc.nodeAt(blockPos)
+    if (node) {
+      view.dispatch(state.tr.delete(blockPos, blockPos + node.nodeSize).scrollIntoView())
+      return true
+    }
   }
 
-  // Positioned at pos + node.nodeSize (a sibling immediately after the node in
-  // document flow), never pos + 1 (inside the node's own content) — a widget
-  // inside a node that itself carries the display:none Decoration.node below
-  // is hidden right along with it. Found empirically during the P1 spike; see
-  // RDR-022's "P1 Spike Findings" section. `key` is a per-node-instance id
-  // (not just position), assigned in the WeakMap on first sight, so
-  // WidgetType.eq() recognizes the same logical widget across recomputes
-  // instead of rebuilding its DOM every time (position alone isn't distinct
-  // enough here since the same key must not collide across cache states).
-  function computeMermaidDecorations(doc) {
-    const decorations = []
-    doc.descendants((node, pos) => {
-      if (node.type.name !== 'code_block') return
-      if (!isMermaidLanguage(node.attrs.language)) return
-
-      decorations.push(Decoration.node(pos, pos + node.nodeSize, { style: 'display: none' }))
-
-      let cached = renderCache.get(node)
-      if (!cached) {
-        cached = { pending: true, key: `mermaid-widget-${idCounter++}` }
-        renderCache.set(node, cached)
-        triggerRender(node)
-      }
-
-      decorations.push(Decoration.widget(pos + node.nodeSize, () => widgetFor(cached), {
-        side: 1,
-        key: cached.key
-      }))
-    })
-    return DecorationSet.create(doc, decorations)
+  const targetPos = sel.from + dir
+  if (targetPos < 0 || targetPos > state.doc.content.size) return false
+  if (dir < 0) {
+    const $target = state.doc.resolve(targetPos)
+    if ($target.depth !== 0) return false
+    const before = $target.nodeBefore
+    if (!before || before.type.name !== 'code_block') return false
+    const blockPos = targetPos - before.nodeSize
+    if (!diagramBlockAt(view, blockPos)) return false
+    view.dispatch(state.tr.delete(blockPos, targetPos).scrollIntoView())
+    return true
+  } else {
+    const node = state.doc.nodeAt(targetPos)
+    if (!node || node.type.name !== 'code_block') return false
+    if (!diagramBlockAt(view, targetPos)) return false
+    view.dispatch(state.tr.delete(targetPos, targetPos + node.nodeSize).scrollIntoView())
+    return true
   }
+}
 
-  const mermaidRenderPlugin = new Plugin({
-    state: {
-      init(_, { doc }) { return computeMermaidDecorations(doc) },
-      apply(tr, set) {
-        if (tr.getMeta('mermaid-rendered')) return computeMermaidDecorations(tr.doc)
-        if (!tr.docChanged) return set
-        let touchedCodeBlock = false
-        const checkCodeBlock = (node) => { if (node.type.name === 'code_block') touchedCodeBlock = true }
-        // Check both directions: a code_block added/changed in the new doc, and
-        // one removed from the old doc (changedDescendants only ever visits
-        // cur's children, so catching removal requires the swapped call too).
-        changedDescendants(tr.before, tr.doc, 0, checkCodeBlock)
-        if (!touchedCodeBlock) changedDescendants(tr.doc, tr.before, 0, checkCodeBlock)
-        if (!touchedCodeBlock) return set.map(tr.mapping, tr.doc)
-        return computeMermaidDecorations(tr.doc)
+function selectedDiagramBlockPos(view) {
+  const sel = view.state.selection
+  if (!(sel instanceof TextSelection) || !sel.empty) return null
+  if (sel.$from.depth === 0 || sel.$from.parent.type.name !== 'code_block') return null
+  const blockPos = sel.$from.before(sel.$from.depth)
+  return diagramBlockAt(view, blockPos) ? blockPos : null
+}
+
+// Writes the whole node to the clipboard via view.serializeForClipboard, the
+// same method prosemirror-view's own native copy handler uses on a real
+// NodeSelection's content() — needed here because the "selected" position is
+// a collapsed TextSelection (see handleDiagramArrowKey), which that internal
+// handler bails out of immediately.
+function handleDiagramCopy(view, event) {
+  const blockPos = selectedDiagramBlockPos(view)
+  if (blockPos === null) return false
+  const node = view.state.doc.nodeAt(blockPos)
+  if (!node) return false
+  const slice = NodeSelection.create(view.state.doc, blockPos).content()
+  const { dom, text } = view.serializeForClipboard(slice)
+  event.clipboardData?.clearData()
+  event.clipboardData?.setData('text/html', dom.innerHTML)
+  event.clipboardData?.setData('text/plain', text)
+  event.preventDefault()
+  return false
+}
+
+function handleDiagramCut(view, event) {
+  const blockPos = selectedDiagramBlockPos(view)
+  if (blockPos === null) return false
+  handleDiagramCopy(view, event)
+  const node = view.state.doc.nodeAt(blockPos)
+  if (node) view.dispatch(view.state.tr.delete(blockPos, blockPos + node.nodeSize).scrollIntoView().setMeta('uiEvent', 'cut'))
+  return false
+}
+
+// Registered via handleDOMEvents.paste, not the handlePaste prop:
+// EditorView.someProp checks direct view props (where markupeditor-base's
+// own generic code_block handlePaste lives) before any plugin's, so a
+// plugin-level handlePaste here would never actually run first.
+function handleDiagramPaste(view, event) {
+  const blockPos = selectedDiagramBlockPos(view)
+  if (blockPos === null) return false
+  const node = view.state.doc.nodeAt(blockPos)
+  if (!node) return false
+  const data = event.clipboardData
+  if (!data) return false
+  const text = data.getData('text/plain') || data.getData('Text')
+  const html = data.getData('text/html')
+  const contentSel = TextSelection.create(view.state.doc, blockPos + 1, blockPos + node.nodeSize - 1)
+  const slice = __parseFromClipboard(view, text, html, false, contentSel.$from)
+  if (!slice) return false
+  const tr = view.state.tr.setSelection(contentSel).replaceSelection(slice)
+  view.dispatch(tr.scrollIntoView())
+  event.preventDefault()
+  return false
+}
+
+// Injectable matchMedia so tests can simulate an OS appearance change
+// without a real browser matchMedia; defaults to what production uses.
+export function createMermaidPlugin({
+  matchMedia = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : undefined
+} = {}) {
+  return new Plugin({
+    props: {
+      handleKeyDown(view, event) { return handleDiagramArrowKey(view, event) || handleDiagramDeleteKey(view, event) },
+      handleDOMEvents: {
+        copy: handleDiagramCopy,
+        cut: handleDiagramCut,
+        paste: handleDiagramPaste
       }
     },
-    props: {
-      decorations(state) { return mermaidRenderPlugin.getState(state) }
+    view(editorView) {
+      // WebKit can't place a caret inside zero-size (font-size: 0) text, so
+      // it falls back to painting one at the nearest non-collapsed content
+      // instead — scoping caret-color to the editor root (not the hidden
+      // text itself) is the actual fix, matching this codebase's own
+      // .ProseMirror-hideselection convention.
+      const syncCaretClass = (v) => {
+        const sel = v.state.selection
+        let hideCaret = false
+        if (sel instanceof TextSelection && sel.$from.depth > 0 && sel.$from.parent.type.name === 'code_block') {
+          hideCaret = !!diagramBlockAt(v, sel.$from.before(sel.$from.depth))
+        }
+        v.dom.classList.toggle(HIDE_CARET_CLASS, hideCaret)
+      }
+      syncCaretClass(editorView)
+
+      const colorSchemeQuery = matchMedia?.('(prefers-color-scheme: dark)')
+      const onColorSchemeChange = (e) => {
+        mermaid.initialize({ theme: e.matches ? 'dark' : 'default', suppressErrorRendering: true })
+        MermaidView.forceRerenderAll()
+      }
+      colorSchemeQuery?.addEventListener('change', onColorSchemeChange)
+
+      return {
+        update: syncCaretClass,
+        destroy() { colorSchemeQuery?.removeEventListener('change', onColorSchemeChange) }
+      }
     }
   })
+}
 
-  return { plugin: mermaidRenderPlugin, renderCache }
+// A non-mermaid instance can still see its own language change TO mermaid
+// later (the Language dialog mutates node.attrs.language on the same node
+// identity, so ProseMirror calls update() on the EXISTING instance rather
+// than reconsulting the factory) — its own class (CodeView, or another
+// plugin's wrapped variant) has no reason to know about mermaid, so this
+// wraps whichever instance the delegate chain produced, on the constructed
+// object itself, not its class. update() returning false is what tells
+// ProseMirror to discard this one instance and ask the factory again — a
+// per-node rebuild, not a whole-document redraw.
+function wrapForMermaidUpgrade(instance) {
+  const delegateUpdate = instance.update.bind(instance)
+  instance.update = (node) => isMermaidLanguage(node.attrs.language) ? false : delegateUpdate(node)
+  return instance
+}
+
+// Delegates to whatever's already installed for code_block, not assumed to
+// be CodeView specifically — composable with any other independently-loaded
+// code_block NodeView plugin (verified in nodeview-factory-spike.test.js).
+export function makeCodeBlockFactory(originalFactory, languageDialog, mermaidViewOptions = {}) {
+  return (node, view, getPos) => {
+    if (isMermaidLanguage(node.attrs.language)) {
+      return new MermaidView(node, view, getPos, languageDialog, mermaidViewOptions)
+    }
+    return wrapForMermaidUpgrade(originalFactory(node, view, getPos))
+  }
+}
+
+// On macOS, Cmd+V never reaches the DOM as a paste event at all: NSResponder's
+// paste(_:) (MarkupWKWebView.swift) reads NSPasteboard directly and, whenever
+// the selection is inside a <pre>, calls MU.pasteCode(text) via
+// executeJavaScript — bypassing handleDOMEvents.paste (and this plugin's own
+// handleDiagramPaste) entirely. MU.pasteCode itself is a plain
+// view.dispatch(view.state.tr.insertText(text)) at the current (collapsed)
+// selection, with no notion of "this code_block is atomically selected and
+// should have its whole content replaced" — landing the pasted text at the
+// very start of a Diagram-mode block's content instead of replacing it.
+// Wrapping MU.pasteCode itself (not modifying it in markupeditor-base, which
+// has no reason to know about mermaid) catches this regardless of which path
+// (native Swift injection or a real DOM paste event, wherever one does still
+// fire) invoked it.
+export function wrapPasteCodeForDiagram(view) {
+  const originalPasteCode = MU.pasteCode
+  MU.pasteCode = (text) => {
+    const blockPos = selectedDiagramBlockPos(view)
+    if (blockPos === null) return originalPasteCode(text)
+    const node = view.state.doc.nodeAt(blockPos)
+    const from = blockPos + 1
+    const to = blockPos + node.nodeSize - 1
+    const tr = text ? view.state.tr.replaceWith(from, to, view.state.schema.text(text)) : view.state.tr.delete(from, to)
+    view.dispatch(tr.scrollIntoView())
+  }
 }
 
 const view = MU.activeView()
 if (view) {
-  const { plugin } = createMermaidRenderPlugin({
-    dispatch: () => view.dispatch(view.state.tr.setMeta('mermaid-rendered', true))
-  })
-  view.updateState(view.state.reconfigure({ plugins: [...view.state.plugins, plugin] }))
+  adoptMermaidStyles(view)
+
+  const codeBlockFactory = makeCodeBlockFactory(view.props.nodeViews.code_block, MU.languageDialog)
+  view.setProps({ nodeViews: { ...view.props.nodeViews, code_block: codeBlockFactory } })
+  wrapPasteCodeForDiagram(view)
+
+  const plugin = createMermaidPlugin()
+  view.updateState(view.state.reconfigure({ plugins: [plugin, ...view.state.plugins] }))
 }
