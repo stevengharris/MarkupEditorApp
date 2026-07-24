@@ -25,16 +25,6 @@ pre > code.language-mermaid:not(.mermaid-hidden-code) {
   background: transparent;
 }
 
-/* Applied to the whole editor root (view.dom), not the hidden text span
-   itself — matching this codebase's own .ProseMirror-hideselection
-   convention (mirror.css). caret-color scoped to the span alone doesn't
-   work: when the logical selection sits inside zero-size (font-size: 0)
-   text, WebKit can't find a meaningful glyph position to paint the caret
-   there, so it falls back to rendering at the nearest non-collapsed
-   content instead (confirmed empirically — it rendered at the end of a
-   preceding heading, a completely different element unaffected by a rule
-   scoped to the hidden span). Toggled on/off via the plugin's own
-   view.update() lifecycle hook, matching the actual selection state. */
 .mermaid-hide-caret {
   caret-color: transparent;
 }
@@ -56,41 +46,18 @@ pre > code.language-mermaid:not(.mermaid-hidden-code) {
   opacity: 0.9;
 }
 
-/* Overrides the Language tab's position (markupeditor-base, .Markup-code-
-   language-overlay) to match our own tabs' bottom value exactly, scoped to
-   mermaid code_blocks only via :has() — leaves markupeditor-base's own
-   rule, and every other code_block's Language tab, untouched. Excludes
-   -below: that modifier class sits alongside the base one (like our own
-   .mermaid-mode-toggle-below), so without :not() here this rule would
-   also hijack the bottom-attached case, which already matches correctly
-   on its own. */
-pre:has(> .mermaid-mode-toggle) .Markup-code-language-overlay:not(.Markup-code-language-overlay-below) {
-  bottom: 100%;
-}
-
-/* Whichever tab (Source/Diagram) is currently showing needs its own visual
-   indicator — reuses the existing hover opacity as a permanent "pressed"
-   look, toggled by the plugin's syncTabActiveClasses (view.update() hook)
-   rather than baked in at construction time. */
 .mermaid-mode-toggle-active {
   opacity: 0.9;
 }
 
-/* Applied (hasRoomAbove, markupeditor-mermaid.js) when the code_block is too
-   close to the top of the view for a tab to fit above it — attach to the
-   bottom instead. Matches markupeditor-base's own
-   .Markup-code-language-overlay-below exactly. */
+/* Applied when the code_block is too close to the top of the view for a tab to fit above */
 .mermaid-mode-toggle-below {
   bottom: auto;
   top: 100%;
   border-radius: 0 0 4px 4px;
 }
 
-/* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) — the
-   toolbar's own selected-button color scheme — exactly: light mode is white
-   lettering on the accent-blue fill (the base rule above), dark mode flips
-   to black lettering on the accent-lightblue fill. Also matches the
-   (markupeditor-base) Language tab, which follows the same scheme. */
+/* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) */
 @media (prefers-color-scheme: dark) {
   .mermaid-mode-toggle {
     background: var(--Markup-accent-color, lightblue);
@@ -98,15 +65,7 @@ pre:has(> .mermaid-mode-toggle) .Markup-code-language-overlay:not(.Markup-code-l
   }
 }
 
-/* Dashed outline (matching .resize-container img's selected-image style,
-   markupeditor-base/styles/markup.css) rather than prosemirror-view's
-   generic .ProseMirror-selectednode blue, in the tabs' own accent color
-   rather than a generic black/white — so a selected diagram reads visually
-   consistent with a selected image and part of the same tab strip. offset:
-   0 (unlike the image style's 4px) so the dashed line hugs the diagram's
-   own edges exactly, matching a code block's actual left/right extent; an
-   outward offset here made the selected box (and the Language tab riding
-   along its edge) look wider/indented than how a code block lines up. */
+/* Dashed outline for diagrams when selected */
 .mermaid-diagram-selected {
   outline: 1px var(--Markup-accent-color, blue) dashed;
   outline-offset: 0;
@@ -118,13 +77,6 @@ pre:has(> .mermaid-mode-toggle) .Markup-code-language-overlay:not(.Markup-code-l
   }
 }
 
-/* No margin-top: the diagram/placeholder box's own top edge must coincide
-   exactly with the <pre>'s (this.dom's) top edge, matching source mode's
-   implicit box exactly — the tabs are positioned relative to that one
-   edge, shared by both modes. A margin-top here previously pushed this
-   edge (and the diagram's own selected-outline) a few px below the plain
-   source-mode edge, so a single static tab offset couldn't align with
-   both at once. */
 .mermaid-diagram, .mermaid-placeholder {
   margin-bottom: 15px;
 }
