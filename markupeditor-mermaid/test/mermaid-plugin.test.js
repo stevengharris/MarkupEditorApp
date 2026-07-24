@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Schema, EditorState, EditorView, MU, Selection } from 'markupeditor'
 import { MermaidView, isMermaidLanguage } from '../src/mermaidview.js'
-import { createMermaidPlugin, makeCodeBlockFactory, wrapPasteCodeForDiagram } from '../src/markupeditor-mermaid.js'
+import { mermaidPlugin } from '../src/mermaidplugin.js'
 
 // MarkupEditorApp-1qfq.4/.5: integration coverage for the keyboard/clipboard/
 // theme plugin against the REAL wiring shape (MermaidView + createMermaidPlugin),
@@ -35,7 +35,7 @@ function mountView(doc, { render } = {}) {
       return new MU.CodeView(node, view, getPos, null)
     }
   }
-  const plugin = createMermaidPlugin()
+  const plugin = mermaidPlugin.createPlugin()
   const state = EditorState.create({ schema, doc, plugins: [plugin] })
   const container = document.body.appendChild(document.createElement('div'))
   const view = new EditorView(container, { state, nodeViews })
@@ -240,7 +240,7 @@ describe('OS theme change', () => {
         return new MU.CodeView(node, view, getPos, null)
       }
     }
-    const plugin = createMermaidPlugin({ matchMedia })
+    const plugin = mermaidPlugin.createPlugin({ matchMedia })
     const state = EditorState.create({ schema, doc, plugins: [plugin] })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews })
@@ -273,7 +273,7 @@ describe('a mermaid block coexisting with a non-mermaid one, via the real captur
       if (isMermaidLanguage(node.attrs.language)) return new MermaidView(node, view, getPos, null, { render })
       return originalFactory(node, view, getPos)
     }
-    const plugin = createMermaidPlugin()
+    const plugin = mermaidPlugin.createPlugin()
     const state = EditorState.create({ schema, doc, plugins: [plugin] })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: wrappedFactory } })
@@ -324,7 +324,7 @@ describe('makeCodeBlockFactory: language changed TO mermaid via the Language dia
     // element that doesn't exist in this jsdom test), an unhandled rejection
     // unrelated to what this test actually checks.
     const render = vi.fn().mockResolvedValue({ svg: '<svg>ok</svg>' })
-    const codeBlockFactory = makeCodeBlockFactory(originalFactory, null, { render })
+    const codeBlockFactory = mermaidPlugin.makeCodeBlockFactory(originalFactory, null, { render })
     const state = EditorState.create({ schema, doc })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: codeBlockFactory } })
@@ -345,7 +345,7 @@ describe('makeCodeBlockFactory: language changed TO mermaid via the Language dia
       schema.node('code_block', { language: 'javascript' }, schema.text('const x = 1;'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const codeBlockFactory = makeCodeBlockFactory(originalFactory, null)
+    const codeBlockFactory = mermaidPlugin.makeCodeBlockFactory(originalFactory, null)
     const state = EditorState.create({ schema, doc })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: codeBlockFactory } })
@@ -383,7 +383,7 @@ describe('wrapPasteCodeForDiagram: MU.pasteCode, the path native macOS paste act
 
     const blockPos = doc.child(0).nodeSize
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(blockPos + 1))))
-    wrapPasteCodeForDiagram(view)
+    mermaidPlugin.wrapPasteCodeForDiagram(view)
 
     MU.pasteCode('pie title NETFLIX')
 
@@ -400,7 +400,7 @@ describe('wrapPasteCodeForDiagram: MU.pasteCode, the path native macOS paste act
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(1))))
     const spy = vi.fn()
     MU.pasteCode = spy
-    wrapPasteCodeForDiagram(view)
+    mermaidPlugin.wrapPasteCodeForDiagram(view)
 
     MU.pasteCode('!')
 
@@ -417,7 +417,7 @@ describe('wrapPasteCodeForDiagram: MU.pasteCode, the path native macOS paste act
 
     const blockPos = doc.child(0).nodeSize
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(blockPos + 1))))
-    wrapPasteCodeForDiagram(view)
+    mermaidPlugin.wrapPasteCodeForDiagram(view)
 
     MU.pasteCode('')
 

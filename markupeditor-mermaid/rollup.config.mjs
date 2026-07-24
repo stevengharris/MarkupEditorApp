@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import css from 'rollup-plugin-import-css';
 
 export default {
-	input: 'src/markupeditor-mermaid.js',
+	input: 'src/mermaidplugin.js',
 	// prosemirror-model/-state/-view are already bundled inside markup-editor.js
 	// and re-exported from there. Declaring them external prevents duplicate
 	// copies in this bundle (ProseMirror uses instanceof checks internally, so a
