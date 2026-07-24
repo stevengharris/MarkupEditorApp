@@ -185,11 +185,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func exportPluginAction(_ sender: NSMenuItem) {
-        guard let entry = sender.representedObject as? Plugin else { return }
+        guard let entry = sender.representedObject as? Plugin, let filename = entry.filename else { return }
         NotificationCenter.default.post(
             name: .menuExportPlugin,
             object: nil,
-            userInfo: ["name": entry.name, "filename": entry.filename]
+            userInfo: ["name": entry.name, "filename": filename]
         )
     }
 

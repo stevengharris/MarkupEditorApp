@@ -7,6 +7,7 @@
 
 import Foundation
 import OSLog
+import MarkupEditor
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "ExporterManager")
 
@@ -47,11 +48,12 @@ class ExporterManager {
         // in BehaviorSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
         // URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
-        let exporter = Plugin(name: name, filename: source.lastPathComponent)
-        let destination = defaultDir.appendingPathComponent(exporter.filename)
+        let filename = source.lastPathComponent
+        let exporter = Plugin(name: name, type: "exporter", filename: filename)
+        let destination = defaultDir.appendingPathComponent(filename)
 
         guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
-            logger.warning("Exporter not found: \(exporter.filename)")
+            logger.warning("Exporter not found: \(filename)")
             return
         }
 
@@ -60,7 +62,7 @@ class ExporterManager {
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.copyItem(at: source, to: destination)
-            logger.info("Saved exporter \(exporter.name): \(exporter.filename)")
+            logger.info("Saved exporter \(exporter.name): \(filename)")
             AppConfig.update { config in
                 if let index = config.exporters.firstIndex(where: {existing in exporter.name == existing.name}) {
                     config.exporters[index] = exporter
@@ -69,15 +71,15 @@ class ExporterManager {
                 }
             }
         } catch {
-            logger.error("Failed to save exporter \(exporter.filename): \(error.localizedDescription)")
+            logger.error("Failed to save exporter \(filename): \(error.localizedDescription)")
         }
     }
-    
+
     func delete(_ exporter: Plugin?) {
-        guard let exporter else { return }
+        guard let exporter, let filename = exporter.filename else { return }
         AppConfig.update { config in
             if let index = config.exporters.firstIndex(of: exporter) {
-                let url = defaultDir.appendingPathComponent(exporter.filename)
+                let url = defaultDir.appendingPathComponent(filename)
                 if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
                     try? FileManager.default.removeItem(at: url)
                 }

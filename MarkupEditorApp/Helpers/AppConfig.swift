@@ -150,8 +150,8 @@ public final class AppConfig: JSONConfigurable {
     }
     
     public func pluginFilenames() -> [String] {
-        let exporterFilenames = exporters.map { $0.filename }
-        let rendererFilenames = renderers.map { $0.filename }
+        let exporterFilenames = exporters.compactMap { $0.filename }
+        let rendererFilenames = renderers.compactMap { $0.filename }
         return exporterFilenames + rendererFilenames
     }
 

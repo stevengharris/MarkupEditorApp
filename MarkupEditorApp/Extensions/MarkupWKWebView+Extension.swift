@@ -10,7 +10,7 @@ import OSLog
 internal import WebKit
 
 extension MarkupWKWebView {
-    
+
     public func importMarkdown(content: String?) async -> String? {
         guard let content else { return nil }
         return await withCheckedContinuation { continuation in

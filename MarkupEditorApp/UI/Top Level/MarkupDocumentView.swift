@@ -628,23 +628,23 @@ struct MarkupDocumentView: View {
     }
     
     private func handleExport(pluginName: String, fileExt: String) async {
-        let panel = NSSavePanel()
-        let baseName = document.url?.deletingPathExtension().lastPathComponent ?? "Untitled"
-        panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
-        panel.allowedContentTypes = UTType(filenameExtension: fileExt).map { [$0] } ?? []
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        let result = await MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil)
-        guard let exportResult = ImportExportValue.decode(from: result),
-              let exportOutput = exportResult.result else {
-            showError("Plugin '\(pluginName)' could not complete the operation.")
-            return
-        }
-        let output = document.injectYAMLFrontMatter(into: exportOutput)
-        do {
-            try output.write(to: url, atomically: true, encoding: .utf8)
-        } catch {
-            showError("Failed to write file: \(error.localizedDescription)")
-        }
+        //let panel = NSSavePanel()
+        //let baseName = document.url?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        //panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
+        //panel.allowedContentTypes = UTType(filenameExtension: fileExt).map { [$0] } ?? []
+        //guard panel.runModal() == .OK, let url = panel.url else { return }
+        //let result = await MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil)
+        //guard let exportResult = ImportExportValue.decode(from: result),
+        //      let exportOutput = exportResult.result else {
+        //    showError("Plugin '\(pluginName)' could not complete the operation.")
+        //    return
+        //}
+        //let output = document.injectYAMLFrontMatter(into: exportOutput)
+        //do {
+        //    try output.write(to: url, atomically: true, encoding: .utf8)
+        //} catch {
+        //    showError("Failed to write file: \(error.localizedDescription)")
+        //}
     }
 
     /// Identify a new URL to save the current document as

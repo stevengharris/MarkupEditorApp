@@ -4,6 +4,7 @@
 
 import Foundation
 import OSLog
+import MarkupEditor
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "RendererManager")
 
@@ -22,7 +23,7 @@ class RendererManager {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appendingPathComponent("renderers")
     }
-    let mermaid = Plugin(name: "Mermaid", filename: "markupeditor-mermaid.js")
+    let mermaid = Plugin(name: "Mermaid", type: "renderer", filename: "markupeditor-mermaid.js")
 
     /// Calls `setupRenderers` using the app's current `AppConfig`.
     func setupOnLaunch() {
@@ -44,7 +45,10 @@ class RendererManager {
         // are doing work on or updating the Mermaid renderer support, we need to replace
         // it if that exists.
         // TODO: Tighten up the logic to avoid edge cases
-        guard let source = Bundle.main.resourceURL?.appendingPathComponent(mermaid.filename) else {
+        guard
+            let filename = mermaid.filename,
+            let source = Bundle.main.resourceURL?.appendingPathComponent(filename)
+        else {
             logger.warning("Resource URL was not found.")
             return
         }
@@ -57,20 +61,22 @@ class RendererManager {
         // in BehaviorSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
         // URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
-        let renderer = Plugin(name: name, filename: source.lastPathComponent)
-        let destination = defaultDir.appendingPathComponent(renderer.filename)
+        let filename = source.lastPathComponent
+        let renderer = Plugin(name: name, type: "renderer", filename: filename)
+        let destination = defaultDir.appendingPathComponent(filename)
 
         guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
-            logger.warning("Renderer not found: \(renderer.filename)")
+            logger.warning("Renderer not found: \(filename)")
             return
         }
 
         do {
             if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
                 try FileManager.default.removeItem(at: destination)
+                logger.info("Removed existing renderer file: \(filename)")
             }
             try FileManager.default.copyItem(at: source, to: destination)
-            logger.info("Saved renderer \(renderer.name): \(renderer.filename)")
+            logger.info("Added renderer \(renderer.name): \(filename)")
             AppConfig.update { config in
                 if let index = config.renderers.firstIndex(where: {existing in renderer.name == existing.name}) {
                     config.renderers[index] = renderer
@@ -79,15 +85,15 @@ class RendererManager {
                 }
             }
         } catch {
-            logger.error("Failed to save renderer \(renderer.filename): \(error.localizedDescription)")
+            logger.error("Failed to save renderer \(filename): \(error.localizedDescription)")
         }
     }
-    
+
     func delete(_ renderer: Plugin?) {
-        guard let renderer else { return }
+        guard let renderer, let filename = renderer.filename else { return }
         AppConfig.update { config in
             if let index = config.renderers.firstIndex(of: renderer) {
-                let url = defaultDir.appendingPathComponent(renderer.filename)
+                let url = defaultDir.appendingPathComponent(filename)
                 if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
                     try? FileManager.default.removeItem(at: url)
                 }
