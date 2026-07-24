@@ -44,13 +44,14 @@ struct ConfigDecodingTests {
 
     @Test func validBehaviorConfigJSONDecodes() throws {
         let json = """
-        {"focusAfterLoad":true,"selectImage":false,"insertLink":true,"insertImage":true}
+        {"focusAfterLoad":true,"selectImage":false,"insertLink":true,"insertImage":true,"highlightCode":false}
         """
         let result = try #require(MarkupDocumentView.decodeConfig(BehaviorConfig.self, from: json))
         #expect(result.focusAfterLoad == true)
         #expect(result.selectImage == false)
         #expect(result.insertLink == true)
         #expect(result.insertImage == true)
+        #expect(result.highlightCode == false)
     }
 
     @Test func behaviorConfigMissingFieldReturnsNil() {
@@ -97,75 +98,6 @@ struct ConfigDecodingTests {
     }
 }
 
-// Tests for AppConfig.PluginConfigEntry decoding and the (non-optional) `plugins`/`renderers` properties.
-@MainActor
-struct AppConfigPluginDecodingTests {
-
-    // MARK: - plugins present: decodes entry correctly
-
-    @Test func pluginsArrayDecodesMarkdownEntry() throws {
-        let json = """
-        {
-            "toolbarVisibility": "toggled",
-            "toggledState": "visible",
-            "plugins": [{ "name": "Markdown", "filename": "markupeditor-markdown.js" }],
-            "renderers": []
-        }
-        """
-        let data = try #require(json.data(using: .utf8))
-        let config = try JSONDecoder().decode(AppConfig.self, from: data)
-        #expect(config.plugins.count == 1)
-        #expect(config.plugins[0].name == "Markdown")
-        #expect(config.plugins[0].filename == "markupeditor-markdown.js")
-    }
-
-    // MARK: - plugins/renderers keys required: absent → decode throws
-
-    @Test func pluginsAndRenderersAbsentThrows() throws {
-        // plugins and renderers are non-optional; init(from:) requires both keys, so
-        // omitting either is a decode failure rather than defaulting to empty/nil.
-        let json = """
-        { "toolbarVisibility": "toggled", "toggledState": "visible" }
-        """
-        let data = try #require(json.data(using: .utf8))
-        #expect(throws: DecodingError.self) {
-            try JSONDecoder().decode(AppConfig.self, from: data)
-        }
-    }
-
-    // MARK: - plugins present but empty array
-
-    @Test func pluginsEmptyArrayDecodes() throws {
-        let json = """
-        { "toolbarVisibility": "toggled", "toggledState": "visible", "plugins": [], "renderers": [] }
-        """
-        let data = try #require(json.data(using: .utf8))
-        let config = try JSONDecoder().decode(AppConfig.self, from: data)
-        #expect(config.plugins.isEmpty)
-    }
-
-    // MARK: - fileExtension field on PluginConfigEntry
-
-    @Test func testFileExtensionDecodesFromJSON() throws {
-        let json = """
-        { "name": "X", "filename": "x.js", "fileExtension": "md" }
-        """
-        let data = try #require(json.data(using: .utf8))
-        let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
-        #expect(entry.fileExtension == "md")
-    }
-
-    @Test func testFileExtensionIsNilWhenKeyAbsent() throws {
-        let json = """
-        { "name": "X", "filename": "x.js" }
-        """
-        let data = try #require(json.data(using: .utf8))
-        let entry = try JSONDecoder().decode(AppConfig.PluginConfigEntry.self, from: data)
-        #expect(entry.fileExtension == nil)
-    }
-
-}
-
 // Tests for AppConfig's encode(to:) / init(from:) round trip. AppConfig is an @Observable
 // class, whose macro renames stored properties to `_propertyName` and adds
 // `_$observationRegistrar`; a synthesized Encodable conformance would serialize those instead
@@ -178,8 +110,8 @@ struct AppConfigRoundTripTests {
         let original = AppConfig(
             toolbarVisibility: "hidden",
             toggledState: "hidden",
-            plugins: [AppConfig.PluginConfigEntry(name: "Markdown", filename: "markupeditor-markdown.js")],
-            renderers: [Renderer(name: "Mermaid", filename: "markupeditor-mermaid.js")]
+            exporters: [Plugin(name: "Markdown", type: "exporter", filename: "markupeditor-markdown.js")],
+            renderers: [Plugin(name: "Mermaid", type: "renderer", filename: "markupeditor-mermaid.js")]
         )
 
         let json = try #require(original.asJSON())
@@ -191,7 +123,7 @@ struct AppConfigRoundTripTests {
 
         #expect(decoded.toolbarVisibility == original.toolbarVisibility)
         #expect(decoded.toggledState == original.toggledState)
-        #expect(decoded.plugins == original.plugins)
+        #expect(decoded.exporters == original.exporters)
         #expect(decoded.renderers.first?.name == original.renderers.first?.name)
         #expect(decoded.renderers.first?.filename == original.renderers.first?.filename)
     }
