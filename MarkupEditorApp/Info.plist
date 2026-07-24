@@ -10,7 +10,7 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeIconFile</key>
-			<string>markupeditor-doc</string>
+			<string>markupeditor-icon</string>
 			<key>CFBundleTypeName</key>
 			<string>MarkupEditor Document</string>
 			<key>CFBundleTypeRole</key>
@@ -84,7 +84,7 @@
 			<key>UTTypeDescription</key>
 			<string>MarkupEditor Document</string>
 			<key>UTTypeIconFile</key>
-			<string>markupeditor-doc</string>
+			<string>markupeditor-icon</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.stevengharris.htmd</string>
 			<key>UTTypeTagSpecification</key>

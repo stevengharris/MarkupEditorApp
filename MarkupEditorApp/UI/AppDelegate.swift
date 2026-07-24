@@ -56,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
         keymap = KeymapConfig.fromDefaults()         // Use app's keymapconfig.json
-        if let bundleURL = Bundle.main.url(forResource: "markupeditor-doc", withExtension: "icns") {
+        if let bundleURL = Bundle.main.url(forResource: "markupeditor-icon", withExtension: "icns") {
             Self.docIcon = NSImage(byReferencing: bundleURL)
         }
     }

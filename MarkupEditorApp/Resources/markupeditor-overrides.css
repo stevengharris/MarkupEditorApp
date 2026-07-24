@@ -1,0 +1,15 @@
+/* This file contains overrides of base css from markupeditor-base. It is
+   passed by name as `userCssFile` when creating the MarkupEditorView in
+   MarkupDocumentView. */
+
+/* Match the editor background to the rest of the app's dark-mode colors;
+   e.g., the SourceView's TextEditor. Value used here obtained using
+   Digital Color Meter. Using Canvas yields `black`, which does not play
+   well with some Mermaid diagram schemes. It's probably a good idea to
+   use something other than black in any case, so we just override it
+   here. */
+@media (prefers-color-scheme: dark) {
+  #editor, .editor {
+    background: #24292d;
+  }
+}

@@ -186,7 +186,7 @@ struct MarkupDocumentView: View {
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
         config.userScriptFile = "markupeditor-markdown.js"
-        config.userCssFile = "custom.css"
+        config.userCssFile = "markupeditor-overrides.css"
         config.pluginFiles = AppConfig.shared.pluginFilenames()
         _markupConfiguration = State(initialValue: config)
     }
