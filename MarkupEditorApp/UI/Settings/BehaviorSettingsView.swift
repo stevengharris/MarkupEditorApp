@@ -24,6 +24,7 @@ struct BehaviorSettingsView: View {
     @State private var loaded = false
     @State private var toolbarVisibility: ToolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
     @FocusState private var focusedPlugin: Plugin?
+    @State private var addPluginType: PluginType = .None
     @State private var showAddPlugin: Bool = false
     @State private var showDeletePlugin: Bool = false
     @State private var showPluginNameDialog: Bool = false
@@ -66,7 +67,10 @@ struct BehaviorSettingsView: View {
             }
             LabeledContent("") {
                 HStack {
-                    Button(action: { showAddPlugin = true }, label: { Image(systemName: "plus.square") })
+                    Button(action: {
+                        addPluginType = .Exporter
+                        showAddPlugin = true
+                    }, label: { Image(systemName: "plus.square") })
                     Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
                         .disabled(!ExporterManager.shared.exists(focusedPlugin))
                     Text("Add or delete exporter")
@@ -93,7 +97,10 @@ struct BehaviorSettingsView: View {
             }
             LabeledContent("") {
                 HStack {
-                    Button(action: { showAddPlugin = true }, label: { Image(systemName: "plus.square") })
+                    Button(action: {
+                        addPluginType = .Renderer
+                        showAddPlugin = true
+                    }, label: { Image(systemName: "plus.square") })
                     Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
                         .disabled(!RendererManager.shared.exists(focusedPlugin))
                     Text("Add or delete renderer")
@@ -137,7 +144,7 @@ struct BehaviorSettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .alert("Add New \(focusedPluginType().rawValue)", isPresented: $showPluginNameDialog) {
+        .alert("Add New \(addPluginType.rawValue)", isPresented: $showPluginNameDialog) {
             TextField("Name", text: $newPluginName)
             Button("OK") {
                 Task { await addPlugin() }
@@ -163,15 +170,17 @@ struct BehaviorSettingsView: View {
     }
 
     private func addPlugin() async {
-        if focusedPluginType() == .Renderer {
+        if addPluginType == .Renderer {
             RendererManager.shared.add(name: newPluginName, url: newPluginURL)
-        } else if focusedPluginType() == .Exporter {
+        } else if addPluginType == .Exporter {
             ExporterManager.shared.add(name: newPluginName, url: newPluginURL)
         }
+        addPluginType = .None
         newPluginURL = nil
     }
 
     private func deletePlugin() {
+        guard let focusedPlugin else { return }
         if focusedPluginType() == .Renderer {
             RendererManager.shared.delete(focusedPlugin)
         } else if focusedPluginType() == .Exporter {
