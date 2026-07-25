@@ -19300,6 +19300,32 @@ function isArrayLikeObject$2(value) {
 	return isObjectLike$2(value) && isArrayLike$2(value);
 }
 
+//#region src/compat/predicate/isTypedArray.ts
+/**
+* Checks if a value is a TypedArray.
+* @param x The value to check.
+* @returns Returns true if `x` is a TypedArray, false otherwise.
+*
+* @example
+* const arr = new Uint8Array([1, 2, 3]);
+* isTypedArray(arr); // true
+*
+* const regularArray = [1, 2, 3];
+* isTypedArray(regularArray); // false
+*
+* const buffer = new ArrayBuffer(16);
+* isTypedArray(buffer); // false
+*/
+function isTypedArray$2(x) {
+	return isTypedArray$3(x);
+}
+
+//#region src/compat/_internal/isPrototype.ts
+function isPrototype$2(value) {
+	const constructor = value?.constructor;
+	return value === (typeof constructor === "function" ? constructor.prototype : Object.prototype);
+}
+
 //#region src/compat/function/memoize.ts
 /**
 * Creates a function that memoizes the result of func. If resolver is provided it determines the cache key for
@@ -19326,32 +19352,6 @@ function memoize$3(func, resolver) {
 	return memoized;
 }
 memoize$3.Cache = Map;
-
-//#region src/compat/predicate/isTypedArray.ts
-/**
-* Checks if a value is a TypedArray.
-* @param x The value to check.
-* @returns Returns true if `x` is a TypedArray, false otherwise.
-*
-* @example
-* const arr = new Uint8Array([1, 2, 3]);
-* isTypedArray(arr); // true
-*
-* const regularArray = [1, 2, 3];
-* isTypedArray(regularArray); // false
-*
-* const buffer = new ArrayBuffer(16);
-* isTypedArray(buffer); // false
-*/
-function isTypedArray$2(x) {
-	return isTypedArray$3(x);
-}
-
-//#region src/compat/_internal/isPrototype.ts
-function isPrototype$2(value) {
-	const constructor = value?.constructor;
-	return value === (typeof constructor === "function" ? constructor.prototype : Object.prototype);
-}
 
 //#region src/compat/object/clone.ts
 /**
