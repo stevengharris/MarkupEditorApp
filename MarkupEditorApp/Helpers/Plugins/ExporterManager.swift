@@ -39,7 +39,7 @@ class ExporterManager {
             return
         }
 
-        // Add any prepackaged exporters here. See the way Mermaid is done in RendererManager.
+        // Add any prepackaged exporters here. See the way Mermaid is done in CodeViewManager.
     }
     
     func add(name: String, url: URL?) {

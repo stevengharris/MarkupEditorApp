@@ -1,7 +1,7 @@
 {
   "name": "markupeditor-mermaid",
   "version": "0.1.0",
-  "description": "MarkupEditor renderer for Mermaid diagrams.",
+  "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
   "type": "module",
   "main": "dist/markupeditor-mermaid.js",
   "license": "MIT",

@@ -111,7 +111,7 @@ struct AppConfigRoundTripTests {
             toolbarVisibility: "hidden",
             toggledState: "hidden",
             exporters: [Plugin(name: "Markdown", type: "exporter", filename: "markupeditor-markdown.js")],
-            renderers: [Plugin(name: "Mermaid", type: "renderer", filename: "markupeditor-mermaid.js")]
+            codeViews: [Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-mermaid.js")]
         )
 
         let json = try #require(original.asJSON())
@@ -124,8 +124,8 @@ struct AppConfigRoundTripTests {
         #expect(decoded.toolbarVisibility == original.toolbarVisibility)
         #expect(decoded.toggledState == original.toggledState)
         #expect(decoded.exporters == original.exporters)
-        #expect(decoded.renderers.first?.name == original.renderers.first?.name)
-        #expect(decoded.renderers.first?.filename == original.renderers.first?.filename)
+        #expect(decoded.codeViews.first?.name == original.codeViews.first?.name)
+        #expect(decoded.codeViews.first?.filename == original.codeViews.first?.filename)
     }
 
 }

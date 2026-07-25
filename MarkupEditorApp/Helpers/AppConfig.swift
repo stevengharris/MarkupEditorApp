@@ -33,35 +33,35 @@ public final class AppConfig: JSONConfigurable {
     public var toolbarVisibility: String
     public var toggledState: String
     public var exporters: [Plugin]
-    public var renderers: [Plugin]
-    
+    public var codeViews: [Plugin]
+
     public init(
         toolbarVisibility: String,
         toggledState: String,
         exporters: [Plugin]? = nil,
-        renderers: [Plugin]? = nil
+        codeViews: [Plugin]? = nil
     ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
         self.exporters = exporters ?? []
-        self.renderers = renderers ?? []
+        self.codeViews = codeViews ?? []
     }
-    
+
     public init() {
         let config = AppConfig.load()
         toolbarVisibility = config.toolbarVisibility
         toggledState = ToggledState.visible.rawValue
         exporters = config.exporters
-        renderers = config.renderers
+        codeViews = config.codeViews
     }
 
     public init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, renderers }
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, codeViews }
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
         toggledState = try c.decode(String.self, forKey: .toggledState)
         exporters = try c.decode([Plugin].self, forKey: .exporters)
-        renderers = try c.decode([Plugin].self, forKey: .renderers)
+        codeViews = try c.decode([Plugin].self, forKey: .codeViews)
     }
 
     /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
@@ -69,12 +69,12 @@ public final class AppConfig: JSONConfigurable {
     /// `Encodable` conformance would encode those instead of the public property names below,
     /// producing JSON that `init(from:)` can't decode back.
     public func encode(to encoder: Encoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, renderers }
+        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, codeViews }
         var c = encoder.container(keyedBy: Keys.self)
         try c.encode(toolbarVisibility, forKey: .toolbarVisibility)
         try c.encode(toggledState, forKey: .toggledState)
         try c.encode(exporters, forKey: .exporters)
-        try c.encode(renderers, forKey: .renderers)
+        try c.encode(codeViews, forKey: .codeViews)
     }
 
     /// The single, process-wide instance. Read its properties directly; use `update(_:)` to mutate and persist.
@@ -151,8 +151,8 @@ public final class AppConfig: JSONConfigurable {
     
     public func pluginFilenames() -> [String] {
         let exporterFilenames = exporters.compactMap { $0.filename }
-        let rendererFilenames = renderers.compactMap { $0.filename }
-        return exporterFilenames + rendererFilenames
+        let codeViewFilenames = codeViews.compactMap { $0.filename }
+        return exporterFilenames + codeViewFilenames
     }
 
 }

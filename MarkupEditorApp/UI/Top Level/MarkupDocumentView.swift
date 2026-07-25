@@ -75,7 +75,7 @@ struct MarkupDocumentView: View {
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
             reloadEditorForConfigChange()
         }
-        .onChange(of: AppConfig.shared.renderers) { _, _ in
+        .onChange(of: AppConfig.shared.codeViews) { _, _ in
             markupConfiguration.pluginFiles = AppConfig.shared.pluginFilenames()
             reloadEditorForConfigChange()
         }

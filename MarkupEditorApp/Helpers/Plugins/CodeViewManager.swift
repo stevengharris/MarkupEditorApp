@@ -1,31 +1,31 @@
 //
-//  RendererManager.swift
+//  CodeViewManager.swift
 //  MarkupEditorApp
 
 import Foundation
 import OSLog
 import MarkupEditor
 
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "RendererManager")
+private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "CodeViewManager")
 
-/// Handles first-launch renderer directory setup.
+/// Handles first-launch codeview directory setup.
 ///
-/// Creates the renderers directory under Application Support. The contents of the
+/// Creates the codeviews directory under Application Support. The contents of the
 /// directory is controlled from the Settings window but is prepopulated with Mermaid
 /// as bundled with the app.
-class RendererManager {
-    
-    static let shared = RendererManager()
+class CodeViewManager {
 
-    /// The URL of the renderer directory under Application Support.
+    static let shared = CodeViewManager()
+
+    /// The URL of the codeview directory under Application Support.
     var defaultDir: URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appendingPathComponent("renderers")
+        return support.appendingPathComponent("codeviews")
     }
-    let mermaid = Plugin(name: "Mermaid", type: "renderer", filename: "markupeditor-mermaid.js")
+    let mermaid = Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-mermaid.js")
 
-    /// Calls `setupRenderers` using the app's current `AppConfig`.
+    /// Calls `setupCodeViews` using the app's current `AppConfig`.
     func setupOnLaunch() {
         do {
             try FileManager.default.createDirectory(
@@ -42,7 +42,7 @@ class RendererManager {
         // When initially installed, Mermaid needs to be put in place in the defaultDir
         // using the file from Resources. However, the user may have replaced it later with
         // something else, so we need to avoid overwriting that. By the same token, if we
-        // are doing work on or updating the Mermaid renderer support, we need to replace
+        // are doing work on or updating the Mermaid codeview support, we need to replace
         // it if that exists.
         // TODO: Tighten up the logic to avoid edge cases
         guard
@@ -54,7 +54,7 @@ class RendererManager {
         }
         add(name: mermaid.name, url: source)
     }
-    
+
     func add(name: String, url: URL?) {
         guard !name.isEmpty, let source = url else { return }
         // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
@@ -62,53 +62,53 @@ class RendererManager {
         // URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
         let filename = source.lastPathComponent
-        let renderer = Plugin(name: name, type: "renderer", filename: filename)
+        let codeview = Plugin(name: name, type: "codeview", filename: filename)
         let destination = defaultDir.appendingPathComponent(filename)
 
         guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
-            logger.warning("Renderer not found: \(filename)")
+            logger.warning("CodeView not found: \(filename)")
             return
         }
 
         do {
             if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
                 try FileManager.default.removeItem(at: destination)
-                logger.info("Removed existing renderer file: \(filename)")
+                logger.info("Removed existing codeview file: \(filename)")
             }
             try FileManager.default.copyItem(at: source, to: destination)
-            logger.info("Added renderer \(renderer.name): \(filename)")
+            logger.info("Added codeview \(codeview.name): \(filename)")
             AppConfig.update { config in
-                if let index = config.renderers.firstIndex(where: {existing in renderer.name == existing.name}) {
-                    config.renderers[index] = renderer
+                if let index = config.codeViews.firstIndex(where: {existing in codeview.name == existing.name}) {
+                    config.codeViews[index] = codeview
                 } else {
-                    config.renderers.append(renderer)
+                    config.codeViews.append(codeview)
                 }
             }
         } catch {
-            logger.error("Failed to save renderer \(filename): \(error.localizedDescription)")
+            logger.error("Failed to save codeview \(filename): \(error.localizedDescription)")
         }
     }
 
-    func delete(_ renderer: Plugin?) {
-        guard let renderer, let filename = renderer.filename else { return }
+    func delete(_ codeview: Plugin?) {
+        guard let codeview, let filename = codeview.filename else { return }
         AppConfig.update { config in
-            if let index = config.renderers.firstIndex(of: renderer) {
+            if let index = config.codeViews.firstIndex(of: codeview) {
                 let url = defaultDir.appendingPathComponent(filename)
                 if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
                     try? FileManager.default.removeItem(at: url)
                 }
-                config.renderers.remove(at: index)
+                config.codeViews.remove(at: index)
             }
         }
     }
-    
-    func exists(_ renderer: Plugin?) -> Bool {
-        guard let renderer else { return false }
-        return AppConfig.shared.renderers.firstIndex(of: renderer) != nil
+
+    func exists(_ codeview: Plugin?) -> Bool {
+        guard let codeview else { return false }
+        return AppConfig.shared.codeViews.firstIndex(of: codeview) != nil
     }
-    
+
     func nameExists(_ name: String) -> Bool {
-        AppConfig.shared.renderers.first(where: {$0.name == name}) != nil
+        AppConfig.shared.codeViews.first(where: {$0.name == name}) != nil
     }
-    
+
 }

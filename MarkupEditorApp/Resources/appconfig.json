@@ -1,6 +1,6 @@
 {
     "toolbarVisibility": "toggled",
     "toggledState": "visible",
-    "plugins": [],
-    "renderers": []
+    "exporters": [],
+    "codeViews": []
 }

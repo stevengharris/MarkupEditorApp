@@ -32,7 +32,7 @@ struct BehaviorSettingsView: View {
     @State private var newPluginName: String = ""
     
     private enum PluginType: String {
-        case Renderer
+        case CodeView = "Code View"
         case Exporter
         case None = ""
     }
@@ -80,17 +80,17 @@ struct BehaviorSettingsView: View {
                 .buttonStyle(.plain)
             }
             .padding(.bottom, 8)
-            LabeledContent("Installed Renderers:") {
-                let renderers = AppConfig.shared.renderers
-                if renderers.isEmpty {
-                    Text("No renderers installed.")
+            LabeledContent("Installed Code Views:") {
+                let codeViews = AppConfig.shared.codeViews
+                if codeViews.isEmpty {
+                    Text("No code views installed.")
                         .foregroundStyle(.secondary)
                 } else {
                     VStack(alignment: .leading) {
-                        ForEach(renderers, id: \.name) { renderer in
-                            Text(renderer.name)
+                        ForEach(codeViews, id: \.name) { codeView in
+                            Text(codeView.name)
                                 .focusable()
-                                .focused($focusedPlugin, equals: renderer)
+                                .focused($focusedPlugin, equals: codeView)
                         }
                     }
                 }
@@ -98,12 +98,12 @@ struct BehaviorSettingsView: View {
             LabeledContent("") {
                 HStack {
                     Button(action: {
-                        addPluginType = .Renderer
+                        addPluginType = .CodeView
                         showAddPlugin = true
                     }, label: { Image(systemName: "plus.square") })
                     Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
-                        .disabled(!RendererManager.shared.exists(focusedPlugin))
-                    Text("Add or delete renderer")
+                        .disabled(!CodeViewManager.shared.exists(focusedPlugin))
+                    Text("Add or delete code view")
                         .lineLimit(1)
                         .font(.subheadline)
                 }
@@ -125,9 +125,9 @@ struct BehaviorSettingsView: View {
         .fileImporter(isPresented: $showAddPlugin, allowedContentTypes: [.javaScript], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 // Must start the security scope synchronously here, in the fileImporter completion
-                // handler, not later inside addRenderer. The copy itself doesn't happen until the
+                // handler, not later inside addPlugin. The copy itself doesn't happen until the
                 // user confirms the name in the alert, so the access grant has to be held open across
-                // that whole interaction — RendererManager.add(name:url:) stops it once the copy is done,
+                // that whole interaction — CodeViewManager.add(name:url:) stops it once the copy is done,
                 // and the alert's Cancel button stops it if the user backs out instead.
                 guard url.startAccessingSecurityScopedResource() else { return }
                 newPluginURL = url
@@ -160,8 +160,8 @@ struct BehaviorSettingsView: View {
     }
     
     private func focusedPluginType() -> PluginType {
-        if RendererManager.shared.exists(focusedPlugin) {
-            return .Renderer
+        if CodeViewManager.shared.exists(focusedPlugin) {
+            return .CodeView
         } else if ExporterManager.shared.exists(focusedPlugin) {
             return .Exporter
         } else {
@@ -170,8 +170,8 @@ struct BehaviorSettingsView: View {
     }
 
     private func addPlugin() async {
-        if addPluginType == .Renderer {
-            RendererManager.shared.add(name: newPluginName, url: newPluginURL)
+        if addPluginType == .CodeView {
+            CodeViewManager.shared.add(name: newPluginName, url: newPluginURL)
         } else if addPluginType == .Exporter {
             ExporterManager.shared.add(name: newPluginName, url: newPluginURL)
         }
@@ -181,8 +181,8 @@ struct BehaviorSettingsView: View {
 
     private func deletePlugin() {
         guard let focusedPlugin else { return }
-        if focusedPluginType() == .Renderer {
-            RendererManager.shared.delete(focusedPlugin)
+        if focusedPluginType() == .CodeView {
+            CodeViewManager.shared.delete(focusedPlugin)
         } else if focusedPluginType() == .Exporter {
             ExporterManager.shared.delete(focusedPlugin)
         }

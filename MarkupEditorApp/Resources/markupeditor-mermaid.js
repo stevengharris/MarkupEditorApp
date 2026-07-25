@@ -30962,9 +30962,9 @@ class MermaidPlugin {
         view.setProps({ nodeViews: { ...view.props.nodeViews, code_block: codeBlockFactory } });
         this.wrapPasteCodeForDiagram(view);
 
-        // We need to register the renderer plugin so that isRecognizedLanguage returns
+        // We need to register the codeview plugin so that isRecognizedLanguage returns
         // true when used in the LanguageDialogItem of markupeditor-base
-        MU.registerPlugin({ name: 'mermaid', type: 'renderer' });
+        MU.registerPlugin({ name: 'mermaid', type: 'codeview' });
 
         const plugin = this.createPlugin();
         view.updateState(view.state.reconfigure({ plugins: [plugin, ...view.state.plugins] }));
