@@ -12,8 +12,7 @@
     "prosemirror-markdown": "^1.13.1"
   },
   "peerDependencies": {
-    "markupeditor": "^0.9.28",
-    "prosemirror-model": "^1.23.0"
+    "markupeditor": "^0.9.29"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.0",

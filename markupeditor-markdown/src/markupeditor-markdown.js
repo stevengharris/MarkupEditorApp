@@ -1,5 +1,4 @@
-import { MU } from "markupeditor"
-import { DOMSerializer } from 'prosemirror-model'
+import { MU, DOMSerializer } from "markupeditor"
 import { makeSerializer } from './serializer.js'
 import { makeParser } from './parser.js'
 import { makeWarnings } from './warnings.js'

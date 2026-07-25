@@ -3,8 +3,7 @@
  */
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
-import { schema } from 'markupeditor/src/schema/index.js'
-import { MU } from 'markupeditor'
+import { MU, schema } from 'markupeditor'
 import '../src/markupeditor-markdown.js'
 
 // Since 303c562 moved markdown import/export from a plugin to a userscript,
@@ -109,7 +108,7 @@ describe('importFn — YAML + HTML preamble', () => {
 
 describe('exportFn — preamble serializer (AC6, AC7)', () => {
   test('AC6: code_block at doc index 0 serializes as raw HTML (no fences)', async () => {
-    const { schema: s } = await import('markupeditor/src/schema/index.js')
+    const s = schema
     const { makeSerializer } = await import('../src/serializer.js')
     const { makeWarnings } = await import('../src/warnings.js')
     const codeBlock = s.nodes.code_block.create(null, [s.text('<div align="center">\n  badge\n</div>')])
@@ -123,7 +122,7 @@ describe('exportFn — preamble serializer (AC6, AC7)', () => {
   })
 
   test('AC7: code_block at index > 0 serializes as fenced block', async () => {
-    const { schema: s } = await import('markupeditor/src/schema/index.js')
+    const s = schema
     const { makeSerializer } = await import('../src/serializer.js')
     const { makeWarnings } = await import('../src/warnings.js')
     const para = s.nodes.paragraph.create(null, [s.text('Intro.')])

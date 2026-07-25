@@ -1,5 +1,5 @@
-import { MU } from './markup-editor.js';
-import { Schema, Mark, DOMSerializer } from './markup-editor.js';
+import { MU, DOMSerializer } from './markup-editor.js';
+import { Schema, Mark } from './markup-editor.js';
 
 /* eslint-disable no-bitwise */
 

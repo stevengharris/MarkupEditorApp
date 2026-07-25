@@ -1,9 +1,8 @@
 import { describe, test, expect } from 'vitest'
-import { schema } from 'markupeditor/src/schema/index.js'
+import { schema, DOMSerializer } from 'markupeditor'
 import { makeSerializer } from '../src/serializer.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
-import { DOMSerializer } from 'prosemirror-model'
 
 // ---------------------------------------------------------------------------
 // Helpers

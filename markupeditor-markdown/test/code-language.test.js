@@ -13,21 +13,11 @@
  */
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
-import { schema } from 'markupeditor/src/schema/index.js'
 import { makeSerializer } from '../src/serializer.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
-import { DOMSerializer } from 'prosemirror-model'
-import { MU } from 'markupeditor'
+import { MU, schema, DOMParser, DOMSerializer } from 'markupeditor'
 import '../src/markupeditor-markdown.js'
-// The schema is created inside markupeditor-base, which resolves its own
-// 'prosemirror-model' dependency (a different installed version than the one
-// markupeditor-markdown resolves at its own top level). DOMParser does
-// instanceof checks against its own Node/Fragment classes, so it must be the
-// same module instance that built the schema, or parsing throws "multiple
-// versions of prosemirror-model were loaded". Import it from markupeditor's
-// own node_modules subpath to guarantee the same instance.
-import { DOMParser as PMDOMParser } from 'markupeditor/node_modules/prosemirror-model'
 
 // ---------------------------------------------------------------------------
 // Helpers (mirrors round-trip.test.js conventions)
@@ -54,7 +44,7 @@ function docToHtml(doc) {
 function htmlToDoc(html) {
   const div = document.createElement('div')
   div.innerHTML = html
-  return PMDOMParser.fromSchema(schema).parse(div)
+  return DOMParser.fromSchema(schema).parse(div)
 }
 
 // Find the first code_block node in a doc (depth-first).
