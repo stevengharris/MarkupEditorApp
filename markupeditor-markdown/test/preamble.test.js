@@ -3,8 +3,9 @@
  */
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
-import { MU, schema } from 'markupeditor'
+import { MU } from 'markupeditor'
 import '../src/markupeditor-markdown.js'
+const { schema } = MU
 
 // Since 303c562 moved markdown import/export from a plugin to a userscript,
 // markupeditor-markdown.js attaches importMarkdown directly onto the real MU

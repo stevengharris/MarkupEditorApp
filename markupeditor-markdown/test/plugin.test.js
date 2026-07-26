@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
-import { MU, schema } from 'markupeditor'
+import { MU } from 'markupeditor'
 import '../src/markupeditor-markdown.js'
+const { schema } = MU
 
 // ---------------------------------------------------------------------------
 // Module setup

@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { schema, DOMSerializer } from 'markupeditor'
+import { MU, DOMSerializer } from 'markupeditor'
+const { schema } = MU
 import { makeSerializer } from '../src/serializer.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'

@@ -16,8 +16,9 @@ import { beforeAll, describe, test, expect, vi } from 'vitest'
 import { makeSerializer } from '../src/serializer.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
-import { MU, schema, DOMParser, DOMSerializer } from 'markupeditor'
+import { MU, DOMParser, DOMSerializer } from 'markupeditor'
 import '../src/markupeditor-markdown.js'
+const { schema } = MU
 
 // ---------------------------------------------------------------------------
 // Helpers (mirrors round-trip.test.js conventions)
