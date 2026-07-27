@@ -34,17 +34,26 @@ public final class AppConfig: JSONConfigurable {
     public var toggledState: String
     public var exporters: [Plugin]
     public var codeViews: [Plugin]
+    public var spellcheck: Bool
+    public var inlinePredictions: Bool
+    public var autocorrect: Bool
 
     public init(
         toolbarVisibility: String,
         toggledState: String,
         exporters: [Plugin]? = nil,
-        codeViews: [Plugin]? = nil
+        codeViews: [Plugin]? = nil,
+        spellcheck: Bool = true,
+        inlinePredictions: Bool = true,
+        autocorrect: Bool = false
     ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
         self.exporters = exporters ?? []
         self.codeViews = codeViews ?? []
+        self.spellcheck = spellcheck
+        self.inlinePredictions = inlinePredictions
+        self.autocorrect = autocorrect
     }
 
     public init() {
@@ -53,15 +62,23 @@ public final class AppConfig: JSONConfigurable {
         toggledState = ToggledState.visible.rawValue
         exporters = config.exporters
         codeViews = config.codeViews
+        spellcheck = config.spellcheck
+        inlinePredictions = config.inlinePredictions
+        autocorrect = config.autocorrect
     }
 
     public init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, codeViews }
+        enum Keys: String, CodingKey {
+            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect
+        }
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
         toggledState = try c.decode(String.self, forKey: .toggledState)
         exporters = try c.decode([Plugin].self, forKey: .exporters)
         codeViews = try c.decode([Plugin].self, forKey: .codeViews)
+        spellcheck = try c.decodeIfPresent(Bool.self, forKey: .spellcheck) ?? true
+        inlinePredictions = try c.decodeIfPresent(Bool.self, forKey: .inlinePredictions) ?? true
+        autocorrect = try c.decodeIfPresent(Bool.self, forKey: .autocorrect) ?? false
     }
 
     /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
@@ -69,12 +86,17 @@ public final class AppConfig: JSONConfigurable {
     /// `Encodable` conformance would encode those instead of the public property names below,
     /// producing JSON that `init(from:)` can't decode back.
     public func encode(to encoder: Encoder) throws {
-        enum Keys: String, CodingKey { case toolbarVisibility, toggledState, exporters, codeViews }
+        enum Keys: String, CodingKey {
+            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect
+        }
         var c = encoder.container(keyedBy: Keys.self)
         try c.encode(toolbarVisibility, forKey: .toolbarVisibility)
         try c.encode(toggledState, forKey: .toggledState)
         try c.encode(exporters, forKey: .exporters)
         try c.encode(codeViews, forKey: .codeViews)
+        try c.encode(spellcheck, forKey: .spellcheck)
+        try c.encode(inlinePredictions, forKey: .inlinePredictions)
+        try c.encode(autocorrect, forKey: .autocorrect)
     }
 
     /// The single, process-wide instance. Read its properties directly; use `update(_:)` to mutate and persist.
@@ -153,6 +175,13 @@ public final class AppConfig: JSONConfigurable {
         let exporterFilenames = exporters.compactMap { $0.filename }
         let codeViewFilenames = codeViews.compactMap { $0.filename }
         return exporterFilenames + codeViewFilenames
+    }
+
+    public func topLevelAttributes() -> EditableAttributes {
+        var attributes: EditableAttributes = [.contenteditable]
+        if spellcheck { attributes.insert(.spellcheck) }
+        if autocorrect { attributes.insert(.autocorrect) }
+        return attributes
     }
 
 }
