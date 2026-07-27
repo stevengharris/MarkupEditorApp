@@ -30340,28 +30340,22 @@ function isMermaidLanguage(language) {
 let idCounter$1 = 0;
 
 // Instances add themselves in the constructor, remove themselves in
-// destroy() — used only by forceRerenderAll (an OS dark/light theme change
-// invalidates every live diagram's cached SVG, whether or not it's
-// currently selected/active, so this can't be reached through
-// codeLanguageOverlayPlugin's selection-driven setActive path at all).
+// destroy() — forceRerenderAll needs every live instance regardless of
+// selection state, since codeLanguageTabPlugin's setActive only fires for
+// the currently selected one.
 const liveInstances = new Set();
 
 /**
  * NodeView for a code_block whose language is mermaid. Extends MU.CodeView:
- * inherits dom (<pre>), contentDOM (<code>), the Language tab (this.tab,
- * built/labeled/wired by the base class), and the this.dom.codeView = this
- * backreference codeLanguageOverlayPlugin already depends on for the
- * Language tab — that plugin drives THIS class's setActive too, unmodified,
- * since it looks up view.nodeDOM(pos)?.codeView generically.
+ * inherits dom (<pre>), contentDOM (<code>), the Language tab, and the
+ * this.dom.codeView = this backreference codeLanguageTabPlugin uses to find
+ * and activate the current NodeView (it looks up view.nodeDOM(pos)?.codeView
+ * generically, so it drives this class's setActive too, unmodified).
  *
  * Adds two more tabs (Source, Diagram) and a diagram-render box, all DOM
- * siblings of contentDOM inside dom — never decorations, never positioned
- * relative to a document offset. Mode ('source' | 'diagram') is plain
+ * siblings of contentDOM inside dom. Mode ('source' | 'diagram') is plain
  * instance state: switching it is a synchronous DOM/property mutation, not
- * a dispatched transaction — there is no document-position bookkeeping to
- * reconcile across transactions the way the decoration-based design needed
- * (sourceModeSet, SET_SOURCE_MODE_META, pendingSelectionPos all had no
- * equivalent need once mode lives on the NodeView instance itself).
+ * a dispatched transaction.
  */
 class MermaidView extends MU.CodeView {
     constructor(node, view, getPos, languageDialog, { render = mermaid_default.render.bind(mermaid_default), reportError = MU.reportError } = {}) {
@@ -30380,12 +30374,10 @@ class MermaidView extends MU.CodeView {
         this.diagramContainer = document.createElement('div');
         this.diagramContainer.contentEditable = 'false';
         // Clicking the diagram/placeholder box moves the ProseMirror selection
-        // into the block's own (invisible-while-collapsed, but still real)
+        // into the block's (invisible-while-collapsed, but still real)
         // content — the same way clicking a selected image selects it. getPos()
-        // resolved at click time, not baked in at construction, so this stays
-        // correct after an unrelated edit shifts the block (same reasoning as
-        // markupeditor-base's own makeSetModeHandler-equivalent lesson from the
-        // decoration era).
+        // is resolved at click time, not baked in at construction, so this
+        // stays correct after an unrelated edit shifts the block.
         this.diagramContainer.addEventListener('mousedown', (e) => {
             e.preventDefault();
             const pos = this.getPos();
@@ -30397,9 +30389,9 @@ class MermaidView extends MU.CodeView {
         this.diagramTab = this.buildModeTab('Diagram', 'diagram', () => this.setMode(false));
         
         liveInstances.add(this);
-        // Defaults to attempting Diagram, matching this package's pre-existing
-        // behavior — setMode's own empty-content guard (in ensureRendered)
-        // falls it straight back to Source for a block with no content yet.
+        // Defaults to attempting Diagram; setMode's empty-content guard
+        // (in ensureRendered) falls back to Source for a block with no
+        // content yet.
         this.setMode(false);
     }
     
@@ -30419,20 +30411,18 @@ class MermaidView extends MU.CodeView {
                     // Content actually changed since the cache was last populated —
                     // invalidate. If Diagram is currently showing, re-render immediately;
                     // if Source is showing, leave it be (editing while Source is showing
-                    // must never re-trigger a render/error-report on every keystroke —
-                    // this package's own long-standing behavior, ported forward) and let
-                    // a later, explicit switch to Diagram pick up the fresh text then.
+                    // must never re-trigger a render/error-report on every keystroke) and
+                    // let a later, explicit switch to Diagram pick up the fresh text then.
                     this.cached = null;
-                    // Content can be replaced wholesale by something other than this
-                    // instance's own setMode/tab-click path (wrapPasteCodeForDiagram's
-                    // whole-block replace on a native macOS paste, for one) — that never
-                    // goes through syncModeClasses at all, so the hidden-text class would
-                    // otherwise be left however it was BEFORE this change, not derived
-                    // from the CURRENT mode. Safe to set directly (no domObserver
-                    // bracketing needed) since update() only ever runs inside
-                    // ProseMirror's own dispatch, already inside a stopped-observer
-                    // window — same reasoning as MU.CodeView's own
-                    // syncLanguageClass/setTabLabel calls.
+                    // Content can be replaced wholesale by something other than
+                    // setMode/tab-click (wrapPasteCodeForDiagram's whole-block replace
+                    // on a native macOS paste, for one) — that never goes through
+                    // syncModeClasses at all, so the hidden-text class would otherwise
+                    // be left however it was BEFORE this change, not derived from the
+                    // CURRENT mode. Safe to set directly (no domObserver bracketing
+                    // needed) since update() only ever runs inside ProseMirror's
+                    // dispatch, already inside a stopped-observer window — same
+                    // reasoning as MU.CodeView's syncLanguageClass/setTabLabel calls.
                     this.contentDOM.classList.toggle(HIDDEN_CODE_CLASS, this.mode === 'diagram');
                     if (this.mode === 'diagram') this.ensureRendered();
                         }
@@ -30456,14 +30446,14 @@ class MermaidView extends MU.CodeView {
         this.syncSelectedClass();
     }
     
-    // codeLanguageOverlayPlugin (markupeditor-base) only calls setActive when
+    // codeLanguageTabPlugin (markupeditor-base) only calls setActive when
     // the SELECTED instance itself changes — it skips the call entirely while
-    // selection stays inside the same block (its own activeCodeView === next
+    // selection stays inside the same block (via its activeCodeView === next
     // check). That leaves this.mode free to change afterward (e.g. pasting
     // real content into a still-selected, previously-empty block, which
     // switches Source -> Diagram once real text exists) with no setActive
-    // call to react to it — this.mode's own setter path (setMode) must also
-    // re-sync the border, not just setActive.
+    // call to react to it — setMode must also re-sync the border, not just
+    // setActive.
     syncSelectedClass() {
         this.diagramContainer.classList.toggle(DIAGRAM_SELECTED_CLASS, this.isActive && this.mode === 'diagram');
     }
@@ -30474,9 +30464,9 @@ class MermaidView extends MU.CodeView {
     }
     
     // An OS dark/light change invalidates every cached SVG's baked-in colors
-    // regardless of whether this instance is currently selected — called by
-    // the companion plugin's theme listener (MarkupEditorApp-1qfq.5) via
-    // forceRerenderAll, not driven by setActive/update at all.
+    // regardless of whether this instance is currently selected — called via
+    // forceRerenderAll from the plugin's theme-change listener, not driven
+    // by setActive/update at all.
     rerender() {
         this.cached = null;
         this.lastRenderedText = null;
@@ -30496,7 +30486,7 @@ class MermaidView extends MU.CodeView {
         button.dataset.tab = tabType;
         // Without this, the button is ambiguous to the browser's native cursor
         // placement as part of the code_block's editable text flow — matches
-        // MU.CodeView's own Language tab.
+        // MU.CodeView's Language tab.
         button.contentEditable = 'false';
         button.textContent = label;
         button.addEventListener('mousedown', (e) => {
@@ -30508,9 +30498,8 @@ class MermaidView extends MU.CodeView {
     }
     
     // Explicit SET, not a toggle: clicking the already-active tab is a
-    // harmless no-op rather than flipping away from it — two persistent tabs
-    // both always render while selected, so idempotence here matters the same
-    // way it did in the decoration-era design.
+    // harmless no-op rather than flipping away from it — both tabs render
+    // while selected, so idempotence matters here.
     setMode(isSource) {
         const nextMode = isSource ? 'source' : 'diagram';
         if (nextMode === this.mode) return
@@ -30519,26 +30508,19 @@ class MermaidView extends MU.CodeView {
             if (this.mode === 'diagram') this.ensureRendered();
                 }
     
-    // domObserver.stop()/start() bracketing this whole method, matching this
-    // package's own established pattern for an out-of-band DOM write (the
-    // decoration-era placeNativeCaretAtBlockStart did the same). This method
-    // is called from a tab click and from async render-completion — both
-    // OUTSIDE any ProseMirror-initiated dispatch/update cycle, unlike
-    // MU.CodeView's own contentDOM.className write (syncLanguageClass),
-    // which only ever runs from inside update(), itself only ever called by
-    // ProseMirror's own reconciliation (already inside a stopped-observer
-    // window, so it never hits this). Confirmed as load-bearing, not
-    // defensive, by a real reproduction: toggling a class directly ON
-    // contentDOM (not a descendant of it) fails MU.CodeView's inherited
-    // ignoreMutation guard specifically for THIS target — `Node.contains()`
-    // returns true for a node containing itself, so
-    // `!this.contentDOM.contains(mutation.target)` evaluates to `!true` =
-    // false for a mutation whose target IS contentDOM, meaning the mutation
-    // is NOT ignored. Left unbracketed, this misread as an external change
-    // sent ProseMirror into destroying and reconstructing this NodeView from
-    // scratch on every mode switch, which re-triggered the same mutation on
-    // the fresh instance, forever — an actual infinite loop, reproduced via a
-    // hung test before this fix, not merely a style glitch.
+    // domObserver.stop()/start() bracketing this whole method: it's called
+    // from a tab click and from async render completion, both outside any
+    // ProseMirror-initiated dispatch/update cycle — unlike MU.CodeView's
+    // contentDOM.className write (syncLanguageClass), which only ever runs
+    // from inside update(). Toggling a class directly on contentDOM (not a
+    // descendant of it) fails
+    // MU.CodeView's inherited ignoreMutation guard for this specific target —
+    // `Node.contains()` returns true for a node containing itself, so
+    // `!this.contentDOM.contains(mutation.target)` is false for a mutation
+    // whose target IS contentDOM, meaning the mutation is NOT ignored. Left
+    // unbracketed, ProseMirror treats this as an external change and
+    // destroys/reconstructs the NodeView on every mode switch, which
+    // re-triggers the same mutation on the fresh instance — an infinite loop.
     syncModeClasses() {
         // Optional chaining: view.domObserver doesn't exist yet the very first
         // time this runs (from the constructor, attempting Diagram by default,
@@ -30550,20 +30532,15 @@ class MermaidView extends MU.CodeView {
             const isSource = this.mode === 'source';
             this.sourceTab.classList.toggle(TAB_ACTIVE_CLASS, isSource);
             this.diagramTab.classList.toggle(TAB_ACTIVE_CLASS, !isSource);
-            // Only contentDOM collapses — dom (the <pre>) stays a normal, visible
-            // box, unlike the decoration-era design's whole-pre collapse. dom
-            // must stay visible/normally laid out for its own tabs to anchor to
-            // and for diagramContainer (now a real sibling, not a decoration
-            // positioned outside the node) to display inside it.
+            // Only contentDOM collapses — dom (the <pre>) stays a normal,
+            // visible box so its tabs have something to anchor to, and
+            // diagramContainer (a real DOM sibling) can display inside it.
             this.contentDOM.classList.toggle(HIDDEN_CODE_CLASS, !isSource);
             // .contains(), NOT .isConnected: this runs from the constructor (via
             // setMode, attempting Diagram by default) before ProseMirror has
-            // attached this.dom to the live document at all — .isConnected reads
-            // false for a genuine child of a not-yet-attached dom, which desyncs
-            // this bookkeeping from actual DOM membership (confirmed by a real
-            // failing test before this fix: mode ended up 'source' with
-            // diagramContainer still attached, because the removal check's
-            // isConnected read false and silently skipped the removeChild).
+            // attached this.dom to the live document — .isConnected reads false
+            // for a genuine child of a not-yet-attached dom, which would desync
+            // this bookkeeping from actual DOM membership.
             if (isSource && this.dom.contains(this.diagramContainer)) this.dom.removeChild(this.diagramContainer);
                 if (!isSource && !this.dom.contains(this.diagramContainer)) this.dom.appendChild(this.diagramContainer);
                     } finally {
@@ -30657,10 +30634,7 @@ class MermaidView extends MU.CodeView {
     
     // classList add/remove, NOT className = '...': a full replacement would
     // wipe DIAGRAM_SELECTED_CLASS whenever this runs after syncSelectedClass
-    // already set it (confirmed by a real failing test — paste content into
-    // an already-selected, previously-empty block, then switch to Diagram:
-    // the selected border disappeared the instant the render actually
-    // painted, since this ran after syncModeClasses' own sync).
+    // already set it.
     paintDiagram() {
         this.diagramContainer.classList.remove(DIAGRAM_CLASS, PLACEHOLDER_CLASS);
         if (this.cached?.svg) {
@@ -30679,10 +30653,10 @@ class MermaidPlugin {
 
     constructor() {
         this.prefersDark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        // mermaid's render(id, text) (no container arg — our usage) appends its own
+        // mermaid's render(id, text) (no container arg — our usage) appends a
         // temp element to document.body even on a parse error, and rethrows before
-        // its own cleanup runs; suppressErrorRendering takes an early cleanup path
-        // instead. We show our own Source-mode fallback on error and don't want
+        // that cleanup runs; suppressErrorRendering takes an early cleanup path
+        // instead. We show a Source-mode fallback on error and don't want
         // the mermaid error SVG anyway.
         mermaid_default.initialize({ theme: this.prefersDark ? 'dark' : 'default', suppressErrorRendering: true });
     }
@@ -30801,7 +30775,7 @@ class MermaidPlugin {
     }
 
     // Writes the whole node to the clipboard via view.serializeForClipboard, the
-    // same method prosemirror-view's own native copy handler uses on a real
+    // same method prosemirror-view's native copy handler uses on a real
     // NodeSelection's content() — needed here because the "selected" position is
     // a collapsed TextSelection (see handleDiagramArrowKey), which that internal
     // handler bails out of immediately.
@@ -30850,11 +30824,7 @@ class MermaidPlugin {
         return false
     }
 
-    // Injectable matchMedia so tests can simulate an OS appearance change
-    // without a real browser matchMedia; defaults to what production uses.
-    createPlugin({
-        matchMedia = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : undefined
-    } = {}) {
+    createPlugin() {
         return new Plugin({
             props: {
                 handleKeyDown: (view, event) => this.handleDiagramArrowKey(view, event) || this.handleDiagramDeleteKey(view, event),
@@ -30868,8 +30838,8 @@ class MermaidPlugin {
                 // WebKit can't place a caret inside zero-size (font-size: 0) text, so
                 // it falls back to painting one at the nearest non-collapsed content
                 // instead — scoping caret-color to the editor root (not the hidden
-                // text itself) is the actual fix, matching this codebase's own
-                // .ProseMirror-hideselection convention.
+                // text itself) is the actual fix, matching the
+                // .ProseMirror-hideselection convention used elsewhere in this codebase.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection;
                     let hideCaret = false;
@@ -30880,7 +30850,7 @@ class MermaidPlugin {
                 };
                 syncCaretClass(editorView);
 
-                const colorSchemeQuery = matchMedia?.('(prefers-color-scheme: dark)');
+                const colorSchemeQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined;
                 const onColorSchemeChange = (e) => {
                     mermaid_default.initialize({ theme: e.matches ? 'dark' : 'default', suppressErrorRendering: true });
                     MermaidView.forceRerenderAll();
@@ -30895,10 +30865,10 @@ class MermaidPlugin {
         })
     }
 
-    // A non-mermaid instance can still see its own language change TO mermaid
+    // A non-mermaid instance can still see a language change TO mermaid
     // later (the Language dialog mutates node.attrs.language on the same node
     // identity, so ProseMirror calls update() on the EXISTING instance rather
-    // than reconsulting the factory) — its own class (CodeView, or another
+    // than reconsulting the factory) — the instance's class (CodeView, or another
     // plugin's wrapped variant) has no reason to know about mermaid, so this
     // wraps whichever instance the delegate chain produced, on the constructed
     // object itself, not its class. update() returning false is what tells
@@ -30925,8 +30895,8 @@ class MermaidPlugin {
     // On macOS, Cmd+V never reaches the DOM as a paste event at all: NSResponder's
     // paste(_:) (MarkupWKWebView.swift) reads NSPasteboard directly and, whenever
     // the selection is inside a <pre>, calls MU.pasteCode(text) via
-    // executeJavaScript — bypassing handleDOMEvents.paste (and this plugin's own
-    // handleDiagramPaste) entirely. MU.pasteCode itself is a plain
+    // executeJavaScript — bypassing handleDOMEvents.paste (and handleDiagramPaste)
+    // entirely. MU.pasteCode itself is a plain
     // view.dispatch(view.state.tr.insertText(text)) at the current (collapsed)
     // selection, with no notion of "this code_block is atomically selected and
     // should have its whole content replaced" — landing the pasted text at the

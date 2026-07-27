@@ -11,10 +11,10 @@ export class MermaidPlugin {
 
     constructor() {
         this.prefersDark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
-        // mermaid's render(id, text) (no container arg — our usage) appends its own
+        // mermaid's render(id, text) (no container arg — our usage) appends a
         // temp element to document.body even on a parse error, and rethrows before
-        // its own cleanup runs; suppressErrorRendering takes an early cleanup path
-        // instead. We show our own Source-mode fallback on error and don't want
+        // that cleanup runs; suppressErrorRendering takes an early cleanup path
+        // instead. We show a Source-mode fallback on error and don't want
         // the mermaid error SVG anyway.
         mermaid.initialize({ theme: this.prefersDark ? 'dark' : 'default', suppressErrorRendering: true })
     }
@@ -133,7 +133,7 @@ export class MermaidPlugin {
     }
 
     // Writes the whole node to the clipboard via view.serializeForClipboard, the
-    // same method prosemirror-view's own native copy handler uses on a real
+    // same method prosemirror-view's native copy handler uses on a real
     // NodeSelection's content() — needed here because the "selected" position is
     // a collapsed TextSelection (see handleDiagramArrowKey), which that internal
     // handler bails out of immediately.
@@ -182,11 +182,7 @@ export class MermaidPlugin {
         return false
     }
 
-    // Injectable matchMedia so tests can simulate an OS appearance change
-    // without a real browser matchMedia; defaults to what production uses.
-    createPlugin({
-        matchMedia = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : undefined
-    } = {}) {
+    createPlugin() {
         return new Plugin({
             props: {
                 handleKeyDown: (view, event) => this.handleDiagramArrowKey(view, event) || this.handleDiagramDeleteKey(view, event),
@@ -200,8 +196,8 @@ export class MermaidPlugin {
                 // WebKit can't place a caret inside zero-size (font-size: 0) text, so
                 // it falls back to painting one at the nearest non-collapsed content
                 // instead — scoping caret-color to the editor root (not the hidden
-                // text itself) is the actual fix, matching this codebase's own
-                // .ProseMirror-hideselection convention.
+                // text itself) is the actual fix, matching the
+                // .ProseMirror-hideselection convention used elsewhere in this codebase.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection
                     let hideCaret = false
@@ -212,7 +208,7 @@ export class MermaidPlugin {
                 }
                 syncCaretClass(editorView)
 
-                const colorSchemeQuery = matchMedia?.('(prefers-color-scheme: dark)')
+                const colorSchemeQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined
                 const onColorSchemeChange = (e) => {
                     mermaid.initialize({ theme: e.matches ? 'dark' : 'default', suppressErrorRendering: true })
                     MermaidView.forceRerenderAll()
@@ -227,10 +223,10 @@ export class MermaidPlugin {
         })
     }
 
-    // A non-mermaid instance can still see its own language change TO mermaid
+    // A non-mermaid instance can still see a language change TO mermaid
     // later (the Language dialog mutates node.attrs.language on the same node
     // identity, so ProseMirror calls update() on the EXISTING instance rather
-    // than reconsulting the factory) — its own class (CodeView, or another
+    // than reconsulting the factory) — the instance's class (CodeView, or another
     // plugin's wrapped variant) has no reason to know about mermaid, so this
     // wraps whichever instance the delegate chain produced, on the constructed
     // object itself, not its class. update() returning false is what tells
@@ -257,8 +253,8 @@ export class MermaidPlugin {
     // On macOS, Cmd+V never reaches the DOM as a paste event at all: NSResponder's
     // paste(_:) (MarkupWKWebView.swift) reads NSPasteboard directly and, whenever
     // the selection is inside a <pre>, calls MU.pasteCode(text) via
-    // executeJavaScript — bypassing handleDOMEvents.paste (and this plugin's own
-    // handleDiagramPaste) entirely. MU.pasteCode itself is a plain
+    // executeJavaScript — bypassing handleDOMEvents.paste (and handleDiagramPaste)
+    // entirely. MU.pasteCode itself is a plain
     // view.dispatch(view.state.tr.insertText(text)) at the current (collapsed)
     // selection, with no notion of "this code_block is atomically selected and
     // should have its whole content replaced" — landing the pasted text at the

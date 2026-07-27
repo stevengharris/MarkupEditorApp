@@ -229,7 +229,8 @@ describe('OS theme change', () => {
     let call = 0
     const render = vi.fn().mockImplementation(() => Promise.resolve({ svg: `<svg>v${++call}</svg>` }))
     let changeListener
-    const matchMedia = () => ({
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = () => ({
       matches: false,
       addEventListener: (type, cb) => { if (type === 'change') changeListener = cb },
       removeEventListener: () => {}
@@ -240,19 +241,23 @@ describe('OS theme change', () => {
         return new MU.CodeView(node, view, getPos, null)
       }
     }
-    const plugin = mermaidPlugin.createPlugin({ matchMedia })
+    const plugin = mermaidPlugin.createPlugin()
     const state = EditorState.create({ schema, doc, plugins: [plugin] })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews })
-    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    try {
+      await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
 
-    render.mockClear()
-    changeListener({ matches: true })
-    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+      render.mockClear()
+      changeListener({ matches: true })
+      await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
 
-    await settleAnimationFrame()
-    view.destroy()
-    container.remove()
+      await settleAnimationFrame()
+    } finally {
+      view.destroy()
+      container.remove()
+      window.matchMedia = originalMatchMedia
+    }
   })
 })
 
