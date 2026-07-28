@@ -87,6 +87,16 @@ struct MarkupDocumentView: View {
             markupConfiguration.keymapConfig = KeymapConfig.fromDefaults()
             reloadEditorForConfigChange()
         }
+        // spellcheck and autocorrect are always set together (see GeneralSettingsView's
+        // spellingCorrectionBinding()), so watching spellcheck alone is sufficient.
+        .onChange(of: AppConfig.shared.spellcheck) { _, _ in
+            markupConfiguration.topLevelAttributes = AppConfig.shared.topLevelAttributes()
+            reloadEditorForConfigChange()
+        }
+        .onChange(of: AppConfig.shared.inlinePredictions) { _, _ in
+            markupConfiguration.allowsInlinePredictions = AppConfig.shared.inlinePredictions
+            reloadEditorForConfigChange()
+        }
         // Consolidate menu items into a single .task modifier
         .task {
             let names: [Notification.Name] = [

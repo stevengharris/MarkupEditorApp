@@ -50,7 +50,7 @@ struct AppToolbarView: ToolbarContent {
             }
             if AppConfig.shared.isToggled() {
                 // The button will only appear if the behavior is set to toggled. The behavior
-                // can change from the BehaviorSettingsView; AppConfig's Observable tracking updates this view automatically.
+                // can change from the ToolbarSettingsView; AppConfig's Observable tracking updates this view automatically.
                 Button(action: {
                     let newVisible = AppConfig.shared.isHidden()
                     AppConfig.update { config in

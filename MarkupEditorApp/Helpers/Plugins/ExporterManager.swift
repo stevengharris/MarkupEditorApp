@@ -45,7 +45,7 @@ class ExporterManager {
     func add(name: String, url: URL?) {
         guard !name.isEmpty, let source = url else { return }
         // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
-        // in BehaviorSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
+        // in PluginSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
         // URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
         let filename = source.lastPathComponent

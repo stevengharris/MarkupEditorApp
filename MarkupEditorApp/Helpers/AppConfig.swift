@@ -45,7 +45,7 @@ public final class AppConfig: JSONConfigurable {
         codeViews: [Plugin]? = nil,
         spellcheck: Bool = true,
         inlinePredictions: Bool = true,
-        autocorrect: Bool = false
+        autocorrect: Bool = true
     ) {
         self.toolbarVisibility = toolbarVisibility
         self.toggledState = toggledState
@@ -78,7 +78,7 @@ public final class AppConfig: JSONConfigurable {
         codeViews = try c.decode([Plugin].self, forKey: .codeViews)
         spellcheck = try c.decodeIfPresent(Bool.self, forKey: .spellcheck) ?? true
         inlinePredictions = try c.decodeIfPresent(Bool.self, forKey: .inlinePredictions) ?? true
-        autocorrect = try c.decodeIfPresent(Bool.self, forKey: .autocorrect) ?? false
+        autocorrect = try c.decodeIfPresent(Bool.self, forKey: .autocorrect) ?? true
     }
 
     /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
