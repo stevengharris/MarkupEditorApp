@@ -39,7 +39,16 @@ class ExporterManager {
             return
         }
 
-        // Add any prepackaged exporters here. See the way Mermaid is done in CodeViewManager.
+        // The only exporter provided out-of-box is PDF. It is distinct from every other user-supplied plugin
+        // because it exports using the WKWebView's createPDF(configuration:completionHandler:) function.
+        // As an alternative for any other out-of-box exporters, see the approach in CodeViewManager for Mermaid.
+        let pdfExporter = Plugin(name: "PDF", type: "exporter", ext: "pdf")
+        AppConfig.update { config in
+            if config.exporters.firstIndex(where: {existing in pdfExporter.name == existing.name}) == nil {
+                logger.info("Added exporter \(pdfExporter.name)")
+                config.exporters.insert(pdfExporter, at: 0)
+            }
+        }
     }
     
     func add(name: String, url: URL?) {

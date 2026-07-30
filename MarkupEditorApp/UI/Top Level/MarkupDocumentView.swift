@@ -10,6 +10,7 @@ import MarkupEditor
 import SplitView
 
 internal import UniformTypeIdentifiers
+internal import WebKit
 
 private extension UTType {
     static let htmd = UTType("com.stevengharris.htmd") ?? .data
@@ -102,7 +103,7 @@ struct MarkupDocumentView: View {
             let names: [Notification.Name] = [
                 .menuNewDocument, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuToggleSource, .menuShowSettings,
-                .menuOpenRecentDocument, .menuExportPlugin,
+                .menuOpenRecentDocument, .menuExport,
                 .menuQuitApplication, NSWindow.willCloseNotification,
             ]
             await withTaskGroup(of: Void.self) { group in
@@ -254,10 +255,9 @@ struct MarkupDocumentView: View {
         case .menuOpenRecentDocument:
             guard let url = notification.object as? URL else { return }
             await handleOpenRecent(url: url)
-        case .menuExportPlugin:
-            guard let pluginName = notification.userInfo?["name"] as? String else { return }
-            let fileExt = notification.userInfo?["fileExtension"] as? String ?? ""
-            await handleExport(pluginName: pluginName, fileExt: fileExt)
+        case .menuExport:
+            guard let plugin = notification.userInfo?["plugin"] as? Plugin else { return }
+            await handleExport(plugin: plugin)
         case .menuQuitApplication:
             await handleQuit()
         case NSWindow.willCloseNotification:
@@ -639,24 +639,47 @@ struct MarkupDocumentView: View {
         }
     }
     
-    private func handleExport(pluginName: String, fileExt: String) async {
-        //let panel = NSSavePanel()
-        //let baseName = document.url?.deletingPathExtension().lastPathComponent ?? "Untitled"
-        //panel.nameFieldStringValue = fileExt.isEmpty ? baseName : "\(baseName).\(fileExt)"
-        //panel.allowedContentTypes = UTType(filenameExtension: fileExt).map { [$0] } ?? []
-        //guard panel.runModal() == .OK, let url = panel.url else { return }
-        //let result = await MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil)
-        //guard let exportResult = ImportExportValue.decode(from: result),
-        //      let exportOutput = exportResult.result else {
-        //    showError("Plugin '\(pluginName)' could not complete the operation.")
-        //    return
-        //}
-        //let output = document.injectYAMLFrontMatter(into: exportOutput)
-        //do {
-        //    try output.write(to: url, atomically: true, encoding: .utf8)
-        //} catch {
-        //    showError("Failed to write file: \(error.localizedDescription)")
-        //}
+    private func handleExport(plugin: Plugin) async {
+        guard let ext = plugin.ext else {
+            editLog.error("Plugin \(plugin.name) has no file extension specified.")
+            return
+        }
+        guard let webView = MarkupEditor.selectedWebView else {
+            editLog.error("No web view is present.")
+            return
+        }
+        let panel = NSSavePanel()
+        let baseName = document.url?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        panel.nameFieldStringValue = ext.isEmpty ? baseName : "\(baseName).\(ext)"
+        panel.allowedContentTypes = UTType(filenameExtension: ext).map { [$0] } ?? []
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        
+        // We special case the "PDF" plugin, because it shows up in the Export menu, but
+        // it is not a plugin in the sense that it is not user-installed, and it is not
+        // executed using JavaScript code that is provided to the web view via the
+        // plugins attribute.
+        if plugin.name == "PDF" {
+            do {
+                let data = try await webView.exportPDF()
+                try data.write(to: url)
+                editLog.info("PDF exported to: \(url.path)")
+            } catch {
+                editLog.error("Failed to export PDF: \(error.localizedDescription)")
+            }
+        } else {
+            //let result = await MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil)
+            //guard let exportResult = ImportExportValue.decode(from: result),
+            //      let exportOutput = exportResult.result else {
+            //    showError("Plugin '\(pluginName)' could not complete the operation.")
+            //    return
+            //}
+            //let output = document.injectYAMLFrontMatter(into: exportOutput)
+            //do {
+            //    try output.write(to: url, atomically: true, encoding: .utf8)
+            //} catch {
+            //    showError("Failed to write file: \(error.localizedDescription)")
+            //}
+        }
     }
 
     /// Identify a new URL to save the current document as
@@ -713,7 +736,7 @@ extension MarkupDocumentView: MarkupDelegate {
 
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
-        appDelegate.populateExportMenus()
+        appDelegate.populateExportMenu()
     }
 
     /// An error occurred on the JavaScript side (internal MUErrors, or a plugin using

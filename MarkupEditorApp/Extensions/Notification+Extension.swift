@@ -16,8 +16,7 @@ extension Notification.Name {
     static let menuShowSettings = Notification.Name("menuShowSettings")
     static let dismissSettings = Notification.Name("dismissSettings")
     static let menuQuitApplication = Notification.Name("menuQuitApplication")
-    static let menuExportPlugin = Notification.Name("menuExportPlugin")
-    static let menuImportPlugin = Notification.Name("menuImportPlugin")
+    static let menuExport = Notification.Name("menuExport")
 #if DEBUG
     static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
     static let menuClearCacheDir = Notification.Name("menuClearCacheDir")
