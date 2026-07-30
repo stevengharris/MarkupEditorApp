@@ -1,0 +1,55 @@
+/* This file adds to and overrides of base css from markupeditor-base. It is
+   passed by name as `userCssFile` when creating the MarkupEditorView in
+   MarkupDocumentView. */
+
+/* Match the editor background to the rest of the app's dark-mode colors;
+   e.g., the SourceView's TextEditor. Value used here obtained using
+   Digital Color Meter. Using Canvas yields `black`, which does not play
+   well with some Mermaid diagram schemes. It's probably a good idea to
+   use something other than black in any case, so we just override it
+   here. */
+@media (prefers-color-scheme: dark) {
+  #editor, .editor {
+    background: #24292d;
+  }
+}
+
+/* Hide selection/focus chrome that shouldn't appear in an export or print
+   capture: the text caret and native selection highlight, a NodeSelection's
+   outline (images today; generic to whatever markupeditor-base applies
+   ProseMirror-selectednode to), an image's resize handles and their dashed
+   outline, the code-block language tab. Toggled by adding/removing the
+   Markup-exporting class on #editor.
+
+   Selectors are deliberately prefixed with #editor.Markup-exporting so their
+   specificity (1 id + 2 classes) reliably beats every base rule being
+   overridden. Plugins of type "exporter" should specify their own styles
+   if needed that are then embedded in their rolled-up module.
+   See the mermaid plugin for an example. */
+#editor.Markup-exporting,
+#editor.Markup-exporting .Markup-toolbar-wrapper {
+  overflow: visible;
+  height: auto;
+}
+
+#editor.Markup-exporting .ProseMirror {
+  caret-color: transparent;
+}
+#editor.Markup-exporting .ProseMirror *::selection {
+  background: transparent;
+}
+
+#editor.Markup-exporting .ProseMirror-selectednode {
+  outline: none;
+}
+
+#editor.Markup-exporting .resize-handle {
+  display: none;
+}
+#editor.Markup-exporting .resize-container img {
+  outline: none;
+}
+
+#editor.Markup-exporting .Markup-code-language-tab {
+  display: none;
+}

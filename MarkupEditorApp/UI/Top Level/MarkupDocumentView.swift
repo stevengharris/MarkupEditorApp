@@ -199,7 +199,7 @@ struct MarkupDocumentView: View {
         config.topLevelAttributes = AppConfig.shared.topLevelAttributes()
         config.allowsInlinePredictions = AppConfig.shared.inlinePredictions
         config.userScriptFile = "markupeditor-markdown.js"
-        config.userCssFile = "markupeditor-overrides.css"
+        config.userCssFile = "markupeditor-app.css"
         config.pluginFiles = AppConfig.shared.pluginFilenames()
         _markupConfiguration = State(initialValue: config)
     }

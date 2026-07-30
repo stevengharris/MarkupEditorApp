@@ -1,3 +1,13 @@
+/* Allow the PDF exporter to hide the tabs and outline when the
+   Diagram is selected. */
+
+#editor.Markup-exporting .mermaid-mode-toggle {
+  display: none;
+}
+#editor.Markup-exporting .mermaid-diagram-selected {
+  outline: none;
+}
+
 /* Diagram mode: only the <code> content collapses; the <pre> stays a
    normal, visible box since it hosts the diagram box and tabs as real DOM
    children.
