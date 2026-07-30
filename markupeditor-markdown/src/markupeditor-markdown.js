@@ -6,12 +6,18 @@ import MarkdownIt from 'markdown-it'
 import frontMatterPlugin from 'markdown-it-front-matter'
 
 /**
+ * A function to mirror getHTML that makes it simpler for plugin consumption.
+ */
+MU.getMarkdown() = function getMarkdown() {
+    return exportMarkdown().result
+}
+
+/**
  * Export the active editor content as Markdown.
  *
- * @param {string} _content - unused; content comes from the active view
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-MU.exportMarkdown = function exportMarkdown(_content) {
+MU.exportMarkdown = function exportMarkdown() {
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
