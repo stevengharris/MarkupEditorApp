@@ -49,16 +49,17 @@ class ExporterManager {
                 config.exporters.insert(pdfExporter, at: 0)
             }
         }
+        PluginCacheSync.sync()
     }
     
-    func add(name: String, url: URL?) {
+    func add(name: String, url: URL?, ext: String) {
         guard !name.isEmpty, let source = url else { return }
         // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
         // in PluginSettingsView's fileImporter. Harmless no-op for setupOnLaunch()'s bundle-resource
         // URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
         let filename = source.lastPathComponent
-        let exporter = Plugin(name: name, type: "exporter", filename: filename)
+        let exporter = Plugin(name: name, type: "exporter", filename: filename, ext: ext)
         let destination = defaultDir.appendingPathComponent(filename)
 
         guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
@@ -79,6 +80,7 @@ class ExporterManager {
                     config.exporters.append(exporter)
                 }
             }
+            PluginCacheSync.sync()
         } catch {
             logger.error("Failed to save exporter \(filename): \(error.localizedDescription)")
         }
@@ -92,6 +94,7 @@ class ExporterManager {
                 if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
                     try? FileManager.default.removeItem(at: url)
                 }
+                PluginCacheSync.remove(filename: filename)
                 config.exporters.remove(at: index)
             }
         }

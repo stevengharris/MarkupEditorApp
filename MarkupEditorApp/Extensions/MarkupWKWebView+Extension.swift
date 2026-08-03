@@ -31,6 +31,33 @@ extension MarkupWKWebView {
         }
     }
 
+    /// Invoke the plugin registered under `name` (via `MU.runPlugin(name)`) and return its raw,
+    /// undecoded result. Uses `callAsyncJavaScript` rather than the package's `executeJavaScript`
+    /// wrapper, since only `callAsyncJavaScript` awaits a returned `Promise` —
+    /// `executeJavaScript`/`evaluateJavaScript` hands back the live Promise object unbridged. The
+    /// plugin name is passed via `arguments` rather than string interpolation, avoiding manual
+    /// escaping. The `document.getElementById('markupeditor')` lookup mirrors what the package's
+    /// own `executeJavaScript` wrapper does internally — not a new DOM-access mechanism, just
+    /// reproduced here since that wrapper can't be used for a Promise-returning call.
+    ///
+    /// Decoding the JSON envelope, surfacing warnings, and converting to `Data` are the caller's job.
+    public func runExporter(name: String) async -> String? {
+        do {
+            let result = try await callAsyncJavaScript(
+                """
+                const element = document.getElementById('markupeditor')
+                return await element?.MU.runPlugin(name)
+                """,
+                arguments: ["name": name],
+                contentWorld: .page
+            )
+            return result as? String
+        } catch {
+            Logger.webview.error("Error running exporter '\(name)': \(error)")
+            return nil
+        }
+    }
+
     /// Export the contenteditable document content as PDF data, excluding the toolbar and search bar.
     ///
     /// Problems the naive `pdf(configuration:)` call doesn't solve on its own: the editor's scroll
@@ -39,7 +66,7 @@ extension MarkupWKWebView {
     /// editor shows selection/focus chrome (caret, node-selected outlines, resize handles, the
     /// code-block language tab, other codeview tabs) that doesn't belong in an export. Both are
     /// addressed by toggling the `Markup-exporting` class on `#editor` — every visual override lives
-    /// in `markupeditor-app.css`..
+    /// in `markupeditor-app.css`.
     public func exportPDF() async throws -> Data {
         await setExporting(true)
         do {

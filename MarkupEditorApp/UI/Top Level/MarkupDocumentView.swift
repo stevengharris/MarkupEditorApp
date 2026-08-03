@@ -59,7 +59,7 @@ struct MarkupDocumentView: View {
                             configuration: markupConfiguration,
                             html: $currentHtml,
                             placeholder: "Edit document...",
-                            id: "Document"
+                            id: AppDelegate.webViewId
                         )
                         .id(configVersion)
                     }
@@ -667,18 +667,27 @@ struct MarkupDocumentView: View {
                 editLog.error("Failed to export PDF: \(error.localizedDescription)")
             }
         } else {
-            //let result = await MarkupEditor.selectedWebView?.invokePlugin(name: pluginName, action: "export", content: nil)
-            //guard let exportResult = ImportExportValue.decode(from: result),
-            //      let exportOutput = exportResult.result else {
-            //    showError("Plugin '\(pluginName)' could not complete the operation.")
-            //    return
-            //}
-            //let output = document.injectYAMLFrontMatter(into: exportOutput)
-            //do {
-            //    try output.write(to: url, atomically: true, encoding: .utf8)
-            //} catch {
-            //    showError("Failed to write file: \(error.localizedDescription)")
-            //}
+            let exportStart = Date()
+            guard let raw = await webView.runExporter(name: plugin.name) else {
+                editLog.error("Plugin '\(plugin.name)' returned no result.")
+                return
+            }
+            let exportElapsed = Date().timeIntervalSince(exportStart)
+            guard let envelope = ImportExportValue.decode(from: raw) else {
+                editLog.error("Plugin '\(plugin.name)' returned an undecodable result: \(raw.prefix(500))")
+                return
+            }
+            editLog.warnings(envelope.warnings)
+            guard let base64 = envelope.result, let outputData = Data(base64Encoded: base64) else {
+                editLog.error("Plugin '\(plugin.name)' produced no result.")
+                return
+            }
+            do {
+                try outputData.write(to: url)
+                editLog.info("\(plugin.name) exported to: \(url.path(percentEncoded: false)), \(outputData.count) bytes, \(String(format: "%.2f", exportElapsed))s")
+            } catch {
+                editLog.error("Failed to write file: \(error.localizedDescription)")
+            }
         }
     }
 

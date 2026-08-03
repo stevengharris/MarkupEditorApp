@@ -84,6 +84,7 @@ class CodeViewManager {
                     config.codeViews.append(codeview)
                 }
             }
+            PluginCacheSync.sync()
         } catch {
             logger.error("Failed to save codeview \(filename): \(error.localizedDescription)")
         }
@@ -97,6 +98,7 @@ class CodeViewManager {
                 if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
                     try? FileManager.default.removeItem(at: url)
                 }
+                PluginCacheSync.remove(filename: filename)
                 config.codeViews.remove(at: index)
             }
         }

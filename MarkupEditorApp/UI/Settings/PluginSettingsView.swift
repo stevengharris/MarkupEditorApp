@@ -22,6 +22,7 @@ struct PluginSettingsView: View {
     @State private var showPluginNameDialog: Bool = false
     @State private var newPluginURL: URL?
     @State private var newPluginName: String = ""
+    @State private var newPluginExt: String = ""
     
     private enum PluginType: String {
         case CodeView = "Code View"
@@ -120,16 +121,27 @@ struct PluginSettingsView: View {
             Button("Cancel", role: .cancel) {}
         }
         .alert("Add New \(addPluginType.rawValue)", isPresented: $showPluginNameDialog) {
-            TextField("Name", text: $newPluginName)
-            Button("OK") {
-                Task { await addPlugin() }
+            TextField(text: $newPluginName, prompt: Text("Identify the \(addPluginType.rawValue.lowercased())")) {
+                Text("Name")
             }
-            Button("Cancel", role: .cancel) {
-                newPluginURL?.stopAccessingSecurityScopedResource()
-                newPluginURL = nil
+            if addPluginType == .CodeView {
+                Button("OK") {
+                    Task { await addPlugin() }
+                }
+                .disabled(newPluginName.isEmpty)
+            } else {
+                TextField(text: $newPluginExt, prompt: Text("Default export file extension")) {
+                    Text("Extension")
+                }
+                Button("OK") {
+                    Task { await addPlugin() }
+                }
+                .disabled(newPluginName.isEmpty || newPluginExt.isEmpty)
+                Button("Cancel", role: .cancel) {
+                    newPluginURL?.stopAccessingSecurityScopedResource()
+                    newPluginURL = nil
+                }
             }
-        } message: {
-            Text("Enter a name.")
         }
     }
     
@@ -147,7 +159,7 @@ struct PluginSettingsView: View {
         if addPluginType == .CodeView {
             CodeViewManager.shared.add(name: newPluginName, url: newPluginURL)
         } else if addPluginType == .Exporter {
-            ExporterManager.shared.add(name: newPluginName, url: newPluginURL)
+            ExporterManager.shared.add(name: newPluginName, url: newPluginURL, ext: newPluginExt)
         }
         addPluginType = .None
         newPluginURL = nil

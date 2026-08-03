@@ -7,9 +7,8 @@
 
 import Foundation
 
-/// Import results from Markdown import and plugins are returned as `{ "result": string|null, "warnings": [string], "metadata": string|null }`.
-/// Export results are..
-// TODO: Fix comment
+/// Import and export results, from Markdown and from plugins, are returned as
+/// `{ "result": string|null, "warnings": [string], "metadata": string|null }`.
 struct ImportExportValue: Decodable {
     let result: String?
     let warnings: [String]

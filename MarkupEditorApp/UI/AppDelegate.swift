@@ -24,6 +24,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Submenu under File > Export, populated by populateExportMenu(_:).
     var exportSubmenu = NSMenu(title: "Export")
 
+    /// The `id` passed to the app's single `MarkupEditorView`/`MarkupWKWebView` instance,
+    /// and therefore the subdirectory name its runtime cache directory resolves to.
+    static let webViewId = "Document"
+
+    /// The runtime cache directory the app's `MarkupWKWebView` instance resolves to, computed
+    /// independently of any live instance so callers can rely on it before one exists.
+    static var webViewCacheDir: URL {
+        FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(webViewId)
+    }
+
     static func consumePendingURL() -> URL? {
         guard let url = pendingFinderURL else { return nil }
         pendingFinderURL = nil
