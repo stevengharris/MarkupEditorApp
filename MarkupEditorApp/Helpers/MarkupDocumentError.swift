@@ -18,11 +18,15 @@ enum MarkupDocumentError: Error, Equatable {
     case noHTMLSource
     case noMarkdownSource
     case parentSecurityScope(String)
+    case pluginProducedEmptyResult(name: String, reason: String)
+    case pluginReturnedInvalidResult(String)
+    case pluginReturnedNoResult(String)
+    case pluginReturnedUndecodableResult(name: String, raw: String)
     case rootHtmlNotFound
     case unexpectedImport
-    case unableToImport
+    case unableToImport(String)
     case unexpectedExport
-    case unableToExport
+    case unableToExport(String)
 }
 
 extension MarkupDocumentError: LocalizedError {
@@ -38,11 +42,21 @@ extension MarkupDocumentError: LocalizedError {
         case .noHTMLSource:                     return "No HTML source is available."
         case .noMarkdownSource:                 return "No Markdown source is available."
         case .parentSecurityScope(let path):    return "Could not access parent directory: \(path)"
+        case .pluginProducedEmptyResult(let name, let reason):
+            return reason.isEmpty
+                ? "Plugin '\(name)' did not produce any output."
+                : "Plugin '\(name)' did not produce any output: \(reason)"
+        case .pluginReturnedInvalidResult(let name):      return "Plugin '\(name)' returned a result that could not be decoded."
+        case .pluginReturnedNoResult(let name):           return "Plugin '\(name)' returned no result."
+        case .pluginReturnedUndecodableResult(let name, let raw):
+            return "Plugin '\(name)' returned a result that could not be understood: \(raw)"
         case .rootHtmlNotFound:                 return "No HTML file found in package."
         case .unexpectedImport:                 return "Unexpected response on import."
-        case .unableToImport:                   return "Could not convert to HTML."
+        case .unableToImport(let reason):
+            return reason.isEmpty ? "Could not convert to HTML." : "Could not convert to HTML: \(reason)"
         case .unexpectedExport:                 return "Unexpected response on export."
-        case .unableToExport:                   return "Could not convert to Markdown."
+        case .unableToExport(let reason):
+            return reason.isEmpty ? "Could not convert to Markdown." : "Could not convert to Markdown: \(reason)"
         }
     }
 }

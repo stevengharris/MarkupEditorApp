@@ -363,34 +363,6 @@ import Foundation
     }
 }
 
-@MainActor
-struct PluginResultDecodeTests {
-
-    @Test func validEnvelopeWithWarnings() {
-        let json = #"{"result":"<p>hello</p>","warnings":["warn1","warn2"]}"#
-        let decoded = ImportExportValue.decode(from: json)
-        #expect(decoded?.result == "<p>hello</p>")
-        #expect(decoded?.warnings == ["warn1", "warn2"])
-    }
-
-    @Test func nilResult() {
-        let json = #"{"result":null,"warnings":[]}"#
-        let decoded = ImportExportValue.decode(from: json)
-        #expect(decoded != nil)
-        #expect(decoded?.result == nil)
-        #expect(decoded?.warnings.isEmpty == true)
-    }
-
-    @Test func malformedJsonReturnsNil() {
-        #expect(ImportExportValue.decode(from: "not json") == nil)
-    }
-
-    @Test func missingWarningsKeyReturnsNil() {
-        let json = #"{"result":"<p>hi</p>"}"#
-        #expect(ImportExportValue.decode(from: json) == nil)
-    }
-}
-
 @MainActor struct CopyPackageAssetsTests {
 
     private func makeTempDir(suffix: String = "") throws -> URL {

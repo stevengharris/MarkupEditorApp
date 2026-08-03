@@ -184,7 +184,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Fills Export and Import submenus from the plugin manifest.
     ///
     /// Safe to call multiple times — existing items are replaced on each call.
-    /// Each Export item posts `.menuExport` along with "name" in `userInfo`.
+    /// Each Export item posts `.menuExport` along with the `Plugin` under "plugin" in `userInfo`.
     public func populateExportMenu() {
         exportSubmenu.removeAllItems()
         for exporter in AppConfig.shared.exporters {

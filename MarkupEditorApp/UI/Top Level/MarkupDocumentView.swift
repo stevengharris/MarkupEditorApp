@@ -513,7 +513,7 @@ struct MarkupDocumentView: View {
             throw MarkupDocumentError.unexpectedImport
         }
         guard let html = importValue.result else {
-            throw MarkupDocumentError.unableToImport
+            throw MarkupDocumentError.unableToImport(importValue.warnings.joined(separator: "; "))
         }
         var warnings = importValue.warnings
         let metadata: [MetadataTuple]
@@ -577,10 +577,13 @@ struct MarkupDocumentView: View {
         guard let exportValue = ImportExportValue.decode(from: value) else {
             throw MarkupDocumentError.unexpectedExport
         }
-        guard let markdown = exportValue.result else {
-            throw MarkupDocumentError.unableToExport
-        }
+        // Surfaced before the result check below: a real conversion failure explains itself
+        // here (result nil, warnings carrying the reason), so logging first keeps that reason
+        // visible instead of being replaced by .unableToExport's own, more generic message.
         editLog.warnings(exportValue.warnings)
+        guard let markdown = exportValue.result else {
+            throw MarkupDocumentError.unableToExport(exportValue.warnings.joined(separator: "; "))
+        }
         return markdown
     }
 
@@ -593,10 +596,13 @@ struct MarkupDocumentView: View {
         guard let importValue = ImportExportValue.decode(from: value) else {
             throw MarkupDocumentError.unexpectedImport
         }
-        guard let html = importValue.result else {
-            throw MarkupDocumentError.unableToImport
-        }
+        // Surfaced before the result check below: a real conversion failure explains itself
+        // here (result nil, warnings carrying the reason), so logging first keeps that reason
+        // visible instead of being replaced by .unableToImport's own, more generic message.
         editLog.warnings(importValue.warnings)
+        guard let html = importValue.result else {
+            throw MarkupDocumentError.unableToImport(importValue.warnings.joined(separator: "; "))
+        }
         return html
     }
     
@@ -641,11 +647,17 @@ struct MarkupDocumentView: View {
     
     private func handleExport(plugin: Plugin) async {
         guard let ext = plugin.ext else {
-            editLog.error("Plugin \(plugin.name) has no file extension specified.")
+            let alert = NSAlert()
+            alert.messageText = "Cannot export"
+            alert.informativeText = "Plugin '\(plugin.name)' has no file extension specified."
+            alert.runModal()
             return
         }
         guard let webView = MarkupEditor.selectedWebView else {
-            editLog.error("No web view is present.")
+            let alert = NSAlert()
+            alert.messageText = "Cannot export"
+            alert.informativeText = "No web view is available."
+            alert.runModal()
             return
         }
         let panel = NSSavePanel()
@@ -653,41 +665,32 @@ struct MarkupDocumentView: View {
         panel.nameFieldStringValue = ext.isEmpty ? baseName : "\(baseName).\(ext)"
         panel.allowedContentTypes = UTType(filenameExtension: ext).map { [$0] } ?? []
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        
-        // We special case the "PDF" plugin, because it shows up in the Export menu, but
-        // it is not a plugin in the sense that it is not user-installed, and it is not
-        // executed using JavaScript code that is provided to the web view via the
-        // plugins attribute.
-        if plugin.name == "PDF" {
-            do {
+
+        do {
+            // The built-in PDF exporter is distinguished from a user-installed plugin by
+            // having no filename -- ExporterManager.add always sets one, so a user-installed
+            // plugin literally named "PDF" still routes through the generic path below rather
+            // than being shadowed by this special case.
+            if plugin.name == "PDF" && plugin.filename == nil {
                 let data = try await webView.exportPDF()
                 try data.write(to: url)
                 editLog.info("PDF exported to: \(url.path)")
-            } catch {
-                editLog.error("Failed to export PDF: \(error.localizedDescription)")
-            }
-        } else {
-            let exportStart = Date()
-            guard let raw = await webView.runExporter(name: plugin.name) else {
-                editLog.error("Plugin '\(plugin.name)' returned no result.")
-                return
-            }
-            let exportElapsed = Date().timeIntervalSince(exportStart)
-            guard let envelope = ImportExportValue.decode(from: raw) else {
-                editLog.error("Plugin '\(plugin.name)' returned an undecodable result: \(raw.prefix(500))")
-                return
-            }
-            editLog.warnings(envelope.warnings)
-            guard let base64 = envelope.result, let outputData = Data(base64Encoded: base64) else {
-                editLog.error("Plugin '\(plugin.name)' produced no result.")
-                return
-            }
-            do {
+            } else {
+                let exportStart = Date()
+                guard let raw = await webView.runExporter(name: plugin.name) else {
+                    throw MarkupDocumentError.pluginReturnedNoResult(plugin.name)
+                }
+                let exportElapsed = Date().timeIntervalSince(exportStart)
+                let (outputData, warnings) = try ImportExportValue.decodeExportOutput(from: raw, pluginName: plugin.name)
+                editLog.warnings(warnings)
                 try outputData.write(to: url)
                 editLog.info("\(plugin.name) exported to: \(url.path(percentEncoded: false)), \(outputData.count) bytes, \(String(format: "%.2f", exportElapsed))s")
-            } catch {
-                editLog.error("Failed to write file: \(error.localizedDescription)")
             }
+        } catch {
+            // Export errors, like open errors, need to be visible to the user, not just logged.
+            showError(error.localizedDescription)
+            let alert = NSAlert(error: error)
+            alert.runModal()
         }
     }
 
