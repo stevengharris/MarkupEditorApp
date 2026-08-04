@@ -27,6 +27,18 @@ const IMG_SRC_PATTERN = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
 // layout either; only `width` is real sizing intent there.
 export async function loadImageAsDataUri(src, width) {
     const image = new Image()
+    // CORS mode is required for canvas.toDataURL() to read a cross-origin image's pixels even
+    // when the server sends a permissive Access-Control-Allow-Origin header -- without this,
+    // the browser fetches in default no-cors mode and the image stays canvas-tainted regardless
+    // of what headers the server actually sent. Confirmed empirically: https://httpbin.org/
+    // image/png, which does send `Access-Control-Allow-Origin: *`, still threw the tainted-
+    // canvas SecurityError until this was added. Scoped to http(s) only -- local file://
+    // resource loading already works via the plain <img> path above and setting crossOrigin on
+    // it is untested against WKWebView's separate, stricter file:// restriction, so it's left
+    // alone rather than risking an unrelated regression there.
+    if (/^https?:\/\//i.test(src)) {
+        image.crossOrigin = 'anonymous'
+    }
     await new Promise((resolve, reject) => {
         image.onload = resolve
         image.onerror = () => reject(new Error('failed to load'))

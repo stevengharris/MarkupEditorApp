@@ -64,6 +64,18 @@ describe('DocXExporter.run(), the full real pipeline (resolveImages -> converter
         expect(documentXml).toContain('hello')
     })
 
+    it('an empty document produces a valid, decodable minimal docx, no crash', async () => {
+        getHTML.mockReturnValue('')
+        const json = await docXExporter.run()
+        const envelope = JSON.parse(json)
+        expect(envelope.warnings).toEqual([])
+        expect(envelope.result).toBeTruthy()
+
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        expect(await zip.file('word/document.xml').async('string')).toContain('<w:body>')
+        expect(await zip.file('word/styles.xml').async('string')).toBeTruthy()
+    })
+
     it('configures a real Letter page size/margins, and a FIXED-layout table\'s grid columns fit within the configured content width (docx\'s library default is A4)', async () => {
         getHTML.mockReturnValue('<table><tr><td><p>a</p></td><td><p>b</p></td></tr></table>')
         const json = await docXExporter.run()
