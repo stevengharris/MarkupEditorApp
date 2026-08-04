@@ -30836,7 +30836,12 @@ class MermaidPlugin {
 
     // Delete/Backspace on (or adjacent to) a Diagram-mode block removes the
     // WHOLE block atomically, like a selected image — not a single character of
-    // its collapsed, invisible source text.
+    // its collapsed, invisible source text. This only applies when there's no
+    // other node-level content to fall back to: if the cursor's own block is
+    // ALSO a code_block, the normal join-with-previous (or delete-if-empty)
+    // keymap behavior already does the right thing -- including keeping the
+    // surviving block's language, mermaid or otherwise -- and must run
+    // instead of this atomic delete short-circuiting it.
     handleDiagramDeleteKey(view, event) {
         if (event.key !== 'Delete' && event.key !== 'Backspace') return false
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
@@ -30853,6 +30858,8 @@ class MermaidPlugin {
                 return true
             }
         }
+
+        if (sel.$from.parent.type.name === 'code_block') return false
 
         const targetPos = sel.from + dir;
         if (targetPos < 0 || targetPos > state.doc.content.size) return false

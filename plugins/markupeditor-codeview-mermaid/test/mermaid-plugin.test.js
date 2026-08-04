@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Schema, EditorState, EditorView, MU, Selection } from 'markupeditor'
+import { joinBackward } from 'prosemirror-commands'
 import { MermaidView, isMermaidLanguage } from '../src/mermaidview.js'
 import { mermaidPlugin } from '../src/mermaidplugin.js'
 
@@ -135,6 +136,99 @@ describe('Delete/Backspace whole-block deletion around a Diagram-mode block', ()
 
     await teardown()
   })
+})
+
+// Real bug found in manual verification: a Diagram-mode mermaid block
+// followed by an ORDINARY code_block used to be destroyed wholesale by
+// Backspace at the start of that following block, because
+// handleDiagramDeleteKey's "adjacent" branch only checked the PRECEDING
+// (diagram) side, never the block the cursor is actually in. It must defer
+// (return false) whenever the cursor's own block is also a code_block, so
+// the normal join-with-previous/delete-if-empty keymap behavior can run
+// instead -- that behavior already keeps the surviving block's own
+// language (mermaid or otherwise), verified separately in markupeditor-base.
+describe('deferring to normal join/delete-if-empty when the cursor is in a code_block, not atomically deleting the adjacent diagram', () => {
+    it('Backspace at the start of a non-empty code_block after a Diagram-mode block defers, and the deferred join keeps the diagram\'s own language', async () => {
+        const doc = schema.node('doc', null, [
+            schema.node('code_block', { language: 'mermaid' }, schema.text('graph TD; A-->B;')),
+            schema.node('code_block', { language: null }, schema.text('Hello')),
+        ])
+        const render = vi.fn().mockResolvedValue({ svg: '<svg>ok</svg>' })
+        const { view, plugin, teardown } = mountView(doc, { render })
+        await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+
+        const secondBlockStart = doc.child(0).nodeSize
+        view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(secondBlockStart + 1))))
+
+        expect(plugin.props.handleKeyDown(view, keyEvent('Backspace'))).toBe(false)
+        expect(view.state.doc.childCount).toBe(2) // untouched -- no transaction was dispatched by this handler
+
+        expect(joinBackward(view.state, view.dispatch)).toBe(true)
+        expect(view.state.doc.childCount).toBe(1)
+        expect(view.state.doc.firstChild.attrs.language).toBe('mermaid')
+        expect(view.state.doc.firstChild.textContent).toBe('graph TD; A-->B;Hello')
+
+        await teardown()
+    })
+
+    it('Backspace at the start of an EMPTY code_block after a Diagram-mode block defers, and the deferred delete lands the cursor in the diagram block unchanged', async () => {
+        const doc = schema.node('doc', null, [
+            schema.node('code_block', { language: 'mermaid' }, schema.text('graph TD; A-->B;')),
+            schema.node('code_block', { language: null }),
+        ])
+        const render = vi.fn().mockResolvedValue({ svg: '<svg>ok</svg>' })
+        const { view, plugin, teardown } = mountView(doc, { render })
+        await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+
+        const secondBlockStart = doc.child(0).nodeSize
+        view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(secondBlockStart + 1))))
+
+        expect(plugin.props.handleKeyDown(view, keyEvent('Backspace'))).toBe(false)
+
+        expect(joinBackward(view.state, view.dispatch)).toBe(true)
+        expect(view.state.doc.childCount).toBe(1)
+        expect(view.state.doc.firstChild.attrs.language).toBe('mermaid')
+        expect(view.state.doc.firstChild.textContent).toBe('graph TD; A-->B;')
+
+        await teardown()
+    })
+
+    it('Delete at the end of a non-empty code_block before a Diagram-mode block also defers (the forward-direction mirror)', async () => {
+        const doc = schema.node('doc', null, [
+            schema.node('code_block', { language: null }, schema.text('Hello')),
+            schema.node('code_block', { language: 'mermaid' }, schema.text('graph TD; A-->B;')),
+        ])
+        const render = vi.fn().mockResolvedValue({ svg: '<svg>ok</svg>' })
+        const { view, plugin, teardown } = mountView(doc, { render })
+        await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+
+        const firstBlockEnd = doc.child(0).nodeSize - 1 // end of "Hello"'s own text
+        view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(firstBlockEnd))))
+
+        expect(plugin.props.handleKeyDown(view, keyEvent('Delete'))).toBe(false)
+        expect(view.state.doc.childCount).toBe(2) // untouched -- no transaction was dispatched by this handler
+
+        await teardown()
+    })
+
+    it('Backspace at the start of a PARAGRAPH (not a code_block) after a Diagram-mode block still deletes it atomically -- unchanged, regression guard', async () => {
+        const doc = schema.node('doc', null, [
+            schema.node('code_block', { language: 'mermaid' }, schema.text('graph TD; A-->B;')),
+            schema.node('paragraph', null, schema.text('world')),
+        ])
+        const render = vi.fn().mockResolvedValue({ svg: '<svg>ok</svg>' })
+        const { view, plugin, teardown } = mountView(doc, { render })
+        await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+
+        const secondBlockStart = doc.child(0).nodeSize
+        view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(secondBlockStart + 1))))
+
+        expect(plugin.props.handleKeyDown(view, keyEvent('Backspace'))).toBe(true)
+        expect(view.state.doc.childCount).toBe(1)
+        expect(view.state.doc.firstChild.type.name).toBe('paragraph')
+
+        await teardown()
+    })
 })
 
 describe('copy/cut/paste of a selected Diagram-mode block', () => {
