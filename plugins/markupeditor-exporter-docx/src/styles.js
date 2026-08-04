@@ -1,27 +1,21 @@
-// SF Pro Text/Display ship alongside Xcode/SF Symbols, not the base macOS image; SF Mono
-// ships with the OS. Using SF Pro anyway is a deliberate trade-off for a macOS app that
-// already requires Xcode to build.
 export const BODY_FONT = 'SF Pro Text'
 export const DISPLAY_FONT = 'SF Pro Display'
 export const CODE_FONT = 'SF Mono'
 
 // docx's built-in Title/Heading1-6/Strong/ListParagraph/Hyperlink/FootnoteText/EndnoteText
-// styles all declare basedOn="Normal", and Hyperlink/FootnoteReference/FootnoteTextChar/
+// styles declare basedOn="Normal", and Hyperlink/FootnoteReference/FootnoteTextChar/
 // EndnoteReference/EndnoteTextChar declare basedOn="DefaultParagraphFont", but docx never
-// defines either base style itself -- every basedOn reference is dangling unless defined
-// here. An undefined basedOn target produces visible Pages corruption (a trailing "*" on
-// every paragraph's style name, styles bleeding onto adjacent unstyled paragraphs), confirmed
-// by decoding a real generated styles.xml.
+// defines either base style -- every basedOn reference is dangling unless defined here.
 //
-// docx has no first-class "tableStyles" config (see convertTable in htmlToDocx.js -- table
-// borders are set directly per table instead).
+// docx has no first-class "tableStyles" config -- table borders are set directly per table
+// instead (see convertTable in htmlToDocx.js).
 //
-// Nested blockquotes accumulate indent per level, but a paragraph carries only one pStyle,
-// and a direct w:ind alongside a style reference is the "manual override" signal Pages flags
-// -- so every nesting level needs its own named style rather than a paragraph-level override.
-// This pre-generates a bounded family of Quote styles (Quote, Quote2, Quote3, ...), each with
-// its own indent. Deeper nesting clamps to the deepest defined style with a warning (see
-// htmlToDocx.js).
+// A paragraph references only one pStyle. Indent for each blockquote nesting level lives
+// entirely in its own named style rather than as direct paragraph formatting layered on a
+// style reference -- direct formatting is exactly what a "clear formatting" command strips,
+// so baking indent into the style itself keeps it intact. A bounded family of Quote styles
+// (Quote, Quote2, Quote3, ...), each with its own indent. Deeper nesting clamps to the
+// deepest defined style with a warning (see htmlToDocx.js).
 export const QUOTE_MAX_DEPTH = 6
 const QUOTE_INDENT_STEP = 720
 
@@ -33,7 +27,7 @@ const quoteStyles = Array.from({ length: QUOTE_MAX_DEPTH }, (_, i) => {
     const depth = i + 1
     return {
         // Matches this app's blockquote appearance, not Word's decorative built-in Quote
-        // style (centered + italic).
+        // style (centered, italic).
         id: quoteStyleId(depth),
         name: depth === 1 ? 'Quote' : `Quote ${depth}`,
         basedOn: 'Normal',
@@ -44,20 +38,19 @@ const quoteStyles = Array.from({ length: QUOTE_MAX_DEPTH }, (_, i) => {
 })
 
 // docx's `default.headingN` config REPLACES a heading's entire built-in run properties rather
-// than merging with them, confirmed by decoding real output: adding only `{run: {font:
-// ...}}` silently wiped the built-in w:sz/w:color. Every property a heading needs (font,
-// size, weight, spacing) must be set explicitly here.
+// than merging with them -- adding only `{run: {font: ...}}` silently wipes the built-in
+// w:sz/w:color. Every property a heading needs (font, size, weight, spacing) must be set
+// explicitly here.
 //
-// No heading color is set below, deliberately -- markup.css defines no heading color at all
+// No heading color is set below, deliberately -- markup.css sets no heading color at all
 // (headings inherit plain black text), so docx's built-in Word-template blue would be a
 // visible mismatch. Sizes are in half-points, spacing in twips.
 //
 // `next: 'Body'` on every heading, plus a real "Body" style below rather than relying on
-// "Normal" alone: Pages' native paragraph-style vocabulary is "Body"/"Heading" (no "1"), not
-// Word's "Normal"/"Heading1" convention, and a plain unstyled paragraph does not reliably
-// resolve to a named style in Pages. Pages' generator also never uses `basedOn` for its core
-// styles -- each is fully self-contained. `Body` follows that pattern: no `basedOn`,
-// font/size/spacing set directly.
+// "Normal" alone: every plain paragraph gets an explicit pStyle rather than leaving it
+// absent, since whether an absent pStyle reliably resolves to a sensible default is
+// consumer-dependent. `Body` has no `basedOn`; it is fully self-contained, font/size/spacing
+// set directly.
 export const documentStyles = {
     default: {
         document: { run: { font: BODY_FONT } },
@@ -101,11 +94,10 @@ export const documentStyles = {
             run: { font: BODY_FONT, size: 22 },
         },
         {
-            // Referenced by plain paragraphs (see convertParagraph in htmlToDocx.js) --
-            // matches Pages' native "Body" concept by name, not just the OOXML-required
-            // "Normal". Font/size/spacing are set explicitly on the style rather than left to
-            // docDefaults alone, since a docDefaults-only setting does not reliably cascade to
-            // a paragraph with no rPr in Pages.
+            // Referenced by plain paragraphs (see convertParagraph in htmlToDocx.js). Font/
+            // size/spacing are set explicitly on the style rather than left to docDefaults
+            // alone, since a docDefaults-only setting does not reliably cascade to a
+            // paragraph lacking rPr.
             id: 'Body',
             name: 'Body',
             quickFormat: true,

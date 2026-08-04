@@ -23,7 +23,7 @@ class CodeViewManager {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appendingPathComponent("codeviews")
     }
-    let mermaid = Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-mermaid.js")
+    let mermaid = Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-codeview-mermaid.js")
 
     /// Calls `setupCodeViews` using the app's current `AppConfig`.
     func setupOnLaunch() {

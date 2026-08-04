@@ -828,7 +828,7 @@ const invert = (color, weight = 100) => {
     return mix(inverse, color, weight);
 };
 
-/*! @license DOMPurify 3.4.12 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.4.12/LICENSE */
+/*! @license DOMPurify 3.4.13 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.4.13/LICENSE */
 
 function _arrayLikeToArray$1(r, a) {
   (null == a || a > r.length) && (a = r.length);
@@ -1254,7 +1254,7 @@ const _resolveSetOption = function _resolveSetOption(cfg, key, fallback, options
 function createDOMPurify() {
   let window = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : getGlobal();
   const DOMPurify = root => createDOMPurify(root);
-  DOMPurify.version = '3.4.12';
+  DOMPurify.version = '3.4.13';
   DOMPurify.removed = [];
   if (!window || !window.document || window.document.nodeType !== NODE_TYPE.document || !window.Element) {
     // Not running in a browser, provide a factory function
@@ -1285,6 +1285,7 @@ function createDOMPurify() {
   const getAttributes = lookupGetter(ElementPrototype, 'attributes');
   const getNodeType = Node && Node.prototype ? lookupGetter(Node.prototype, 'nodeType') : null;
   const getNodeName = Node && Node.prototype ? lookupGetter(Node.prototype, 'nodeName') : null;
+  const getOwnerDocument = Node && Node.prototype ? lookupGetter(Node.prototype, 'ownerDocument') : null;
   // As per issue #47, the web-components registry is inherited by a
   // new document created via createHTMLDocument. As per the spec
   // (http://w3c.github.io/webcomponents/spec/custom/#creating-and-passing-registries)
@@ -2203,7 +2204,17 @@ function createDOMPurify() {
    * @return The created NodeIterator
    */
   const _createNodeIterator = function _createNodeIterator(root) {
-    return createNodeIterator.call(root.ownerDocument || root, root,
+    /* Read ownerDocument through the cached Node.prototype getter, never the
+       direct property. HTMLFormElement has [LegacyOverrideBuiltIns], so a
+       clobbering child (<input name="ownerDocument"> or a form-associated
+       external input) shadows the prototype getter and makes a direct read
+       return that <input>. createNodeIterator.call(<input>, ...) then throws
+       "Illegal invocation", and on the IN_PLACE path that throw lands before
+       the walk's fail-closed barrier - leaving the caller's live tree, with
+       any already-armed handler in it, un-neutralized. The cached getter
+       returns the real Document regardless of the clobber. */
+    const doc = getOwnerDocument ? getOwnerDocument(root) : root.ownerDocument;
+    return createNodeIterator.call(doc || root, root,
     // eslint-disable-next-line no-bitwise
     NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_PROCESSING_INSTRUCTION | NodeFilter.SHOW_CDATA_SECTION, null);
   };
@@ -2243,7 +2254,11 @@ function createDOMPurify() {
   const _scrubTemplateExpressions2 = function _scrubTemplateExpressions(node) {
     var _node$querySelectorAl;
     node.normalize();
-    const walker = createNodeIterator.call(node.ownerDocument || node, node,
+    /* Clobber-safe ownerDocument read, same reasoning as _createNodeIterator:
+       under SAFE_FOR_TEMPLATES this runs on the live IN_PLACE root, which may
+       carry a form-named-getter override of ownerDocument. */
+    const doc = getOwnerDocument ? getOwnerDocument(node) : node.ownerDocument;
+    const walker = createNodeIterator.call(doc || node, node,
     // eslint-disable-next-line no-bitwise
     NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_CDATA_SECTION | NodeFilter.SHOW_PROCESSING_INSTRUCTION, null);
     let currentNode = walker.nextNode();
@@ -2410,7 +2425,7 @@ function createDOMPurify() {
    * @param tagName the node's transformCaseFunc'd tag name
    * @return true if the node was removed, false if kept
    */
-  const _sanitizeDisallowedNode = function _sanitizeDisallowedNode(currentNode, tagName) {
+  const _sanitizeDisallowedNode = function _sanitizeDisallowedNode(currentNode, tagName, root) {
     /* Check if we have a custom element to handle */
     if (!FORBID_TAGS[tagName] && _isBasicCustomElement(tagName)) {
       if (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, tagName)) {
@@ -2433,33 +2448,52 @@ function createDOMPurify() {
       const childNodes = getChildNodes(currentNode);
       if (childNodes && parentNode) {
         const childCount = childNodes.length;
-        /* In-place: hoist the *original* children so the iterator visits
-             and sanitises them through the same allowlist pass as every other
-             node. The caller built the tree in the live document, so the
-             originals carry already-queued resource events (`<img onerror>`,
-             `<video>`/`<audio>` error, lazy/`onload`, …); cloning would leave
-             those originals detached but still armed, firing in page scope
-             while the returned tree looked clean. Moving is safe in-place: the
-             root is pre-validated as an allowed tag and so is never the node
-             being removed, which keeps `parentNode` inside the iterator root
-             and the relocated child inside the serialised tree.
-                      Otherwise (string / DOM-copy paths): clone. The iterator is rooted
-             at — and the result serialised from — `body`, so a restrictive
-             ALLOWED_TAGS that removes `body` itself must leave its content in
-             place, which only cloning does; and those paths parse into an
-             inert document, so their discarded originals never had a queued
-             event to neutralise.
+        /* Hoist by moving each child up one level rather than deep-cloning
+             it. Moving transfers every descendant exactly once, so a chain of
+             nested disallowed elements costs O(n) instead of the O(n^2) that
+             re-cloning the shrinking subtree at each level produced; it also
+             empties the removed original, so `DOMPurify.removed` no longer
+             pins whole subtrees. Moving preserves the in-place guarantee too:
+             an original carrying already-queued resource events (`<img
+             onerror>`, `<video>`/`<audio>` error, lazy/`onload`, …) is
+             relocated and sanitised rather than left detached but still armed.
+                      The sole case that must clone is removing the walk root itself.
+             The result is serialised from the root's subtree, so a restrictive
+             ALLOWED_TAGS that strips the root (`body` on the string path) must
+             leave the content inside it, which only cloning does. In IN_PLACE
+             the root is pre-validated as an allowed tag and so is never removed
+             here, so that path always takes the move branch.
                       `childNodes` is live; a tail-to-head walk keeps `childNodes[i]`
              valid whether we move (drops the trailing entry) or clone (leaves
              the list intact). */
         for (let i = childCount - 1; i >= 0; --i) {
-          const hoisted = IN_PLACE ? childNodes[i] : cloneNode(childNodes[i], true);
+          const hoisted = currentNode === root ? cloneNode(childNodes[i], true) : childNodes[i];
           parentNode.insertBefore(hoisted, getNextSibling(currentNode));
         }
       }
     }
     _forceRemove(currentNode);
     return true;
+  };
+  /**
+   * Fork a hook-mutable allowlist off its shared binding the first time a
+   * (possibly lazily-installed) uponSanitize* hook is about to see it, so the
+   * hook cannot widen the per-instance default or the setConfig binding by
+   * reference and leak past the call. Returns the set unchanged once it is
+   * already call-local, so repeated calls across elements are idempotent.
+   *
+   * @param hookList the uponSanitize* hook array for this event
+   * @param set the current ALLOWED_TAGS / ALLOWED_ATTR binding
+   * @param defaultSet the per-instance DEFAULT_ALLOWED_* constant
+   * @param setConfigSet the captured setConfig() binding, or null
+   * @return a call-local clone if a hook is present and set is still shared,
+   *   else set unchanged
+   */
+  const _forkSharedAllowlist = function _forkSharedAllowlist(hookList, set, defaultSet, setConfigSet) {
+    if (hookList.length === 0) {
+      return set;
+    }
+    return set === defaultSet || set === setConfigSet ? clone$6(set) : set;
   };
   /**
    * _sanitizeElements
@@ -2474,9 +2508,14 @@ function createDOMPurify() {
   const _sanitizeElements = function _sanitizeElements(currentNode, root) {
     /* Execute a hook if present */
     _executeHooks(hooks.beforeSanitizeElements, currentNode, null);
-    /* A hook may have detached the node — treat it as removed (see the
-       detached-node comment after the uponSanitizeElement hook below). */
+    /* A hook may have detached the node - treat it as removed (see the
+       detached-node comment after the uponSanitizeElement hook below). On
+       the IN_PLACE path, neutralize the detached subtree first so a queued
+       resource handler on it cannot fire in page scope after we return. */
     if (currentNode !== root && getParentNode(currentNode) === null) {
+      if (IN_PLACE) {
+        _neutralizeSubtree(currentNode);
+      }
       return true;
     }
     /* Check if element is clobbered or can clobber */
@@ -2486,6 +2525,12 @@ function createDOMPurify() {
     }
     /* Now let's check the element's type and name */
     const tagName = transformCaseFunc(getNodeName ? getNodeName(currentNode) : currentNode.nodeName);
+    /* Close the pre-walk clone-guard's timing gap: an uponSanitizeElement
+       hook may have been installed after that guard sampled the hook arrays
+       (e.g. lazily from beforeSanitizeElements), leaving ALLOWED_TAGS still
+       aliasing a shared binding that a widening hook would mutate by
+       reference. Fork it before exposing it to the hook. */
+    ALLOWED_TAGS = _forkSharedAllowlist(hooks.uponSanitizeElement, ALLOWED_TAGS, DEFAULT_ALLOWED_TAGS, SET_CONFIG_ALLOWED_TAGS);
     /* Execute a hook if present */
     _executeHooks(hooks.uponSanitizeElement, currentNode, {
       tagName,
@@ -2503,10 +2548,22 @@ function createDOMPurify() {
        opposite of a node that is already safely gone. The walk root is
        exempt: a detached IN_PLACE root is legitimate input and must still
        be fully sanitized, and a kill-decision on it must keep hitting the
-       REPORT-3 throw. Nodes detached by hooks are the hook's
-       responsibility: they are not recorded in DOMPurify.removed and are
-       not neutralized by the post-walk IN_PLACE pass. */
+       REPORT-3 throw. Nodes detached by hooks stay the hook's
+       responsibility for placement: they are not recorded in
+       DOMPurify.removed, so the post-walk IN_PLACE pass (which iterates
+       DOMPurify.removed) does not reach them. But a hook-detached subtree
+       can still hold a queued resource-event handler - e.g. an <img onload>
+       that began loading when the caller built the live tree - which fires
+       in page scope after sanitize returns even though the handler never
+       reached the returned tree. That is the audit-5 F1 hazard, and the
+       documented node.remove() hook pattern walks straight into it. So on
+       the IN_PLACE path we neutralize the detached subtree inline here,
+       stripping its non-allow-listed attributes before returning, exactly
+       as the post-walk pass does for _forceRemove'd subtrees. */
     if (currentNode !== root && getParentNode(currentNode) === null) {
+      if (IN_PLACE) {
+        _neutralizeSubtree(currentNode);
+      }
       return true;
     }
     /* Remove mXSS vectors, processing instructions and risky comments */
@@ -2516,7 +2573,7 @@ function createDOMPurify() {
     }
     /* Remove element if anything forbids its presence */
     if (FORBID_TAGS[tagName] || !(EXTRA_ELEMENT_HANDLING.tagCheck instanceof Function && EXTRA_ELEMENT_HANDLING.tagCheck(tagName)) && !ALLOWED_TAGS[tagName]) {
-      const removed = _sanitizeDisallowedNode(currentNode, tagName);
+      const removed = _sanitizeDisallowedNode(currentNode, tagName, root);
       /* A false return means the node is a custom element kept via
          CUSTOM_ELEMENT_HANDLING - the only keep path through
          _sanitizeDisallowedNode. Run afterSanitizeElements on it so the
@@ -2721,6 +2778,9 @@ function createDOMPurify() {
     if (!attributes || _isClobbered(currentNode)) {
       return;
     }
+    /* Same lazy-install guard as uponSanitizeElement (see there): fork the
+       attribute allowlist off its shared binding before a hook can see it. */
+    ALLOWED_ATTR = _forkSharedAllowlist(hooks.uponSanitizeAttribute, ALLOWED_ATTR, DEFAULT_ALLOWED_ATTR, SET_CONFIG_ALLOWED_ATTR);
     const hookEvent = {
       attrName: '',
       attrValue: '',
@@ -3093,17 +3153,20 @@ function createDOMPurify() {
     }
     /* Get node iterator */
     const walkRoot = inPlace ? dirty : body;
-    const nodeIterator = _createNodeIterator(walkRoot);
     /* Now start iterating over the created document.
        The walk runs inside an exception barrier (campaign-3 F2): a re-entrant
        engine/custom-element mutation can detach a node mid-walk so
        `_forceRemove`'s parentless guard throws, aborting the loop. Without the
        barrier the caller's in-place tree would be left half-sanitized with the
-       unvisited tail still armed. On any throw we fail closed — strip the
-       in-place root bare — then rethrow so the existing throw contract is
-       preserved. (String/DOM-copy paths never return the partial body, so the
-       propagating throw is already fail-closed there.) */
+       unvisited tail still armed. _createNodeIterator itself is inside the
+       barrier too: constructing the iterator dereferences the root's document,
+       and any failure there (e.g. an exotic/clobbered root) must still fail
+       closed rather than skip the neutralize. On any throw we fail closed -
+       strip the in-place root bare - then rethrow so the existing throw
+       contract is preserved. (String/DOM-copy paths never return the partial
+       body, so the propagating throw is already fail-closed there.) */
     try {
+      const nodeIterator = _createNodeIterator(walkRoot);
       while (currentNode = nodeIterator.nextNode()) {
         /* Sanitize tags and elements */
         _sanitizeElements(currentNode, walkRoot);
@@ -3252,8 +3315,8 @@ function createDOMPurify() {
 var purify = createDOMPurify();
 
 // src/assignWithDepth.ts
-var assignWithDepth = /* @__PURE__ */ __name$1((dst, src, { depth = 2, clobber = false } = {}) => {
-  const config2 = { depth, clobber };
+var assignWithDepth = /* @__PURE__ */ __name$1((dst, src, { depth = 2 } = {}) => {
+  const config2 = { depth };
   if (Array.isArray(src) && !Array.isArray(dst)) {
     src.forEach((s) => assignWithDepth(dst, s, config2));
     return dst;
@@ -3265,22 +3328,45 @@ var assignWithDepth = /* @__PURE__ */ __name$1((dst, src, { depth = 2, clobber =
     });
     return dst;
   }
-  if (dst === void 0 || depth <= 0) {
+  if (dst === void 0 || dst === null || depth <= 0) {
     if (dst !== void 0 && dst !== null && typeof dst === "object" && typeof src === "object") {
       return Object.assign(dst, src);
     } else {
       return src;
     }
   }
-  if (src !== void 0 && typeof dst === "object" && typeof src === "object") {
-    Object.keys(src).forEach((key) => {
-      if (typeof src[key] === "object" && src[key] !== null && (dst[key] === void 0 || typeof dst[key] === "object")) {
-        if (dst[key] === void 0) {
-          dst[key] = Array.isArray(src[key]) ? [] : {};
+  if (src !== void 0 && src !== null && typeof dst === "object" && typeof src === "object") {
+    const dstWithKeys = dst;
+    Object.entries(src).forEach(([key, srcValue]) => {
+      if (typeof srcValue === "object") {
+        if (srcValue === null) {
+          return;
         }
-        dst[key] = assignWithDepth(dst[key], src[key], { depth: depth - 1, clobber });
-      } else if (clobber || typeof dst[key] !== "object" && typeof src[key] !== "object") {
-        dst[key] = src[key];
+        if (!Object.hasOwn(dst, key)) {
+          Object.defineProperty(dst, key, {
+            value: void 0,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
+        if (dstWithKeys[key] === void 0) {
+          dstWithKeys[key] = Array.isArray(srcValue) ? [] : {};
+        }
+        if (typeof dstWithKeys[key] === "object") {
+          dstWithKeys[key] = assignWithDepth(dstWithKeys[key], srcValue, { depth: depth - 1 });
+        }
+      } else if (typeof dstWithKeys[key] !== "object") {
+        if (Object.hasOwn(dst, key)) {
+          dstWithKeys[key] = srcValue;
+        } else {
+          Object.defineProperty(dst, key, {
+            value: srcValue,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
       }
     });
   }
@@ -8088,8 +8174,7 @@ var getSiteConfig = /* @__PURE__ */ __name$1(() => {
   return assignWithDepth_default({}, siteConfig);
 }, "getSiteConfig");
 var setConfig = /* @__PURE__ */ __name$1((conf) => {
-  checkConfig(conf);
-  assignWithDepth_default(currentConfig, conf);
+  updateCurrentConfig(currentConfig, [conf]);
   return getConfig();
 }, "setConfig");
 var getConfig = /* @__PURE__ */ __name$1(() => {
@@ -8476,7 +8561,7 @@ var getStyles$n = /* @__PURE__ */ __name$1((type, userStyles, options, svgId) =>
   } else {
     log.warn(`No theme found for ${type}`);
   }
-  return ` & {
+  return `& {
     font-family: ${options.fontFamily};
     font-size: ${options.fontSize};
     fill: ${options.textColor}
@@ -28175,11 +28260,11 @@ var registerDefaultLayoutLoaders = /* @__PURE__ */ __name$1(() => {
   registerLayoutLoaders([
     {
       name: "dagre",
-      loader: /* @__PURE__ */ __name$1(async () => await Promise.resolve().then(function () { return dagreVKFMJZFB; }), "loader")
+      loader: /* @__PURE__ */ __name$1(async () => await Promise.resolve().then(function () { return dagreVZM6K2ZE; }), "loader")
     },
     {
       name: "swimlane",
-      loader: /* @__PURE__ */ __name$1(async () => await Promise.resolve().then(function () { return swimlanes5IMT3BWC; }), "loader")
+      loader: /* @__PURE__ */ __name$1(async () => await Promise.resolve().then(function () { return swimlanesSLNWSIFB; }), "loader")
     },
     ...[
       {
@@ -28797,7 +28882,7 @@ var detector = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*C4Context|C4Container|C4Component|C4Dynamic|C4Deployment/.test(txt);
 }, "detector");
 var loader = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return c4DiagramLMCZKHZV; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return c4Diagram5PPSVZJV; });
   return { id, diagram: diagram2 };
 }, "loader");
 var plugin = {
@@ -28816,7 +28901,7 @@ var detector2 = /* @__PURE__ */ __name$1((txt, config) => {
   return /^\s*graph/.test(txt);
 }, "detector");
 var loader2 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return flowDiagram23GEKE2U; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return flowDiagramUKHOOZJN; });
   return { id: id2, diagram: diagram2 };
 }, "loader");
 var plugin2 = {
@@ -28841,7 +28926,7 @@ var detector3 = /* @__PURE__ */ __name$1((txt, config) => {
   return /^\s*flowchart/.test(txt);
 }, "detector");
 var loader3 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return flowDiagram23GEKE2U; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return flowDiagramUKHOOZJN; });
   return { id: id3, diagram: diagram2 };
 }, "loader");
 var plugin3 = {
@@ -28857,7 +28942,7 @@ var detector4 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*swimlane-beta\b/.test(txt);
 }, "detector");
 var loader4 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return swimlanesDiagramG3AALYLV; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return swimlanesDiagramULZ7WXOC; });
   return { id: id4, diagram: diagram2 };
 }, "loader");
 var plugin4 = {
@@ -28873,7 +28958,7 @@ var detector5 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*erDiagram/.test(txt);
 }, "detector");
 var loader5 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return erDiagramQ63AITRT; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return erDiagramJOGREHBK; });
   return { id: id5, diagram: diagram2 };
 }, "loader");
 var plugin5 = {
@@ -28889,7 +28974,7 @@ var detector6 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*gitGraph/.test(txt);
 }, "detector");
 var loader6 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return gitGraphDiagramIHSO6WYX; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return gitGraphDiagramDS77QQ5N; });
   return { id: id6, diagram: diagram2 };
 }, "loader");
 var plugin6 = {
@@ -28905,7 +28990,7 @@ var detector7 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*gantt/.test(txt);
 }, "detector");
 var loader7 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return ganttDiagramNO4QXBWP; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return ganttDiagramPKOTCBZU; });
   return { id: id7, diagram: diagram2 };
 }, "loader");
 var plugin7 = {
@@ -28921,7 +29006,7 @@ var detector8 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*info/.test(txt);
 }, "detector");
 var loader8 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return infoDiagramFWYZ7A6U; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return infoDiagram6WML65LV; });
   return { id: id8, diagram: diagram2 };
 }, "loader");
 var info = {
@@ -28936,7 +29021,7 @@ var detector9 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*pie/.test(txt);
 }, "detector");
 var loader9 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return pieDiagramENE6RG2P; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return pieDiagram7S7Q4E2Y; });
   return { id: id9, diagram: diagram2 };
 }, "loader");
 var pie = {
@@ -28951,7 +29036,7 @@ var detector10 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*quadrantChart/.test(txt);
 }, "detector");
 var loader10 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return quadrantDiagramABIIQ3AL; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return quadrantDiagramCIZ2JOQS; });
   return { id: id10, diagram: diagram2 };
 }, "loader");
 var plugin8 = {
@@ -28967,7 +29052,7 @@ var detector11 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*xychart(-beta)?/.test(txt);
 }, "detector");
 var loader11 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return xychartDiagramFW5EYKEG; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return xychartDiagramELKLHX3M; });
   return { id: id11, diagram: diagram2 };
 }, "loader");
 var plugin9 = {
@@ -28983,7 +29068,7 @@ var detector12 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*requirement(Diagram)?/.test(txt);
 }, "detector");
 var loader12 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return requirementDiagramTGXJPOKE; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return requirementDiagramLRYGKXZP; });
   return { id: id12, diagram: diagram2 };
 }, "loader");
 var plugin10 = {
@@ -28999,7 +29084,7 @@ var detector13 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*sequenceDiagram/.test(txt);
 }, "detector");
 var loader13 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return sequenceDiagramDBY2YBRQ; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return sequenceDiagramSI44F4Z6; });
   return { id: id13, diagram: diagram2 };
 }, "loader");
 var plugin11 = {
@@ -29018,7 +29103,7 @@ var detector14 = /* @__PURE__ */ __name$1((txt, config) => {
   return /^\s*classDiagram/.test(txt);
 }, "detector");
 var loader14 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return classDiagramOUVF2IWQ; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return classDiagramJCYQIIEL; });
   return { id: id14, diagram: diagram2 };
 }, "loader");
 var plugin12 = {
@@ -29037,7 +29122,7 @@ var detector15 = /* @__PURE__ */ __name$1((txt, config) => {
   return /^\s*classDiagram-v2/.test(txt);
 }, "detector");
 var loader15 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return classDiagramV2EOCWNBFH; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return classDiagramV2OCEON4UE; });
   return { id: id15, diagram: diagram2 };
 }, "loader");
 var plugin13 = {
@@ -29056,7 +29141,7 @@ var detector16 = /* @__PURE__ */ __name$1((txt, config) => {
   return /^\s*stateDiagram/.test(txt);
 }, "detector");
 var loader16 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return stateDiagram2N3HPSRC; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return stateDiagramOKZ733FA; });
   return { id: id16, diagram: diagram2 };
 }, "loader");
 var plugin14 = {
@@ -29078,7 +29163,7 @@ var detector17 = /* @__PURE__ */ __name$1((txt, config) => {
   return false;
 }, "detector");
 var loader17 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return stateDiagramV26OUMAXLB; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return stateDiagramV2UEYNNEHI; });
   return { id: id17, diagram: diagram2 };
 }, "loader");
 var plugin15 = {
@@ -29094,7 +29179,7 @@ var detector18 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*journey/.test(txt);
 }, "detector");
 var loader18 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return journeyDiagram5HDEW3XC; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return journeyDiagramNVQOT4AX; });
   return { id: id18, diagram: diagram2 };
 }, "loader");
 var plugin16 = {
@@ -29167,7 +29252,7 @@ var detector19 = /* @__PURE__ */ __name$1((txt, config = {}) => {
   return false;
 }, "detector");
 var loader19 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return flowDiagram23GEKE2U; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return flowDiagramUKHOOZJN; });
   return { id: id19, diagram: diagram2 };
 }, "loader");
 var plugin17 = {
@@ -29183,7 +29268,7 @@ var detector20 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*timeline/.test(txt);
 }, "detector");
 var loader20 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return timelineDefinitionFHXFAJF6; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return timelineDefinitionZ64GVDOM; });
   return { id: id20, diagram: diagram2 };
 }, "loader");
 var plugin18 = {
@@ -29199,7 +29284,7 @@ var detector21 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*mindmap/.test(txt);
 }, "detector");
 var loader21 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return mindmapDefinitionLN4V7U3C; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return mindmapDefinitionFAOFIHXS; });
   return { id: id21, diagram: diagram2 };
 }, "loader");
 var plugin19 = {
@@ -29215,7 +29300,7 @@ var detector22 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*kanban/.test(txt);
 }, "detector");
 var loader22 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return kanbanDefinitionHUTT4EX6; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return kanbanDefinition27J2QSJJ; });
   return { id: id22, diagram: diagram2 };
 }, "loader");
 var plugin20 = {
@@ -29231,7 +29316,7 @@ var detector23 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*sankey(-beta)?/.test(txt);
 }, "detector");
 var loader23 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return sankeyDiagramHTMAVEWB; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return sankeyDiagramW5VNT64P; });
   return { id: id23, diagram: diagram2 };
 }, "loader");
 var plugin21 = {
@@ -29247,7 +29332,7 @@ var detector24 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*packet(-beta)?/.test(txt);
 }, "detector");
 var loader24 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramNH7WQ7WH; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramLBJQPF4R; });
   return { id: id24, diagram: diagram2 };
 }, "loader");
 var packet = {
@@ -29262,7 +29347,7 @@ var detector25 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*radar-beta/.test(txt);
 }, "detector");
 var loader25 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramWEI45ONY; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramUB23O5K3; });
   return { id: id25, diagram: diagram2 };
 }, "loader");
 var radar = {
@@ -29277,7 +29362,7 @@ var detector26 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*block(-beta)?/.test(txt);
 }, "detector");
 var loader26 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return blockDiagram677ZJIJ3; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return blockDiagramVBNYF7ZC; });
   return { id: id26, diagram: diagram2 };
 }, "loader");
 var plugin22 = {
@@ -29293,7 +29378,7 @@ var detector27 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*treeView-beta/.test(txt);
 }, "detector");
 var loader27 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramOA4YK3LP; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagram7IWD3JNH; });
   return { id: id27, diagram: diagram2 };
 }, "loader");
 var plugin23 = {
@@ -29309,7 +29394,7 @@ var detector28 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*architecture/.test(txt);
 }, "detector");
 var loader28 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return architectureDiagramZJ3FMSHR; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return architectureDiagramT3A2C74G; });
   return { id: id28, diagram: diagram2 };
 }, "loader");
 var architecture = {
@@ -29325,7 +29410,7 @@ var detector29 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*eventmodeling/.test(txt);
 }, "detector");
 var loader29 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramFQU43EPY; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramB4RE2ZJO; });
   return { id: id29, diagram: diagram2 };
 }, "loader");
 var plugin24 = {
@@ -29341,7 +29426,7 @@ var detector30 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*ishikawa(-beta)?\b/i.test(txt);
 }, "detector");
 var loader30 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return ishikawaDiagramFXEZZL3T; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return ishikawaDiagramWSZJBQD7; });
   return { id: id30, diagram: diagram2 };
 }, "loader");
 var ishikawa = {
@@ -29356,7 +29441,7 @@ var detector31 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*venn-beta/.test(txt);
 }, "detector");
 var loader31 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return vennDiagramL72KCM5P; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return vennDiagramT6HMQDX7; });
   return { id: id31, diagram: diagram2 };
 }, "loader");
 var plugin25 = {
@@ -29372,7 +29457,7 @@ var detector32 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*treemap/.test(txt);
 }, "detector");
 var loader32 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramG47NLZAW; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return diagramQ27KOJAE; });
   return { id: id32, diagram: diagram2 };
 }, "loader");
 var treemap = {
@@ -29387,7 +29472,7 @@ var detector33 = /* @__PURE__ */ __name$1((text) => {
   return /^\s*wardley-beta/i.test(text);
 }, "detector");
 var loader33 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return wardleyDiagramEHGQE667; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return wardleyDiagramT6FBY63Y; });
   return { id: id33, diagram: diagram2 };
 }, "loader");
 var plugin26 = {
@@ -29403,7 +29488,7 @@ var detector34 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*cynefin-beta(?:[\s:]|$)/.test(txt);
 }, "detector");
 var loader34 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return cynefinDiagramTSTJHNR4; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return cynefinDiagramMW4NZA55; });
   return { id: id34, diagram: diagram2 };
 }, "loader");
 var cynefin = {
@@ -29418,7 +29503,7 @@ var detector35 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*railroad-beta/i.test(txt);
 }, "detector");
 var loader35 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return railroadDiagramRFXS5EU6; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return railroadDiagramAXF67PYL; });
   return { id: id35, diagram: diagram2 };
 }, "loader");
 var railroad = {
@@ -29433,7 +29518,7 @@ var detector36 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*railroad-ebnf-beta/i.test(txt);
 }, "detector");
 var loader36 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return ebnfDiagramCCIWWBDH; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return ebnfDiagramBXEA7PRR; });
   return { id: id36, diagram: diagram2 };
 }, "loader");
 var railroadEbnf = {
@@ -29448,7 +29533,7 @@ var detector37 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*railroad-abnf-beta/i.test(txt);
 }, "detector");
 var loader37 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return abnfDiagramVRR7QNED; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return abnfDiagramN423BO3Z; });
   return { id: id37, diagram: diagram2 };
 }, "loader");
 var railroadAbnf = {
@@ -29463,7 +29548,7 @@ var detector38 = /* @__PURE__ */ __name$1((txt) => {
   return /^\s*railroad-peg-beta/i.test(txt);
 }, "detector");
 var loader38 = /* @__PURE__ */ __name$1(async () => {
-  const { diagram: diagram2 } = await Promise.resolve().then(function () { return pegDiagram2B236MQR; });
+  const { diagram: diagram2 } = await Promise.resolve().then(function () { return pegDiagramVL7TDLO6; });
   return { id: id38, diagram: diagram2 };
 }, "loader");
 var railroadPeg = {
@@ -29864,7 +29949,26 @@ var compileCSS = /* @__PURE__ */ __name$1((namespace, css) => {
             return;
           }
           element.props = element.props.map((prop) => {
-            if (!prop.startsWith(namespace)) {
+            if (prop === namespace && Array.isArray(element.children) && element.children.every((child) => {
+              if (child.type !== "decl") {
+                return false;
+              }
+              const allowedProps = /* @__PURE__ */ new Set([
+                "font-family",
+                "font-size",
+                "fill"
+              ]);
+              return allowedProps.has(child.props);
+            })) {
+              return prop;
+            }
+            const alreadyNamespaced = (
+              // If the prop already starts with the namespace followed by a space or >, then it's already namespaced.
+              (prop.startsWith(`${namespace} `) || prop.startsWith(`${namespace}>`)) && // Column combinators are not yet widely supported, it's not yet compressed to `${namespace}||`,
+              // so we need to add an extra check for that
+              !prop.startsWith(`${namespace} ||`)
+            );
+            if (!alreadyNamespaced) {
               return `${namespace} ${prop}`;
             }
             return prop;
@@ -30014,12 +30118,12 @@ var render$4 = /* @__PURE__ */ __name$1(async function(id39, text, svgContaining
   style1.innerHTML = rules;
   svg.insertBefore(style1, firstChild);
   try {
-    await diag.renderer.draw(text, id39, "11.16.0", diag);
+    await diag.renderer.draw(text, id39, "11.16.1", diag);
   } catch (e) {
     if (config.suppressErrorRendering) {
       removeTempElements();
     } else {
-      errorRenderer_default.draw(text, id39, "11.16.0");
+      errorRenderer_default.draw(text, id39, "11.16.1");
     }
     throw e;
   }
@@ -30088,6 +30192,10 @@ var mermaidAPI = Object.freeze({
   getDiagramFromText,
   initialize,
   getConfig,
+  /**
+   * @deprecated This function does nothing. It will be overwritten by the next
+   *             call to {@link render} or {@link parse}.
+   */
   setConfig,
   getSiteConfig,
   updateSiteConfig,
@@ -58405,7 +58513,7 @@ var render$2 = /* @__PURE__ */ __name$1(async (data4Layout, svg) => {
   );
 }, "render");
 
-var dagreVKFMJZFB = /*#__PURE__*/Object.freeze({
+var dagreVZM6K2ZE = /*#__PURE__*/Object.freeze({
   __proto__: null,
   getEdgesToRender: getEdgesToRender,
   render: render$2
@@ -67032,7 +67140,7 @@ async function render$1(data4Layout, svg) {
 }
 __name$1(render$1, "render");
 
-var swimlanes5IMT3BWC = /*#__PURE__*/Object.freeze({
+var swimlanesSLNWSIFB = /*#__PURE__*/Object.freeze({
   __proto__: null,
   render: render$1
 });
@@ -111780,7 +111888,7 @@ var diagram$z = {
   }, "init")
 };
 
-var c4DiagramLMCZKHZV = /*#__PURE__*/Object.freeze({
+var c4Diagram5PPSVZJV = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$z
 });
@@ -114177,7 +114285,7 @@ var createFlowDiagram = /* @__PURE__ */ __name$1(({
 }), "createFlowDiagram");
 var diagram$y = createFlowDiagram();
 
-var flowDiagram23GEKE2U = /*#__PURE__*/Object.freeze({
+var flowDiagramUKHOOZJN = /*#__PURE__*/Object.freeze({
   __proto__: null,
   createFlowDiagram: createFlowDiagram,
   diagram: diagram$y
@@ -114197,7 +114305,7 @@ var styles_default2 = getStyles$k;
 // src/diagrams/swimlanes/swimlanesDiagram.ts
 var diagram$x = createFlowDiagram({ defaultLayout: "swimlane", styles: styles_default2 });
 
-var swimlanesDiagramG3AALYLV = /*#__PURE__*/Object.freeze({
+var swimlanesDiagramULZ7WXOC = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$x
 });
@@ -115441,7 +115549,7 @@ var diagram$w = {
   styles: styles_default$h
 };
 
-var erDiagramQ63AITRT = /*#__PURE__*/Object.freeze({
+var erDiagramJOGREHBK = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$w
 });
@@ -149972,7 +150080,7 @@ var diagram$v = {
   styles: styles_default$g
 };
 
-var gitGraphDiagramIHSO6WYX = /*#__PURE__*/Object.freeze({
+var gitGraphDiagramDS77QQ5N = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$v
 });
@@ -152272,7 +152380,7 @@ var diagram$u = {
   styles: styles_default$f
 };
 
-var ganttDiagramNO4QXBWP = /*#__PURE__*/Object.freeze({
+var ganttDiagramPKOTCBZU = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$u
 });
@@ -152286,7 +152394,7 @@ var parser$r = {
 
 // src/diagrams/info/infoDb.ts
 var DEFAULT_INFO_DB = {
-  version: "11.16.0" + ("" )
+  version: "11.16.1" + ("" )
 };
 var getVersion = /* @__PURE__ */ __name$1(() => DEFAULT_INFO_DB.version, "getVersion");
 var db$9 = {
@@ -152310,7 +152418,7 @@ var diagram$t = {
   renderer: renderer$a
 };
 
-var infoDiagramFWYZ7A6U = /*#__PURE__*/Object.freeze({
+var infoDiagram6WML65LV = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$t
 });
@@ -152576,7 +152684,7 @@ var diagram$s = {
   styles: pieStyles_default
 };
 
-var pieDiagramENE6RG2P = /*#__PURE__*/Object.freeze({
+var pieDiagram7S7Q4E2Y = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$s
 });
@@ -153925,7 +154033,7 @@ var diagram$r = {
   styles: /* @__PURE__ */ __name$1(() => "", "styles")
 };
 
-var quadrantDiagramABIIQ3AL = /*#__PURE__*/Object.freeze({
+var quadrantDiagramCIZ2JOQS = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$r
 });
@@ -155662,12 +155770,12 @@ function transformDataWithoutCategory(data) {
   if (isLinearAxisData(xyChartData.xAxis)) {
     const min = xyChartData.xAxis.min;
     const max = xyChartData.xAxis.max;
-    const step = (max - min) / (data.length - 1);
-    const categories = [];
-    for (let i = min; i <= max; i += step) {
-      categories.push(`${i}`);
+    if (data.length === 1) {
+      retData = [[`${min}`, data[0]]];
+    } else {
+      const step = (max - min) / (data.length - 1);
+      retData = data.map((datum, index) => [`${min + index * step}`, datum]);
     }
-    retData = categories.map((c, i) => [c, data[i]]);
   }
   return retData;
 }
@@ -155892,7 +156000,7 @@ var diagram$q = {
   renderer: xychartRenderer_default
 };
 
-var xychartDiagramFW5EYKEG = /*#__PURE__*/Object.freeze({
+var xychartDiagramELKLHX3M = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$q
 });
@@ -157105,7 +157213,7 @@ var diagram$p = {
   styles: styles_default$e
 };
 
-var requirementDiagramTGXJPOKE = /*#__PURE__*/Object.freeze({
+var requirementDiagramLRYGKXZP = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$p
 });
@@ -161627,7 +161735,7 @@ var diagram$o = {
   }, "init")
 };
 
-var sequenceDiagramDBY2YBRQ = /*#__PURE__*/Object.freeze({
+var sequenceDiagramSI44F4Z6 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$o
 });
@@ -163673,7 +163781,7 @@ var diagram$n = {
   }, "init")
 };
 
-var classDiagramOUVF2IWQ = /*#__PURE__*/Object.freeze({
+var classDiagramJCYQIIEL = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$n
 });
@@ -163694,7 +163802,7 @@ var diagram$m = {
   }, "init")
 };
 
-var classDiagramV2EOCWNBFH = /*#__PURE__*/Object.freeze({
+var classDiagramV2OCEON4UE = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$m
 });
@@ -166136,7 +166244,7 @@ var diagram$l = {
   }, "init")
 };
 
-var stateDiagram2N3HPSRC = /*#__PURE__*/Object.freeze({
+var stateDiagramOKZ733FA = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$l
 });
@@ -166157,7 +166265,7 @@ var diagram$k = {
   }, "init")
 };
 
-var stateDiagramV26OUMAXLB = /*#__PURE__*/Object.freeze({
+var stateDiagramV2UEYNNEHI = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$k
 });
@@ -167420,7 +167528,7 @@ var diagram$j = {
   }, "init")
 };
 
-var journeyDiagram5HDEW3XC = /*#__PURE__*/Object.freeze({
+var journeyDiagramNVQOT4AX = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$j
 });
@@ -169026,7 +169134,7 @@ var diagram$i = {
   styles: styles_default$9
 };
 
-var timelineDefinitionFHXFAJF6 = /*#__PURE__*/Object.freeze({
+var timelineDefinitionZ64GVDOM = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$i
 });
@@ -170237,7 +170345,7 @@ var diagram$h = {
   styles: styles_default$8
 };
 
-var mindmapDefinitionLN4V7U3C = /*#__PURE__*/Object.freeze({
+var mindmapDefinitionFAOFIHXS = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$h
 });
@@ -171297,7 +171405,7 @@ var diagram$g = {
   styles: styles_default$7
 };
 
-var kanbanDefinitionHUTT4EX6 = /*#__PURE__*/Object.freeze({
+var kanbanDefinition27J2QSJJ = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$g
 });
@@ -172725,7 +172833,7 @@ var diagram$f = {
   renderer: sankeyRenderer_default
 };
 
-var sankeyDiagramHTMAVEWB = /*#__PURE__*/Object.freeze({
+var sankeyDiagramW5VNT64P = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$f
 });
@@ -172944,7 +173052,7 @@ var diagram$e = {
   styles: styles$4
 };
 
-var diagramNH7WQ7WH = /*#__PURE__*/Object.freeze({
+var diagramLBJQPF4R = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$e
 });
@@ -172957,6 +173065,7 @@ var defaultOptions = {
   min: 0,
   graticule: "circle"
 };
+var MAX_TICKS = 32;
 var defaultRadarData = {
   axes: [],
   curves: [],
@@ -173022,6 +173131,12 @@ var setOptions$1 = /* @__PURE__ */ __name$1((options) => {
     min: optionMap.min?.value ?? defaultOptions.min,
     graticule: optionMap.graticule?.value ?? defaultOptions.graticule
   };
+  if (data$1.options.ticks > MAX_TICKS) {
+    log.warn(
+      `Radar diagram ticks (${data$1.options.ticks}) exceeds maximum allowed (${MAX_TICKS}). Using ${MAX_TICKS} instead.`
+    );
+    data$1.options.ticks = MAX_TICKS;
+  }
 }, "setOptions");
 var clear2$6 = /* @__PURE__ */ __name$1(() => {
   clear$5();
@@ -173255,7 +173370,7 @@ var diagram$d = {
   styles: styles$3
 };
 
-var diagramWEI45ONY = /*#__PURE__*/Object.freeze({
+var diagramUB23O5K3 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$d
 });
@@ -176961,7 +177076,7 @@ var diagram$c = {
   styles: styles_default$5
 };
 
-var blockDiagram677ZJIJ3 = /*#__PURE__*/Object.freeze({
+var blockDiagramVBNYF7ZC = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$c
 });
@@ -177461,7 +177576,7 @@ var diagram$b = {
   styles: styles_default$4
 };
 
-var diagramOA4YK3LP = /*#__PURE__*/Object.freeze({
+var diagram7IWD3JNH = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$b
 });
@@ -187442,6 +187557,10 @@ var isArchitectureJunction = /* @__PURE__ */ __name$1(function(x) {
   const temp = x;
   return temp.type === "junction";
 }, "isArchitectureJunction");
+var architectureGroupAlignmentKey = /* @__PURE__ */ __name$1((groupA, groupB) => {
+  const [lowerGroupId, upperGroupId] = [groupA, groupB].sort();
+  return `${JSON.stringify(lowerGroupId)}-${JSON.stringify(upperGroupId)}`;
+}, "architectureGroupAlignmentKey");
 var edgeData = /* @__PURE__ */ __name$1((edge) => {
   return edge.data();
 }, "edgeData");
@@ -187453,12 +187572,12 @@ var nodeData = /* @__PURE__ */ __name$1((node) => {
 var DEFAULT_ARCHITECTURE_CONFIG = defaultConfig_default.architecture;
 var ArchitectureDB = class {
   constructor() {
-    this.nodes = {};
-    this.groups = {};
+    this.nodes = /* @__PURE__ */ new Map();
+    this.groups = /* @__PURE__ */ new Map();
     this.edges = [];
     this.layoutHints = [];
-    this.registeredIds = {};
-    this.elements = {};
+    this.registeredIds = /* @__PURE__ */ new Map();
+    this.elements = /* @__PURE__ */ new Map();
     this.diagramId = "";
     this.setAccTitle = setAccTitle$1;
     this.getAccTitle = getAccTitle$1;
@@ -187478,13 +187597,13 @@ var ArchitectureDB = class {
     return this.diagramId;
   }
   clear() {
-    this.nodes = {};
-    this.groups = {};
+    this.nodes = /* @__PURE__ */ new Map();
+    this.groups = /* @__PURE__ */ new Map();
     this.edges = [];
     this.layoutHints = [];
-    this.registeredIds = {};
+    this.registeredIds = /* @__PURE__ */ new Map();
     this.dataStructures = void 0;
-    this.elements = {};
+    this.elements = /* @__PURE__ */ new Map();
     this.diagramId = "";
     clear$5();
   }
@@ -187495,26 +187614,26 @@ var ArchitectureDB = class {
     title,
     iconText
   }) {
-    if (this.registeredIds[id] !== void 0) {
+    if (this.registeredIds.has(id)) {
       throw new Error(
-        `The service id [${id}] is already in use by another ${this.registeredIds[id]}`
+        `The service id [${id}] is already in use by another ${this.registeredIds.get(id)}`
       );
     }
     if (parent !== void 0) {
       if (id === parent) {
         throw new Error(`The service [${id}] cannot be placed within itself`);
       }
-      if (this.registeredIds[parent] === void 0) {
+      if (!this.registeredIds.has(parent)) {
         throw new Error(
           `The service [${id}]'s parent does not exist. Please make sure the parent is created before this service`
         );
       }
-      if (this.registeredIds[parent] === "node") {
+      if (this.registeredIds.get(parent) === "node") {
         throw new Error(`The service [${id}]'s parent is not a group`);
       }
     }
-    this.registeredIds[id] = "node";
-    this.nodes[id] = {
+    this.registeredIds.set(id, "node");
+    this.nodes.set(id, {
       id,
       type: "service",
       icon,
@@ -187522,76 +187641,76 @@ var ArchitectureDB = class {
       title,
       edges: [],
       in: parent
-    };
+    });
   }
   getServices() {
-    return Object.values(this.nodes).filter(isArchitectureService);
+    return [...this.nodes.values()].filter(isArchitectureService);
   }
   addJunction({ id, in: parent }) {
-    if (this.registeredIds[id] !== void 0) {
+    if (this.registeredIds.has(id)) {
       throw new Error(
-        `The junction id [${id}] is already in use by another ${this.registeredIds[id]}`
+        `The junction id [${id}] is already in use by another ${this.registeredIds.get(id)}`
       );
     }
     if (parent !== void 0) {
       if (id === parent) {
         throw new Error(`The junction [${id}] cannot be placed within itself`);
       }
-      if (this.registeredIds[parent] === void 0) {
+      if (!this.registeredIds.has(parent)) {
         throw new Error(
           `The junction [${id}]'s parent does not exist. Please make sure the parent is created before this junction`
         );
       }
-      if (this.registeredIds[parent] === "node") {
+      if (this.registeredIds.get(parent) === "node") {
         throw new Error(`The junction [${id}]'s parent is not a group`);
       }
     }
-    this.registeredIds[id] = "node";
-    this.nodes[id] = {
+    this.registeredIds.set(id, "node");
+    this.nodes.set(id, {
       id,
       type: "junction",
       edges: [],
       in: parent
-    };
+    });
   }
   getJunctions() {
-    return Object.values(this.nodes).filter(isArchitectureJunction);
+    return [...this.nodes.values()].filter(isArchitectureJunction);
   }
   getNodes() {
-    return Object.values(this.nodes);
+    return [...this.nodes.values()];
   }
   getNode(id) {
-    return this.nodes[id] ?? null;
+    return this.nodes.get(id) ?? null;
   }
   addGroup({ id, icon, in: parent, title }) {
-    if (this.registeredIds?.[id] !== void 0) {
+    if (this.registeredIds.has(id)) {
       throw new Error(
-        `The group id [${id}] is already in use by another ${this.registeredIds[id]}`
+        `The group id [${id}] is already in use by another ${this.registeredIds.get(id)}`
       );
     }
     if (parent !== void 0) {
       if (id === parent) {
         throw new Error(`The group [${id}] cannot be placed within itself`);
       }
-      if (this.registeredIds?.[parent] === void 0) {
+      if (!this.registeredIds.has(parent)) {
         throw new Error(
           `The group [${id}]'s parent does not exist. Please make sure the parent is created before this group`
         );
       }
-      if (this.registeredIds?.[parent] === "node") {
+      if (this.registeredIds.get(parent) === "node") {
         throw new Error(`The group [${id}]'s parent is not a group`);
       }
     }
-    this.registeredIds[id] = "group";
-    this.groups[id] = {
+    this.registeredIds.set(id, "group");
+    this.groups.set(id, {
       id,
       icon,
       title,
       in: parent
-    };
+    });
   }
   getGroups() {
-    return Object.values(this.groups);
+    return [...this.groups.values()];
   }
   addEdge({
     lhsId,
@@ -187614,18 +187733,18 @@ var ArchitectureDB = class {
         `Invalid direction given for right hand side of edge ${lhsId}--${rhsId}. Expected (L,R,T,B) got ${String(rhsDir)}`
       );
     }
-    if (this.nodes[lhsId] === void 0 && this.groups[lhsId] === void 0) {
+    if (!this.nodes.has(lhsId) && !this.groups.has(lhsId)) {
       throw new Error(
         `The left-hand id [${lhsId}] does not yet exist. Please create the service/group before declaring an edge to it.`
       );
     }
-    if (this.nodes[rhsId] === void 0 && this.groups[rhsId] === void 0) {
+    if (!this.nodes.has(rhsId) && !this.groups.has(rhsId)) {
       throw new Error(
         `The right-hand id [${rhsId}] does not yet exist. Please create the service/group before declaring an edge to it.`
       );
     }
-    const lhsGroupId = this.nodes[lhsId].in;
-    const rhsGroupId = this.nodes[rhsId].in;
+    const lhsGroupId = this.nodes.get(lhsId).in;
+    const rhsGroupId = this.nodes.get(rhsId).in;
     if (lhsGroup && lhsGroupId && rhsGroupId && lhsGroupId == rhsGroupId) {
       throw new Error(
         `The left-hand id [${lhsId}] is modified to traverse the group boundary, but the edge does not pass through two groups.`
@@ -187648,9 +187767,11 @@ var ArchitectureDB = class {
       title
     };
     this.edges.push(edge);
-    if (this.nodes[lhsId] && this.nodes[rhsId]) {
-      this.nodes[lhsId].edges.push(this.edges[this.edges.length - 1]);
-      this.nodes[rhsId].edges.push(this.edges[this.edges.length - 1]);
+    const lhsNode = this.nodes.get(lhsId);
+    const rhsNode = this.nodes.get(rhsId);
+    if (lhsNode && rhsNode) {
+      lhsNode.edges.push(this.edges[this.edges.length - 1]);
+      rhsNode.edges.push(this.edges[this.edges.length - 1]);
     }
   }
   getEdges() {
@@ -187664,7 +187785,7 @@ var ArchitectureDB = class {
     }
     const seen = /* @__PURE__ */ new Set();
     hint.members.forEach((id) => {
-      if (this.registeredIds[id] !== "node") {
+      if (this.registeredIds.get(id) !== "node") {
         throw new Error(
           `align ${hint.direction} references [${id}], which is not a service or junction`
         );
@@ -187686,57 +187807,59 @@ var ArchitectureDB = class {
    */
   getDataStructures() {
     if (this.dataStructures === void 0) {
-      const groupAlignments = {};
-      const adjList = Object.entries(this.nodes).reduce((prevOuter, [id, service]) => {
-        prevOuter[id] = service.edges.reduce((prevInner, edge) => {
+      const groupAlignments = /* @__PURE__ */ new Map();
+      const adjList = /* @__PURE__ */ new Map();
+      for (const [id, service] of this.nodes.entries()) {
+        const directionMap = /* @__PURE__ */ new Map();
+        for (const edge of service.edges) {
           const lhsGroupId = this.getNode(edge.lhsId)?.in;
           const rhsGroupId = this.getNode(edge.rhsId)?.in;
           if (lhsGroupId && rhsGroupId && lhsGroupId !== rhsGroupId) {
             const alignment = getArchitectureDirectionAlignment(edge.lhsDir, edge.rhsDir);
             if (alignment !== "bend") {
-              groupAlignments[lhsGroupId] ??= {};
-              groupAlignments[lhsGroupId][rhsGroupId] = alignment;
-              groupAlignments[rhsGroupId] ??= {};
-              groupAlignments[rhsGroupId][lhsGroupId] = alignment;
+              groupAlignments.set(architectureGroupAlignmentKey(lhsGroupId, rhsGroupId), alignment);
             }
           }
           if (edge.lhsId === id) {
             const pair = getArchitectureDirectionPair(edge.lhsDir, edge.rhsDir);
             if (pair) {
-              prevInner[pair] = edge.rhsId;
+              directionMap.set(pair, edge.rhsId);
             }
           } else {
             const pair = getArchitectureDirectionPair(edge.rhsDir, edge.lhsDir);
             if (pair) {
-              prevInner[pair] = edge.lhsId;
+              directionMap.set(pair, edge.lhsId);
             }
           }
-          return prevInner;
-        }, {});
-        return prevOuter;
-      }, {});
-      const firstId = Object.keys(adjList)[0];
-      const visited = { [firstId]: 1 };
-      const notVisited = Object.keys(adjList).reduce(
-        (prev, id) => id === firstId ? prev : { ...prev, [id]: 1 },
-        {}
-      );
+        }
+        adjList.set(id, directionMap);
+      }
+      const visited = /* @__PURE__ */ new Set();
+      const notVisited = new Set(adjList.keys());
       const BFS = /* @__PURE__ */ __name$1((startingId) => {
-        const spatialMap = { [startingId]: [0, 0] };
+        const spatialMap = /* @__PURE__ */ new Map([[startingId, [0, 0]]]);
         const queue = [startingId];
         while (queue.length > 0) {
           const id = queue.shift();
           if (id) {
-            visited[id] = 1;
-            delete notVisited[id];
-            const adj = adjList[id];
-            const [posX, posY] = spatialMap[id];
-            Object.entries(adj).forEach(([dir, rhsId]) => {
-              if (!visited[rhsId]) {
-                spatialMap[rhsId] = shiftPositionByArchitectureDirectionPair(
-                  [posX, posY],
-                  dir
-                );
+            visited.add(id);
+            notVisited.delete(id);
+            const adj = adjList.get(id);
+            if (!adj) {
+              throw new Error(
+                `BFS error: adjacency list for id ${id} not found. Please report this as a bug.`
+              );
+            }
+            const pos = spatialMap.get(id);
+            if (!pos) {
+              throw new Error(
+                `BFS error: position for id ${id} not found in spatial map. Please report this as a bug.`
+              );
+            }
+            const [posX, posY] = pos;
+            adj.forEach((rhsId, dir) => {
+              if (!visited.has(rhsId)) {
+                spatialMap.set(rhsId, shiftPositionByArchitectureDirectionPair([posX, posY], dir));
                 queue.push(rhsId);
               }
             });
@@ -187744,9 +187867,10 @@ var ArchitectureDB = class {
         }
         return spatialMap;
       }, "BFS");
-      const spatialMaps = [BFS(firstId)];
-      while (Object.keys(notVisited).length > 0) {
-        spatialMaps.push(BFS(Object.keys(notVisited)[0]));
+      const spatialMaps = [];
+      while (notVisited.size > 0) {
+        const firstId = notVisited.values().next().value;
+        spatialMaps.push(BFS(firstId));
       }
       this.dataStructures = {
         adjList,
@@ -187757,10 +187881,10 @@ var ArchitectureDB = class {
     return this.dataStructures;
   }
   setElementForId(id, element) {
-    this.elements[id] = element;
+    this.elements.set(id, element);
   }
   getElementById(id) {
-    return this.elements[id];
+    return this.elements.get(id);
   }
   getConfig() {
     return cleanAndMerge({
@@ -188226,56 +188350,62 @@ function addEdges(edges, cy) {
 }
 __name$1(addEdges, "addEdges");
 function getAlignments(db, spatialMaps, groupAlignments, layoutHints = []) {
-  const flattenAlignments = /* @__PURE__ */ __name$1((alignmentObj, alignmentDir) => {
-    return Object.entries(alignmentObj).reduce(
-      (prev, [dir, alignments2]) => {
-        let cnt = 0;
-        const arr = Object.entries(alignments2);
-        if (arr.length === 1) {
-          prev[dir] = arr[0][1];
-          return prev;
-        }
-        for (let i = 0; i < arr.length - 1; i++) {
-          for (let j = i + 1; j < arr.length; j++) {
-            const [aGroupId, aNodeIds] = arr[i];
-            const [bGroupId, bNodeIds] = arr[j];
-            const alignment = groupAlignments[aGroupId]?.[bGroupId];
-            if (alignment === alignmentDir) {
-              prev[dir] ??= [];
-              prev[dir] = [...prev[dir], ...aNodeIds, ...bNodeIds];
-            } else if (aGroupId === "default" || bGroupId === "default") {
-              prev[dir] ??= [];
-              prev[dir] = [...prev[dir], ...aNodeIds, ...bNodeIds];
-            } else {
-              const keyA = `${dir}-${cnt++}`;
-              prev[keyA] = aNodeIds;
-              const keyB = `${dir}-${cnt++}`;
-              prev[keyB] = bNodeIds;
-            }
+  const flattenAlignments = /* @__PURE__ */ __name$1((alignmentMap, alignmentDir) => {
+    const flattened = /* @__PURE__ */ new Map();
+    for (const [numericDir, alignments2] of alignmentMap.entries()) {
+      const dir = `${numericDir}`;
+      let cnt = 0;
+      const arr = [...alignments2.entries()];
+      if (arr.length === 1) {
+        flattened.set(dir, arr[0][1]);
+        continue;
+      }
+      for (let i = 0; i < arr.length - 1; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          const [aGroupId, aNodeIds] = arr[i];
+          const [bGroupId, bNodeIds] = arr[j];
+          const alignment = groupAlignments.get(architectureGroupAlignmentKey(aGroupId, bGroupId));
+          if (alignment === alignmentDir) {
+            flattened.set(dir, [...flattened.get(dir) ?? [], ...aNodeIds, ...bNodeIds]);
+          } else if (aGroupId === "default" || bGroupId === "default") {
+            flattened.set(dir, [...flattened.get(dir) ?? [], ...aNodeIds, ...bNodeIds]);
+          } else {
+            const keyA = `${dir}-${cnt++}`;
+            flattened.set(keyA, aNodeIds);
+            const keyB = `${dir}-${cnt++}`;
+            flattened.set(keyB, bNodeIds);
           }
         }
-        return prev;
-      },
-      {}
-    );
+      }
+    }
+    return flattened;
   }, "flattenAlignments");
   const alignments = spatialMaps.map((spatialMap) => {
-    const horizontalAlignments = {};
-    const verticalAlignments = {};
-    Object.entries(spatialMap).forEach(([id, [x, y]]) => {
+    const horizontalAlignments = /* @__PURE__ */ new Map();
+    const verticalAlignments = /* @__PURE__ */ new Map();
+    spatialMap.forEach(([x, y], id) => {
       const nodeGroup = db.getNode(id)?.in ?? "default";
-      horizontalAlignments[y] ??= {};
-      horizontalAlignments[y][nodeGroup] ??= [];
-      horizontalAlignments[y][nodeGroup].push(id);
-      verticalAlignments[x] ??= {};
-      verticalAlignments[x][nodeGroup] ??= [];
-      verticalAlignments[x][nodeGroup].push(id);
+      const horizontalAlignment = horizontalAlignments.get(y) ?? /* @__PURE__ */ new Map();
+      if (!horizontalAlignments.has(y)) {
+        horizontalAlignments.set(y, horizontalAlignment);
+      }
+      const verticalAlignment = verticalAlignments.get(x) ?? /* @__PURE__ */ new Map();
+      if (!verticalAlignments.has(x)) {
+        verticalAlignments.set(x, verticalAlignment);
+      }
+      for (const alignment of [horizontalAlignment, verticalAlignment]) {
+        const nodeList = alignment.get(nodeGroup) ?? [];
+        if (!alignment.has(nodeGroup)) {
+          alignment.set(nodeGroup, nodeList);
+        }
+        nodeList.push(id);
+      }
     });
     return {
-      horiz: Object.values(flattenAlignments(horizontalAlignments, "horizontal")).filter(
+      horiz: [...flattenAlignments(horizontalAlignments, "horizontal").values()].filter(
         (arr) => arr.length > 1
       ),
-      vert: Object.values(flattenAlignments(verticalAlignments, "vertical")).filter(
+      vert: [...flattenAlignments(verticalAlignments, "vertical").values()].filter(
         (arr) => arr.length > 1
       )
     };
@@ -188332,8 +188462,8 @@ function getRelativeConstraints(spatialMaps, db, layoutHints = []) {
   const posToStr = /* @__PURE__ */ __name$1((pos) => `${pos[0]},${pos[1]}`, "posToStr");
   const strToPos = /* @__PURE__ */ __name$1((pos) => pos.split(",").map((p) => parseInt(p)), "strToPos");
   spatialMaps.forEach((spatialMap) => {
-    const invSpatialMap = Object.fromEntries(
-      Object.entries(spatialMap).map(([id, pos]) => [posToStr(pos), id])
+    const invSpatialMap = new Map(
+      [...spatialMap.entries()].map(([key, value]) => [posToStr(value), key])
     );
     const queue = [posToStr([0, 0])];
     const visited = {};
@@ -188347,12 +188477,12 @@ function getRelativeConstraints(spatialMaps, db, layoutHints = []) {
       const curr = queue.shift();
       if (curr) {
         visited[curr] = 1;
-        const currId = invSpatialMap[curr];
+        const currId = invSpatialMap.get(curr);
         if (currId) {
           const currPos = strToPos(curr);
           Object.entries(directions).forEach(([dir, shift]) => {
             const newPos = posToStr([currPos[0] + shift[0], currPos[1] + shift[1]]);
-            const newId = invSpatialMap[newPos];
+            const newId = invSpatialMap.get(newPos);
             if (newId && !visited[newPos]) {
               queue.push(newPos);
               if (declaredPairs.has(`${currId}|${newId}`)) {
@@ -188597,7 +188727,7 @@ var diagram$a = {
   styles: architectureStyles_default
 };
 
-var architectureDiagramZJ3FMSHR = /*#__PURE__*/Object.freeze({
+var architectureDiagramT3A2C74G = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$a
 });
@@ -189238,7 +189368,7 @@ var diagram$9 = {
   styles: styles_default$3
 };
 
-var diagramFQU43EPY = /*#__PURE__*/Object.freeze({
+var diagramB4RE2ZJO = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$9
 });
@@ -190214,7 +190344,7 @@ var diagram$8 = {
   styles: ishikawaStyles_default
 };
 
-var ishikawaDiagramFXEZZL3T = /*#__PURE__*/Object.freeze({
+var ishikawaDiagramWSZJBQD7 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$8
 });
@@ -193464,7 +193594,7 @@ var diagram$7 = {
   styles: styles_default$2
 };
 
-var vennDiagramL72KCM5P = /*#__PURE__*/Object.freeze({
+var vennDiagramT6HMQDX7 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$7
 });
@@ -193999,7 +194129,7 @@ var diagram$6 = {
   styles: styles_default$1
 };
 
-var diagramG47NLZAW = /*#__PURE__*/Object.freeze({
+var diagramQ27KOJAE = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$6
 });
@@ -194984,7 +195114,7 @@ var diagram$5 = {
   styles: styles$1
 };
 
-var wardleyDiagramEHGQE667 = /*#__PURE__*/Object.freeze({
+var wardleyDiagramT6FBY63Y = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$5
 });
@@ -195448,7 +195578,7 @@ var diagram$4 = {
   styles: styles_default
 };
 
-var cynefinDiagramTSTJHNR4 = /*#__PURE__*/Object.freeze({
+var cynefinDiagramMW4NZA55 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$4
 });
@@ -196403,7 +196533,7 @@ var diagram$3 = {
   styles: getStyles
 };
 
-var railroadDiagramRFXS5EU6 = /*#__PURE__*/Object.freeze({
+var railroadDiagramAXF67PYL = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$3
 });
@@ -196542,7 +196672,7 @@ var diagram$2 = {
   styles: getStyles
 };
 
-var ebnfDiagramCCIWWBDH = /*#__PURE__*/Object.freeze({
+var ebnfDiagramBXEA7PRR = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$2
 });
@@ -196661,7 +196791,7 @@ var diagram$1 = {
   styles: getStyles
 };
 
-var abnfDiagramVRR7QNED = /*#__PURE__*/Object.freeze({
+var abnfDiagramN423BO3Z = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram$1
 });
@@ -196788,7 +196918,7 @@ var diagram = {
   styles: getStyles
 };
 
-var pegDiagram2B236MQR = /*#__PURE__*/Object.freeze({
+var pegDiagramVL7TDLO6 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   diagram: diagram
 });

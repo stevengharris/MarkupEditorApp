@@ -44,7 +44,7 @@ describe('plugin registration', () => {
         const [plugin, name] = registerPluginCallArgs
         expect(plugin.name).toBe('DocX')
         expect(plugin.type).toBe('exporter')
-        expect(plugin.filename).toBe('markupeditor-export-docx.js')
+        expect(plugin.filename).toBe('markupeditor-exporter-docx.js')
         expect(typeof plugin.run).toBe('function')
         expect(name).toBe('DocX')
     })

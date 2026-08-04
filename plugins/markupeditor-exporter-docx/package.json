@@ -1,9 +1,9 @@
 {
-  "name": "markupeditor-export-docx",
+  "name": "markupeditor-exporter-docx",
   "version": "0.1.0",
-  "description": "MarkupEditor exporter plugin for DOCX, built on the docx library's typed object model.",
+  "description": "MarkupEditor exporter plugin for DOCX.",
   "type": "module",
-  "main": "dist/markupeditor-export-docx.js",
+  "main": "dist/markupeditor-exporter-docx.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "dependencies": {
@@ -22,7 +22,6 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "prepare": "./prepare.sh",
     "pretest": "npm run build",
     "test": "vitest run"
   }

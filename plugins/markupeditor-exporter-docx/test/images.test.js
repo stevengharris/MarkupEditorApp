@@ -51,6 +51,22 @@ describe('resolved <img> (data: URI, as resolveImages already produced before th
         expect(warnings[0]).toMatch(/no usable width\/height/)
         expect(xml).not.toContain('<w:drawing>')
     })
+
+    // Regression: docx's own docPr id generator restarts at 1 for every ImageRun instead of
+    // sharing one counter across the document, so multiple images previously all got the
+    // identical wp:docPr id="1" -- a real OOXML validity violation (these are meant to be
+    // document-unique) that some consumers reject outright.
+    it('gives each of several images in one document a distinct wp:docPr id', async () => {
+        const html =
+            `<p><img src="data:image/png;base64,${ONE_PIXEL_PNG_BASE64}" width="10" height="10"></p>` +
+            `<p><img src="data:image/png;base64,${ONE_PIXEL_PNG_BASE64}" width="20" height="20"></p>` +
+            `<p><img src="data:image/png;base64,${ONE_PIXEL_PNG_BASE64}" width="30" height="30"></p>`
+        const { xml, warnings } = await decode(html)
+        expect(warnings).toEqual([])
+        const ids = [...xml.matchAll(/<wp:docPr id="(\d+)"/g)].map((m) => m[1])
+        expect(ids.length).toBe(3)
+        expect(new Set(ids).size).toBe(3)
+    })
 })
 
 describe('unembeddable image fallback (resolveImages already rewrote it to a plain <a> link)', () => {

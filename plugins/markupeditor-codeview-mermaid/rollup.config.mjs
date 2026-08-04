@@ -12,7 +12,7 @@ export default {
 	// both files share at runtime (they land in the same WKWebView cache directory).
 	external: ['prosemirror-model', 'prosemirror-state', 'prosemirror-view', 'markupeditor'],
 	output: {
-		file: 'dist/markupeditor-mermaid.js',
+		file: 'dist/markupeditor-codeview-mermaid.js',
 		format: 'es',
 		inlineDynamicImports: true,
 		paths: {

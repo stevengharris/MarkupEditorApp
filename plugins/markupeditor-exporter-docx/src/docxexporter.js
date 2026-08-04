@@ -56,4 +56,4 @@ export class DocXExporter {
 
 export const docXExporter = new DocXExporter()
 
-MU.registerPlugin({ name: 'DocX', type: 'exporter', filename: 'markupeditor-export-docx.js', run: docXExporter.run.bind(docXExporter) }, 'DocX')
+MU.registerPlugin({ name: 'DocX', type: 'exporter', filename: 'markupeditor-exporter-docx.js', run: docXExporter.run.bind(docXExporter) }, 'DocX')

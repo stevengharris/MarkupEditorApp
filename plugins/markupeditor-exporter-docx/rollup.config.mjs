@@ -10,14 +10,9 @@ export default {
 	// (they land in the same WKWebView cache directory).
 	external: ['markupeditor'],
 	output: {
-		file: 'dist/markupeditor-export-docx.js',
+		file: 'dist/markupeditor-exporter-docx.js',
 		format: 'es',
 		inlineDynamicImports: true,
-		// docx already bundles a `global` shim
-		// (node_modules/vite-plugin-node-polyfills/shims/global/dist/index.js,
-		// `var global; global = globalThis || self;`) -- no intro shim needed here, and
-		// adding one causes a "Identifier 'global' has already been declared" SyntaxError
-		// since Rollup flattens ES modules into one shared top-level scope.
 		paths: {
 			'markupeditor': './markup-editor.js'
 		}

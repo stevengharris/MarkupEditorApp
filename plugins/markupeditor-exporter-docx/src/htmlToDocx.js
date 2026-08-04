@@ -25,9 +25,9 @@ function convertButton(_element, _context) {
 }
 
 // listStyle wins over quoteStyle -- a paragraph carries only one `style`, and ListParagraph
-// is what makes Word/Pages recognize it as a real list item. Falls back to 'Body' rather than
-// leaving pStyle implicit/absent: an absent w:pStyle does not reliably resolve to a named
-// default style in Pages.
+// is the conventional style consumers use to recognize a paragraph as a real list item. Falls
+// back to 'Body' rather than leaving pStyle implicit/absent: whether an absent w:pStyle
+// reliably resolves to a named default style is consumer-dependent.
 function paragraphStyleFrom(context) {
     return context.listStyle ?? context.quoteStyle ?? 'Body'
 }
@@ -325,8 +325,8 @@ function convertTable(element, context) {
     const columnWidth = Math.floor(PAGE_CONTENT_WIDTH_TWIPS / columnCount)
     const rows = rawRows.map((row) => convertTableRow(row, tableContext))
     // Matches markup.css's `table { width: 100%; table-layout: fixed; }`. width alone isn't
-    // enough: without `layout: FIXED` and real per-column widths, Word/Pages' AUTOFIT still
-    // shrinks columns to content. columnWidths distributes content width evenly across the
+    // enough: without `layout: FIXED` and real per-column widths, the AUTOFIT table-layout
+    // algorithm still shrinks columns to content. columnWidths distributes content width evenly across the
     // real column count (accounting for colspan).
     const options = {
         rows,
@@ -442,7 +442,16 @@ function convertImage(element, context) {
         context.warnings.push(`<img> has no usable width/height (got width="${element.getAttribute('width')}" height="${element.getAttribute('height')}") -- skipped rather than embedding an invisible image`)
         return []
     }
-    return [new ImageRun({ type, data: base64, transformation: { width, height } })]
+    // docx's own docPr id generator restarts at 1 for every ImageRun instead of sharing one
+    // counter across the document (confirmed by reading its source:
+    // docPropertiesUniqueNumericIdGen() is called fresh in every DocProperties constructor) --
+    // every image in a document with more than one ends up with an identical wp:docPr id="1", a
+    // real OOXML validity violation (these are supposed to be document-unique). Passing an
+    // explicit id here bypasses the broken generator. pic:cNvPr's id is a separate, still-
+    // duplicated id="0" on every image -- confirmed the library hardcodes it with no
+    // constructor argument, so it can't be fixed through this API at all.
+    const id = String(context.nextImageId.value++)
+    return [new ImageRun({ type, data: base64, transformation: { width, height }, altText: { name: '', id } })]
 }
 
 // Walks inline content recursively, threading active marks down through nesting so they
@@ -498,10 +507,10 @@ function convertInline(element, context) {
 // Entry point: parses `html` and returns the docx block-level children for a single Document
 // section. Independent of MU and the plugin envelope, so it's unit-testable in isolation.
 export function htmlToDocxChildren(html, warnings = []) {
-    // A mutable shared counter, not a plain number on `context` -- every convertList call
-    // that starts a NEW list instance needs to see and increment the same counter, including
-    // calls reached from unrelated sibling subtrees.
-    const context = { warnings, nextListInstance: { value: 1 } }
+    // Mutable shared counters, not plain numbers on `context` -- every convertList/convertImage
+    // call needs to see and increment the same counter, including calls reached from unrelated
+    // sibling subtrees.
+    const context = { warnings, nextListInstance: { value: 1 }, nextImageId: { value: 1 } }
     const parsed = new DOMParser().parseFromString(html, 'text/html')
     return convertChildren(parsed.body, context)
 }

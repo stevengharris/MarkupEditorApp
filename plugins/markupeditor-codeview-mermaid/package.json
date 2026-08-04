@@ -1,9 +1,9 @@
 {
-  "name": "markupeditor-mermaid",
-  "version": "0.1.0",
+  "name": "markupeditor-codeview-mermaid",
+  "version": "1.0.0",
   "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
   "type": "module",
-  "main": "dist/markupeditor-mermaid.js",
+  "main": "dist/markupeditor-codeview-mermaid.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "dependencies": {
