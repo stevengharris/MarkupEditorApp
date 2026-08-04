@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { resolveImages, imageWidth, imageLinkLabel, setTagAttr } from '../src/resolveImages.js'
+import { resolveImages, imageWidth, imageLinkLabel, setTagAttr, loadImageAsDataUri } from '../src/resolveImages.js'
 
 describe('imageLinkLabel', () => {
     it('uses "alt (src)" when the tag has alt text', () => {
@@ -140,5 +140,45 @@ describe('resolveImages', () => {
             '<a href="bad.png">bad.png</a>'
         )
         expect(warnings).toEqual(['Could not embed image "bad.png": failed to load -- inserted a link instead'])
+    })
+})
+
+describe('loadImageAsDataUri crossOrigin scoping', () => {
+    // The actual canvas-tainting/CORS behavior needs a real browser and is verified manually
+    // (see the real-app remote-image Test Plan scenarios) -- happy-dom has no real canvas
+    // rendering engine, so Image/canvas are fully stubbed here rather than exercised for real.
+    // This isolates and asserts the one thing that IS meaningfully testable without a browser:
+    // which sources get `crossOrigin` set at all.
+    it('sets crossOrigin="anonymous" for http(s) sources only, not local/relative/file: sources', async () => {
+        const seenCrossOrigin = []
+        class FakeImage {
+            set crossOrigin(value) { seenCrossOrigin.push(value) }
+            set src(value) {
+                this.naturalWidth = 10
+                this.naturalHeight = 10
+                queueMicrotask(() => this.onload?.())
+            }
+        }
+        vi.stubGlobal('Image', FakeImage)
+        vi.stubGlobal('document', {
+            createElement: (tag) => {
+                if (tag !== 'canvas') throw new Error(`unexpected createElement("${tag}")`)
+                return {
+                    getContext: () => ({ drawImage: () => {} }),
+                    toDataURL: () => 'data:image/png;base64,FAKE',
+                }
+            },
+        })
+
+        try {
+            await loadImageAsDataUri('https://example.com/a.png', null)
+            await loadImageAsDataUri('http://example.com/a.png', null)
+            await loadImageAsDataUri('steve.png', null)
+            await loadImageAsDataUri('file:///tmp/b.png', null)
+        } finally {
+            vi.unstubAllGlobals()
+        }
+
+        expect(seenCrossOrigin).toEqual(['anonymous', 'anonymous'])
     })
 })
