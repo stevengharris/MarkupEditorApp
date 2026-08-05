@@ -32,9 +32,10 @@
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AAB800602FC4C2CC00212250 /* markupeditor-markdown */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-markdown"; sourceTree = "<group>"; };
+		AAB800602FC4C2CC00212250 /* markupeditor-app */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-app"; sourceTree = "<group>"; };
 		AAB8007C2FC5036A00212250 /* docs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = docs; sourceTree = "<group>"; };
 		AAC5859C3022675B00C6CDA3 /* plugins */ = {isa = PBXFileReference; lastKnownFileType = folder; path = plugins; sourceTree = "<group>"; };
+		AAC586203022A9E100C6CDA3 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -42,8 +43,18 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITests.swift",
+				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITestsLaunchTests.swift",
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
+		};
+		AAC5862930239E9300C6CDA3 /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorAppUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITests.swift",
+				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITestsLaunchTests.swift",
+			);
+			target = AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -52,6 +63,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */,
+				AAC5862930239E9300C6CDA3 /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorAppUITests" target */,
 			);
 			path = MarkupEditorApp;
 			sourceTree = "<group>";
@@ -59,11 +71,6 @@
 		AA7B99A72F9290E00085425B /* MarkupEditorAppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MarkupEditorAppTests;
-			sourceTree = "<group>";
-		};
-		AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MarkupEditorAppUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -98,11 +105,11 @@
 		AA7B998E2F9290DF0085425B = {
 			isa = PBXGroup;
 			children = (
+				AAC586203022A9E100C6CDA3 /* README.md */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
-				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
 				AAC5859C3022675B00C6CDA3 /* plugins */,
-				AAB800602FC4C2CC00212250 /* markupeditor-markdown */,
+				AAB800602FC4C2CC00212250 /* markupeditor-app */,
 				AAB8007C2FC5036A00212250 /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
@@ -180,9 +187,6 @@
 			);
 			dependencies = (
 				AA7B99B02F9290E00085425B /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				AA7B99B12F9290E00085425B /* MarkupEditorAppUITests */,
 			);
 			name = MarkupEditorAppUITests;
 			packageProductDependencies = (

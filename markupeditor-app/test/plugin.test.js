@@ -1,20 +1,20 @@
 import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { MU } from 'markupeditor'
-import '../src/markupeditor-markdown.js'
+import { exportMarkdown, importMarkdown } from '../src/markdown.js'
 const { schema } = MU
 
 // ---------------------------------------------------------------------------
 // Module setup
 //
-// Since 303c562 moved markdown import/export from a plugin to a userscript,
-// markupeditor-markdown.js attaches exportMarkdown/importMarkdown directly
-// onto the real MU singleton imported from the markupeditor package, rather
-// than exporting them or registering via MU.registerPlugin. Importing the
-// module (above) triggers that attachment; MU.activeView is stubbed per test.
+// markdown.js exports exportMarkdown/importMarkdown as plain functions;
+// app.js is what wires them onto the real MU singleton (plus registers
+// MarkupEditorDelegate) when the app actually loads. Importing them directly
+// here keeps this suite independent of that wiring/delegate registration.
+// MU.activeView is stubbed per test.
 // ---------------------------------------------------------------------------
 
-const exportFn = MU.exportMarkdown
-const importFn = MU.importMarkdown
+const exportFn = exportMarkdown
+const importFn = importMarkdown
 let activeViewSpy
 
 beforeAll(() => {

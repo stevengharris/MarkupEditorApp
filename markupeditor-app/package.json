@@ -1,9 +1,9 @@
 {
-  "name": "markupeditor-markdown",
+  "name": "markupeditor-app",
   "version": "0.1.0",
-  "description": "Markdown conversion plugin for MarkupEditorApp using prosemirror-markdown.",
+  "description": "The userscript to support Markdown and insert ops in MarkupEditorApp",
   "type": "module",
-  "main": "dist/markupeditor-markdown.js",
+  "main": "dist/markupeditor-app.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "dependencies": {

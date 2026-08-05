@@ -1,6 +1,24 @@
 import { MU, DOMSerializer } from './markup-editor.js';
 import { Schema, Mark } from './markup-editor.js';
 
+//
+//  markupeditor-delegate.js
+//  MarkupEditorApp
+//
+//  Created by Steven Harris on 8/5/26.
+//
+
+
+/**
+ * A MarkupDelegate that receives callbacks that trigger native MacOS dialogs for insert operations.
+ */
+class MarkupEditorDelegate {
+    markupInsertLink(state, dispatch, view) {
+        console.log("*** markupInsertLink");
+    }
+
+}
+
 /* eslint-disable no-bitwise */
 
 const decodeCache = {};
@@ -530,11 +548,11 @@ Url.prototype.parseHost = function (host) {
 };
 
 var mdurl = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  decode: decode$1,
-  encode: encode$1,
-  format: format,
-  parse: urlParse
+    __proto__: null,
+    decode: decode$1,
+    encode: encode$1,
+    format: format,
+    parse: urlParse
 });
 
 var Any = /[\0-\uD7FF\uE000-\uFFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/;
@@ -550,13 +568,13 @@ var regex = /[\$\+<->\^`\|~\xA2-\xA6\xA8\xA9\xAC\xAE-\xB1\xB4\xB8\xD7\xF7\u02C2-
 var Z = /[ \xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/;
 
 var ucmicro = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Any: Any,
-  Cc: Cc,
-  Cf: regex$1,
-  P: P,
-  S: regex,
-  Z: Z
+    __proto__: null,
+    Any: Any,
+    Cc: Cc,
+    Cf: regex$1,
+    P: P,
+    S: regex,
+    Z: Z
 });
 
 // Generated using scripts/write-decode-map.ts
@@ -1408,25 +1426,25 @@ function asciiTrim (str) {
 const lib = { mdurl, ucmicro };
 
 var utils = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  arrayReplaceAt: arrayReplaceAt,
-  asciiTrim: asciiTrim,
-  assign: assign$1,
-  escapeHtml: escapeHtml,
-  escapeRE: escapeRE$1,
-  fromCodePoint: fromCodePoint,
-  has: has,
-  isMdAsciiPunct: isMdAsciiPunct,
-  isPunctChar: isPunctChar,
-  isPunctCharCode: isPunctCharCode,
-  isSpace: isSpace,
-  isString: isString$1,
-  isValidEntityCode: isValidEntityCode,
-  isWhiteSpace: isWhiteSpace,
-  lib: lib,
-  normalizeReference: normalizeReference,
-  unescapeAll: unescapeAll,
-  unescapeMd: unescapeMd
+    __proto__: null,
+    arrayReplaceAt: arrayReplaceAt,
+    asciiTrim: asciiTrim,
+    assign: assign$1,
+    escapeHtml: escapeHtml,
+    escapeRE: escapeRE$1,
+    fromCodePoint: fromCodePoint,
+    has: has,
+    isMdAsciiPunct: isMdAsciiPunct,
+    isPunctChar: isPunctChar,
+    isPunctCharCode: isPunctCharCode,
+    isSpace: isSpace,
+    isString: isString$1,
+    isValidEntityCode: isValidEntityCode,
+    isWhiteSpace: isWhiteSpace,
+    lib: lib,
+    normalizeReference: normalizeReference,
+    unescapeAll: unescapeAll,
+    unescapeMd: unescapeMd
 });
 
 // Parse link label
@@ -1625,10 +1643,10 @@ function parseLinkTitle (str, start, max, prev_state) {
 // Just a shortcut for bulk export
 
 var helpers = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  parseLinkDestination: parseLinkDestination,
-  parseLinkLabel: parseLinkLabel,
-  parseLinkTitle: parseLinkTitle
+    __proto__: null,
+    parseLinkDestination: parseLinkDestination,
+    parseLinkLabel: parseLinkLabel,
+    parseLinkTitle: parseLinkTitle
 });
 
 /**
@@ -9838,12 +9856,18 @@ var markdownItFrontMatterExports = requireMarkdownItFrontMatter();
 var frontMatterPlugin = /*@__PURE__*/getDefaultExportFromCjs(markdownItFrontMatterExports);
 
 /**
+ * A function to mirror getHTML that makes it simpler for plugin consumption.
+ */
+function getMarkdown() {
+    return exportMarkdown().result
+}
+
+/**
  * Export the active editor content as Markdown.
  *
- * @param {string} _content - unused; content comes from the active view
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-MU.exportMarkdown = function exportMarkdown(_content) {
+function exportMarkdown() {
   const view = MU.activeView();
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -9854,7 +9878,7 @@ MU.exportMarkdown = function exportMarkdown(_content) {
   // Escape bare < in text so re-import treats them as escaped characters, not html_inline
   const markdown = serializer.serialize(doc, { escapeExtraCharacters: /</g });
   return JSON.stringify({ result: markdown, warnings: warnings.get() })
-};
+}
 
 /**
  * Import Markdown content, converting it to HTML for the editor.
@@ -9864,7 +9888,7 @@ MU.exportMarkdown = function exportMarkdown(_content) {
  * @param {string} content - Markdown string to import
  * @returns {string} JSON string { result: string|null, warnings: string[], metadata?: string }
  */
-MU.importMarkdown = function importMarkdown(content) {
+function importMarkdown(content) {
   const view = MU.activeView();
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -9936,4 +9960,19 @@ MU.importMarkdown = function importMarkdown(content) {
   const out = { result: div.innerHTML, warnings: warnings.get() };
   if (yamlContent !== null && yamlContent !== '') out.metadata = yamlContent;
   return JSON.stringify(out)
-};
+}
+
+//
+//  markupeditor-app.js
+//  
+//
+//  Created by Steven Harris on 8/5/26.
+//
+
+
+// Register the delegate so it can be looked up by name when the MarkupEditor instance is created.
+MU.registerDelegate(new MarkupEditorDelegate());
+
+MU.getMarkdown = getMarkdown;
+MU.exportMarkdown = exportMarkdown;
+MU.importMarkdown = importMarkdown;

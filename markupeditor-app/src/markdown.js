@@ -8,7 +8,7 @@ import frontMatterPlugin from 'markdown-it-front-matter'
 /**
  * A function to mirror getHTML that makes it simpler for plugin consumption.
  */
-MU.getMarkdown() = function getMarkdown() {
+export function getMarkdown() {
     return exportMarkdown().result
 }
 
@@ -17,7 +17,7 @@ MU.getMarkdown() = function getMarkdown() {
  *
  * @returns {string} JSON string { result: string|null, warnings: string[] }
  */
-MU.exportMarkdown = function exportMarkdown() {
+export function exportMarkdown() {
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })
@@ -38,7 +38,7 @@ MU.exportMarkdown = function exportMarkdown() {
  * @param {string} content - Markdown string to import
  * @returns {string} JSON string { result: string|null, warnings: string[], metadata?: string }
  */
-MU.importMarkdown = function importMarkdown(content) {
+export function importMarkdown(content) {
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ result: null, warnings: ['No active view'] })

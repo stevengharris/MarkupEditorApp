@@ -196,9 +196,10 @@ struct MarkupDocumentView: View {
         config.toolbarConfig = ToolbarConfig.fromDefaults()
         config.keymapConfig = KeymapConfig.fromDefaults()
         config.behaviorConfig = BehaviorConfig.fromDefaults()
+        config.delegate = "MarkupEditorDelegate"
         config.topLevelAttributes = AppConfig.shared.topLevelAttributes()
         config.allowsInlinePredictions = AppConfig.shared.inlinePredictions
-        config.userScriptFile = "markupeditor-markdown.js"
+        config.userScriptFile = "markupeditor-app.js"
         config.userCssFile = "markupeditor-app.css"
         config.pluginFiles = AppConfig.shared.pluginFilenames()
         _markupConfiguration = State(initialValue: config)

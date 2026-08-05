@@ -17,7 +17,7 @@ import { makeSerializer } from '../src/serializer.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 import { MU, DOMParser, DOMSerializer } from 'markupeditor'
-import '../src/markupeditor-markdown.js'
+import { exportMarkdown, importMarkdown } from '../src/markdown.js'
 const { schema } = MU
 
 // ---------------------------------------------------------------------------
@@ -210,9 +210,9 @@ describe('RDR-015 preamble regression — serializer branch is language-attr-inv
 
 describe('RDR-015 preamble regression — parser assigns language "html" to the injected preamble fence', () => {
   test('the synthetic ```html fence importFn injects around a preamble parses to language: "html"', () => {
-    // importMarkdown (markupeditor-markdown.js) wraps a detected leading HTML
-    // block in a synthetic ```html fence before handing off to makeParser —
-    // see MU.importMarkdown's `replacement = '```html\n' + htmlContent + '\n```\n'`.
+    // importMarkdown (markdown.js) wraps a detected leading HTML block in a
+    // synthetic ```html fence before handing off to makeParser — see
+    // importMarkdown's `replacement = '```html\n' + htmlContent + '\n```\n'`.
     // Exercise that exact fence shape directly through the parser (bypassing
     // the full plugin module, which pulls in markupeditor's compiled dist
     // bundle — see the pipeline describe block below for why that's blocked
@@ -228,14 +228,14 @@ describe('RDR-015 preamble regression — parser assigns language "html" to the 
 })
 
 describe('RDR-015 preamble regression — full importFn/exportFn pipeline', () => {
-  // Since 303c562 moved markdown import/export from a plugin to a userscript,
-  // markupeditor-markdown.js attaches exportMarkdown/importMarkdown directly
-  // onto the real MU singleton imported from the markupeditor package (see
-  // plugin.test.js / preamble.test.js for the same pattern). The jsdom
-  // CSSStyleSheet.replaceSync gap that used to block this file's module load
-  // is fixed via test/vitest.setup.js (MarkupEditorApp-zl7a.2).
-  const importFn = MU.importMarkdown
-  const exportFn = MU.exportMarkdown
+  // markdown.js exports exportMarkdown/importMarkdown as plain functions
+  // (app.js is what wires them onto the real MU singleton when the app
+  // actually loads — see plugin.test.js / preamble.test.js for the same
+  // pattern). The jsdom CSSStyleSheet.replaceSync gap that used to block
+  // this file's module load is fixed via test/vitest.setup.js
+  // (MarkupEditorApp-zl7a.2).
+  const importFn = importMarkdown
+  const exportFn = exportMarkdown
   let activeViewSpy
 
   beforeAll(() => {

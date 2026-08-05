@@ -4,13 +4,14 @@
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
 import { MU } from 'markupeditor'
-import '../src/markupeditor-markdown.js'
+import { importMarkdown } from '../src/markdown.js'
 const { schema } = MU
 
-// Since 303c562 moved markdown import/export from a plugin to a userscript,
-// markupeditor-markdown.js attaches importMarkdown directly onto the real MU
-// singleton imported from the markupeditor package (see plugin.test.js).
-const importFn = MU.importMarkdown
+// markdown.js exports importMarkdown as a plain function; app.js is what
+// wires it onto the real MU singleton when the app actually loads (see
+// plugin.test.js). Importing it directly here keeps this suite independent
+// of that wiring.
+const importFn = importMarkdown
 
 beforeAll(() => {
   vi.spyOn(MU, 'activeView').mockReturnValue({ state: { schema } })
