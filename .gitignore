@@ -9,10 +9,10 @@ DerivedData/
 *.xcuserstate
 *.profraw
 
-# Beads / Dolt files (added by bd init)
+# Beads / Dolt files (local dev-process state, never pushed)
+.beads/
 .dolt/
 *.db
-.beads-credential-key
 
 # Claude Code tooling
 .agents/
