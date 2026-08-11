@@ -12,15 +12,21 @@ MarkupEditorApp/
     Top Level/
       MarkupDocumentView.swift - Main view, MarkupDelegate conformance, file I/O, plugin dispatch
       SourceView.swift         - Source view panel (raw HTML or plugin output)
+      AppToolbarView.swift     - Main window toolbar
+      SourceToolbarView.swift  - Source view toolbar
     Info/                      - Document info UI
-    Settings/                  - App settings UI
+    Settings/                  - App settings UI, incl. PluginSettingsView, PluginDiscoveryView
   Helpers/
     MarkupDocument.swift       - Document model (URL, metadata, save/open operations)
-    PluginSetup.swift          - Plugin registration at app startup
     AppConfig.swift            - Codable config loaded from appconfig.json
     SyntaxHighlighter.swift    - Source view syntax highlighting
     Metadata/                  - YAML frontmatter parsing/encoding
+    Plugins/                   - Plugin catalog, discovery, install, codeview/exporter dispatch
   Extensions/
+MarkupEditorCLI/
+  MarkupEditorCLI.swift        - `markup` CLI tool target; embedded in the app bundle, shipped via signed .pkg
+markupeditor-app/               - JS: ProseMirror<->Markdown plugin bundle, loaded as a userScript
+plugins/                        - JS plugin sources (codeview-mermaid, exporter-docx) + plugins.json for discovery
 ```
 
 The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (sibling directory).
@@ -55,7 +61,7 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 
 * Deployment target: macOS 26.3
 
-* Swift 6.0, SwiftUI, AppKit. `SWIFT_VERSION` is set once at the project level in the `.pbxproj` and inherited by all three targets (`MarkupEditorApp`, `MarkupEditorAppTests`, `MarkupEditorAppUITests`) — no per-target overrides.
+* Swift 6.0, SwiftUI, AppKit. `SWIFT_VERSION` is set once at the project level in the `.pbxproj` and inherited by all four targets (`MarkupEditorApp`, `MarkupEditorCLI`, `MarkupEditorAppTests`, `MarkupEditorAppUITests`) — no per-target overrides.
 
 * Build via `xcodebuild` or Xcode UI
 
@@ -176,6 +182,16 @@ Call `list_symbols` before reading whole files. Call `blast_radius` before any s
 
 Code comments must be terse and describe only the technical issues being commented upon, including, if needed, reasoning behind a particular implementation choice. Comments must not reference RDRs, beads, or elements within a Claude session.
 
+## Local Development Process (public repo, private tooling)
+
+Much of the development in this repository is done “by hand”, without using Claude Code.
+
+`origin` for this repo is public. The local development workflow using Claude layers `nexus`/`conexus` (an MCP-based knowledge, planning, and review tool), RDRs (design docs under `docs/rdr/`), [agent-lsp](https://github.com/blackwell-systems/agent-lsp), and `beads` (`bd`, task tracking under `.beads/`) on top of the plain git repo. None of that is part of the shipped app, and none of it is committed: `docs/rdr/`, `.beads/`, and `AGENTS.md` are all gitignored and live only on local disk.
+
+A fresh clone of this repo has none of that: no RDRs, no `.beads/`, no `AGENTS.md`, no conexus-authored knowledge base. That's expected, not a gap to fill — this is local-only process scaffolding, not a project dependency, and nothing in the build or app depends on it being present. A consumer who wants an equivalent workflow (design docs, task tracking, MCP-based review tooling) needs to stand up their own version of it. Other references to RDRs/beads/conexus elsewhere in this file describe how *this* development process works; they are not a requirement for building or contributing to the code. This document also refers to conexus agents like `code-review-expert` and `substantive-critic.`
+
+For more information about nexus/conexus, refer to the [repository](https://github.com/Hellblazer/nexus), which also contains instructions for installing the Claude plugin.
+
 ## Cross-Project Changes (markupeditor-base → MarkupEditor → MarkupEditorApp)
 
 Some changes originate in `markupeditor-base` (the ProseMirror schema/JS layer) and must propagate through `MarkupEditor` (the Swift package) before they're usable in `MarkupEditorApp`. RDR-020 (Add Language Attribute to Code) established the working pattern below.
@@ -214,7 +230,7 @@ cd markupeditor-js
 npm update        # or: npm install
 ```
 
-`npm update`/`npm install` alone is sufficient — `prepare` is an npm-reserved lifecycle hook name, and this project's `"prepare": "sh prepare.sh"` script runs automatically as part of that command. Verified empirically: deleting a copied fixture and re-running plain `npm install` restored it without invoking `prepare.sh` separately. No need for a distinct `sh prepare.sh` step.
+`npm update`/`npm install` alone may be sufficient — `prepare` is an npm-reserved lifecycle hook name, and this project's `"prepare": "sh prepare.sh"` script runs automatically as part of that command. Verified empirically: deleting a copied fixture and re-running plain `npm install` restored it without invoking `prepare.sh` separately. No need for a distinct `sh prepare.sh` step.
 
 **Use a `file:` dependency, not `npm link`.** Both resolve to a symlink in this npm version (so `test/` is fully visible either way), but `file:` is declared in `package.json` — visible in diffs, trivially greppable, and easy to revert — where `npm link` registers untracked global npm state that's easy to forget about.
 
@@ -266,9 +282,9 @@ When dispatching `code-review-expert` or `substantive-critic` against `markupedi
 
 * **No commit without explicit user approval**, at every repo, every phase boundary — present the diff and test results, wait for an explicit yes.
 
-* **`markupeditor-base` and `MarkupEditor`**: single-line commit messages, no RDR/MarkupEditor/MarkupEditorApp references, nothing indicating Claude was used.
+* **All three repos**: single-line commit messages, no RDR references, no bead IDs or other ephemeral development-time artifacts (conexus/nexus session or T2/T3 references), nothing indicating Claude was used.
 
-* **`MarkupEditorApp`**: commits may reference the RDR.
+* **`markupeditor-base` and `MarkupEditor`** additionally never name `MarkupEditorApp` or `MarkupEditor` in their own commit messages, keeping each repo's history self-contained.
 
 * User pushes manually in all three repos — never push on their behalf.
 

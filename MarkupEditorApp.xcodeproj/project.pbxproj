@@ -72,22 +72,28 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA3F9811302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				MarkupEditorAppUITests.swift,
+				MarkupEditorAppUITestsLaunchTests.swift,
+			);
+			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
+		};
+		AA3F9812302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorAppUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				MarkupEditorAppUITests.swift,
+				MarkupEditorAppUITestsLaunchTests.swift,
+			);
+			target = AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */;
+		};
 		AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITests.swift",
-				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITestsLaunchTests.swift",
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
-		};
-		AAC5862930239E9300C6CDA3 /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorAppUITests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITests.swift",
-				"UI/Top Level/MarkupEditorAppUITests/MarkupEditorAppUITestsLaunchTests.swift",
-			);
-			target = AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -97,11 +103,19 @@
 			path = MarkupEditorCLI;
 			sourceTree = "<group>";
 		};
+		AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA3F9811302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorApp" target */,
+				AA3F9812302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorAppUITests" target */,
+			);
+			path = MarkupEditorAppUITests;
+			sourceTree = "<group>";
+		};
 		AA7B99992F9290DF0085425B /* MarkupEditorApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */,
-				AAC5862930239E9300C6CDA3 /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorAppUITests" target */,
 			);
 			path = MarkupEditorApp;
 			sourceTree = "<group>";
@@ -155,6 +169,7 @@
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
+				AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */,
 				AAC5859C3022675B00C6CDA3 /* plugins */,
 				AAB800602FC4C2CC00212250 /* markupeditor-app */,
 				AAB8007C2FC5036A00212250 /* docs */,
@@ -215,6 +230,7 @@
 				AA3F9649302A82F400FB96C9 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
+				AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 			);
 			name = MarkupEditorApp;

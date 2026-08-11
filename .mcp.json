@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "lsp": {
-      "command": "agent-lsp",
-      "args": ["swift:sourcekit-lsp", "javascript:typescript-language-server,--stdio"]
-    }
-  }
-}

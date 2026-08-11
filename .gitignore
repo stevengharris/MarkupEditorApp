@@ -17,10 +17,9 @@ AGENTS.md
 
 # Claude Code tooling
 .agents/
-.claude/skills/
-.claude/settings.local.json
-.claude/worktrees/
+.claude/
 skills-lock.json
+.mcp.json
 
 # Local-only, never pushed
 docs/release-runbook.md
