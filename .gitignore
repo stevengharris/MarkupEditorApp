@@ -13,6 +13,7 @@ DerivedData/
 .beads/
 .dolt/
 *.db
+AGENTS.md
 
 # Claude Code tooling
 .agents/
