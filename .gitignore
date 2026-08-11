@@ -23,3 +23,5 @@ skills-lock.json
 
 # Local-only, never pushed
 docs/release-runbook.md
+docs/rdr/
+docs/rdr-original/
