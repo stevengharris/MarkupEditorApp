@@ -11,6 +11,18 @@ import MarkupEditor
 @main
 struct MarkupEditorApp: App {
     
+    static var versionString: String {
+        version + "(\(build))"
+    }
+    
+    static var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+    }
+
+    static var build: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+    }
+    
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var editLog = EditLog()
     

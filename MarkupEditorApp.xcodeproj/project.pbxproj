@@ -7,11 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA3F9647302A64AC00FB96C9 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = AA3F9646302A64AC00FB96C9 /* ArgumentParser */; };
+		AA3F964B302A835B00FB96C9 /* markup in Embed markup CLI */ = {isa = PBXBuildFile; fileRef = AA3F963C302A516B00FB96C9 /* markup */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */ = {isa = PBXBuildFile; productRef = AA7B99C22F9291B90085425B /* MarkupEditor */; };
 		AAB801F52FC7471300212250 /* SplitView in Frameworks */ = {isa = PBXBuildFile; productRef = AAB801F42FC7471300212250 /* SplitView */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AA3F9648302A82F400FB96C9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA7B998F2F9290DF0085425B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA3F963B302A516B00FB96C9;
+			remoteInfo = MarkupEditorCLI;
+		};
 		AA7B99A52F9290E00085425B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AA7B998F2F9290DF0085425B /* Project object */;
@@ -28,7 +37,31 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		AA3F963A302A516B00FB96C9 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA3F964A302A830800FB96C9 /* Embed markup CLI */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = bin;
+			dstSubfolderSpec = 7;
+			files = (
+				AA3F964B302A835B00FB96C9 /* markup in Embed markup CLI */,
+			);
+			name = "Embed markup CLI";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		AA3F963C302A516B00FB96C9 /* markup */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = markup; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -59,6 +92,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MarkupEditorCLI;
+			sourceTree = "<group>";
+		};
 		AA7B99992F9290DF0085425B /* MarkupEditorApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -76,6 +114,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AA3F9639302A516B00FB96C9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA3F9647302A64AC00FB96C9 /* ArgumentParser in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA7B99942F9290DF0085425B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -107,6 +153,7 @@
 			children = (
 				AAC586203022A9E100C6CDA3 /* README.md */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
+				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AAC5859C3022675B00C6CDA3 /* plugins */,
 				AAB800602FC4C2CC00212250 /* markupeditor-app */,
@@ -121,6 +168,7 @@
 				AA7B99972F9290DF0085425B /* MarkupEditor.app */,
 				AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */,
 				AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */,
+				AA3F963C302A516B00FB96C9 /* markup */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -128,6 +176,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AA3F963B302A516B00FB96C9 /* MarkupEditorCLI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA3F9640302A516B00FB96C9 /* Build configuration list for PBXNativeTarget "MarkupEditorCLI" */;
+			buildPhases = (
+				AA3F9638302A516B00FB96C9 /* Sources */,
+				AA3F9639302A516B00FB96C9 /* Frameworks */,
+				AA3F963A302A516B00FB96C9 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
+			);
+			name = MarkupEditorCLI;
+			packageProductDependencies = (
+				AA3F9646302A64AC00FB96C9 /* ArgumentParser */,
+			);
+			productName = MarkupEditorCLI;
+			productReference = AA3F963C302A516B00FB96C9 /* markup */;
+			productType = "com.apple.product-type.tool";
+		};
 		AA7B99962F9290DF0085425B /* MarkupEditorApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA7B99B82F9290E00085425B /* Build configuration list for PBXNativeTarget "MarkupEditorApp" */;
@@ -135,10 +206,13 @@
 				AA7B99932F9290DF0085425B /* Sources */,
 				AA7B99942F9290DF0085425B /* Frameworks */,
 				AA7B99952F9290DF0085425B /* Resources */,
+				AA3F964A302A830800FB96C9 /* Embed markup CLI */,
+				AA3F9651302B8D1B00FB96C9 /* Strip markup CLI for App Store */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AA3F9649302A82F400FB96C9 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
@@ -202,9 +276,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2640;
+				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
+					AA3F963B302A516B00FB96C9 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 					AA7B99962F9290DF0085425B = {
 						CreatedOnToolsVersion = 26.4;
 					};
@@ -230,6 +307,7 @@
 			packageReferences = (
 				AA7B99C12F9291B90085425B /* XCLocalSwiftPackageReference "../MarkupEditor" */,
 				AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */,
+				AA3F9645302A64AC00FB96C9 /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA7B99982F9290DF0085425B /* Products */;
@@ -239,6 +317,7 @@
 				AA7B99962F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A32F9290E00085425B /* MarkupEditorAppTests */,
 				AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */,
+				AA3F963B302A516B00FB96C9 /* MarkupEditorCLI */,
 			);
 		};
 /* End PBXProject section */
@@ -267,7 +346,36 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		AA3F9651302B8D1B00FB96C9 /* Strip markup CLI for App Store */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip markup CLI for App Store";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "case \"${MARKUPEDITOR_INCLUDE_CLI}\" in\n  YES) exit 0 ;;\n  NO)  rm -rf \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bin\" ;;\n  *)   echo \"error: MARKUPEDITOR_INCLUDE_CLI must be YES or NO (got '${MARKUPEDITOR_INCLUDE_CLI}')\" >&2\n       exit 1 ;;\nesac\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		AA3F9638302A516B00FB96C9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA7B99932F9290DF0085425B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -292,6 +400,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AA3F9649302A82F400FB96C9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA3F963B302A516B00FB96C9 /* MarkupEditorCLI */;
+			targetProxy = AA3F9648302A82F400FB96C9 /* PBXContainerItemProxy */;
+		};
 		AA7B99A62F9290E00085425B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
@@ -305,6 +418,206 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AA3F9641302A516B00FB96C9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorCLI;
+				PRODUCT_NAME = markup;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AA3F9642302A516B00FB96C9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorCLI;
+				PRODUCT_NAME = markup;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		AA3F964C302B8BA100FB96C9 /* Release-AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				MARKETING_VERSION = 0.9.3;
+				MARKUPEDITOR_INCLUDE_CLI = NO;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = "Release-AppStore";
+		};
+		AA3F964D302B8BA100FB96C9 /* Release-AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarkupEditorApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MarkupEditor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
+				PRODUCT_MODULE_NAME = MarkupEditorApp;
+				PRODUCT_NAME = MarkupEditor;
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+			};
+			name = "Release-AppStore";
+		};
+		AA3F964E302B8BA100FB96C9 /* Release-AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarkupEditor.app/Contents/MacOS/MarkupEditor";
+			};
+			name = "Release-AppStore";
+		};
+		AA3F964F302B8BA100FB96C9 /* Release-AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				TEST_TARGET_NAME = MarkupEditorApp;
+			};
+			name = "Release-AppStore";
+		};
+		AA3F9650302B8BA100FB96C9 /* Release-AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				DEVELOPMENT_TEAM = 7XXG4VJQ59;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorCLI;
+				PRODUCT_NAME = markup;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = "Release-AppStore";
+		};
 		AA7B99B62F9290E00085425B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -339,6 +652,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
@@ -361,6 +675,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				MARKETING_VERSION = 0.9.3;
+				MARKUPEDITOR_INCLUDE_CLI = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -406,6 +722,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
@@ -422,6 +739,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				MARKETING_VERSION = 0.9.3;
+				MARKUPEDITOR_INCLUDE_CLI = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -438,7 +757,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				ENABLE_APP_SANDBOX = YES;
@@ -464,7 +782,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;
@@ -484,7 +801,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				ENABLE_APP_SANDBOX = YES;
@@ -510,7 +826,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;
@@ -528,12 +843,10 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -549,12 +862,10 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -569,11 +880,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -588,11 +897,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7XXG4VJQ59;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -606,11 +913,22 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AA3F9640302A516B00FB96C9 /* Build configuration list for PBXNativeTarget "MarkupEditorCLI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA3F9641302A516B00FB96C9 /* Debug */,
+				AA3F9642302A516B00FB96C9 /* Release */,
+				AA3F9650302B8BA100FB96C9 /* Release-AppStore */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		AA7B99922F9290DF0085425B /* Build configuration list for PBXProject "MarkupEditorApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AA7B99B62F9290E00085425B /* Debug */,
 				AA7B99B72F9290E00085425B /* Release */,
+				AA3F964C302B8BA100FB96C9 /* Release-AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -620,6 +938,7 @@
 			buildConfigurations = (
 				AA7B99B92F9290E00085425B /* Debug */,
 				AA7B99BA2F9290E00085425B /* Release */,
+				AA3F964D302B8BA100FB96C9 /* Release-AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -629,6 +948,7 @@
 			buildConfigurations = (
 				AA7B99BC2F9290E00085425B /* Debug */,
 				AA7B99BD2F9290E00085425B /* Release */,
+				AA3F964E302B8BA100FB96C9 /* Release-AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -638,6 +958,7 @@
 			buildConfigurations = (
 				AA7B99BF2F9290E00085425B /* Debug */,
 				AA7B99C02F9290E00085425B /* Release */,
+				AA3F964F302B8BA100FB96C9 /* Release-AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -652,6 +973,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		AA3F9645302A64AC00FB96C9 /* XCRemoteSwiftPackageReference "swift-argument-parser" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-argument-parser.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.8.2;
+			};
+		};
 		AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/stevengharris/SplitView.git";
@@ -663,6 +992,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		AA3F9646302A64AC00FB96C9 /* ArgumentParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA3F9645302A64AC00FB96C9 /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
+			productName = ArgumentParser;
+		};
 		AA7B99C22F9291B90085425B /* MarkupEditor */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkupEditor;

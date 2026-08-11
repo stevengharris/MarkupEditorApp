@@ -1,0 +1,58 @@
+#!/bin/sh
+# Creates or repairs /usr/local/bin/markup as a symlink into the just-installed
+# MarkupEditor.app. Runs as root via Installer.app. Always exits 0 -- a nonzero
+# exit here fails the whole package install even though the app copied fine.
+#
+# $3 is the target volume Installer.app passes to postinstall (normally "/").
+# MARKUP_APP / MARKUP_BIN_DIR override the defaults for testing against a fake
+# root, bypassing $3 entirely.
+
+target_vol="${3:-/}"
+case "$target_vol" in
+    */) ;;
+    *) target_vol="${target_vol}/" ;;
+esac
+
+: "${MARKUP_APP:=${target_vol}Applications/MarkupEditor.app}"
+: "${MARKUP_BIN_DIR:=${target_vol}usr/local/bin}"
+
+TARGET="$MARKUP_APP/Contents/Resources/bin/markup"
+LINK="$MARKUP_BIN_DIR/markup"
+
+if [ ! -x "$TARGET" ]; then
+    echo "markup: embedded CLI not found or not executable at $TARGET -- skipping $LINK"
+    exit 0
+fi
+
+# -L first: catches both valid and dangling symlinks, since -L doesn't
+# dereference. A non-symlink existing path only reaches the -e check below.
+if [ -L "$LINK" ]; then
+    current=$(readlink "$LINK")
+    case "$current" in
+        */MarkupEditor.app/Contents/*)
+            if ln -sfn "$TARGET" "$LINK"; then
+                echo "markup: repointed existing MarkupEditor symlink at $LINK -> $TARGET"
+            else
+                echo "markup: failed to repoint $LINK -> $TARGET"
+            fi
+            ;;
+        *)
+            echo "markup: $LINK is a symlink to an unrelated target ($current) -- leaving it alone"
+            ;;
+    esac
+    exit 0
+elif [ -e "$LINK" ]; then
+    echo "markup: $LINK already exists and is not a MarkupEditor symlink -- leaving it alone"
+    exit 0
+fi
+
+# -sfn, not -sf: if LINK were a symlink to a directory, -sf would create the
+# new link INSIDE that directory instead of replacing it. Not reachable today
+# (the -L branch above always exits first), but keeps this call safe on its own.
+if mkdir -p "$MARKUP_BIN_DIR" && chmod 755 "$MARKUP_BIN_DIR" && ln -sfn "$TARGET" "$LINK"; then
+    echo "markup: created $LINK -> $TARGET"
+else
+    echo "markup: failed to create $LINK -> $TARGET"
+fi
+
+exit 0

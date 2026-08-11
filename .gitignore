@@ -7,6 +7,7 @@ DerivedData/
 *.hmap
 *.ipa
 *.xcuserstate
+*.profraw
 
 # Beads / Dolt files (added by bd init)
 .dolt/
@@ -19,3 +20,6 @@ DerivedData/
 .claude/settings.local.json
 .claude/worktrees/
 skills-lock.json
+
+# Local-only, never pushed
+docs/release-runbook.md
