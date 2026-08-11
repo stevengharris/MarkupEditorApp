@@ -1,0 +1,17 @@
+{
+  "codeview": {
+    "Mermaid": {
+      "name": "Mermaid",
+      "filename": "markupeditor-codeview-mermaid.js",
+      "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
+      "author": "Steven G. Harris <steven.g.harris@gmail.com>",
+      "version": "1.0.0",
+      "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/markupeditor-codeview-mermaid",
+      "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/markupeditor-codeview-mermaid/dist/markupeditor-codeview-mermaid.js"
+    },
+    "Broken": {
+      "name": "Broken",
+      "filename": "broken.js"
+    }
+  }
+}

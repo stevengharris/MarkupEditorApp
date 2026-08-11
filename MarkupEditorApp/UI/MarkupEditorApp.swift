@@ -19,6 +19,17 @@ struct MarkupEditorApp: App {
             MarkupDocumentView()
                 .environment(editLog)
         }
+        Window("Gallery", id: "plugin-gallery") {
+            PluginDiscoveryView()
+        }
+        .defaultSize(width: 650, height: 550)
+        .windowResizability(.automatic)
+        // Without this, macOS's system window-state restoration persists Gallery
+        // across quit/relaunch -- and when it does, it suppresses Main's normal
+        // "always create at launch" behavior instead of restoring both, so only
+        // Gallery reopens. Disabling restoration keeps launches deterministic:
+        // Main always opens; Gallery only when explicitly requested.
+        .restorationBehavior(.disabled)
         Settings {
             SettingsView()
         }

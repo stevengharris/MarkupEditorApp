@@ -23,3 +23,53 @@ The DocX Exporter and the Mermaid diagram CodeView are provided as fully support
 DocX Exporter
 
 Mermaid Diagrams
+
+## package.json Metadata
+
+Every plugin's `package.json` must include a `markupeditor` object describing it for discovery:
+
+```json
+{
+  "name": "markupeditor-codeview-mermaid",
+  "main": "dist/markupeditor-codeview-mermaid.js",
+  "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
+  "author": "Your Name <you@example.com>",
+  "version": "1.0.0",
+  "markupeditor": {
+    "name": "Mermaid",
+    "type": "codeview"
+  }
+}
+```
+
+Fields:
+
+* `name` — the plugin's display name. Must match the `name` passed to `MU.registerPlugin(...)` in the plugin's source exactly. That call is the runtime source of truth; `package.json` only mirrors it, and nothing checks the two stay in sync automatically, so keep them matching by hand.
+* `type` — `"exporter"` or `"codeview"`. Must also match the `type` passed to `MU.registerPlugin(...)`.
+* `ext` — required for `type: "exporter"` only, omitted for `"codeview"`. The file extension the exporter produces, bare with no leading dot (`"docx"`, not `".docx"`).
+
+An exporter's `markupeditor` object also needs `ext`:
+
+```json
+"markupeditor": {
+  "name": "DocX",
+  "type": "exporter",
+  "ext": "docx"
+}
+```
+
+The top-level `package.json` fields `main`, `description`, `author`, and `version` are also required as plain strings.
+
+The directory the plugin lives in under `plugins/` must equal `package.json`'s top-level `name` field. A mismatch fails the generator described below.
+
+## Publishing plugins.json
+
+After merging a plugin PR, the maintainer regenerates the discovery manifest and commits it:
+
+```bash
+node plugins/generate-plugins-json.js
+git add plugins/plugins.json
+git commit -m "Update plugins.json"
+```
+
+The generator reads every `plugins/<dir>/package.json`, validates each one against the rules above, and writes `plugins/plugins.json`. It fails loudly — refusing to write anything — if any plugin's metadata is missing or malformed, naming the offending directory.

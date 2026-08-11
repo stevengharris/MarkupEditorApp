@@ -6,6 +6,10 @@
   "main": "dist/markupeditor-codeview-mermaid.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
+  "markupeditor": {
+    "name": "Mermaid",
+    "type": "codeview"
+  },
   "dependencies": {
     "mermaid": "^11.16.0"
   },

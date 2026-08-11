@@ -23,7 +23,8 @@ struct PluginSettingsView: View {
     @State private var newPluginURL: URL?
     @State private var newPluginName: String = ""
     @State private var newPluginExt: String = ""
-    
+    @Environment(\.openWindow) private var openWindow
+
     private enum PluginType: String {
         case CodeView = "Code View"
         case Exporter
@@ -33,6 +34,11 @@ struct PluginSettingsView: View {
     var body: some View {
         Spacer()
         Form {
+            // Entry point into the plugin discovery/browse window. Does not yet
+            // replace the fileImporter-based add flow below.
+            LabeledContent("") {
+                Button("Browse Plugin Catalog…") { openWindow(id: "plugin-gallery") }
+            }
             LabeledContent("Exporters:") {
                 let exporters = AppConfig.shared.exporters
                 if exporters.isEmpty {

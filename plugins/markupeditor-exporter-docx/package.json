@@ -6,6 +6,11 @@
   "main": "dist/markupeditor-exporter-docx.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
+  "markupeditor": {
+    "name": "DocX",
+    "type": "exporter",
+    "ext": "docx"
+  },
   "dependencies": {
     "buffer": "^6.0.3",
     "docx": "^9.7.1"
