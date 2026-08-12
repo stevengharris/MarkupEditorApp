@@ -13,8 +13,13 @@ import { Schema, Mark } from './markup-editor.js';
  * A MarkupDelegate that receives callbacks that trigger native MacOS dialogs for insert operations.
  */
 class MarkupEditorDelegate {
+    
     markupInsertLink(state, dispatch, view) {
-        console.log("*** markupInsertLink");
+        MU.callbackInsertLink();
+    }
+    
+    markupInsertImage(state, dispatch, view) {
+        MU.callbackInsertImage();
     }
 
 }

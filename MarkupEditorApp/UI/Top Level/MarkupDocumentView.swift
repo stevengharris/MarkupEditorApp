@@ -26,11 +26,14 @@ struct MarkupDocumentView: View {
     
     @ObservedObject var selectImage = MarkupEditor.selectImage
     
-    @State private var document = MarkupDocument()  // The document we are editing
+    @State private var document = MarkupDocument()  // The document we are editing, Markdown by default
     @State private var currentHtml = ""             // HTML for the MarkupEditorView when it starts or refreshes
     @State private var currentSource: String = ""   // HTML or Markdown that is shown in SourceView
     @State private var documentPickerShowing: Bool = false
     @State private var sourceShowing: Bool = false
+    @State private var popupAnchor: PopoverAttachmentAnchor = PopoverAttachmentAnchor.rect(.rect(CGRect.zero))
+    @State private var showLinkDialog: Bool = false
+    @State private var showImageDialog: Bool = false
     
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
@@ -41,8 +44,7 @@ struct MarkupDocumentView: View {
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
-    @State private var ownWindow: NSWindow?
-
+    
     var body: some View {
         //let _ = Self._printChanges()
         @Bindable var doc = document
@@ -99,11 +101,12 @@ struct MarkupDocumentView: View {
             markupConfiguration.allowsInlinePredictions = AppConfig.shared.inlinePredictions
             reloadEditorForConfigChange()
         }
-        // Captures this view's own hosting NSWindow so the willCloseNotification
-        // handler below can identify "is this Main closing" by direct object
-        // identity, not by title or identifier -- both of which are guesses
-        // about SwiftUI-internal propagation that turned out to be unreliable.
-        .background(WindowCapture(window: $ownWindow))
+        .popover(isPresented: $showImageDialog, attachmentAnchor: popupAnchor) {
+            ImageInsertView(presented: $showImageDialog)
+        }
+        .popover(isPresented: $showLinkDialog, attachmentAnchor: popupAnchor) {
+            LinkInsertView(presented: $showLinkDialog)
+        }
         // Consolidate menu items into a single .task modifier
         .task {
             let names: [Notification.Name] = [
@@ -268,28 +271,21 @@ struct MarkupDocumentView: View {
         case .menuQuitApplication:
             await handleQuit()
         case NSWindow.willCloseNotification:
-            let closingWindow = notification.object as? NSWindow
-            // Only the main document window closing should also dismiss Settings --
-            // this notification fires for every window (e.g. the plugin Gallery too),
-            // and Settings has no reason to close just because some other window did.
-            guard closingWindow != nil, closingWindow === ownWindow else { return }
             NotificationCenter.default.post(name: .dismissSettings, object: nil)
         default:
             break
         }
     }
     
-    /// Open a new HTML document
-    /// TODO: Use specific submenus for HTML and Markdown
+    /// Open a new Markdown document
     private func handleNew() async {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard await checkSave() else { return }
         editLog.info("Opening a new document")
         await webView.emptyDocument()
-        guard let html = await getCurrentContents().html else { return }
-        document.setSource(html, documentType: .html)
-        currentHtml = html
-        currentSource = html
+        document.setSource("", documentType: .md)
+        currentHtml = MarkupDocument.emptyHTML
+        currentSource = MarkupDocument.emptyMarkdown
         document.reset()
         NSApplication.shared.mainWindow?.representedURL = nil
     }
@@ -757,6 +753,20 @@ extension MarkupDocumentView: MarkupDelegate {
     func markupSelectImage(_ view: MarkupWKWebView?) {
         selectImage.value.toggle()
     }
+    
+    func markupInsertLink(_ view: MarkupWKWebView?) {
+        view?.getSelectionState { selectionState in
+            popupAnchor = PopoverAttachmentAnchor.rect(.rect(selectionState.sourceRect ?? CGRect.zero))
+            showLinkDialog = true
+        }
+    }
+    
+    func markupInsertImage(_ view: MarkupWKWebView?) {
+        view?.getSelectionState { selectionState in
+            popupAnchor = PopoverAttachmentAnchor.rect(.rect(selectionState.sourceRect ?? CGRect.zero))
+            showImageDialog = true
+        }
+    }
 
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
@@ -776,28 +786,4 @@ extension MarkupDocumentView: MarkupDelegate {
 #Preview {
     MarkupDocumentView()
         .environment(EditLog())
-}
-
-/// Captures the NSWindow hosting a view into a binding, updated as soon as the
-/// view attaches to its window -- so callers can identify their own window by
-/// direct object identity rather than by title or identifier.
-private struct WindowCapture: NSViewRepresentable {
-    @Binding var window: NSWindow?
-
-    func makeNSView(context: Context) -> CapturingView {
-        let view = CapturingView(frame: .zero)
-        view.onWindowChange = { window = $0 }
-        return view
-    }
-
-    func updateNSView(_ nsView: CapturingView, context: Context) {}
-}
-
-private final class CapturingView: NSView {
-    var onWindowChange: ((NSWindow?) -> Void)?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        onWindowChange?(window)
-    }
 }

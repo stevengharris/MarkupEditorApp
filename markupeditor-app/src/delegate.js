@@ -11,8 +11,13 @@ import { MU } from 'markupeditor';
  * A MarkupDelegate that receives callbacks that trigger native MacOS dialogs for insert operations.
  */
 export class MarkupEditorDelegate {
+    
     markupInsertLink(state, dispatch, view) {
-        console.log("*** markupInsertLink")
+        MU.callbackInsertLink()
+    }
+    
+    markupInsertImage(state, dispatch, view) {
+        MU.callbackInsertImage()
     }
 
 }

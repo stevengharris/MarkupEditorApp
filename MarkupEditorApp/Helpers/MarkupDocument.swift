@@ -17,18 +17,21 @@ import Observation
  2.
  */
 @Observable class MarkupDocument {
-
+    
+    static let emptyMarkdown = ""
+    static let emptyHTML = "<p></p>"
+    
     var hasChanges: Bool = false
     var url: URL? {
-        didSet { documentType = DocumentType.for(url: url) ?? .html }
+        didSet { documentType = DocumentType.for(url: url) ?? .md }
     }
     private(set) var source: String {
         get { isHTMLish ? html : markdown }
         set(value) { if isHTMLish { html = value } else { markdown = value }}
     }
-    private var html: String = "<p></p>"
-    private var markdown: String = ""
-    var documentType: DocumentType = .html
+    private var html: String
+    private var markdown: String
+    var documentType: DocumentType = .md
     var metadata: [MetadataTuple] = [] {
         didSet { hasChanges = true }
     }
@@ -37,6 +40,11 @@ import Observation
     func setSource(_ source: String, documentType: DocumentType? = nil) {
         self.source = source
         if let documentType { self.documentType = documentType }
+    }
+    
+    init() {
+        html = Self.emptyHTML
+        markdown = Self.emptyMarkdown
     }
 
     // MARK: - Open
