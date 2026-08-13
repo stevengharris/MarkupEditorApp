@@ -38,12 +38,14 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(doc.metadata.isEmpty)
     }
 
-    @Test func resetsDocumentTypeToHtml() {
-        // reset() sets url = nil, which triggers url.didSet → documentType = .html
+    @Test func resetsDocumentTypeToMarkdown() {
+        // reset() sets url = nil, which triggers url.didSet -> documentType =
+        // DocumentType.for(url: nil) ?? .md -- DocumentType.for(url:) returns nil
+        // for a nil url (no pathExtension to resolve), so the .md fallback fires.
         let doc = MarkupDocument()
         doc.documentType = .htmd
         doc.reset()
-        #expect(doc.documentType == .html)
+        #expect(doc.documentType == .md)
     }
 
     @Test func hasChangesIsFalseAfterReset() {
