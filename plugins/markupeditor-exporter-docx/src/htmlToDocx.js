@@ -109,9 +109,12 @@ function convertHeading(element, context) {
 }
 
 // Conventional OOXML expression of <hr>: an empty paragraph with a bottom border, via docx's
-// typed border config -- not raw XML, and no named style for a single rule.
+// typed border config -- not raw XML, and no named style for a single rule. Needs the Body
+// pStyle explicitly: an unstyled, contentless paragraph has no defined line height for the
+// border to sit on, which Word/Pages render unreliably (confirmed via a real-pipeline probe).
 function convertHorizontalRule(_element, _context) {
     return [new Paragraph({
+        style: 'Body',
         border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' } },
     })]
 }
@@ -454,6 +457,14 @@ function convertImage(element, context) {
     return [new ImageRun({ type, data: base64, transformation: { width, height }, altText: { name: '', id } })]
 }
 
+// A text node that is entirely whitespace AND contains a newline is pretty-printing/indentation
+// artifact, not meaningful content -- e.g. "<p>\n    <s>text</s>\n</p>" from a formatted HTML
+// source. A whitespace-only node with no newline (a single space between two inline elements)
+// is real content and must be kept.
+function isInsignificantWhitespace(text) {
+    return text.trim() === '' && text.includes('\n')
+}
+
 // Walks inline content recursively, threading active marks down through nesting so they
 // combine onto whichever TextRuns get produced. Block content nests as a tree of distinct
 // paragraphs; inline marks nest as accumulating properties of one flat run.
@@ -461,6 +472,7 @@ function convertInlineNodes(nodes, context, marks) {
     const children = []
     for (const node of nodes) {
         if (node.nodeType === Node.TEXT_NODE) {
+            if (isInsignificantWhitespace(node.textContent)) continue
             if (node.textContent) children.push(new TextRun({ text: node.textContent, ...runPropsFromMarks(marks) }))
             continue
         }
