@@ -17,6 +17,14 @@ private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", c
 /// its own config, calls in with the current lists, and writes the returned list back.
 public enum ExporterManager {
 
+    // Computed, not a stored global constant: Plugin (from the MarkupEditor package) isn't
+    // provably Sendable across the module boundary, so a stored `static let` here is flagged
+    // as unsynchronized global mutable state under strict concurrency even though the value
+    // never actually changes.
+    public static var docx: Plugin {
+        Plugin(name: "DocX", type: "exporter", filename: "markupeditor-exporter-docx.js", ext: "docx")
+    }
+
     /// The URL of the exporter directory under Application Support.
     public static var defaultDir: URL {
         let support = FileManager.default
@@ -24,12 +32,17 @@ public enum ExporterManager {
         return support.appendingPathComponent("exporters")
     }
 
-    /// First-launch setup: ensures `defaultDir` exists and the built-in PDF exporter is
-    /// registered. PDF is distinct from every other user-supplied plugin because it exports
-    /// using the WKWebView's own PDF export rather than a JS module file -- see CodeViewManager
-    /// for the equivalent bundled-resource approach (Mermaid). Returns the updated exporters
-    /// list.
-    public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) -> [Plugin] {
+    /// First-launch setup: ensures `defaultDir` exists, the built-in PDF exporter is registered,
+    /// and the bundled DocX exporter is installed from `resourceURL` (mirrors CodeViewManager's
+    /// Mermaid handling). PDF is distinct from every other exporter because it exports using the
+    /// WKWebView's own PDF export rather than a JS module file, so it's just a list insertion,
+    /// no file to copy. `resourceURL` is the app bundle's resource directory (`Bundle.main.
+    /// resourceURL` at the app-side call site) -- injected since this package can't reach
+    /// `Bundle.main` itself. Returns the updated exporters list.
+    ///
+    /// Caller-gated to run once, at true first launch: calling this again would re-copy the
+    /// bundled DocX exporter over anything the user installed in its place via Settings.
+    public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
         do {
             try FileManager.default.createDirectory(
                 at: defaultDir,
@@ -47,8 +60,16 @@ public enum ExporterManager {
             logger.info("Added exporter \(pdfExporter.name)")
             updated.insert(pdfExporter, at: 0)
         }
-        PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
-        return updated
+
+        guard
+            let filename = docx.filename,
+            let source = resourceURL?.appendingPathComponent(filename)
+        else {
+            logger.warning("Resource URL was not found.")
+            PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
+            return updated
+        }
+        return add(name: docx.name, url: source, ext: docx.ext ?? "docx", exporters: updated, codeViews: codeViews, cacheDir: cacheDir)
     }
 
     public static func add(name: String, url: URL?, ext: String, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) -> [Plugin] {

@@ -39,11 +39,8 @@ public enum CodeViewManager {
     /// itself. Returns the updated codeViews list (unchanged if Mermaid is already present, or
     /// if setup failed).
     ///
-    /// The user may have replaced Mermaid later with something else, so this must avoid
-    /// overwriting that -- but by the same token, work on or updates to the Mermaid codeview
-    /// support need to replace it if it already exists. `add` below handles both: it replaces an
-    /// existing entry with the same name.
-    // TODO: Tighten up the logic to avoid edge cases
+    /// Caller-gated to run once, at true first launch: calling this again would re-copy the
+    /// bundled Mermaid codeview over anything the user installed in its place via Settings.
     public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
         do {
             try FileManager.default.createDirectory(

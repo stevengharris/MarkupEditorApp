@@ -29,13 +29,6 @@
 			remoteGlobalIDString = AA7B99962F9290DF0085425B;
 			remoteInfo = MarkupEditorApp;
 		};
-		AA7B99AF2F9290E00085425B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AA7B998F2F9290DF0085425B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AA7B99962F9290DF0085425B;
-			remoteInfo = MarkupEditorApp;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -65,29 +58,25 @@
 		AA3F963C302A516B00FB96C9 /* markup */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = markup; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AAB800602FC4C2CC00212250 /* markupeditor-app */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "markupeditor-app"; sourceTree = "<group>"; };
 		AAB8007C2FC5036A00212250 /* docs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = docs; sourceTree = "<group>"; };
-		AAC5859C3022675B00C6CDA3 /* plugins */ = {isa = PBXFileReference; lastKnownFileType = folder; path = plugins; sourceTree = "<group>"; };
 		AAC586203022A9E100C6CDA3 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AA3F9811302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorApp" target */ = {
+		AA8384B3302E4CD80034CD46 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				MarkupEditorAppUITests.swift,
-				MarkupEditorAppUITestsLaunchTests.swift,
+				"markupeditor-codeview-mermaid/dist/markupeditor-codeview-mermaid.js",
+				"markupeditor-exporter-docx/dist/markupeditor-exporter-docx.js",
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
 		};
-		AA3F9812302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorAppUITests" target */ = {
+		AA83FAD0302E517C0034CD46 /* Exceptions for "markupeditor-app" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				MarkupEditorAppUITests.swift,
-				MarkupEditorAppUITestsLaunchTests.swift,
+				"dist/markupeditor-app.js",
 			);
-			target = AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */;
+			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
 		};
 		AA9FB8372F97D6F2009F804F /* Exceptions for "MarkupEditorApp" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -102,15 +91,6 @@
 		AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MarkupEditorCLI;
-			sourceTree = "<group>";
-		};
-		AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				AA3F9811302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorApp" target */,
-				AA3F9812302BDE0C00FB96C9 /* Exceptions for "MarkupEditorAppUITests" folder in "MarkupEditorAppUITests" target */,
-			);
-			path = MarkupEditorAppUITests;
 			sourceTree = "<group>";
 		};
 		AA7B99992F9290DF0085425B /* MarkupEditorApp */ = {
@@ -129,6 +109,36 @@
 		AA832770302E222B0034CD46 /* website */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = website;
+			sourceTree = "<group>";
+		};
+		AA8327AF302E47F80034CD46 /* plugins */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA8384B3302E4CD80034CD46 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */,
+			);
+			explicitFolders = (
+				"markupeditor-codeview-mermaid/node_modules",
+				"markupeditor-codeview-mermaid/src",
+				"markupeditor-codeview-mermaid/styles",
+				"markupeditor-codeview-mermaid/test",
+				"markupeditor-exporter-docx/node_modules",
+				"markupeditor-exporter-docx/src",
+				"markupeditor-exporter-docx/test",
+			);
+			path = plugins;
+			sourceTree = "<group>";
+		};
+		AA83FACE302E516F0034CD46 /* markupeditor-app */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA83FAD0302E517C0034CD46 /* Exceptions for "markupeditor-app" folder in "MarkupEditorApp" target */,
+			);
+			explicitFolders = (
+				node_modules,
+				src,
+				test,
+			);
+			path = "markupeditor-app";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -159,13 +169,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA7B99AB2F9290E00085425B /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -176,9 +179,8 @@
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
-				AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */,
-				AAB800602FC4C2CC00212250 /* markupeditor-app */,
-				AAC5859C3022675B00C6CDA3 /* plugins */,
+				AA83FACE302E516F0034CD46 /* markupeditor-app */,
+				AA8327AF302E47F80034CD46 /* plugins */,
 				AA832770302E222B0034CD46 /* website */,
 				AAB8007C2FC5036A00212250 /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
@@ -190,7 +192,6 @@
 			children = (
 				AA7B99972F9290DF0085425B /* MarkupEditor.app */,
 				AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */,
-				AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */,
 				AA3F963C302A516B00FB96C9 /* markup */,
 			);
 			name = Products;
@@ -229,6 +230,7 @@
 				AA7B99932F9290DF0085425B /* Sources */,
 				AA7B99942F9290DF0085425B /* Frameworks */,
 				AA7B99952F9290DF0085425B /* Resources */,
+				AA832774302E3FE70034CD46 /* Build npm projects */,
 				AA3F964A302A830800FB96C9 /* Embed markup CLI */,
 				AA3F9651302B8D1B00FB96C9 /* Strip markup CLI for App Store */,
 			);
@@ -238,7 +240,6 @@
 				AA3F9649302A82F400FB96C9 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 			);
 			name = MarkupEditorApp;
@@ -274,26 +275,6 @@
 			productReference = AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AA7B99BE2F9290E00085425B /* Build configuration list for PBXNativeTarget "MarkupEditorAppUITests" */;
-			buildPhases = (
-				AA7B99AA2F9290E00085425B /* Sources */,
-				AA7B99AB2F9290E00085425B /* Frameworks */,
-				AA7B99AC2F9290E00085425B /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				AA7B99B02F9290E00085425B /* PBXTargetDependency */,
-			);
-			name = MarkupEditorAppUITests;
-			packageProductDependencies = (
-			);
-			productName = MarkupEditorAppUITests;
-			productReference = AA7B99AE2F9290E00085425B /* MarkupEditorAppUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -311,10 +292,6 @@
 						CreatedOnToolsVersion = 26.4;
 					};
 					AA7B99A32F9290E00085425B = {
-						CreatedOnToolsVersion = 26.4;
-						TestTargetID = AA7B99962F9290DF0085425B;
-					};
-					AA7B99AD2F9290E00085425B = {
 						CreatedOnToolsVersion = 26.4;
 						TestTargetID = AA7B99962F9290DF0085425B;
 					};
@@ -342,7 +319,6 @@
 			targets = (
 				AA7B99962F9290DF0085425B /* MarkupEditorApp */,
 				AA7B99A32F9290E00085425B /* MarkupEditorAppTests */,
-				AA7B99AD2F9290E00085425B /* MarkupEditorAppUITests */,
 				AA3F963B302A516B00FB96C9 /* MarkupEditorCLI */,
 			);
 		};
@@ -357,13 +333,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA7B99A22F9290E00085425B /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		AA7B99AC2F9290E00085425B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -392,6 +361,25 @@
 			shellPath = /bin/sh;
 			shellScript = "case \"${MARKUPEDITOR_INCLUDE_CLI}\" in\n  YES) exit 0 ;;\n  NO)  rm -rf \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bin\" ;;\n  *)   echo \"error: MARKUPEDITOR_INCLUDE_CLI must be YES or NO (got '${MARKUPEDITOR_INCLUDE_CLI}')\" >&2\n       exit 1 ;;\nesac\n";
 		};
+		AA832774302E3FE70034CD46 /* Build npm projects */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build npm projects";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the pre-installed plugins\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -416,13 +404,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA7B99AA2F9290E00085425B /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -435,11 +416,6 @@
 			isa = PBXTargetDependency;
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
 			targetProxy = AA7B99A52F9290E00085425B /* PBXContainerItemProxy */;
-		};
-		AA7B99B02F9290E00085425B /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
-			targetProxy = AA7B99AF2F9290E00085425B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -605,23 +581,6 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarkupEditor.app/Contents/MacOS/MarkupEditor";
-			};
-			name = "Release-AppStore";
-		};
-		AA3F964F302B8BA100FB96C9 /* Release-AppStore */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 7XXG4VJQ59;
-				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				TEST_TARGET_NAME = MarkupEditorApp;
 			};
 			name = "Release-AppStore";
 		};
@@ -798,6 +757,7 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MarkupEditorApp/Info.plist;
@@ -842,6 +802,7 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MarkupEditorApp/Info.plist;
@@ -902,40 +863,6 @@
 			};
 			name = Release;
 		};
-		AA7B99BF2F9290E00085425B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 7XXG4VJQ59;
-				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				TEST_TARGET_NAME = MarkupEditorApp;
-			};
-			name = Debug;
-		};
-		AA7B99C02F9290E00085425B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 7XXG4VJQ59;
-				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorAppUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				TEST_TARGET_NAME = MarkupEditorApp;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -975,16 +902,6 @@
 				AA7B99BC2F9290E00085425B /* Debug */,
 				AA7B99BD2F9290E00085425B /* Release */,
 				AA3F964E302B8BA100FB96C9 /* Release-AppStore */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		AA7B99BE2F9290E00085425B /* Build configuration list for PBXNativeTarget "MarkupEditorAppUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AA7B99BF2F9290E00085425B /* Debug */,
-				AA7B99C02F9290E00085425B /* Release */,
-				AA3F964F302B8BA100FB96C9 /* Release-AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -50,16 +50,24 @@ struct MarkupEditorApp: App {
         .windowResizability(.automatic)
     }
     
+    private static let firstLaunchPluginSetupKey = "hasCompletedFirstLaunchPluginSetup"
+
     init() {
         MarkupEditor.allowLocalImages = true
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
         MarkupEditor.isInspectable = true
-        AppConfig.update { config in
-            config.exporters = ExporterManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
-        }
-        AppConfig.update { config in
-            config.codeViews = CodeViewManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
+        // Pre-installed plugins (DocX, Mermaid) are seeded from the app bundle once, at true
+        // first launch -- not every launch, which would re-copy over anything the user replaced
+        // them with via Settings.
+        if !UserDefaults.standard.bool(forKey: Self.firstLaunchPluginSetupKey) {
+            AppConfig.update { config in
+                config.exporters = ExporterManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
+            }
+            AppConfig.update { config in
+                config.codeViews = CodeViewManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
+            }
+            UserDefaults.standard.set(true, forKey: Self.firstLaunchPluginSetupKey)
         }
     }
 }

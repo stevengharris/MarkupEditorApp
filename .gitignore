@@ -25,3 +25,6 @@ skills-lock.json
 docs/release-runbook.md
 docs/rdr/
 docs/rdr-original/
+
+# Built from markupeditor-app/ (npm run build); regenerated at Xcode build time
+MarkupEditorApp/Resources/markupeditor-app.js

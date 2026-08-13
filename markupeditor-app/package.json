@@ -23,7 +23,6 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "prepare": "./prepare.sh",
     "pretest": "npm run build",
     "test": "vitest run"
   }
