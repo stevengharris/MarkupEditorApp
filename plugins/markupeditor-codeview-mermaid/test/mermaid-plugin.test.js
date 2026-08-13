@@ -4,9 +4,9 @@ import { joinBackward } from 'prosemirror-commands'
 import { MermaidView, isMermaidLanguage } from '../src/mermaidview.js'
 import { mermaidPlugin } from '../src/mermaidplugin.js'
 
-// MarkupEditorApp-1qfq.4/.5: integration coverage for the keyboard/clipboard/
-// theme plugin against the REAL wiring shape (MermaidView + createMermaidPlugin),
-// replacing the deleted decoration-era markupeditor-mermaid.test.js. Doesn't
+// Integration coverage for the keyboard/clipboard/theme plugin against the
+// REAL wiring shape (MermaidView + createMermaidPlugin), replacing the
+// deleted decoration-era markupeditor-mermaid.test.js. Doesn't
 // exercise the top-level `if (view) {...}` module-load wiring itself (keyed to
 // MU.activeView(), an import-time side effect not practical to unit-test in
 // isolation) — hand-wires the same factory shape instead, matching
@@ -404,9 +404,9 @@ describe('a mermaid block coexisting with a non-mermaid one, via the real captur
   })
 })
 
-// Real bug found in manual verification (MarkupEditorApp-1qfq.7): the
-// reverse direction of mermaidview.test.js's "language changed away from
-// mermaid" fix — a PLAIN code_block whose language changes TO mermaid via
+// Real bug found in manual verification: the reverse direction of
+// mermaidview.test.js's "language changed away from mermaid" fix — a
+// PLAIN code_block whose language changes TO mermaid via
 // the dialog didn't upgrade, because the instance already in place (a
 // MU.CodeView, or whatever another plugin's delegate chain produced) has no
 // reason to know about mermaid. makeCodeBlockFactory wraps the delegate
@@ -458,8 +458,8 @@ describe('makeCodeBlockFactory: language changed TO mermaid via the Language dia
   })
 })
 
-// Real bug found in manual verification (MarkupEditorApp-1qfq.7): on macOS,
-// Cmd+V never reaches the DOM as a paste event — NSResponder's paste(_:)
+// Real bug found in manual verification: on macOS, Cmd+V never reaches the
+// DOM as a paste event — NSResponder's paste(_:)
 // (MarkupWKWebView.swift) reads NSPasteboard directly and, when the
 // selection is inside a <pre>, calls MU.pasteCode(text) via
 // executeJavaScript, bypassing handleDOMEvents.paste (and this package's own

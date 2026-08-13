@@ -9485,8 +9485,8 @@ function makeSerializer(warnings) {
     // HTML preamble block that was injected during import. Serialize it as raw
     // HTML (no fences) so the round-trip produces the original preamble.
     // Detection is purely positional — this branch intentionally ignores
-    // node.attrs (including language, RDR-020) entirely, even though the
-    // preamble node does carry attrs.language === "html" after import.
+    // node.attrs (including language) entirely, even though the preamble
+    // node does carry attrs.language === "html" after import.
     // All other code_blocks serialize as standard fenced blocks, with
     // node.attrs.language (if set) emitted as the fence info string.
     code_block(state, node, parent, index) {
@@ -9607,8 +9607,8 @@ function makeParser(schema, warnings) {
     s:        { mark: 's' },
 
     // fence: prosemirror-markdown's built-in default maps tok.info to a
-    // `params` attr, but the code_block schema (RDR-020) declares `language`
-    // instead — the built-in default is a silent no-op against this schema.
+    // `params` attr, but the code_block schema declares `language` instead
+    // — the built-in default is a silent no-op against this schema.
     // Only the first whitespace-delimited word of the info string is the
     // language per CommonMark convention (e.g. "js {1,3}" -> "js", discarding
     // the rest). An absent/empty info string must map to `null`, matching the

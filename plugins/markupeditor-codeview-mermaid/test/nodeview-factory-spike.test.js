@@ -1,18 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { Schema, EditorState, EditorView } from 'markupeditor'
 
-// RDR-024-abandoned-in-favor-of-lightweight-beads / MarkupEditorApp-1qfq.1 spike.
-//
-// Closes the single riskiest assumption behind the MermaidView refactor
-// (epic MarkupEditorApp-1qfq): that markupeditor-mermaid, loaded via userScript
-// well AFTER markupeditor-base's own EditorView already exists (with its own
-// direct nodeViews.code_block factory baked in at construction time,
-// markupeditor.js), can still swap which constructor runs for code_block —
-// including for a code_block that is already rendered on the page — purely
-// via `view.setProps({ nodeViews: {...} })`, with no markupeditor-base change
-// at all. Kept as a permanent regression test, not discarded once it served
-// its purpose, matching RDR-023's own precedent (its Finding 3 backreference
-// spike).
+// Closes the single riskiest assumption behind the MermaidView refactor: that
+// markupeditor-mermaid, loaded via userScript well AFTER markupeditor-base's own
+// EditorView already exists (with its own direct nodeViews.code_block factory baked in
+// at construction time, markupeditor.js), can still swap which constructor runs for
+// code_block — including for a code_block that is already rendered on the page —
+// purely via `view.setProps({ nodeViews: {...} })`, with no markupeditor-base change at
+// all. Kept as a permanent regression test, not discarded once it served its purpose.
 //
 // Verified by reading prosemirror-view 1.41.4's own source
 // (EditorView.updateStateInner, dist/index.js) before writing this: a
@@ -40,10 +35,9 @@ const schema = new Schema({
   }
 })
 
-// Stand-ins for CodeView/MermaidView — this spike is only about the
-// factory-swap MECHANISM, not the real classes' own behavior (covered by
-// later phases, MarkupEditorApp-1qfq.2/.3), so a minimal NodeView with a
-// distinguishing marker and a destroy() flag is enough.
+// Stand-ins for CodeView/MermaidView — this test is only about the
+// factory-swap MECHANISM, not the real classes' own behavior, so a minimal
+// NodeView with a distinguishing marker and a destroy() flag is enough.
 class MarkerView {
   constructor(node, view, getPos, marker) {
     this.dom = document.createElement('pre')
@@ -93,8 +87,8 @@ describe('code_block NodeView factory swap via view.setProps (no markupeditor-ba
 
     // Mermaid's own load-time wiring: capture the existing factory off
     // view.props (confirms the getter surfaces the constructor-time value,
-    // the other half of Finding 3's gap), then install a wrapping factory
-    // that only diverts mermaid-language blocks.
+    // not just the setter accepting a replacement), then install a wrapping
+    // factory that only diverts mermaid-language blocks.
     const capturedOriginal = view.props.nodeViews.code_block
     expect(capturedOriginal).toBe(originalFactory)
 
@@ -213,7 +207,7 @@ describe('composability with a second, independently-authored language-specific 
   }
 
   // Installs the well-behaved capture-wrap-delegate pattern for `marker`,
-  // matching MermaidView's own planned wiring (MarkupEditorApp-1qfq.4).
+  // matching MermaidView's own planned wiring.
   function installWellBehavedFactory(view, isOwnLanguage, marker) {
     const capturedPrior = view.props.nodeViews.code_block
     const factory = (node, v, getPos) => {

@@ -3,7 +3,7 @@
 //  MarkupEditorAppTests
 //
 //  Coverage for YAML metadata, htmd package round-trips, and HTML preamble extraction.
-//  Tests requiring the JS plugin + WKWebView are covered in the acceptance walkthrough (bead 2tq).
+//  Tests requiring the JS plugin + WKWebView are in MarkupWKWebViewHeadlessTests.swift.
 //
 
 import Testing
@@ -301,13 +301,15 @@ struct YAMLFrontmatterFormatTests {
         #expect(preamble == "&lt;")
     }
 
-    // I1 edge case: user-authored code block at position 0
+    // Edge case: a user-authored code block at position 0.
     // The positional heuristic WILL de-fence it on .htmd/.html saves.
     // This test documents the known behavior so it is explicit, not accidental.
     @Test func userCodeBlockAtPositionZeroIsDefenced() {
         let html = "<pre><code>const x = 1\nconst y = 2</code></pre>\n<p>After.</p>"
         let (preamble, body) = MarkupDocument().extractHTMLPreamble(from: html)
-        // Known limitation per RDR-015 §Design (positional heuristic, preamble marker deferred)
+        // Known limitation: the positional heuristic can't distinguish this from a real HTML
+        // preamble at position 0 -- disambiguating would need an explicit preamble marker,
+        // not implemented.
         #expect(preamble == "const x = 1\nconst y = 2")
         #expect(body == "<p>After.</p>")
     }

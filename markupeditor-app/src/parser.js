@@ -38,8 +38,8 @@ export function makeParser(schema, warnings) {
     s:        { mark: 's' },
 
     // fence: prosemirror-markdown's built-in default maps tok.info to a
-    // `params` attr, but the code_block schema (RDR-020) declares `language`
-    // instead — the built-in default is a silent no-op against this schema.
+    // `params` attr, but the code_block schema declares `language` instead
+    // — the built-in default is a silent no-op against this schema.
     // Only the first whitespace-delimited word of the info string is the
     // language per CommonMark convention (e.g. "js {1,3}" -> "js", discarding
     // the rest). An absent/empty info string must map to `null`, matching the

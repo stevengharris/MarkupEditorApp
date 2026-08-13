@@ -1,15 +1,16 @@
 /**
- * Tests for RDR-020 Phase 3: round-tripping the code_block schema's `language`
- * attribute through the fenced-code-block info string on import (parser.js)
- * and export (serializer.js).
+ * Tests for round-tripping the code_block schema's `language` attribute
+ * through the fenced-code-block info string on import (parser.js) and
+ * export (serializer.js).
  *
  * Covers:
- *  - P3.1 (parser.js): explicit `fence` tokenHandler override — first word of
+ *  - parser.js: explicit `fence` tokenHandler override — first word of
  *    the info string only, strict null (not "") when no info string.
- *  - P3.2 (serializer.js): emitting node.attrs.language in the fence open line,
- *    without touching the RDR-015 HTML-preamble branch.
- *  - P3.3 / P3.4: additional export/import/round-trip coverage, including the
- *    RDR-015 preamble regression.
+ *  - serializer.js: emitting node.attrs.language in the fence open line,
+ *    without touching the HTML-preamble branch (see the preamble
+ *    regression describe blocks below).
+ *  - additional export/import/round-trip coverage, including the
+ *    HTML-preamble regression.
  */
 
 import { beforeAll, describe, test, expect, vi } from 'vitest'
@@ -169,7 +170,7 @@ describe('code_block import — language attribute', () => {
 describe('code_block round-trip — HTML class <-> Markdown fence', () => {
   test('HTML pre>code.language-swift survives Markdown round-trip', () => {
     // Precede with a paragraph so the code_block is not at doc index 0 —
-    // index 0 triggers the unrelated RDR-015 HTML-preamble heuristic.
+    // index 0 triggers the unrelated HTML-preamble heuristic.
     const original = htmlToDoc('<p>Intro.</p><pre><code class="language-swift">let x = 1</code></pre>')
     const block = firstCodeBlock(original)
     expect(block.attrs.language).toBe('swift')
@@ -186,11 +187,11 @@ describe('code_block round-trip — HTML class <-> Markdown fence', () => {
 })
 
 // ---------------------------------------------------------------------------
-// RDR-015 preamble regression (P3.4): the positional preamble branch must
-// remain completely unaffected by the new language attribute.
+// HTML-preamble regression: the positional preamble branch must remain
+// completely unaffected by the new language attribute.
 // ---------------------------------------------------------------------------
 
-describe('RDR-015 preamble regression — serializer branch is language-attr-invariant', () => {
+describe('HTML-preamble regression — serializer branch is language-attr-invariant', () => {
   test('preamble serialization is byte-identical regardless of attrs.language', () => {
     const text = '<div align="center">\n  badge\n</div>'
     const docWithLanguage = schema.nodes.doc.create(null, [
@@ -208,7 +209,7 @@ describe('RDR-015 preamble regression — serializer branch is language-attr-inv
   })
 })
 
-describe('RDR-015 preamble regression — parser assigns language "html" to the injected preamble fence', () => {
+describe('HTML-preamble regression — parser assigns language "html" to the injected preamble fence', () => {
   test('the synthetic ```html fence importFn injects around a preamble parses to language: "html"', () => {
     // importMarkdown (markdown.js) wraps a detected leading HTML block in a
     // synthetic ```html fence before handing off to makeParser — see
@@ -227,13 +228,12 @@ describe('RDR-015 preamble regression — parser assigns language "html" to the 
   })
 })
 
-describe('RDR-015 preamble regression — full importFn/exportFn pipeline', () => {
+describe('HTML-preamble regression — full importFn/exportFn pipeline', () => {
   // markdown.js exports exportMarkdown/importMarkdown as plain functions
   // (app.js is what wires them onto the real MU singleton when the app
   // actually loads — see plugin.test.js / preamble.test.js for the same
   // pattern). The jsdom CSSStyleSheet.replaceSync gap that used to block
-  // this file's module load is fixed via test/vitest.setup.js
-  // (MarkupEditorApp-zl7a.2).
+  // this file's module load is fixed via test/vitest.setup.js.
   const importFn = importMarkdown
   const exportFn = exportMarkdown
   let activeViewSpy

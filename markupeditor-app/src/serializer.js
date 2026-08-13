@@ -111,8 +111,8 @@ export function makeSerializer(warnings) {
     // HTML preamble block that was injected during import. Serialize it as raw
     // HTML (no fences) so the round-trip produces the original preamble.
     // Detection is purely positional — this branch intentionally ignores
-    // node.attrs (including language, RDR-020) entirely, even though the
-    // preamble node does carry attrs.language === "html" after import.
+    // node.attrs (including language) entirely, even though the preamble
+    // node does carry attrs.language === "html" after import.
     // All other code_blocks serialize as standard fenced blocks, with
     // node.attrs.language (if set) emitted as the fence info string.
     code_block(state, node, parent, index) {

@@ -2,14 +2,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { Schema, EditorState, EditorView, MU } from 'markupeditor'
 import { MermaidView, isMermaidLanguage } from '../src/mermaidview.js'
 
-// MarkupEditorApp-1qfq.3: MermaidView unit coverage in isolation, via a
-// hand-wired nodeViews factory — NOT through markupeditor-mermaid.js's real
-// entry-point wiring (view.setProps + the language-aware factory override),
-// which is MarkupEditorApp-1qfq.4's own scope. Broader integration coverage
+// MermaidView unit coverage in isolation, via a hand-wired nodeViews factory
+// — NOT through markupeditor-mermaid.js's real entry-point wiring
+// (view.setProps + the language-aware factory override), which
+// mermaid-plugin.test.js covers instead. Broader integration coverage
 // (arrow-key/delete/copy/paste atomic-hop, the OS theme listener actually
 // firing forceRerenderAll, multiple mermaid blocks via the real factory)
-// belongs to MarkupEditorApp-1qfq.6, once 1qfq.4/1qfq.5 exist to integrate
-// against.
+// also lives there.
 
 const schema = new Schema({
   nodes: {
@@ -300,13 +299,12 @@ describe('theme-change re-render (MermaidView.forceRerenderAll)', () => {
   })
 })
 
-// markupeditor-base's own emptyCodeBlockPlaceholderPlugin (the decoration-era
-// "never truly empty" workaround RDR-023's Background said mermaid still
-// needed) was removed entirely in the actual RDR-023 implementation (commit
-// e09d649) once CodeView's own tab proved safe without it (verified there by
-// a real caret-placement test, test/codeview.test.js). It no longer exists
-// in markupeditor-base at all, so there is nothing left for mermaid to rely
-// on — this closes that question for MermaidView the same way.
+// markupeditor-base's own emptyCodeBlockPlaceholderPlugin (a decoration-era
+// "never truly empty" workaround) was removed entirely in commit e09d649
+// once CodeView's own tab proved safe without it (verified there by a real
+// caret-placement test, test/codeview.test.js). It no longer exists in
+// markupeditor-base at all, so there is nothing left for mermaid to rely on
+// — this closes that question for MermaidView the same way.
 describe('empty block: native caret placement with no separator workaround', () => {
   it('a genuinely empty mermaid block, tabs active, gets correct native caret placement and stays typeable', async () => {
     const doc = schema.node('doc', null, [
@@ -336,7 +334,7 @@ describe('empty block: native caret placement with no separator workaround', () 
   })
 })
 
-// Real bug found in manual verification (MarkupEditorApp-1qfq.7): the
+// Real bug found in manual verification: the
 // Language dialog can change node.attrs.language on the SAME node identity
 // without ProseMirror rebuilding the NodeView on its own (it calls
 // update() on the existing instance instead) — MermaidView kept its
@@ -380,7 +378,7 @@ describe('language changed away from mermaid via the Language dialog', () => {
   })
 })
 
-// Real bug found in manual verification (MarkupEditorApp-1qfq.7): create an
+// Real bug found in manual verification: create an
 // empty mermaid block (selected, so setActive(true) already ran once while
 // it was still empty/Source), paste real diagram source into it, switch to
 // Diagram — the diagram rendered but showed no selection border.
@@ -430,7 +428,7 @@ describe('selection border stays correct across a mode change without setActive 
   })
 })
 
-// Real bug found in manual verification (MarkupEditorApp-1qfq.7): replacing
+// Real bug found in manual verification: replacing
 // the whole content of an already-Diagram-mode block (matching what
 // wrapPasteCodeForDiagram, markupeditor-mermaid.js, does for a native macOS
 // paste) re-renders the diagram correctly but leaves the OLD source text
