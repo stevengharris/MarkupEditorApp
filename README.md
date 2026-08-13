@@ -22,11 +22,13 @@ A native MacOS Markdown viewer and WYSIWYG editor.
 
 * Customizable toolbar can be toggled on/off or fully hidden.
 
-* Open source plugins support exporting DOCX and viewing/editing of Mermaid diagrams.
-
-* Contribute to an open community of plugins, templates\*, and styles\*.
-
 * Open from the command line using the `markup <filename>` command.
+
+* Use and develop JavaScript-based *plugins* that extend functionality MarkupEditor functionality.
+
+* Pre-installed open source plugins to to support DOCX export and Mermaid diagrams.
+
+* Discover hosted plugins and contribute to a community of MarkupEditor users.
 
 ## Installation
 
@@ -44,7 +46,7 @@ There's no dedicated uninstaller. To remove manually: delete `/usr/local/bin/mar
 
 Download from the App Store to support ongoing development and prioritize support issues.
 
-The MarkupEditor depends on the amazing ProseMirror as a foundational part of WYSIWYG editing. A portion of App Store revenue from the MarkupEditor will go to support ProseMirror. If you find the MarkupEditor to be useful and are not using the App Store version, please support ProseMirror directly. 
+The MarkupEditor depends on the amazing ProseMirror as a foundational part of WYSIWYG editing. A portion of App Store revenue from the MarkupEditor will go to support ProseMirror. If you find the MarkupEditor to be useful and are not using the App Store version, please support ProseMirror directly.
 
 ---
 
