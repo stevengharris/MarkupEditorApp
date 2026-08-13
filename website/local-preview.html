@@ -17,7 +17,7 @@
   const target = document.getElementById('preview-target');
 
   document.getElementById('btn-happy').addEventListener('click', () => {
-    fetchAndRender('../plugins.json', target);
+    fetchAndRender('../plugins/plugins.json', target);
   });
   document.getElementById('btn-malformed').addEventListener('click', () => {
     fetchAndRender('./fixtures/malformed-entry.json', target);

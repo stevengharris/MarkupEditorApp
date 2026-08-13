@@ -1,10 +1,10 @@
 // Renders plugins/plugins.json as a grouped card grid on the Ghost Plugins
 // Page. Pasted verbatim into Ghost's post-footer Code Injection box (see
-// plugins/ghost/README.md) -- not served from this repo.
+// website/README.md) -- not served from this repo.
 
 // TEMPORARY host: MarkupEditorApp is currently a private repo. Must revert to
 // MarkupEditorApp once that repo is public -- mirrors the same constant in
-// plugins/generate-plugins-json.js.
+// plugins/generate-plugins-json.mjs.
 export const PLUGINS_JSON_URL =
   'https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/plugins.json';
 
