@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MarkupEditor
+import MarkupEditorAppLib
 
 @main
 struct MarkupEditorApp: App {
@@ -54,7 +55,11 @@ struct MarkupEditorApp: App {
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
         MarkupEditor.isInspectable = true
-        ExporterManager.shared.setupOnLaunch()
-        CodeViewManager.shared.setupOnLaunch()
+        AppConfig.update { config in
+            config.exporters = ExporterManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+        }
+        AppConfig.update { config in
+            config.codeViews = CodeViewManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
+        }
     }
 }

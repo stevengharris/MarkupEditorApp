@@ -1,12 +1,12 @@
 //
 //  PluginCatalog.swift
-//  MarkupEditorApp
+//  MarkupEditorAppLib
 //
 
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "PluginCatalog")
+private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "PluginCatalog")
 
 // TEMPORARY host: MarkupEditorApp is currently a private repo, so
 // raw.githubusercontent.com 404s against it. markupeditor-desktop is a
@@ -16,15 +16,16 @@ private let pluginsJSONURLString =
     "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/plugins.json"
 
 /// One plugin entry as published in plugins.json.
-struct PluginCatalogEntry: Decodable, Equatable {
-    let name: String
-    let filename: String
-    let description: String
-    let author: String
-    let version: String
-    let repo: String
-    let source: String
-    let ext: String?
+public struct PluginCatalogEntry: Decodable, Equatable, Sendable, Identifiable {
+    public var id: String { name }
+    public let name: String
+    public let filename: String
+    public let description: String
+    public let author: String
+    public let version: String
+    public let repo: String
+    public let source: String
+    public let ext: String?
 }
 
 /// Wraps a per-entry decode so one malformed entry never fails the whole
@@ -50,15 +51,15 @@ private struct FailableDecodable<T: Decodable>: Decodable {
 /// since the generator only emits buckets that actually have plugins. A
 /// malformed top level (not an object, or not valid JSON at all) still
 /// throws, since that is not a per-entry problem.
-struct PluginCatalog: Decodable, Equatable {
-    let codeview: [String: PluginCatalogEntry]
-    let exporter: [String: PluginCatalogEntry]
+public struct PluginCatalog: Decodable, Equatable, Sendable {
+    public let codeview: [String: PluginCatalogEntry]
+    public let exporter: [String: PluginCatalogEntry]
 
     private enum CodingKeys: String, CodingKey {
         case codeview, exporter
     }
 
-    init(from decoder: any Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         codeview = try Self.decodeBucket(container, forKey: .codeview)
         exporter = try Self.decodeBucket(container, forKey: .exporter)
@@ -92,14 +93,14 @@ struct PluginCatalog: Decodable, Equatable {
     }
 }
 
-enum PluginCatalogError: Error, Equatable {
+public enum PluginCatalogError: Error, Equatable, Sendable {
     case transportFailure(String)
     case unexpectedStatus(Int)
     case undecodableResponse(String)
 }
 
 extension PluginCatalogError: LocalizedError {
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .transportFailure(let reason):
             return "Could not reach the plugin catalog: \(reason)"
@@ -114,7 +115,7 @@ extension PluginCatalogError: LocalizedError {
 /// Fetches and decodes plugins.json. A transport failure, a non-2xx status, or
 /// an undecodable response all throw -- the caller must never receive an
 /// empty catalog as a stand-in for "the fetch failed."
-func fetchPluginCatalog() async throws -> PluginCatalog {
+public func fetchPluginCatalog() async throws -> PluginCatalog {
     guard let url = URL(string: pluginsJSONURLString) else {
         throw PluginCatalogError.transportFailure("invalid plugin catalog URL")
     }

@@ -1,19 +1,20 @@
 //
 //  PluginInstaller.swift
-//  MarkupEditorApp
+//  MarkupEditorAppLib
 //
 
 import Foundation
 import OSLog
+import MarkupEditor
 
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "PluginInstaller")
+private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "PluginInstaller")
 
-enum PluginType {
+public enum PluginType: Sendable {
     case exporter
     case codeview
 }
 
-enum PluginInstallError: Error, Equatable {
+public enum PluginInstallError: Error, Equatable, Sendable {
     case missingExtension(String)
     case invalidSourceURL(String)
     case downloadFailed(String)
@@ -21,7 +22,7 @@ enum PluginInstallError: Error, Equatable {
 }
 
 extension PluginInstallError: LocalizedError {
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingExtension(let name):
             return "Plugin '\(name)' is an exporter but has no file extension."
@@ -38,23 +39,35 @@ extension PluginInstallError: LocalizedError {
 /// Where a downloaded plugin file must be moved before ExporterManager/CodeViewManager's
 /// add() can be called on it -- both derive the stored filename from the URL's last path
 /// component, and a URLSession download's temp file has a random system name.
-func installDestination(for entry: PluginCatalogEntry, in directory: URL) -> URL {
+public func installDestination(for entry: PluginCatalogEntry, in directory: URL) -> URL {
     directory.appendingPathComponent(entry.filename)
 }
 
 /// Downloads entry.source, renames it to entry.filename, and installs it via the
 /// existing ExporterManager/CodeViewManager. Verifies success via nameExists(_:)
 /// rather than trusting add()'s return, since add() swallows every failure into a
-/// logger and returns Void either way. Cleans up its temp directory on every path.
+/// logger and returns the list unchanged either way. Cleans up its temp directory on
+/// every path. Returns the updated (exporters, codeViews) lists -- this package has no
+/// `AppConfig` to write to, so the app-side caller reads the current lists in, and
+/// writes the returned lists back after.
 ///
 /// `download` is injected (defaulting to a real URLSession call) so the full
 /// rename/add/verify sequence is testable against a canned local file, the same
 /// fetch/decode-separation pattern PluginDiscoveryModel uses for fetchPluginCatalog.
-func installPlugin(
+///
+/// `@MainActor`: takes/returns `[Plugin]`, which isn't provably `Sendable` across the module
+/// boundary (see CodeViewManager's `mermaid` comment) -- pinning to the main actor avoids
+/// treating every call site as an isolation-domain crossing, consistent with where this is
+/// actually called from (a SwiftUI button action).
+@MainActor
+public func installPlugin(
     _ entry: PluginCatalogEntry,
     type: PluginType,
+    exporters: [Plugin],
+    codeViews: [Plugin],
+    cacheDir: URL,
     download: @MainActor (URL) async throws -> (URL, URLResponse) = { try await URLSession.shared.download(from: $0) }
-) async throws {
+) async throws -> (exporters: [Plugin], codeViews: [Plugin]) {
     if type == .exporter, entry.ext == nil {
         throw PluginInstallError.missingExtension(entry.name)
     }
@@ -85,16 +98,18 @@ func installPlugin(
     switch type {
     case .exporter:
         guard let ext = entry.ext else { throw PluginInstallError.missingExtension(entry.name) }
-        ExporterManager.shared.add(name: entry.name, url: destination, ext: ext)
-        guard ExporterManager.shared.nameExists(entry.name) else {
+        let updatedExporters = ExporterManager.add(name: entry.name, url: destination, ext: ext, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir)
+        guard ExporterManager.nameExists(entry.name, in: updatedExporters) else {
             throw PluginInstallError.verificationFailed(entry.name)
         }
+        logger.info("Installed \(entry.name)")
+        return (updatedExporters, codeViews)
     case .codeview:
-        CodeViewManager.shared.add(name: entry.name, url: destination)
-        guard CodeViewManager.shared.nameExists(entry.name) else {
+        let updatedCodeViews = CodeViewManager.add(name: entry.name, url: destination, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir)
+        guard CodeViewManager.nameExists(entry.name, in: updatedCodeViews) else {
             throw PluginInstallError.verificationFailed(entry.name)
         }
+        logger.info("Installed \(entry.name)")
+        return (exporters, updatedCodeViews)
     }
-
-    logger.info("Installed \(entry.name)")
 }

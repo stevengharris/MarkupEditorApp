@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MarkupEditor
+import MarkupEditorAppLib
 import SplitView
 
 internal import UniformTypeIdentifiers
@@ -516,16 +517,10 @@ struct MarkupDocumentView: View {
         } catch {
             throw MarkupDocumentError.couldNotReadFile("\(error.localizedDescription)")
         }
-        let value = await webView.importMarkdown(content: markdown)
-        guard let importValue = ImportExportValue.decode(from: value) else {
-            throw MarkupDocumentError.unexpectedImport
-        }
-        guard let html = importValue.result else {
-            throw MarkupDocumentError.unableToImport(importValue.warnings.joined(separator: "; "))
-        }
-        var warnings = importValue.warnings
+        let converted = try await MarkupConverter.importMarkdownDecoded(webView, content: markdown)
+        var warnings = converted.warnings
         let metadata: [MetadataTuple]
-        if let yamlString = importValue.metadata {
+        if let yamlString = converted.metadata {
             metadata = YAMLMetadata.parse(yamlString, warnings: &warnings)
         } else {
             metadata = []
@@ -536,7 +531,7 @@ struct MarkupDocumentView: View {
         } catch {
             throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
         }
-        try setHTML(html)
+        try setHTML(converted.result)
         currentSource = markdown
         track(url: url)
     }
@@ -581,18 +576,9 @@ struct MarkupDocumentView: View {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
-        let value = await webView.exportMarkdown(content: html)
-        guard let exportValue = ImportExportValue.decode(from: value) else {
-            throw MarkupDocumentError.unexpectedExport
-        }
-        // Surfaced before the result check below: a real conversion failure explains itself
-        // here (result nil, warnings carrying the reason), so logging first keeps that reason
-        // visible instead of being replaced by .unableToExport's own, more generic message.
-        editLog.warnings(exportValue.warnings)
-        guard let markdown = exportValue.result else {
-            throw MarkupDocumentError.unableToExport(exportValue.warnings.joined(separator: "; "))
-        }
-        return markdown
+        let converted = try await MarkupConverter.exportMarkdownDecoded(webView, content: html)
+        editLog.warnings(converted.warnings)
+        return converted.result
     }
 
     /// Return the HTML that is derived from the `markdown` string.
@@ -600,18 +586,9 @@ struct MarkupDocumentView: View {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
-        let value = await webView.importMarkdown(content: markdown)
-        guard let importValue = ImportExportValue.decode(from: value) else {
-            throw MarkupDocumentError.unexpectedImport
-        }
-        // Surfaced before the result check below: a real conversion failure explains itself
-        // here (result nil, warnings carrying the reason), so logging first keeps that reason
-        // visible instead of being replaced by .unableToImport's own, more generic message.
-        editLog.warnings(importValue.warnings)
-        guard let html = importValue.result else {
-            throw MarkupDocumentError.unableToImport(importValue.warnings.joined(separator: "; "))
-        }
-        return html
+        let converted = try await MarkupConverter.importMarkdownDecoded(webView, content: markdown)
+        editLog.warnings(converted.warnings)
+        return converted.result
     }
     
     //MARK: Saving
@@ -685,11 +662,8 @@ struct MarkupDocumentView: View {
                 editLog.info("PDF exported to: \(url.path)")
             } else {
                 let exportStart = Date()
-                guard let raw = await webView.runExporter(name: plugin.name) else {
-                    throw MarkupDocumentError.pluginReturnedNoResult(plugin.name)
-                }
+                let (outputData, warnings) = try await MarkupConverter.runExporterDecoded(webView, name: plugin.name)
                 let exportElapsed = Date().timeIntervalSince(exportStart)
-                let (outputData, warnings) = try ImportExportValue.decodeExportOutput(from: raw, pluginName: plugin.name)
                 editLog.warnings(warnings)
                 try outputData.write(to: url)
                 editLog.info("\(plugin.name) exported to: \(url.path(percentEncoded: false)), \(outputData.count) bytes, \(String(format: "%.2f", exportElapsed))s")

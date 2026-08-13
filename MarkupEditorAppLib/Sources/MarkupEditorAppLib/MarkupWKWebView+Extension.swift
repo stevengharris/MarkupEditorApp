@@ -1,8 +1,6 @@
 //
 //  MarkupWKWebView+Extension.swift
-//  MarkupEditorApp
-//
-//  Created by Steven Harris on 6/26/26.
+//  MarkupEditorAppLib
 //
 
 import MarkupEditor
@@ -20,7 +18,7 @@ extension MarkupWKWebView {
             }
         }
     }
-    
+
     public func exportMarkdown(content: String?) async -> String? {
         guard let content else { return nil }
         return await withCheckedContinuation { continuation in
@@ -92,17 +90,17 @@ extension MarkupWKWebView {
     /// whether or not the search bar happens to be showing. `offsetLeft`/`offsetTop`/`offsetWidth`/
     /// `offsetHeight` are used rather than `getBoundingClientRect()` because they reflect the full,
     /// scroll-position-independent layout box.
-    private func contentEditableRect() async throws -> CGRect {
+    private func contentEditableRect() async throws(MarkupConversionError) -> CGRect {
         let js = """
         const host = document.getElementById('markupeditor')
         const pm = host?.shadowRoot?.querySelector('.ProseMirror')
         if (!pm) return null
         return { x: pm.offsetLeft, y: pm.offsetTop, width: pm.offsetWidth, height: pm.offsetHeight }
         """
-        guard let result = try await callAsyncJavaScript(js, contentWorld: .page) as? [String: Double],
+        guard let result = try? await callAsyncJavaScript(js, contentWorld: .page) as? [String: Double],
               let x = result["x"], let y = result["y"],
               let width = result["width"], let height = result["height"] else {
-            throw MarkupDocumentError.contentEditableNotFound
+            throw .contentEditableNotFound
         }
         return CGRect(x: x, y: y, width: width, height: height)
     }

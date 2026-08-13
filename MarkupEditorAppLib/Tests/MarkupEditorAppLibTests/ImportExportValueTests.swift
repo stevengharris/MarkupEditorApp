@@ -1,11 +1,11 @@
 //
 //  ImportExportValueTests.swift
-//  MarkupEditorAppTests
+//  MarkupEditorAppLibTests
 //
 
 import Testing
 import Foundation
-@testable import MarkupEditorApp
+@testable import MarkupEditorAppLib
 
 @MainActor
 struct ImportExportValueDecodeTests {
@@ -112,7 +112,7 @@ struct DecodeExportOutputTests {
         #expect {
             try ImportExportValue.decodeExportOutput(from: "{not valid json", pluginName: "DocX")
         } throws: { error in
-            guard case .pluginReturnedUndecodableResult(let name, _) = error as? MarkupDocumentError else { return false }
+            guard case .pluginReturnedUndecodableResult(let name, _) = error as? MarkupConversionError else { return false }
             return name == "DocX"
         }
     }
@@ -124,7 +124,7 @@ struct DecodeExportOutputTests {
         #expect {
             try ImportExportValue.decodeExportOutput(from: json, pluginName: "DocX")
         } throws: { error in
-            guard case .pluginProducedEmptyResult(let name, let reason) = error as? MarkupDocumentError else { return false }
+            guard case .pluginProducedEmptyResult(let name, let reason) = error as? MarkupConversionError else { return false }
             return name == "DocX" && reason == "DOCX conversion failed: boom"
         }
     }
@@ -136,7 +136,7 @@ struct DecodeExportOutputTests {
         #expect {
             try ImportExportValue.decodeExportOutput(from: json, pluginName: "DocX")
         } throws: { error in
-            guard case .pluginReturnedInvalidResult(let name) = error as? MarkupDocumentError else { return false }
+            guard case .pluginReturnedInvalidResult(let name) = error as? MarkupConversionError else { return false }
             return name == "DocX"
         }
     }
@@ -150,7 +150,7 @@ struct DecodeExportOutputTests {
         #expect {
             try ImportExportValue.decodeExportOutput(from: json, pluginName: "DocX")
         } throws: { error in
-            guard case .pluginProducedEmptyResult(let name, _) = error as? MarkupDocumentError else { return false }
+            guard case .pluginProducedEmptyResult(let name, _) = error as? MarkupConversionError else { return false }
             return name == "DocX"
         }
     }

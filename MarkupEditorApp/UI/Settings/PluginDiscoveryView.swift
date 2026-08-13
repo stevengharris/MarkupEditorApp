@@ -6,6 +6,7 @@
 import SwiftUI
 import AppKit
 import MarkupEditor
+import MarkupEditorAppLib
 
 /// Browses the plugin catalog fetched from plugins.json. Always shows one of
 /// four explicit states -- loading, content, empty, or failed -- a blank
@@ -117,14 +118,14 @@ private struct PluginDiscoveryList: View {
             if !catalog.codeview.isEmpty {
                 Section("Code Views") {
                     ForEach(sortedByName(catalog.codeview)) { entry in
-                        PluginDiscoveryRow(entry: entry, type: .codeview, alreadyInstalled: CodeViewManager.shared.nameExists(entry.name))
+                        PluginDiscoveryRow(entry: entry, type: .codeview, alreadyInstalled: CodeViewManager.nameExists(entry.name, in: AppConfig.shared.codeViews))
                     }
                 }
             }
             if !catalog.exporter.isEmpty {
                 Section("Exporters") {
                     ForEach(sortedByName(catalog.exporter)) { entry in
-                        PluginDiscoveryRow(entry: entry, type: .exporter, alreadyInstalled: ExporterManager.shared.nameExists(entry.name))
+                        PluginDiscoveryRow(entry: entry, type: .exporter, alreadyInstalled: ExporterManager.nameExists(entry.name, in: AppConfig.shared.exporters))
                     }
                 }
             }
@@ -145,10 +146,6 @@ private struct PluginDiscoveryList: View {
     private func sortedByName(_ entries: [String: PluginCatalogEntry]) -> [PluginCatalogEntry] {
         entries.values.sorted { $0.name < $1.name }
     }
-}
-
-extension PluginCatalogEntry: Identifiable {
-    var id: String { name }
 }
 
 private struct PluginDiscoveryRow: View {
@@ -209,11 +206,18 @@ private struct PluginDiscoveryRow: View {
         Task {
             defer { isInstalling = false }
             do {
-                try await installPlugin(entry, type: type)
-                // alreadyInstalled is recomputed by the parent from
-                // CodeViewManager/ExporterManager's own @Observable-backed
-                // AppConfig state, which installPlugin's add() call just
-                // updated -- no separate success flag needed here.
+                let (exporters, codeViews) = try await installPlugin(
+                    entry, type: type,
+                    exporters: AppConfig.shared.exporters,
+                    codeViews: AppConfig.shared.codeViews,
+                    cacheDir: AppDelegate.webViewCacheDir
+                )
+                // alreadyInstalled is recomputed by the parent from AppConfig's own
+                // @Observable-backed state, updated here from installPlugin's result.
+                AppConfig.update { config in
+                    config.exporters = exporters
+                    config.codeViews = codeViews
+                }
             } catch {
                 installErrorMessage = error.localizedDescription
             }

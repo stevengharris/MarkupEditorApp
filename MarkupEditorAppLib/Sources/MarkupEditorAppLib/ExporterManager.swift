@@ -1,0 +1,111 @@
+//
+//  ExporterManager.swift
+//  MarkupEditorAppLib
+//
+
+import Foundation
+import OSLog
+import MarkupEditor
+
+private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "ExporterManager")
+
+/// Manages the exporters directory under Application Support: first-launch setup (prepopulated
+/// with the built-in PDF exporter), add, delete, and membership checks.
+///
+/// Every method is caller-injected/pure-returning rather than reading/writing a shared config
+/// singleton: this package has no knowledge of `AppConfig` (stays app-side). The caller reads
+/// its own config, calls in with the current lists, and writes the returned list back.
+public enum ExporterManager {
+
+    /// The URL of the exporter directory under Application Support.
+    public static var defaultDir: URL {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return support.appendingPathComponent("exporters")
+    }
+
+    /// First-launch setup: ensures `defaultDir` exists and the built-in PDF exporter is
+    /// registered. PDF is distinct from every other user-supplied plugin because it exports
+    /// using the WKWebView's own PDF export rather than a JS module file -- see CodeViewManager
+    /// for the equivalent bundled-resource approach (Mermaid). Returns the updated exporters
+    /// list.
+    public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) -> [Plugin] {
+        do {
+            try FileManager.default.createDirectory(
+                at: defaultDir,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+        } catch {
+            logger.error("Failed to create directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
+            return exporters
+        }
+
+        let pdfExporter = Plugin(name: "PDF", type: "exporter", ext: "pdf")
+        var updated = exporters
+        if updated.firstIndex(where: { existing in pdfExporter.name == existing.name }) == nil {
+            logger.info("Added exporter \(pdfExporter.name)")
+            updated.insert(pdfExporter, at: 0)
+        }
+        PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
+        return updated
+    }
+
+    public static func add(name: String, url: URL?, ext: String, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) -> [Plugin] {
+        guard !name.isEmpty, let source = url else { return exporters }
+        // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
+        // in the app's plugin settings UI's fileImporter. Harmless no-op for setupOnLaunch()'s
+        // bundle-resource URL, which was never subject to a matching start call.
+        defer { source.stopAccessingSecurityScopedResource() }
+        let filename = source.lastPathComponent
+        let exporter = Plugin(name: name, type: "exporter", filename: filename, ext: ext)
+        let destination = defaultDir.appendingPathComponent(filename)
+
+        guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
+            logger.warning("Exporter not found: \(filename)")
+            return exporters
+        }
+
+        do {
+            if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
+                try FileManager.default.removeItem(at: destination)
+            }
+            try FileManager.default.copyItem(at: source, to: destination)
+            logger.info("Saved exporter \(exporter.name): \(filename)")
+            var updated = exporters
+            if let index = updated.firstIndex(where: { existing in exporter.name == existing.name }) {
+                updated[index] = exporter
+            } else {
+                updated.append(exporter)
+            }
+            PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
+            return updated
+        } catch {
+            logger.error("Failed to save exporter \(filename): \(error.localizedDescription)")
+            return exporters
+        }
+    }
+
+    public static func delete(_ exporter: Plugin?, exporters: [Plugin], cacheDir: URL) -> [Plugin] {
+        guard let exporter, let filename = exporter.filename,
+              let index = exporters.firstIndex(of: exporter) else { return exporters }
+        let url = defaultDir.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        PluginCacheSync.remove(filename: filename, cacheDir: cacheDir)
+        var updated = exporters
+        updated.remove(at: index)
+        return updated
+    }
+
+    public static func exists(_ exporter: Plugin?, in exporters: [Plugin]) -> Bool {
+        guard let exporter else { return false }
+        return exporters.firstIndex(of: exporter) != nil
+    }
+
+    public static func nameExists(_ name: String, in exporters: [Plugin]) -> Bool {
+        exporters.first(where: { $0.name == name }) != nil
+    }
+
+}

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		AA3F9647302A64AC00FB96C9 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = AA3F9646302A64AC00FB96C9 /* ArgumentParser */; };
 		AA3F964B302A835B00FB96C9 /* markup in Embed markup CLI */ = {isa = PBXBuildFile; fileRef = AA3F963C302A516B00FB96C9 /* markup */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		AA3F99F4302D225A00FB96C9 /* MarkupEditorAppLib in Frameworks */ = {isa = PBXBuildFile; productRef = AA3F99F3302D225A00FB96C9 /* MarkupEditorAppLib */; };
 		AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */ = {isa = PBXBuildFile; productRef = AA7B99C22F9291B90085425B /* MarkupEditor */; };
 		AAB801F52FC7471300212250 /* SplitView in Frameworks */ = {isa = PBXBuildFile; productRef = AAB801F42FC7471300212250 /* SplitView */; };
 /* End PBXBuildFile section */
@@ -125,6 +126,11 @@
 			path = MarkupEditorAppTests;
 			sourceTree = "<group>";
 		};
+		AA832770302E222B0034CD46 /* website */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = website;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,6 +146,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA3F99F4302D225A00FB96C9 /* MarkupEditorAppLib in Frameworks */,
 				AAB801F52FC7471300212250 /* SplitView in Frameworks */,
 				AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */,
 			);
@@ -170,8 +177,9 @@
 				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA3F980E302BDE0B00FB96C9 /* MarkupEditorAppUITests */,
-				AAC5859C3022675B00C6CDA3 /* plugins */,
 				AAB800602FC4C2CC00212250 /* markupeditor-app */,
+				AAC5859C3022675B00C6CDA3 /* plugins */,
+				AA832770302E222B0034CD46 /* website */,
 				AAB8007C2FC5036A00212250 /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
@@ -237,6 +245,7 @@
 			packageProductDependencies = (
 				AA7B99C22F9291B90085425B /* MarkupEditor */,
 				AAB801F42FC7471300212250 /* SplitView */,
+				AA3F99F3302D225A00FB96C9 /* MarkupEditorAppLib */,
 			);
 			productName = MarkupEditorApp;
 			productReference = AA7B99972F9290DF0085425B /* MarkupEditor.app */;
@@ -324,6 +333,7 @@
 				AA7B99C12F9291B90085425B /* XCLocalSwiftPackageReference "../MarkupEditor" */,
 				AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */,
 				AA3F9645302A64AC00FB96C9 /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
+				AA3F99F2302D225A00FB96C9 /* XCLocalSwiftPackageReference "MarkupEditorAppLib" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA7B99982F9290DF0085425B /* Products */;
@@ -982,6 +992,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		AA3F99F2302D225A00FB96C9 /* XCLocalSwiftPackageReference "MarkupEditorAppLib" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MarkupEditorAppLib;
+		};
 		AA7B99C12F9291B90085425B /* XCLocalSwiftPackageReference "../MarkupEditor" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../MarkupEditor;
@@ -1012,6 +1026,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA3F9645302A64AC00FB96C9 /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
 			productName = ArgumentParser;
+		};
+		AA3F99F3302D225A00FB96C9 /* MarkupEditorAppLib */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MarkupEditorAppLib;
 		};
 		AA7B99C22F9291B90085425B /* MarkupEditor */ = {
 			isa = XCSwiftPackageProductDependency;

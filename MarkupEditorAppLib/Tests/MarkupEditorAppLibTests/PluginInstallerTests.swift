@@ -1,11 +1,12 @@
 //
 //  PluginInstallerTests.swift
-//  MarkupEditorAppTests
+//  MarkupEditorAppLibTests
+//
 
 import Testing
 import Foundation
 import MarkupEditor
-@testable import MarkupEditorApp
+@testable import MarkupEditorAppLib
 
 private let validExporterEntry = PluginCatalogEntry(
     name: "DocX",
@@ -29,6 +30,8 @@ private let entryMissingExt = PluginCatalogEntry(
     ext: nil
 )
 
+private let testCacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("PluginInstallerTests-cache", isDirectory: true)
+
 @Suite
 struct PluginInstallerTests {
 
@@ -44,7 +47,7 @@ struct PluginInstallerTests {
     @MainActor
     @Test func exporterWithoutExtThrowsBeforeAnyNetworkCall() async {
         await #expect(throws: PluginInstallError.missingExtension("DocX")) {
-            try await installPlugin(entryMissingExt, type: .exporter)
+            _ = try await installPlugin(entryMissingExt, type: .exporter, exporters: [], codeViews: [], cacheDir: testCacheDir)
         }
     }
 
@@ -61,7 +64,7 @@ struct PluginInstallerTests {
             ext: nil
         )
         await #expect(throws: PluginInstallError.invalidSourceURL("Bad")) {
-            try await installPlugin(badEntry, type: .codeview)
+            _ = try await installPlugin(badEntry, type: .codeview, exporters: [], codeViews: [], cacheDir: testCacheDir)
         }
     }
 
@@ -73,6 +76,13 @@ struct PluginInstallerTests {
     /// add() was called with something.
     @MainActor
     @Test func happyPathRenamesDownloadsAndInstallsThroughRealCodeViewManager() async throws {
+        // CodeViewManager.add() writes into defaultDir (~/Library/Application Support/codeviews),
+        // normally created once by CodeViewManager.setupOnLaunch() at real app startup. This test
+        // has no host app to run that startup path, so it establishes the same precondition
+        // directly -- matching what a real app run would already have done before add() is ever
+        // reachable.
+        try FileManager.default.createDirectory(at: CodeViewManager.defaultDir, withIntermediateDirectories: true)
+
         let entry = PluginCatalogEntry(
             name: "PluginInstallerHappyPathTest",
             filename: "plugin-installer-happy-path-test.js",
@@ -97,17 +107,21 @@ struct PluginInstallerTests {
         )
 
         defer {
-            CodeViewManager.shared.delete(Plugin(name: entry.name, type: "codeview", filename: entry.filename))
+            _ = CodeViewManager.delete(
+                Plugin(name: entry.name, type: "codeview", filename: entry.filename),
+                codeViews: [Plugin(name: entry.name, type: "codeview", filename: entry.filename)],
+                cacheDir: testCacheDir
+            )
         }
 
-        try await installPlugin(entry, type: .codeview) { _ in
+        let (_, codeViews) = try await installPlugin(entry, type: .codeview, exporters: [], codeViews: [], cacheDir: testCacheDir) { _ in
             (fakeDownloadedFile, fakeResponse)
         }
 
-        #expect(CodeViewManager.shared.nameExists(entry.name))
+        #expect(CodeViewManager.nameExists(entry.name, in: codeViews))
         // nameExists alone doesn't directly prove the rename -- CodeViewManager.add()'s
         // own fileExists guard would fail closed on a pre-rename URL, so this only
         // proved the rename indirectly. Assert the stored filename directly instead.
-        #expect(AppConfig.shared.codeViews.first(where: { $0.name == entry.name })?.filename == entry.filename)
+        #expect(codeViews.first(where: { $0.name == entry.name })?.filename == entry.filename)
     }
 }

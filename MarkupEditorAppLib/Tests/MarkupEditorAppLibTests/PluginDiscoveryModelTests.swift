@@ -1,10 +1,11 @@
 //
 //  PluginDiscoveryModelTests.swift
-//  MarkupEditorAppTests
+//  MarkupEditorAppLibTests
+//
 
 import Testing
 import Foundation
-@testable import MarkupEditorApp
+@testable import MarkupEditorAppLib
 
 @MainActor
 struct PluginDiscoveryModelTests {

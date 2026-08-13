@@ -1,6 +1,6 @@
 //
 //  PluginDiscoveryModel.swift
-//  MarkupEditorApp
+//  MarkupEditorAppLib
 //
 
 import Foundation
@@ -10,7 +10,7 @@ import Observation
 /// acceptable, so "loaded but nothing there" and "failed to load" are
 /// distinct, both-explicit states rather than one of them collapsing into
 /// an empty view.
-enum PluginDiscoveryState: Equatable {
+public enum PluginDiscoveryState: Equatable, Sendable {
     case loading
     case content(PluginCatalog)
     case empty
@@ -20,18 +20,20 @@ enum PluginDiscoveryState: Equatable {
 /// Drives PluginDiscoveryView's fetch/decode lifecycle. `fetch` is injected
 /// so the state machine is testable against canned results, with no live
 /// network call and no URLSession mock -- the same fetch/decode separation
-/// fetchPluginCatalog() was built for.
+/// fetchPluginCatalog() was built for. `@MainActor`: an `@Observable` UI model,
+/// same reasoning as `MarkupConverter`.
 @Observable
-final class PluginDiscoveryModel {
-    private(set) var state: PluginDiscoveryState = .loading
+@MainActor
+public final class PluginDiscoveryModel {
+    public private(set) var state: PluginDiscoveryState = .loading
 
     private let fetch: () async throws -> PluginCatalog
 
-    init(fetch: @escaping () async throws -> PluginCatalog = fetchPluginCatalog) {
+    public init(fetch: @escaping () async throws -> PluginCatalog = fetchPluginCatalog) {
         self.fetch = fetch
     }
 
-    func load() async {
+    public func load() async {
         state = .loading
         do {
             let catalog = try await fetch()

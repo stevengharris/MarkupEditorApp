@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MarkupEditor
+import MarkupEditorAppLib
 
 internal import UniformTypeIdentifiers
 
@@ -61,7 +62,7 @@ struct PluginSettingsView: View {
                         showAddPlugin = true
                     }, label: { Image(systemName: "plus.square") })
                     Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
-                        .disabled(!ExporterManager.shared.exists(focusedPlugin))
+                        .disabled(!ExporterManager.exists(focusedPlugin, in: AppConfig.shared.exporters))
                     Text("Add or delete exporter")
                         .lineLimit(1)
                         .font(.subheadline)
@@ -91,7 +92,7 @@ struct PluginSettingsView: View {
                         showAddPlugin = true
                     }, label: { Image(systemName: "plus.square") })
                     Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
-                        .disabled(!CodeViewManager.shared.exists(focusedPlugin))
+                        .disabled(!CodeViewManager.exists(focusedPlugin, in: AppConfig.shared.codeViews))
                     Text("Add or delete code view")
                         .lineLimit(1)
                         .font(.subheadline)
@@ -152,9 +153,9 @@ struct PluginSettingsView: View {
     }
     
     private func focusedPluginType() -> PluginType {
-        if CodeViewManager.shared.exists(focusedPlugin) {
+        if CodeViewManager.exists(focusedPlugin, in: AppConfig.shared.codeViews) {
             return .CodeView
-        } else if ExporterManager.shared.exists(focusedPlugin) {
+        } else if ExporterManager.exists(focusedPlugin, in: AppConfig.shared.exporters) {
             return .Exporter
         } else {
             return .None
@@ -163,9 +164,13 @@ struct PluginSettingsView: View {
 
     private func addPlugin() async {
         if addPluginType == .CodeView {
-            CodeViewManager.shared.add(name: newPluginName, url: newPluginURL)
+            AppConfig.update { config in
+                config.codeViews = CodeViewManager.add(name: newPluginName, url: newPluginURL, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+            }
         } else if addPluginType == .Exporter {
-            ExporterManager.shared.add(name: newPluginName, url: newPluginURL, ext: newPluginExt)
+            AppConfig.update { config in
+                config.exporters = ExporterManager.add(name: newPluginName, url: newPluginURL, ext: newPluginExt, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+            }
         }
         addPluginType = .None
         newPluginURL = nil
@@ -174,9 +179,13 @@ struct PluginSettingsView: View {
     private func deletePlugin() {
         guard let focusedPlugin else { return }
         if focusedPluginType() == .CodeView {
-            CodeViewManager.shared.delete(focusedPlugin)
+            AppConfig.update { config in
+                config.codeViews = CodeViewManager.delete(focusedPlugin, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+            }
         } else if focusedPluginType() == .Exporter {
-            ExporterManager.shared.delete(focusedPlugin)
+            AppConfig.update { config in
+                config.exporters = ExporterManager.delete(focusedPlugin, exporters: config.exporters, cacheDir: AppDelegate.webViewCacheDir)
+            }
         }
     }
 

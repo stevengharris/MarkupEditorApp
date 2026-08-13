@@ -1,10 +1,11 @@
 //
 //  PluginCatalogTests.swift
-//  MarkupEditorAppTests
+//  MarkupEditorAppLibTests
+//
 
 import Testing
 import Foundation
-@testable import MarkupEditorApp
+@testable import MarkupEditorAppLib
 
 @MainActor
 struct PluginCatalogDecodingTests {
@@ -15,7 +16,9 @@ struct PluginCatalogDecodingTests {
     static func realPluginsJSONData() throws -> Data {
         let thisFile = URL(fileURLWithPath: #filePath)
         let repoRoot = thisFile
-            .deletingLastPathComponent() // MarkupEditorAppTests/
+            .deletingLastPathComponent() // MarkupEditorAppLibTests/
+            .deletingLastPathComponent() // Tests/
+            .deletingLastPathComponent() // MarkupEditorAppLib/
             .deletingLastPathComponent() // repo root
         let pluginsJSON = repoRoot.appendingPathComponent("plugins/plugins.json")
         return try Data(contentsOf: pluginsJSON)
