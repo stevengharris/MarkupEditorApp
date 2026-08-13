@@ -61,7 +61,7 @@ The `MarkupEditor` package is a local Swift package at `../MarkupEditor` (siblin
 
 * Deployment target: macOS 26.3
 
-* Swift 6.0, SwiftUI, AppKit. `SWIFT_VERSION` is set once at the project level in the `.pbxproj` and inherited by all four targets (`MarkupEditorApp`, `MarkupEditorCLI`, `MarkupEditorAppTests`, `MarkupEditorAppUITests`) — no per-target overrides.
+* Swift 6.0, SwiftUI, AppKit. `SWIFT_VERSION` is set once at the project level in the `.pbxproj` and inherited by all three targets (`MarkupEditorApp`, `MarkupEditorCLI`, `MarkupEditorAppTests`) — no per-target overrides.
 
 * Build via `xcodebuild` or Xcode UI
 

@@ -41,17 +41,6 @@
                ReferencedContainer = "container:MarkupEditorApp.xcodeproj">
             </BuildableReference>
          </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "AA7B99AD2F9290E00085425B"
-               BuildableName = "MarkupEditorAppUITests.xctest"
-               BlueprintName = "MarkupEditorAppUITests"
-               ReferencedContainer = "container:MarkupEditorApp.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
