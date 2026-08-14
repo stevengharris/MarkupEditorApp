@@ -2503,14 +2503,13 @@ function isFrontMatterLanguage(language) {
 // Instances add themselves in the constructor, remove themselves in
 // destroy(). Needed because ProseMirror does NOT call a NodeView's own
 // update() for a PURE position shift (a preceding sibling inserted, this
-// node's own attrs/content unchanged) -- verified empirically in
-// test/position-spike.test.js by reading getPos() before/after such a
-// shift: getPos() correctly returns the new position (it's a live
-// closure), the same instance survives (not destroyed/recreated), but
-// update() is never invoked. That means update()'s own position-0 check
-// below can never fire for exactly the case it exists to catch. checkAllPositions(),
-// called from FrontMatterPlugin's Plugin view-update hook (which DOES fire
-// on every transaction, unlike a NodeView's own update()), is the actual
+// node's own attrs/content unchanged): getPos() correctly returns the new
+// position (it's a live closure), the same instance survives (not
+// destroyed/recreated), but update() is never invoked. That means
+// update()'s own position-0 check below can never fire for exactly the
+// case it exists to catch. checkAllPositions(), called from
+// FrontMatterPlugin's Plugin view-update hook (which DOES fire on every
+// transaction, unlike a NodeView's own update()), is the actual
 // enforcement mechanism; update()'s check is defense in depth for the
 // (currently unobserved, but not provably impossible) case where a
 // content-changing edit happens to co-occur with a position change.

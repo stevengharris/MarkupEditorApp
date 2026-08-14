@@ -310,7 +310,7 @@ describe('language changed away from html via the Language dialog', () => {
   })
 })
 
-describe('position-0 enforcement (Critical Assumption 1, verified false then redesigned -- see position-spike.test.js)', () => {
+describe('position-0 enforcement (checkAllPositions catches a pure position shift that update() cannot)', () => {
   it('checkAllPositions() forces Source-only display once a preceding sibling shifts this block away from position 0', () => {
     const doc = leadingHtmlDoc('<p>hi</p>')
     const { view, teardown } = mountView(doc, { sanitize: (html) => html })
@@ -320,10 +320,9 @@ describe('position-0 enforcement (Critical Assumption 1, verified false then red
 
     const insertedParagraph = schema.node('paragraph', null, schema.text('inserted first'))
     view.dispatch(view.state.tr.insert(0, insertedParagraph))
-    // update() does NOT fire for this pure position shift (verified in
-    // position-spike.test.js) -- this is the real enforcement call
-    // frontmatterplugin.js's Plugin view-update hook makes on every
-    // transaction.
+    // update() does NOT fire for this pure position shift -- this is the
+    // real enforcement call frontmatterplugin.js's Plugin view-update hook
+    // makes on every transaction.
     FrontMatterView.checkAllPositions()
 
     expect(instance.positionValid).toBe(false)
