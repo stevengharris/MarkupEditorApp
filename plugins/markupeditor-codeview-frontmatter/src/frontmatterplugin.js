@@ -215,8 +215,10 @@ export class FrontMatterPlugin {
     }
 
     // Delegates to whatever's already installed for code_block, not assumed
-    // to be CodeView specifically -- same composability MermaidPlugin
-    // establishes and verifies (nodeview-factory-spike.test.js).
+    // to be CodeView specifically -- the same capture-wrap-delegate
+    // composability contract MermaidPlugin follows, so independently
+    // authored language-specific plugins can layer factories regardless of
+    // load order.
     // The position-0 check happens here, at factory time; ongoing
     // enforcement as the document is edited is FrontMatterView.
     // checkAllPositions(), not this factory (see that class's doc comment
