@@ -166,9 +166,9 @@ describe('diagram widget as a DOM sibling of contentDOM, never a descendant coll
   })
 })
 
-// Follow-up question, asked directly (not part of the original spike ask,
-// but the same "verify, don't assume" discipline applies): does the
-// capture-wrap-delegate idiom compose when a SECOND, wholly independent
+// Follow-up question, asked directly (not part of the original factory-swap
+// question above, but the same "verify, don't assume" discipline applies):
+// does the capture-wrap-delegate idiom compose when a SECOND, wholly independent
 // diagram-type plugin (a hypothetical markupeditor-geojson, built by an
 // unrelated developer who has never seen markupeditor-mermaid's source)
 // installs the exact same pattern against a `code_block` that already has

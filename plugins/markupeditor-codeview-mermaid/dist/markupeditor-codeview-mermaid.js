@@ -30997,7 +30997,7 @@ class MermaidPlugin {
 
     // Delegates to whatever's already installed for code_block, not assumed to
     // be CodeView specifically — composable with any other independently-loaded
-    // code_block NodeView plugin (verified in nodeview-factory-spike.test.js).
+    // code_block NodeView plugin (verified in nodeview-factory-delegation.test.js).
     makeCodeBlockFactory(originalFactory, languageDialog, mermaidViewOptions = {}) {
         return (node, view, getPos) => {
             if (isMermaidLanguage(node.attrs.language)) {
