@@ -27,10 +27,6 @@ pre > code.frontmatter-hidden-code {
   background: transparent;
 }
 
-.frontmatter-hidden-code::-moz-selection {
-  background: transparent;
-}
-
 .frontmatter-hide-caret {
   caret-color: transparent;
 }

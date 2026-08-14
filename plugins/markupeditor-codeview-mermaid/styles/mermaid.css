@@ -31,10 +31,6 @@ pre > code.language-mermaid:not(.mermaid-hidden-code) {
   background: transparent;
 }
 
-.mermaid-hidden-code::-moz-selection {
-  background: transparent;
-}
-
 .mermaid-hide-caret {
   caret-color: transparent;
 }
