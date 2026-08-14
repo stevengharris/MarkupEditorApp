@@ -1,0 +1,106 @@
+/* Allow the PDF exporter to hide the tabs and outline when the
+   rendered block is selected. */
+
+#editor.Markup-exporting .frontmatter-mode-toggle {
+  display: none;
+}
+#editor.Markup-exporting .frontmatter-rendered-selected {
+  outline: none;
+}
+
+/* Rendered mode: only the <code> content collapses; the <pre> stays a
+   normal, visible box since it hosts the rendered box and tabs as real DOM
+   children.
+   Unlike Mermaid's equivalent rule, this is NOT keyed off a static
+   language-html class present in the schema's own toDOM output -- language
+   alone doesn't distinguish a position-0 preamble block from any other
+   html-language code_block elsewhere in the document, and only the former
+   should ever render live. Hiding is opt-in, driven entirely by JS toggling
+   .frontmatter-hidden-code once a FrontMatterView instance confirms both
+   the language AND the position-0 constraint. */
+pre > code.frontmatter-hidden-code {
+  font-size: 0;
+  line-height: 0;
+}
+
+.frontmatter-hidden-code::selection {
+  background: transparent;
+}
+
+.frontmatter-hidden-code::-moz-selection {
+  background: transparent;
+}
+
+.frontmatter-hide-caret {
+  caret-color: transparent;
+}
+
+.frontmatter-mode-toggle {
+  position: absolute;
+  bottom: 100%;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  opacity: 0.6;
+  color: white;
+  background: var(--Markup-accent-color, blue);
+}
+
+.frontmatter-mode-toggle:hover {
+  opacity: 0.9;
+}
+
+.frontmatter-mode-toggle-active {
+  opacity: 0.9;
+}
+
+/* Applied when the code_block is too close to the top of the view for a tab to fit above */
+.frontmatter-mode-toggle-below {
+  bottom: auto;
+  top: 100%;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) */
+@media (prefers-color-scheme: dark) {
+  .frontmatter-mode-toggle {
+    background: var(--Markup-accent-color, lightblue);
+    color: black;
+  }
+}
+
+/* Dashed outline for the rendered block when selected */
+.frontmatter-rendered-selected {
+  outline: 1px var(--Markup-accent-color, blue) dashed;
+  outline-offset: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .frontmatter-rendered-selected {
+    outline: 1px var(--Markup-accent-color, lightblue) dashed;
+  }
+}
+
+/* dom (the <pre>, inherited from MU.CodeView) sets white-space: pre via
+   the browser's UA stylesheet. renderedContainer lives inside dom as a DOM
+   sibling of contentDOM, and white-space is an inherited property -- left
+   unreset, the pretty-printed source's newlines between inline elements
+   (e.g. the <img> tags in a centered badge row) render as literal forced
+   line breaks instead of collapsing to a single space the way a browser
+   normally treats whitespace between inline elements. Mermaid has no
+   equivalent because its rendered content is a single <svg> string with no
+   comparable inter-element whitespace to preserve. */
+.frontmatter-rendered {
+  white-space: normal;
+}
+
+.frontmatter-rendered, .frontmatter-placeholder {
+  margin-bottom: 15px;
+}
+
+.frontmatter-placeholder {
+  border: 1px dashed #888;
+  padding: 8px;
+}
