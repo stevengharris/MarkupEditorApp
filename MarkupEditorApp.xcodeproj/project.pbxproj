@@ -378,7 +378,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the pre-installed plugins\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\n";
+			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the pre-installed plugins\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-frontmatter\" && npm run build\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
