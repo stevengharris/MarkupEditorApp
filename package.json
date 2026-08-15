@@ -1,0 +1,10 @@
+{
+  "name": "markupeditorapp-workspace",
+  "private": true,
+  "workspaces": [
+    "markupeditor-app",
+    "plugins/markupeditor-codeview-mermaid",
+    "plugins/markupeditor-codeview-frontmatter",
+    "plugins/markupeditor-exporter-docx"
+  ]
+}

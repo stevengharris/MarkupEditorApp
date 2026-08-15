@@ -58,6 +58,8 @@
 		AA3F963C302A516B00FB96C9 /* markup */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = markup; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAA4188D3030C877007C44C3 /* package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = package.json; sourceTree = "<group>"; };
+		AAA4188E3030C877007C44C3 /* package-lock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "package-lock.json"; sourceTree = "<group>"; };
 		AAB8007C2FC5036A00212250 /* docs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = docs; sourceTree = "<group>"; };
 		AAC586203022A9E100C6CDA3 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -117,11 +119,9 @@
 				AA8384B3302E4CD80034CD46 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */,
 			);
 			explicitFolders = (
-				"markupeditor-codeview-mermaid/node_modules",
 				"markupeditor-codeview-mermaid/src",
 				"markupeditor-codeview-mermaid/styles",
 				"markupeditor-codeview-mermaid/test",
-				"markupeditor-exporter-docx/node_modules",
 				"markupeditor-exporter-docx/src",
 				"markupeditor-exporter-docx/test",
 			);
@@ -134,7 +134,6 @@
 				AA83FAD0302E517C0034CD46 /* Exceptions for "markupeditor-app" folder in "MarkupEditorApp" target */,
 			);
 			explicitFolders = (
-				node_modules,
 				src,
 				test,
 			);
@@ -176,6 +175,8 @@
 			isa = PBXGroup;
 			children = (
 				AAC586203022A9E100C6CDA3 /* README.md */,
+				AAA4188D3030C877007C44C3 /* package.json */,
+				AAA4188E3030C877007C44C3 /* package-lock.json */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
