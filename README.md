@@ -40,7 +40,22 @@ There's no dedicated uninstaller. To remove manually: delete `/usr/local/bin/mar
 
 ## Contributions
 
-\<tbd>
+Fixing a bug or building a plugin? If you're using [Claude Code](https://claude.com/product/claude-code), install this repo's own skills first -- they cover the three-repo architecture and the plugin-authoring conventions so you're not starting from scratch:
+
+```bash
+npx skills add stevengharris/MarkupEditorApp --skill developing-markupeditorapp
+```
+
+Building a plugin? Also install the plugin-specific skills:
+
+```bash
+npx skills add stevengharris/MarkupEditorApp --skill writing-markupeditor-plugins
+npx skills add stevengharris/MarkupEditorApp --skill writing-codeview-plugins
+```
+
+(`writing-markupeditor-plugins` covers the contract shared by every plugin type; `writing-codeview-plugins` is specific to codeview plugins like the bundled Mermaid diagram support. Building an exporter instead? See `plugins/README.md` and use `plugins/markupeditor-exporter-docx` as your reference implementation -- a dedicated skill for that doesn't exist yet.)
+
+Once installed, just describe what you're trying to do -- Claude Code loads the relevant skill automatically. Send a pull request when you're done; bug fixes and new plugins are both welcome.
 
 ## Support
 
