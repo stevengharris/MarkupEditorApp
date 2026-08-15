@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { Document } from 'docx'
 import { htmlToDocxChildren, convertBlock } from '../src/htmlToDocx.js'

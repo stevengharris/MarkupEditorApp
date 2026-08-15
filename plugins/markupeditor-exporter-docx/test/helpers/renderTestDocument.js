@@ -1,14 +1,10 @@
-// The 'markupeditor' specifier is aliased (vitest.config.js) to
-// MarkupEditor/Resources/markup-editor.js -- the exact bundle the real app loads
-// at runtime -- rather than resolving to whichever package's own
-// node_modules/markupeditor copy happens to be installed nearby, which can drift
-// out of sync with what's actually shipped (verified: markupeditor-app's own
-// installed copy was two versions behind Resources). The alias applies across the
-// whole module graph, so this import and importMarkdown()'s own
-// `import { MU } from "markupeditor"` (in markupeditor-app/src/markdown.js)
-// resolve to the SAME module instance -- stubbing activeView() below actually
-// takes effect on the copy importMarkdown() reads from. Consumers of this harness
-// must not vi.mock('markupeditor', ...) -- that would replace this same module
+// This package and markupeditor-app are both members of the root npm workspace, so the
+// 'markupeditor' specifier resolves to the SAME hoisted copy in the shared root
+// node_modules/ for both this import and importMarkdown()'s own `import { MU } from
+// "markupeditor"` (in markupeditor-app/src/markdown.js) -- a single module instance, not
+// two separate installs. (markupeditor-sync.test.js separately guards that hoisted copy
+// against drifting out of sync with the app's actual bundled build.) Consumers of this
+// harness must not vi.mock('markupeditor', ...) -- that would replace this same module
 // for their whole reachable graph, including markdown.js's import.
 import { MU } from 'markupeditor'
 import { importMarkdown } from '../../../../markupeditor-app/src/markdown.js'
@@ -17,7 +13,7 @@ import { importMarkdown } from '../../../../markupeditor-app/src/markdown.js'
  * Render markdown through the app's real importMarkdown() conversion path
  * (frontmatter/leading-HTML-block extraction, parse, DOM serialization),
  * without a live editor view. Requires a DOM global (`@vitest-environment
- * happy-dom` or equivalent) since importMarkdown() creates a detached div.
+ * jsdom`) since importMarkdown() creates a detached div.
  *
  * @param {string} markdown - Raw markdown text.
  * @returns {{ html: string|null, warnings: string[], metadata: string|null }}

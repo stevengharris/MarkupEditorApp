@@ -229,7 +229,7 @@ describe('stripPngMetadata', () => {
 
 describe('loadImageAsDataUri crossOrigin scoping', () => {
     // The actual canvas-tainting/CORS behavior needs a real browser and is verified manually
-    // (see the real-app remote-image Test Plan scenarios) -- happy-dom has no real canvas
+    // (see the real-app remote-image Test Plan scenarios) -- this environment has no real canvas
     // rendering engine, so Image/canvas are fully stubbed here rather than exercised for real.
     // This isolates and asserts the one thing that IS meaningfully testable without a browser:
     // which sources get `crossOrigin` set at all.

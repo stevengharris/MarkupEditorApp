@@ -225,7 +225,7 @@ function headerCellsGetOwnBorder(cssClass) {
 }
 
 // The schema's `background` cell attribute round-trips through a real inline
-// `style="background-color: ..."`. happy-dom (and real browsers) normalize element.style to
+// `style="background-color: ..."`. jsdom (and real browsers) normalize element.style to
 // `rgb(r, g, b)`; a literal #hex is accepted as a fallback.
 function parseBackgroundColor(element) {
     const value = element.style?.backgroundColor

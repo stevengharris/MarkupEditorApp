@@ -1,13 +1,13 @@
-// @vitest-environment happy-dom
+// @vitest-environment jsdom
 //
-// Narrowly-scoped DOM environment: only this file pays the DOM-parsing cost, so
-// styles.test.js and other byte/string tests keep running in vitest's fast default node
-// environment. Probes real parsing behavior for the two shapes the converter cannot afford
-// to get wrong -- whitespace inside <pre> is real content, and colspan/rowspan drive actual
-// cell merging -- rather than assuming happy-dom handles them faithfully.
+// DOM environment is opt-in per file, not global -- only files that actually need one pay
+// the cost, so byte/string-only tests keep running in vitest's fast default node environment.
+// Probes real parsing behavior for the two shapes the converter cannot afford to get wrong --
+// whitespace inside <pre> is real content, and colspan/rowspan drive actual cell merging --
+// rather than assuming the DOM implementation handles them faithfully.
 import { describe, it, expect } from 'vitest'
 
-describe('happy-dom DOMParser fidelity', () => {
+describe('jsdom DOMParser fidelity', () => {
     it('preserves whitespace exactly inside <pre><code> nested in a <blockquote>', () => {
         const html = '<blockquote><pre><code class="language-swift">  let x = 1\n    let y = 2\n</code></pre></blockquote>'
         const doc = new DOMParser().parseFromString(html, 'text/html')

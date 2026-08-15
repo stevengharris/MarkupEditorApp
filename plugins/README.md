@@ -68,10 +68,9 @@ For tier 3:
   your plugin's own `run()` also needs `MU` (e.g. `MU.getHTML()`), monkey-patch that property
   directly on the same real `MU` object instead — see
   `markupeditor-exporter-docx/test/test-exporter-fidelity.test.js`.
-* Loading the real `markupeditor` bundle needs a real DOM (`jsdom`, not `happy-dom` — the
-  bundle's module-load-time CSS side effects use CSSOM APIs `happy-dom` doesn't implement) plus
-  two small shims for gaps in `jsdom`'s own CSSOM support (`CSSStyleSheet.replaceSync`,
-  `CSSStyleSheet.media`). See `markupeditor-exporter-docx/test/vitest.setup.js`.
+* Loading the real `markupeditor` bundle needs a real DOM (`jsdom`) plus two small shims for
+  gaps in `jsdom`'s own CSSOM support (`CSSStyleSheet.replaceSync`, `CSSStyleSheet.media`). See
+  `markupeditor-exporter-docx/test/vitest.setup.js`.
 * Real image loading (`Image`/`canvas`) hangs indefinitely in this environment — mock
   `resolveImages` (or your format's equivalent) wholesale rather than trying to make it work;
   image-loading fidelity itself is out of scope for this kind of test and is verified manually.
