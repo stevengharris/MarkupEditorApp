@@ -96,7 +96,7 @@ import Observation
     /// directory access via a second panel and store the resulting bookmark before calling this.
     /// Throws parentSecurityScope if no bookmark is found.
     func openMd(at url: URL, baseUrl: URL, markdown: String, metadata: [MetadataTuple]) throws {
-        let srcs = localImageSrcs(in: markdown)
+        let srcs = localImageSrcsInMarkdown(markdown)
         if !srcs.isEmpty {
             if let scopedParent = resolveParentDirBookmark(for: url) {
                 let accessingScoped = scopedParent.startAccessingSecurityScopedResource()
