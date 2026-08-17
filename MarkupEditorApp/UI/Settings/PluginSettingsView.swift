@@ -24,7 +24,13 @@ struct PluginSettingsView: View {
     @State private var newPluginURL: URL?
     @State private var newPluginName: String = ""
     @State private var newPluginExt: String = ""
+    @FocusState private var newPluginFocusedField: FocusedField?
     @Environment(\.openWindow) private var openWindow
+    
+    private enum FocusedField {
+        case name
+        case ext
+    }
 
     private enum PluginType: String {
         case CodeView = "Code View"
@@ -131,6 +137,16 @@ struct PluginSettingsView: View {
             TextField(text: $newPluginName, prompt: Text("Identify the \(addPluginType.rawValue.lowercased())")) {
                 Text("Name")
             }
+            .focused($newPluginFocusedField, equals: .name)
+            .onSubmit {
+                Task {
+                    if addPluginType == .CodeView {
+                        await addPlugin()
+                    } else {
+                        newPluginFocusedField = .ext
+                    }
+                }
+            }
             if addPluginType == .CodeView {
                 Button("OK") {
                     Task { await addPlugin() }
@@ -139,6 +155,10 @@ struct PluginSettingsView: View {
             } else {
                 TextField(text: $newPluginExt, prompt: Text("Default export file extension")) {
                     Text("Extension")
+                }
+                .focused($newPluginFocusedField, equals: .ext)
+                .onSubmit {
+                    Task { await addPlugin() }
                 }
                 Button("OK") {
                     Task { await addPlugin() }
@@ -166,14 +186,18 @@ struct PluginSettingsView: View {
         if addPluginType == .CodeView {
             AppConfig.update { config in
                 config.codeViews = CodeViewManager.add(name: newPluginName, url: newPluginURL, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                addPluginType = .None
+                newPluginFocusedField = .name
+                newPluginURL = nil
             }
         } else if addPluginType == .Exporter {
             AppConfig.update { config in
                 config.exporters = ExporterManager.add(name: newPluginName, url: newPluginURL, ext: newPluginExt, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                addPluginType = .None
+                newPluginFocusedField = .name
+                newPluginURL = nil
             }
         }
-        addPluginType = .None
-        newPluginURL = nil
     }
 
     private func deletePlugin() {
