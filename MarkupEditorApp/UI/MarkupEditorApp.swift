@@ -50,7 +50,7 @@ struct MarkupEditorApp: App {
         .windowResizability(.automatic)
     }
     
-    private static let firstLaunchPluginSetupKey = "hasCompletedFirstLaunchPluginSetup"
+    static let firstLaunchPluginSetupKey = "hasCompletedFirstLaunchPluginSetup"
 
     init() {
         MarkupEditor.allowLocalImages = true
