@@ -1,0 +1,92 @@
+/* Allow the PDF exporter to hide the tabs and outline when the
+   map is selected. */
+
+#editor.Markup-exporting .geojson-mode-toggle {
+  display: none;
+}
+#editor.Markup-exporting .geojson-map-selected {
+  outline: none;
+}
+
+/* Map mode: only the <code> content collapses; the <pre> stays a normal,
+   visible box since it hosts the map box and tabs as real DOM children.
+   Hidden by default off the static language-geojson class (present in the
+   serialized HTML itself, schema's own toDOM) rather than opt-in via
+   .geojson-hidden-code alone -- closes the window where a full page reload
+   flashes raw geojson source text before JS runs and adds that class.
+   JS opts back into showing raw text for the legitimate Source-mode case
+   (empty content, invalid GeoJSON, the user's own Source-tab click) by
+   removing .geojson-hidden-code, exactly as Mermaid does. */
+pre > code.language-geojson {
+  font-size: 0;
+  line-height: 0;
+}
+pre > code.language-geojson:not(.geojson-hidden-code) {
+  font-size: unset;
+  line-height: unset;
+}
+
+.geojson-hidden-code::selection {
+  background: transparent;
+}
+
+.geojson-hide-caret {
+  caret-color: transparent;
+}
+
+.geojson-mode-toggle {
+  position: absolute;
+  bottom: 100%;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  opacity: 0.6;
+  color: white;
+  background: var(--Markup-accent-color, blue);
+}
+
+.geojson-mode-toggle:hover {
+  opacity: 0.9;
+}
+
+.geojson-mode-toggle-active {
+  opacity: 0.9;
+}
+
+/* Applied when the code_block is too close to the top of the view for a tab to fit above */
+.geojson-mode-toggle-below {
+  bottom: auto;
+  top: 100%;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) */
+@media (prefers-color-scheme: dark) {
+  .geojson-mode-toggle {
+    background: var(--Markup-accent-color, lightblue);
+    color: black;
+  }
+}
+
+/* Dashed outline for the map when selected */
+.geojson-map-selected {
+  outline: 1px var(--Markup-accent-color, blue) dashed;
+  outline-offset: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .geojson-map-selected {
+    outline: 1px var(--Markup-accent-color, lightblue) dashed;
+  }
+}
+
+/* Leaflet's own panes are all position: absolute (leaflet.css), so they
+   contribute nothing to this container's height in normal flow -- without an
+   explicit height, .geojson-map collapses to 0px and everything inside it
+   (tiles, vector layers, controls) renders correctly but invisibly. */
+.geojson-map {
+  height: 320px;
+  margin-bottom: 15px;
+}
