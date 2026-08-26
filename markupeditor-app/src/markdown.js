@@ -2,6 +2,7 @@ import { MU, DOMSerializer } from "markupeditor"
 import { makeSerializer } from './serializer.js'
 import { makeParser } from './parser.js'
 import { makeWarnings } from './warnings.js'
+import { assignHeadingIds } from './heading-ids.js'
 import MarkdownIt from 'markdown-it'
 import frontMatterPlugin from 'markdown-it-front-matter'
 
@@ -102,7 +103,7 @@ export function importMarkdown(content) {
 
   // Step 4: Parse modified content with the main parser
   const parser = makeParser(schema, warnings)
-  const doc = parser.parse(modified)
+  const doc = assignHeadingIds(parser.parse(modified), schema, warnings)
   const domSerializer = DOMSerializer.fromSchema(schema)
   const div = document.createElement('div')
   div.appendChild(domSerializer.serializeFragment(doc.content))
