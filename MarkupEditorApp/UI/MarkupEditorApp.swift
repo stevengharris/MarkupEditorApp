@@ -12,6 +12,11 @@ import MarkupEditorAppLib
 @main
 struct MarkupEditorApp: App {
     
+    static let firstLaunchPluginSetupKey = "hasCompletedFirstLaunchPluginSetup"
+    static let hasSeenTourKey = "hasSeenTour"
+    
+    static var hasSeenTour: Bool { UserDefaults.standard.bool(forKey: hasSeenTourKey) }
+    
     static var versionString: String {
         version + "(\(build))"
     }
@@ -26,6 +31,7 @@ struct MarkupEditorApp: App {
     
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var editLog = EditLog()
+    @AppStorage(Self.hasSeenTourKey) private var hasSeenTour = false
     
     var body: some Scene {
         Window("MarkupEditor", id: "main") {
@@ -48,10 +54,12 @@ struct MarkupEditorApp: App {
         }
         .defaultSize(width: 500, height: 400)
         .windowResizability(.automatic)
+        Window("MarkupEditor", id: "welcome") {
+            TourView(editLog: $editLog)
+        }
+        .defaultLaunchBehavior(!hasSeenTour ? .presented : .automatic)
     }
     
-    static let firstLaunchPluginSetupKey = "hasCompletedFirstLaunchPluginSetup"
-
     init() {
         MarkupEditor.allowLocalImages = true
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
