@@ -90,6 +90,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		AA27464A303E395300AD8E61 /* templates */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = templates;
+			sourceTree = "<group>";
+		};
 		AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MarkupEditorCLI;
@@ -182,6 +187,7 @@
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA83FACE302E516F0034CD46 /* markupeditor-app */,
 				AA8327AF302E47F80034CD46 /* plugins */,
+				AA27464A303E395300AD8E61 /* templates */,
 				AA832770302E222B0034CD46 /* website */,
 				AAB8007C2FC5036A00212250 /* docs */,
 				AA7B99982F9290DF0085425B /* Products */,
@@ -365,7 +371,7 @@
 		AA832774302E3FE70034CD46 /* Build npm projects */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			files = (
 			);
 			inputFileListPaths = (
@@ -377,7 +383,7 @@
 			);
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the pre-installed plugins\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-frontmatter\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-geojson\" && npm run build\n";
 		};

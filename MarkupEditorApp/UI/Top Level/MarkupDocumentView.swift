@@ -46,6 +46,8 @@ struct MarkupDocumentView: View {
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
     
+    @AppStorage(MarkupEditorApp.hasSeenTourKey) private var hasSeenTour = false
+    
     var body: some View {
         //let _ = Self._printChanges()
         @Bindable var doc = document
@@ -158,6 +160,11 @@ struct MarkupDocumentView: View {
                 default:
                     return
                 }
+            }
+        }
+        .task {
+            for await _ in NotificationCenter.default.notifications(named: .resetTour) {
+                hasSeenTour = false
             }
         }
 #endif
@@ -741,6 +748,21 @@ extension MarkupDocumentView: MarkupDelegate {
             popupAnchor = PopoverAttachmentAnchor.rect(.rect(selectionState.sourceRect ?? CGRect.zero))
             showImageDialog = true
         }
+    }
+
+    /// Override the default open-externally behavior to skip a same-page fragment href like
+    /// "#introduction" (inserted via the heading-link picker in LinkInsertView). The browser has
+    /// already navigated to it in-page via native anchor handling on this same click, so there's
+    /// nothing external to open -- and NSWorkspace can't open a schemeless URL anyway (error -50).
+    /// The "#..." convention is specific to how this app represents internal links in Markdown, so
+    /// this stays app-side rather than in MarkupEditor's own default MarkupDelegate implementation.
+    func markupLinkSelected(_ view: MarkupWKWebView?, selectionState: SelectionState) {
+        guard
+            let href = selectionState.href,
+            !href.hasPrefix("#"),
+            let url = URL(string: href),
+            URLHelper.canOpen(url) else { return }
+        URLHelper.open(url)
     }
 
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {

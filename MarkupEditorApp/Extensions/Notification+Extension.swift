@@ -20,5 +20,6 @@ extension Notification.Name {
 #if DEBUG
     static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
     static let menuClearCacheDir = Notification.Name("menuClearCacheDir")
+    static let resetTour = Notification.Name("resetTour")
 #endif
 }
