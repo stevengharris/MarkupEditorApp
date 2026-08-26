@@ -165,14 +165,13 @@ describe('sup mark warning', () => {
 // Heading id attribute
 // ---------------------------------------------------------------------------
 
-describe('heading id attribute warning', () => {
-  test('heading with id attr emits a warning; heading text is preserved', () => {
+describe('heading id attribute', () => {
+  test('heading with id attr is silently dropped; no warning, heading text preserved', () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.heading.create({ level: 2, id: 'my-section' }, [schema.text('Section Title')])
     ])
     const { md, warnings } = serialize(doc)
-    expect(warnings.length).toBeGreaterThan(0)
-    expect(warnings.some(w => w.toLowerCase().includes('id'))).toBe(true)
+    expect(warnings.some(w => w.toLowerCase().includes('id'))).toBe(false)
     expect(md).toContain('Section Title')
     expect(md).toMatch(/^##\s+Section Title/m)
   })

@@ -143,11 +143,10 @@ export function makeSerializer(warnings) {
       warnings.add(`button element dropped (not supported in Markdown): "${node.textContent}"`)
     },
 
-    // heading: wrap default to check for id attr
+    // heading: id is dropped silently -- it's routinely present on any heading an internal
+    // link targets (MU.insertInternalLink), not a sign of unexpected data loss like the other
+    // warn+drop rules in this file. Markdown has no syntax to carry it either way.
     heading(state, node) {
-      if (node.attrs.id != null) {
-        warnings.add(`Heading id attribute dropped (not supported in Markdown): ${node.attrs.id}`)
-      }
       state.write(state.repeat('#', node.attrs.level) + ' ')
       state.renderInline(node, false)
       state.closeBlock(node)
