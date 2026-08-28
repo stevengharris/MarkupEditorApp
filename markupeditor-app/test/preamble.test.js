@@ -109,7 +109,21 @@ describe('importFn — YAML + HTML preamble', () => {
 })
 
 describe('exportFn — preamble serializer (AC6, AC7)', () => {
-  test('AC6: code_block at doc index 0 serializes as raw HTML (no fences)', async () => {
+  test('AC6: code_block at doc index 0 with language="html" serializes as raw HTML (no fences)', async () => {
+    const s = schema
+    const { makeSerializer } = await import('../src/serializer.js')
+    const { makeWarnings } = await import('../src/warnings.js')
+    const codeBlock = s.nodes.code_block.create({language: 'html'}, [s.text('<div align="center">\n  badge\n</div>')])
+    const para = s.nodes.paragraph.create(null, [s.text('Body.')])
+    const doc = s.nodes.doc.create(null, [codeBlock, para])
+    const warnings = makeWarnings()
+    const md = makeSerializer(warnings).serialize(doc)
+    expect(md).toContain('<div align="center">')
+    expect(md).not.toContain('```')
+    expect(warnings.get()).toEqual([])
+  })
+
+  test('a code_block at index 0 WITHOUT language="html" is not misidentified as preamble', async () => {
     const s = schema
     const { makeSerializer } = await import('../src/serializer.js')
     const { makeWarnings } = await import('../src/warnings.js')
@@ -118,9 +132,8 @@ describe('exportFn — preamble serializer (AC6, AC7)', () => {
     const doc = s.nodes.doc.create(null, [codeBlock, para])
     const warnings = makeWarnings()
     const md = makeSerializer(warnings).serialize(doc)
+    expect(md).toContain('```')
     expect(md).toContain('<div align="center">')
-    expect(md).not.toContain('```')
-    expect(warnings.get()).toEqual([])
   })
 
   test('AC7: code_block at index > 0 serializes as fenced block', async () => {
@@ -134,5 +147,47 @@ describe('exportFn — preamble serializer (AC6, AC7)', () => {
     const md = makeSerializer(warnings).serialize(doc)
     expect(md).toContain('```')
     expect(md).toContain('<div>mid-doc html</div>')
+  })
+
+  test('metadata code_block at index 0 is omitted from the exported body entirely', async () => {
+    const s = schema
+    const { makeSerializer } = await import('../src/serializer.js')
+    const { makeWarnings } = await import('../src/warnings.js')
+    const metadataBlock = s.nodes.code_block.create({language: 'metadata'}, [s.text('title: My Post')])
+    const heading = s.nodes.heading.create({level: 1}, [s.text('Hello')])
+    const doc = s.nodes.doc.create(null, [metadataBlock, heading])
+    const warnings = makeWarnings()
+    const md = makeSerializer(warnings).serialize(doc)
+    expect(md).not.toContain('title: My Post')
+    expect(md).not.toContain('```')
+    expect(md.trim()).toBe('# Hello')
+  })
+
+  test('HTML preamble shifts to index 1 when a metadata block occupies index 0', async () => {
+    const s = schema
+    const { makeSerializer } = await import('../src/serializer.js')
+    const { makeWarnings } = await import('../src/warnings.js')
+    const metadataBlock = s.nodes.code_block.create({language: 'metadata'}, [s.text('title: My Post')])
+    const htmlPreamble = s.nodes.code_block.create({language: 'html'}, [s.text('<div align="center">badge</div>')])
+    const heading = s.nodes.heading.create({level: 1}, [s.text('Hello')])
+    const doc = s.nodes.doc.create(null, [metadataBlock, htmlPreamble, heading])
+    const warnings = makeWarnings()
+    const md = makeSerializer(warnings).serialize(doc)
+    expect(md).not.toContain('title: My Post')
+    expect(md).toContain('<div align="center">badge</div>')
+    expect(md).not.toContain('```')
+  })
+
+  test('a plain (non-html) code_block at index 1 after a metadata block still serializes fenced', async () => {
+    const s = schema
+    const { makeSerializer } = await import('../src/serializer.js')
+    const { makeWarnings } = await import('../src/warnings.js')
+    const metadataBlock = s.nodes.code_block.create({language: 'metadata'}, [s.text('title: My Post')])
+    const codeBlock = s.nodes.code_block.create(null, [s.text('print("hi")')])
+    const doc = s.nodes.doc.create(null, [metadataBlock, codeBlock])
+    const warnings = makeWarnings()
+    const md = makeSerializer(warnings).serialize(doc)
+    expect(md).toContain('```')
+    expect(md).toContain('print("hi")')
   })
 })

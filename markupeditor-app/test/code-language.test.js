@@ -187,25 +187,32 @@ describe('code_block round-trip — HTML class <-> Markdown fence', () => {
 })
 
 // ---------------------------------------------------------------------------
-// HTML-preamble regression: the positional preamble branch must remain
-// completely unaffected by the new language attribute.
+// HTML-preamble detection at doc index 0 requires language === "html", not
+// just position. A leading code_block without it serializes as an ordinary
+// fenced block instead -- this is what stops a genuine leading code block
+// from being misidentified as preamble.
 // ---------------------------------------------------------------------------
 
-describe('HTML-preamble regression — serializer branch is language-attr-invariant', () => {
-  test('preamble serialization is byte-identical regardless of attrs.language', () => {
+describe('HTML-preamble detection depends on attrs.language, not position alone', () => {
+  test('a code_block at index 0 with language "html" serializes as raw preamble', () => {
     const text = '<div align="center">\n  badge\n</div>'
-    const docWithLanguage = schema.nodes.doc.create(null, [
+    const doc = schema.nodes.doc.create(null, [
       schema.nodes.code_block.create({ language: 'html' }, [schema.text(text)])
     ])
-    const docWithoutLanguage = schema.nodes.doc.create(null, [
+    const { md } = serialize(doc)
+    expect(md).not.toContain('```')
+    expect(md).not.toContain('language-html')
+    expect(md).toContain(text)
+  })
+
+  test('the same content at index 0 WITHOUT language "html" serializes as a fenced block instead', () => {
+    const text = '<div align="center">\n  badge\n</div>'
+    const doc = schema.nodes.doc.create(null, [
       schema.nodes.code_block.create({ language: null }, [schema.text(text)])
     ])
-    const { md: mdWith } = serialize(docWithLanguage)
-    const { md: mdWithout } = serialize(docWithoutLanguage)
-    expect(mdWith).toBe(mdWithout)
-    expect(mdWith).not.toContain('```')
-    expect(mdWith).not.toContain('language-html')
-    expect(mdWith).toContain(text)
+    const { md } = serialize(doc)
+    expect(md).toContain('```')
+    expect(md).toContain(text)
   })
 })
 

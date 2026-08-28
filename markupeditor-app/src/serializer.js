@@ -107,29 +107,41 @@ export function makeSerializer(warnings) {
       // Rendered by the parent table serializer
     },
 
-    // code_block: a code_block at position 0 in the doc root is treated as the
-    // HTML preamble block that was injected during import. Serialize it as raw
-    // HTML (no fences) so the round-trip produces the original preamble.
-    // Detection is purely positional — this branch intentionally ignores
-    // node.attrs (including language) entirely, even though the preamble
-    // node does carry attrs.language === "html" after import.
-    // All other code_blocks serialize as standard fenced blocks, with
-    // node.attrs.language (if set) emitted as the fence info string.
+    // code_block: two positional roles at the doc root, both keyed off `language`
+    // rather than position alone, so a genuine leading code block that happens
+    // to be neither role still serializes as an ordinary fenced block:
+    //   - language === "metadata": the live-editor mirror of document metadata.
+    //     Never emitted into the body -- MarkupDocument.metadata is serialized
+    //     separately, Swift-side, as the real YAML frontmatter.
+    //   - language === "html": the HTML preamble injected during import.
+    //     Serialized as raw HTML, no fences, so the round-trip produces the
+    //     original preamble. Normally at index 0, but shifts to index 1 when
+    //     a metadata block occupies index 0.
     code_block(state, node, parent, index) {
-      if (index === 0 && parent && parent.type.name === 'doc') {
+      const atDocRoot = parent && parent.type.name === 'doc'
+      const metadataAtRoot = atDocRoot && parent.childCount > 0 &&
+        parent.child(0).type.name === 'code_block' && parent.child(0).attrs.language === 'metadata'
+
+      if (atDocRoot && index === 0 && node.attrs.language === 'metadata') {
+        return
+      }
+
+      const preambleIndex = metadataAtRoot ? 1 : 0
+      if (atDocRoot && index === preambleIndex && node.attrs.language === 'html') {
         state.write(node.textContent)
         state.closeBlock(node)
-      } else {
-        const sanitizedLanguage = sanitizeFenceLanguage(node.attrs.language)
-        if (sanitizedLanguage !== (node.attrs.language || '')) {
-          warnings.add(`Code block language attribute contained unsafe characters and was stripped: ${node.attrs.language}`)
-        }
-        state.write('```' + sanitizedLanguage + '\n')
-        state.text(node.textContent, false)
-        state.ensureNewLine()
-        state.write('```')
-        state.closeBlock(node)
+        return
       }
+
+      const sanitizedLanguage = sanitizeFenceLanguage(node.attrs.language)
+      if (sanitizedLanguage !== (node.attrs.language || '')) {
+        warnings.add(`Code block language attribute contained unsafe characters and was stripped: ${node.attrs.language}`)
+      }
+      state.write('```' + sanitizedLanguage + '\n')
+      state.text(node.textContent, false)
+      state.ensureNewLine()
+      state.write('```')
+      state.closeBlock(node)
     },
 
     // div: warn + serialize children as block content, drop wrapper
