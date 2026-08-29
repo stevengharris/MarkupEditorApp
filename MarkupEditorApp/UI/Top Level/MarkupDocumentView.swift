@@ -13,10 +13,6 @@ import SplitView
 internal import UniformTypeIdentifiers
 internal import WebKit
 
-private extension UTType {
-    static let htmd = UTType("com.stevengharris.htmd") ?? .data
-}
-
 struct MarkupDocumentView: View {
     
     typealias ConfigKeys = AppConfig.ConfigKey
@@ -179,11 +175,7 @@ struct MarkupDocumentView: View {
                 AppDelegate.pendingFinderURL = url
             }
         }
-        // Note: fileImporter has no canChooseDirectories parameter; .htmd packages are presented
-        // as files by the system because the UTI conforms to com.apple.package. The NSOpenPanel
-        // in handleOpen() requires canChooseDirectories=true for the same reason — the two paths
-        // are intentionally asymmetric.
-        .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html, .htmd], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 Task { await openDocument(at: url) }
             }
@@ -316,7 +308,7 @@ struct MarkupDocumentView: View {
            !document.localImageSrcsInMarkdown(content).isEmpty,
            document.resolveParentDirBookmark(for: url) == nil {
             // NSOpenPanel's powerbox grant implicitly extends to the parent directory for
-            // web-content UTIs (public.html, .htmd), but NOT for public.plain-text (.md).
+            // web-content UTIs (public.html), but NOT for public.plain-text (.md).
             // Confirmed empirically: FileManager.contentsOfDirectory on the parent succeeds
             // synchronously after selecting .html but fails with a sandbox denial after .md.
             // Request explicit directory access via a second panel so images can be cached.
@@ -481,8 +473,6 @@ struct MarkupDocumentView: View {
                 try openHtml(at: url)
             case .md:
                 try await openMd(at: url)
-            case .htmd:
-                try openHtmd(at: url)
             }
         } catch let error {
             showError(error.localizedDescription)
@@ -492,17 +482,6 @@ struct MarkupDocumentView: View {
         }
     }
     
-    /// Open a .htmd package that contains the document, images, and metadata
-    private func openHtmd(at packageURL: URL) throws {
-        guard let webView = MarkupEditor.selectedWebView else {
-            throw MarkupDocumentError.noWebViewAvailable
-        }
-        let html = try document.openHtmd(at: packageURL, baseUrl: webView.baseUrl)
-        try setHTML(html)
-        currentSource = html
-        track(url: packageURL)
-    }
-
     /// Open an HTML file
     private func openHtml(at fileURL: URL) throws {
         guard let webView = MarkupEditor.selectedWebView else {
@@ -603,7 +582,7 @@ struct MarkupDocumentView: View {
     
     /// Handle saving of the current contents.
     ///
-    /// The issue here is that we have 3 different types of documents we can be editing, and the save
+    /// The issue here is that we have 2 different types of documents we can be editing, and the save
     /// operation is specific to the `documentType`. The `document` can be out-of-sync with the
     /// current contents we are editing, as determined by whether `document.hasChanges`.
     private func handleSave(_ newURL: URL? = nil) async {
@@ -624,9 +603,6 @@ struct MarkupDocumentView: View {
             case .html:
                 guard let html = contents.html else { throw MarkupDocumentError.noHTMLSource }
                 try document.saveHtml(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
-            case .htmd:
-                guard let html = contents.html else { throw MarkupDocumentError.noHTMLSource }
-                try document.saveHtmd(html: html, to: url, srcs: srcs, baseUrl: baseUrl)
             case .md:
                 guard let markdown = contents.markdown else { throw MarkupDocumentError.noMarkdownSource }
                 try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)

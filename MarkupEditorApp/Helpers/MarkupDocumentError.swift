@@ -8,7 +8,6 @@
 import Foundation
 
 enum MarkupDocumentError: Error, Equatable {
-    case ambiguousRootHtml(Int)
     case contentEditableNotFound
     case couldNotPrepareFile(String)
     case couldNotReadFile(String)
@@ -22,7 +21,6 @@ enum MarkupDocumentError: Error, Equatable {
     case pluginReturnedInvalidResult(String)
     case pluginReturnedNoResult(String)
     case pluginReturnedUndecodableResult(name: String, raw: String)
-    case rootHtmlNotFound
     case unexpectedImport
     case unableToImport(String)
     case unexpectedExport
@@ -32,7 +30,6 @@ enum MarkupDocumentError: Error, Equatable {
 extension MarkupDocumentError: LocalizedError {
     var errorDescription: String? {
         switch self {
-        case .ambiguousRootHtml(let n):         return "Package contains \(n) HTML files; expected exactly one."
         case .contentEditableNotFound:          return "Could not locate the editable document content in the web view."
         case .couldNotPrepareFile(let err):     return "Could not prepare the file: \(err)"
         case .couldNotReadFile(let err):        return "Could not read the file: \(err)"
@@ -50,7 +47,6 @@ extension MarkupDocumentError: LocalizedError {
         case .pluginReturnedNoResult(let name):           return "Plugin '\(name)' returned no result."
         case .pluginReturnedUndecodableResult(let name, let raw):
             return "Plugin '\(name)' returned a result that could not be understood: \(raw)"
-        case .rootHtmlNotFound:                 return "No HTML file found in package."
         case .unexpectedImport:                 return "Unexpected response on import."
         case .unableToImport(let reason):
             return reason.isEmpty ? "Could not convert to HTML." : "Could not convert to HTML: \(reason)"

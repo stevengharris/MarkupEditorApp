@@ -9,22 +9,6 @@
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleTypeIconFile</key>
-			<string>markupeditor-icon</string>
-			<key>CFBundleTypeName</key>
-			<string>MarkupEditor Document</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>com.stevengharris.htmd</string>
-			</array>
-			<key>LSTypeIsPackage</key>
-			<true/>
-		</dict>
-		<dict>
 			<key>CFBundleTypeName</key>
 			<string>HTML Document</string>
 			<key>CFBundleTypeRole</key>
@@ -73,28 +57,5 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
-	<key>UTExportedTypeDeclarations</key>
-	<array>
-		<dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>com.apple.package</string>
-				<string>public.composite-content</string>
-			</array>
-			<key>UTTypeDescription</key>
-			<string>MarkupEditor Document</string>
-			<key>UTTypeIconFile</key>
-			<string>markupeditor-icon</string>
-			<key>UTTypeIdentifier</key>
-			<string>com.stevengharris.htmd</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>htmd</string>
-				</array>
-			</dict>
-		</dict>
-	</array>
 </dict>
 </plist>

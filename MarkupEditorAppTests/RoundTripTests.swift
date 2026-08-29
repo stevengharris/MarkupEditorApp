@@ -2,123 +2,13 @@
 //  RoundTripTests.swift
 //  MarkupEditorAppTests
 //
-//  Coverage for YAML metadata, htmd package round-trips, and HTML preamble extraction.
+//  Coverage for YAML metadata and HTML preamble extraction.
 //  Tests requiring the JS plugin + WKWebView are in MarkupWKWebViewHeadlessTests.swift.
 //
 
 import Testing
 import Foundation
 @testable import MarkupEditorApp
-
-// MARK: - .htmd .data round-trip (saveHtmdMetadata / loadHtmdMetadata)
-
-@MainActor struct HtmdMetadataRoundTripTests {
-
-    private func makeTempPackage() throws -> URL {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("RoundTripTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
-
-    @Test func saveAndLoadScalars() throws {
-        let dir = try makeTempPackage()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let metadata: [MetadataTuple] = [
-            MetadataTuple(key: "title", value: .scalar("My Project")),
-            MetadataTuple(key: "date",  value: .scalar("2026-05-29")),
-            MetadataTuple(key: "draft", value: .scalar("false"))
-        ]
-        try MarkupDocument().saveHtmdMetadata(metadata, to: dir)
-
-        let dataURL = dir.appendingPathComponent("index.data")
-        #expect(FileManager.default.fileExists(atPath: dataURL.path(percentEncoded: false)))
-
-        let loaded = MarkupDocument().loadHtmdMetadata(from: dir, htmlFilename: "index.html")
-        #expect(loaded.count == 3)
-        #expect(loaded[0] == MetadataTuple(key: "title", value: .scalar("My Project")))
-        #expect(loaded[1] == MetadataTuple(key: "date",  value: .scalar("2026-05-29")))
-        #expect(loaded[2] == MetadataTuple(key: "draft", value: .scalar("false")))
-    }
-
-    @Test func saveAndLoadArrayValues() throws {
-        let dir = try makeTempPackage()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let metadata: [MetadataTuple] = [
-            MetadataTuple(key: "tags",    value: .array(["swift", "ios", "macos"])),
-            MetadataTuple(key: "authors", value: .array(["Alice", "Bob"]))
-        ]
-        try MarkupDocument().saveHtmdMetadata(metadata, to: dir)
-
-        let loaded = MarkupDocument().loadHtmdMetadata(from: dir, htmlFilename: "index.html")
-        #expect(loaded.count == 2)
-        #expect(loaded[0].value == .array(["swift", "ios", "macos"]))
-        #expect(loaded[1].value == .array(["Alice", "Bob"]))
-    }
-
-    @Test func keyInsertionOrderPreserved() throws {
-        let dir = try makeTempPackage()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        // Insertion order must survive save→load
-        let metadata: [MetadataTuple] = [
-            MetadataTuple(key: "z", value: .scalar("last")),
-            MetadataTuple(key: "a", value: .scalar("first")),
-            MetadataTuple(key: "m", value: .scalar("middle"))
-        ]
-        try MarkupDocument().saveHtmdMetadata(metadata, to: dir)
-        let loaded = MarkupDocument().loadHtmdMetadata(from: dir, htmlFilename: "index.html")
-        #expect(loaded.map(\.key) == ["z", "a", "m"])
-    }
-
-    @Test func emptyMetadataProducesNoDataFile() throws {
-        let dir = try makeTempPackage()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        try MarkupDocument().saveHtmdMetadata([], to: dir)
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path(percentEncoded: false)))
-    }
-
-    @Test func emptyMetadataDeletesExistingDataFile() throws {
-        let dir = try makeTempPackage()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        // Write a .data file first, then save empty metadata — file should be removed
-        let initial: [MetadataTuple] = [MetadataTuple(key: "k", value: .scalar("v"))]
-        try MarkupDocument().saveHtmdMetadata(initial, to: dir)
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path(percentEncoded: false)))
-
-        try MarkupDocument().saveHtmdMetadata([], to: dir)
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.data").path(percentEncoded: false)))
-    }
-
-    @Test func loadReturnsEmptyForAbsentDataFile() {
-        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("absent-\(UUID().uuidString)")
-        let loaded = MarkupDocument().loadHtmdMetadata(from: dir, htmlFilename: "index.html")
-        #expect(loaded.isEmpty)
-    }
-
-    @Test func mixedScalarAndArrayRoundTrip() throws {
-        let dir = try makeTempPackage()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let metadata: [MetadataTuple] = [
-            MetadataTuple(key: "title",  value: .scalar("Readme")),
-            MetadataTuple(key: "tags",   value: .array(["#trending", "swift"])),
-            MetadataTuple(key: "layout", value: .scalar("home"))
-        ]
-        try MarkupDocument().saveHtmdMetadata(metadata, to: dir)
-        let loaded = MarkupDocument().loadHtmdMetadata(from: dir, htmlFilename: "index.html")
-        #expect(loaded.count == 3)
-        for (a, b) in zip(metadata, loaded) {
-            #expect(a.key == b.key)
-            #expect(a.value == b.value)
-        }
-    }
-}
 
 // MARK: - YAML parse/serialize round-trip
 
@@ -302,7 +192,7 @@ struct YAMLFrontmatterFormatTests {
     }
 
     // Edge case: a user-authored code block at position 0.
-    // The positional heuristic WILL de-fence it on .htmd/.html saves.
+    // The positional heuristic WILL de-fence it on .html saves.
     // This test documents the known behavior so it is explicit, not accidental.
     @Test func userCodeBlockAtPositionZeroIsDefenced() {
         let html = "<pre><code>const x = 1\nconst y = 2</code></pre>\n<p>After.</p>"

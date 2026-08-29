@@ -13,13 +13,11 @@ internal import UniformTypeIdentifiers
 enum DocumentType: String, CaseIterable, CustomLocalizedStringResourceConvertible {
     case html
     case md
-    case htmd
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .html:  "HTML"
         case .md:    "Markdown"
-        case .htmd:  "MarkupEditor"
         }
     }
 

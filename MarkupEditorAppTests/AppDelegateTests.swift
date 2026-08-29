@@ -16,7 +16,7 @@ import Foundation
     }
 
     @Test func testConsumePendingURLReturnsURLAndClears() {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory() + UUID().uuidString + ".htmd")
+        let url = URL(fileURLWithPath: NSTemporaryDirectory() + UUID().uuidString + ".md")
         AppDelegate.pendingFinderURL = url
         defer { AppDelegate.pendingFinderURL = nil }
         #expect(AppDelegate.consumePendingURL() == url)
@@ -24,7 +24,7 @@ import Foundation
     }
 
     @Test func testConsumeIsIdempotent() {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory() + UUID().uuidString + ".htmd")
+        let url = URL(fileURLWithPath: NSTemporaryDirectory() + UUID().uuidString + ".md")
         AppDelegate.pendingFinderURL = url
         defer { AppDelegate.pendingFinderURL = nil }
         #expect(AppDelegate.consumePendingURL() == url)

@@ -43,7 +43,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         // DocumentType.for(url: nil) ?? .md -- DocumentType.for(url:) returns nil
         // for a nil url (no pathExtension to resolve), so the .md fallback fires.
         let doc = MarkupDocument()
-        doc.documentType = .htmd
+        doc.documentType = .html
         doc.reset()
         #expect(doc.documentType == .md)
     }
@@ -153,59 +153,3 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 }
 
-// MARK: - openHtmd
-
-@MainActor struct MarkupDocumentOpenHtmdTests {
-
-    @Test func returnsHtmlContent() throws {
-        let fm = FileManager.default
-        let pkg = try makeTempDir(suffix: ".htmd")
-        let baseUrl = try makeTempDir()
-        defer { try? fm.removeItem(at: pkg); try? fm.removeItem(at: baseUrl) }
-        try "<p>Hello</p>".write(to: pkg.appendingPathComponent("root.html"), atomically: true, encoding: .utf8)
-        let doc = MarkupDocument()
-        let html = try doc.openHtmd(at: pkg, baseUrl: baseUrl)
-        #expect(html == "<p>Hello</p>")
-    }
-
-    @Test func setsModelStateOnSuccess() throws {
-        let fm = FileManager.default
-        let pkg = try makeTempDir(suffix: ".htmd")
-        let baseUrl = try makeTempDir()
-        defer { try? fm.removeItem(at: pkg); try? fm.removeItem(at: baseUrl) }
-        try "<p></p>".write(to: pkg.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
-        let doc = MarkupDocument()
-        _ = try doc.openHtmd(at: pkg, baseUrl: baseUrl)
-        #expect(doc.url == pkg)
-        #expect(doc.documentType == .htmd)
-        #expect(doc.hasChanges == false)
-    }
-}
-
-// MARK: - saveHtmd
-
-@MainActor struct MarkupDocumentSaveHtmdTests {
-
-    @Test func metadataWrittenToIndexData() throws {
-        let fm = FileManager.default
-        let baseUrl = try makeTempDir()
-        let destPkg = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".htmd")
-        defer { try? fm.removeItem(at: baseUrl); try? fm.removeItem(at: destPkg) }
-        let doc = MarkupDocument()
-        doc.metadata = [makeMetadata("title", "My Doc")]
-        try doc.saveHtmd(html: "<p></p>", to: destPkg, srcs: [], baseUrl: baseUrl)
-        #expect(fm.fileExists(atPath: destPkg.appendingPathComponent("index.data").path(percentEncoded: false)))
-    }
-
-    @Test func saveHtmdSetsUrl() throws {
-        let fm = FileManager.default
-        let baseUrl = try makeTempDir()
-        let destPkg = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".htmd")
-        defer { try? fm.removeItem(at: baseUrl); try? fm.removeItem(at: destPkg) }
-        let doc = MarkupDocument()
-        try doc.saveHtmd(html: "<p></p>", to: destPkg, srcs: [], baseUrl: baseUrl)
-        #expect(doc.url == destPkg)
-        #expect(doc.documentType == .htmd)
-        #expect(doc.hasChanges == false)
-    }
-}

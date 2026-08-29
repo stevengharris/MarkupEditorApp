@@ -13,7 +13,7 @@ import Observation
  
  We have to handle the situation where the MarkupDocument represents the contents of url as
  well as the situation where we have no associated the contents with any URL. Thus:
- 1. When we set the URL, we set the documentType based on the url (.html, .md, or .htmd)
+ 1. When we set the URL, we set the documentType based on the url (.html or .md)
  2.
  */
 @Observable class MarkupDocument {
@@ -35,7 +35,7 @@ import Observation
     var metadata: [MetadataTuple] = [] {
         didSet { hasChanges = true }
     }
-    var isHTMLish: Bool { documentType == .html || documentType == .htmd }
+    var isHTMLish: Bool { documentType == .html }
     
     func setSource(_ source: String, documentType: DocumentType? = nil) {
         self.source = source
@@ -48,23 +48,6 @@ import Observation
     }
 
     // MARK: - Open
-
-    /// Reads an .htmd package: copies assets into the webview sandbox, loads metadata, and
-    /// updates model state. Returns the HTML string.
-    func openHtmd(at url: URL, baseUrl: URL) throws -> String {
-        let rootHtmlURL = try findRootHTML(in: url)
-        let html = try String(contentsOf: rootHtmlURL, encoding: .utf8)
-        let filename = rootHtmlURL.lastPathComponent
-        let copiedPaths = try copyPackageAssets(from: url, to: baseUrl)
-        for src in localImageSrcs(in: html) {
-            guard copiedPaths.contains(src) else {
-                throw MarkupDocumentError.missingImage(src)
-            }
-        }
-        let metadata = loadHtmdMetadata(from: url, htmlFilename: filename)
-        setOpenResult(source: html, url: url, metadata: metadata)
-        return html
-    }
 
     /// Reads an .html file: copies referenced local images into the webview sandbox, then updates
     /// model state. Relies on a stored security-scoped bookmark for the parent directory, which
@@ -120,40 +103,7 @@ import Observation
         hasChanges = false          // override didSet — must be last
     }
     
-    /// Return the rootFilename for url; e.g., return "foo.html" when url ends in "foo.htmd" or "foo.html".
-    private func rootFilename() -> String {
-        guard let url, isHTMLish else { return "index.html" }
-        return url.deletingPathExtension().appendingPathExtension("html").lastPathComponent
-    }
-
-    private func findRootHTML(in packageURL: URL) throws -> URL {
-        let contents = try FileManager.default.contentsOfDirectory(
-            at: packageURL,
-            includingPropertiesForKeys: nil,
-            options: .skipsHiddenFiles
-        )
-        let htmlFiles = contents.filter { $0.pathExtension.lowercased() == "html" }
-        guard !htmlFiles.isEmpty else { throw MarkupDocumentError.rootHtmlNotFound }
-        guard htmlFiles.count == 1 else { throw MarkupDocumentError.ambiguousRootHtml(htmlFiles.count) }
-        return htmlFiles[0]
-    }
-
     // MARK: - Save
-
-    /// Creates a fresh .htmd package at `url`, writes `html` to rootFileName(), copies image assets,
-    /// and writes metadata. If a package already exists at `url` it is replaced.
-    func saveHtmd(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
-        let fm = FileManager.default
-        if fm.fileExists(atPath: url.path(percentEncoded: false)) {
-            try fm.removeItem(at: url)
-        }
-        try fm.createDirectory(at: url, withIntermediateDirectories: true)
-        try html.write(to: url.appending(path: rootFilename(), directoryHint: .notDirectory), atomically: true, encoding: .utf8)
-        try syncPackageAssets(srcs: srcs, baseUrl: baseUrl, to: url, deleteOrphans: true)
-        try saveHtmdMetadata(metadata, to: url)
-        self.url = url
-        hasChanges = false
-    }
 
     /// Writes `html` to a new .html file at `url` and copies image assets alongside it.
     /// Does not delete any existing files.
@@ -177,52 +127,6 @@ import Observation
         url = nil
         metadata = []           // triggers didSet → hasChanges = true
         hasChanges = false      // override didSet — must be last
-    }
-
-    /// Syncs image assets from `baseUrl` into `docDir`.
-    /// Copies each src that is missing from `docDir`; skips srcs absent from `baseUrl`.
-    /// When `deleteOrphans` is true, removes non-HTML files in `docDir` whose relative path
-    /// is not present in `srcs` (used for .htmd saves to remove deleted images).
-    func syncPackageAssets(srcs: [String], baseUrl: URL, to docDir: URL, deleteOrphans: Bool) throws {
-        let fm = FileManager.default
-        let srcSet = Set(srcs)
-        for src in srcs {
-            let dest = docDir.appendingPathComponent(src)
-            guard !fm.fileExists(atPath: dest.path(percentEncoded: false)) else { continue }
-            let source = baseUrl.appendingPathComponent(src)
-            guard fm.fileExists(atPath: source.path(percentEncoded: false)) else { continue }
-            let parent = dest.deletingLastPathComponent()
-            if !fm.fileExists(atPath: parent.path(percentEncoded: false)) {
-                try fm.createDirectory(at: parent, withIntermediateDirectories: true)
-            }
-            try fm.copyItem(at: source, to: dest)
-        }
-        guard deleteOrphans else { return }
-        guard let enumerator = fm.enumerator(
-            at: docDir,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return }
-        var docDirPath = docDir.path(percentEncoded: false)
-        if docDirPath.hasSuffix("/") { docDirPath.removeLast() }
-        for case let fileURL as URL in enumerator {
-            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
-            guard values.isRegularFile == true else { continue }
-            let ext = fileURL.pathExtension.lowercased()
-            guard ext != "html" else { continue }
-            // Preserve spec-defined non-image package files regardless of image-srcs list.
-            let preservedExtensions: Set<String> = ["data", "css", "htmd"]
-            guard !preservedExtensions.contains(ext) else { continue }
-            let relativePath = String(fileURL.path(percentEncoded: false).dropFirst(docDirPath.count + 1))
-            if !srcSet.contains(relativePath) {
-                try fm.removeItem(at: fileURL)
-            }
-        }
-    }
-
-    private func applyPreamble(to html: String) -> String {
-        let (preamble, body) = extractHTMLPreamble(from: html)
-        return preamble.map { $0 + "\n" + body } ?? html
     }
 
     // MARK: - Image assets
@@ -251,37 +155,6 @@ import Observation
                 try fm.copyItem(at: source, to: dest)
             }
         }
-    }
-
-    /// Copies all non-HTML files from `packageURL` into `destDir`, preserving relative paths.
-    /// Returns the set of relative paths that were copied.
-    func copyPackageAssets(from packageURL: URL, to destDir: URL) throws -> Set<String> {
-        let fm = FileManager.default
-        guard let enumerator = fm.enumerator(
-            at: packageURL,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-        var pkgPath = packageURL.path(percentEncoded: false)
-        if pkgPath.hasSuffix("/") { pkgPath.removeLast() }
-        var copied = Set<String>()
-        for case let fileURL as URL in enumerator {
-            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
-            guard values.isRegularFile == true else { continue }
-            guard fileURL.pathExtension.lowercased() != "html" else { continue }
-            let relativePath = String(fileURL.path(percentEncoded: false).dropFirst(pkgPath.count + 1))
-            let dest = destDir.appendingPathComponent(relativePath)
-            let parent = dest.deletingLastPathComponent()
-            if !fm.fileExists(atPath: parent.path(percentEncoded: false)) {
-                try fm.createDirectory(at: parent, withIntermediateDirectories: true)
-            }
-            if fm.fileExists(atPath: dest.path(percentEncoded: false)) {
-                try fm.removeItem(at: dest)
-            }
-            try fm.copyItem(at: fileURL, to: dest)
-            copied.insert(relativePath)
-        }
-        return copied
     }
 
     // MARK: - Image sources
@@ -355,10 +228,10 @@ import Observation
     /// directory path. Must be called while the granting NSOpenPanel is on the call stack.
     ///
     /// Pass `dirURL` for .md files: UTI public.plain-text does NOT receive the implicit
-    /// parent-directory powerbox grant that web-content UTIs (public.html, com.apple.package) get
+    /// parent-directory powerbox grant that web-content UTIs (public.html) get
     /// from NSOpenPanel, so a second panel must explicitly grant directory access and its URL is
     /// passed here. When `dirURL` is nil the parent is derived from `fileURL`, which works for
-    /// .html and .htmd because their powerbox grant already extends to the parent directory.
+    /// .html because its powerbox grant already extends to the parent directory.
     ///
     /// Silently does nothing if a bookmark cannot be created.
     func storeParentDirBookmark(for fileURL: URL, using dirURL: URL? = nil) {
@@ -418,45 +291,4 @@ import Observation
         return "---\n\(yaml)---\n\n\(output)"
     }
 
-    /// Reads the `.data` JSON metadata file from an htmd package, if present.
-    /// Returns an empty array when the file is absent or unreadable.
-    func loadHtmdMetadata(from packageURL: URL, htmlFilename: String) -> [MetadataTuple] {
-        let dataFilename = (htmlFilename as NSString).deletingPathExtension + ".data"
-        let dataURL = packageURL.appendingPathComponent(dataFilename)
-        guard FileManager.default.fileExists(atPath: dataURL.path(percentEncoded: false)),
-              let data = try? Data(contentsOf: dataURL),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-        else { return [] }
-        return json.compactMap { obj in
-            guard let key = obj["key"] as? String else { return nil }
-            if let scalar = obj["value"] as? String {
-                return MetadataTuple(key: key, value: .scalar(scalar))
-            } else if let array = obj["value"] as? [String] {
-                return MetadataTuple(key: key, value: .array(array))
-            }
-            return nil
-        }
-    }
-
-    /// Writes metadata as a JSON `.data` file into an htmd package.
-    /// Deletes any existing `.data` file when metadata is empty.
-    /// Throws on write failure or on deletion failure for a non-empty-to-empty transition.
-    func saveHtmdMetadata(_ metadata: [MetadataTuple], to packageURL: URL) throws {
-        let dataFilename = (rootFilename() as NSString).deletingPathExtension + ".data"
-        let dataURL = packageURL.appendingPathComponent(dataFilename)
-        guard !metadata.isEmpty else {
-            if FileManager.default.fileExists(atPath: dataURL.path(percentEncoded: false)) {
-                try FileManager.default.removeItem(at: dataURL)
-            }
-            return
-        }
-        let json: [[String: Any]] = metadata.map { entry in
-            switch entry.value {
-            case .scalar(let s): return ["key": entry.key, "value": s]
-            case .array(let elements): return ["key": entry.key, "value": elements]
-            }
-        }
-        let data = try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
-        try data.write(to: dataURL, options: .atomic)
-    }
 }
