@@ -77,7 +77,9 @@ struct PluginSettingsView: View {
             }
             .padding(.bottom, 8)
             LabeledContent("Code Views:") {
-                let codeViews = AppConfig.shared.codeViews
+                // Internal plugins (currently just Metadata) are pre-installed but
+                // never user-visible here -- they have no user-facing update/delete story.
+                let codeViews = AppConfig.shared.codeViews.filter { !CodeViewManager.protectedNames.contains($0.name) }
                 if codeViews.isEmpty {
                     Text("None")
                         .foregroundStyle(.secondary)
@@ -98,7 +100,10 @@ struct PluginSettingsView: View {
                         showAddPlugin = true
                     }, label: { Image(systemName: "plus.square") })
                     Button(action: { showDeletePlugin = true }, label: { Image(systemName: "minus.square") })
-                        .disabled(!CodeViewManager.exists(focusedPlugin, in: AppConfig.shared.codeViews))
+                        .disabled(
+                            !CodeViewManager.exists(focusedPlugin, in: AppConfig.shared.codeViews)
+                            || CodeViewManager.protectedNames.contains(focusedPlugin?.name ?? "")
+                        )
                     Text("Add or delete code view")
                         .lineLimit(1)
                         .font(.subheadline)

@@ -53,6 +53,16 @@ export async function loadPluginMetadata(pluginsDir) {
       throw new Error(`Plugin "${dirName}": failed to parse package.json: ${err.message}`);
     }
 
+    // Internal plugins are pre-installed by the
+    // app unconditionally and never user-installable, so they have no
+    // place in the discovery site's output. Skipped before validation, not
+    // just before inclusion in the result -- an internal plugin's
+    // package.json is allowed to omit fields (description/author/version)
+    // that only matter for a listing entry it will never produce.
+    if (pkg.markupeditor?.internal === true) {
+      continue;
+    }
+
     const md = pkg.markupeditor;
     if (!md || typeof md !== 'object') {
       throw new Error(`Plugin "${dirName}": package.json is missing the "markupeditor" object`);

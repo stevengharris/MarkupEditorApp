@@ -1,0 +1,192 @@
+/* Allow the PDF exporter to hide the bar/toggle chrome when the block is selected,
+   matching markupeditor-codeview-frontmatter's equivalent rule. */
+#editor.Markup-exporting .metadata-bar,
+#editor.Markup-exporting .metadata-mode-toggle {
+  display: none;
+}
+
+.metadata-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--Markup-secondary-background, #eee);
+  border-radius: 4px 4px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-bar {
+    background: var(--Markup-secondary-background, #333);
+  }
+}
+
+.metadata-disclosure {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 7px;
+  border-color: transparent transparent transparent currentColor;
+  transition: transform 0.1s ease;
+}
+
+.metadata-disclosure-collapsed {
+  transform: rotate(0deg);
+}
+
+.metadata-disclosure:not(.metadata-disclosure-collapsed) {
+  transform: rotate(90deg);
+}
+
+.metadata-label {
+  margin-right: auto; /* pushes Table/Source to the right end of the same line */
+}
+
+.metadata-content {
+  background: var(--Markup-secondary-background, #eee);
+  border-radius: 0 0 4px 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-content {
+    background: var(--Markup-secondary-background, #333);
+  }
+}
+
+.metadata-content-collapsed {
+  display: none;
+}
+
+.metadata-mode-toggle {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  color: white;
+  background: var(--Markup-accent-color, blue);
+}
+
+.metadata-mode-toggle:hover {
+  opacity: 0.9;
+}
+
+.metadata-mode-toggle-active {
+  opacity: 0.9;
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-mode-toggle {
+    background: var(--Markup-accent-color, lightblue);
+    color: black;
+  }
+}
+
+.metadata-hide-caret {
+  caret-color: transparent;
+}
+
+/* Table mode: hide contentDOM (the actual editable Source text). No direct-child
+   combinator here -- contentDOM lives inside .metadata-content (moved there by
+   MetadataView's constructor, a grandchild of the <pre>, not a direct child),
+   so it shares that wrapper's padding with .metadata-table and reads at the
+   same position/inset regardless of which mode is showing. */
+code.metadata-hidden-code {
+  font-size: 0;
+  line-height: 0;
+  margin: 0;
+}
+
+/* GitHub-style bordered table for the frontmatter key/value rows: full grid
+   lines and zebra striping, matching how GitHub itself renders a markdown
+   table (github.com's markdown-body CSS: 1px bordered cells, alternating
+   row background). A real CSS grid, not per-row flexboxes -- grid-template-
+   columns computes the key column's width ONCE across every row's content,
+   the same column-sizing behavior a real <table> has; independent per-row
+   flex rows can't reproduce that (each would size only to its own text,
+   producing a jagged, unaligned column edge). Cells are appended directly
+   as grid children by renderTable(), two per logical row, rather than
+   wrapped in a per-row element.  */
+.metadata-table {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  font-size: 0.85rem;
+  border: 1px solid var(--Markup-border-color, #d0d7de);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Dashed outline while active/selected -- matches FrontMatterView's
+   .frontmatter-rendered-selected / Mermaid's own selected-diagram outline,
+   the visual indicator a Table-mode block (an atomic unit for keyboard
+   navigation) is currently the selection, since it draws no native caret. */
+.metadata-selected {
+  outline: 1px var(--Markup-accent-color, blue) dashed;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-selected {
+    outline-color: var(--Markup-accent-color, lightblue);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-table {
+    border-color: var(--Markup-border-color, #30363d);
+  }
+}
+
+.metadata-table-key,
+.metadata-table-value {
+  padding: 6px 13px;
+}
+
+.metadata-table-row-border {
+  border-top: 1px solid var(--Markup-border-color, #d0d7de);
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-table-row-border {
+    border-top-color: var(--Markup-border-color, #30363d);
+  }
+}
+
+.metadata-table-striped {
+  background: var(--Markup-table-stripe, #f6f8fa);
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-table-striped {
+    background: var(--Markup-table-stripe, #161b22);
+  }
+}
+
+.metadata-table-key {
+  font-weight: 600;
+  white-space: nowrap;
+  border-right: 1px solid var(--Markup-border-color, #d0d7de);
+}
+
+@media (prefers-color-scheme: dark) {
+  .metadata-table-key {
+    border-right-color: var(--Markup-border-color, #30363d);
+  }
+}
+
+.metadata-table-value {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.metadata-table-empty {
+  font-style: italic;
+  opacity: 0.6;
+}

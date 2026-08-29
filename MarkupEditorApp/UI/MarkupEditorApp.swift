@@ -77,5 +77,12 @@ struct MarkupEditorApp: App {
             }
             UserDefaults.standard.set(true, forKey: Self.firstLaunchPluginSetupKey)
         }
+        // Internal plugins (currently just Metadata) are re-synced every launch, unconditionally --
+        // unlike the first-launch-only Mermaid/DocX seeding above, an internal plugin has no
+        // user-facing update mechanism (never shown in Settings), so an existing install must
+        // also pick up a newer bundled copy, not just a fresh one at true first launch.
+        AppConfig.update { config in
+            config.codeViews = CodeViewManager.syncInternalPlugins(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
+        }
     }
 }

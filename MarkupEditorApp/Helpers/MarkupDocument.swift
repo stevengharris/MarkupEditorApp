@@ -106,17 +106,26 @@ import Observation
     // MARK: - Save
 
     /// Writes `html` to a new .html file at `url` and copies image assets alongside it.
-    /// Does not delete any existing files.
+    /// Does not delete any existing files. Strips a metadata code_block at position 0 first --
+    /// "Save As" to .html is reachable from a .md document, and without this the live editor's
+    /// metadata block (real for a .md-derived document, a bare `<pre><code>` for anything else)
+    /// would otherwise be written into the saved file verbatim.
+    /// A no-op, byte-for-byte unchanged write when no such block is present at position 0.
     func saveHtml(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
-        try html.write(to: url, atomically: true, encoding: .utf8)
+        let sanitized = extractMetadataBlock(from: html).body
+        try sanitized.write(to: url, atomically: true, encoding: .utf8)
         try copyImageAssets(srcs: srcs, from: baseUrl, to: url.deletingLastPathComponent(), skipMissing: true, replaceExisting: false)
         self.url = url
         hasChanges = false
     }
     
+    /// `markdown` is expected to already be the complete document text, frontmatter included --
+    /// every call site that produces it (getCurrentContents(), in both its sourceShowing and
+    /// live-webview branches) injects document.metadata via injectYAMLFrontMatter before this
+    /// runs, the same way a freshly-opened file's raw content already carries its own
+    /// frontmatter verbatim. Not injected again here, or it would duplicate.
     func saveMd(markdown: String, to url: URL, srcs: [String], baseUrl: URL) throws {
-        let annotatedMarkdown = injectYAMLFrontMatter(into: markdown)
-        try annotatedMarkdown.write(to: url, atomically: true, encoding: .utf8)
+        try markdown.write(to: url, atomically: true, encoding: .utf8)
         try copyImageAssets(srcs: srcs, from: baseUrl, to: url.deletingLastPathComponent(), skipMissing: true, replaceExisting: false)
         self.url = url
         hasChanges = false
@@ -289,6 +298,63 @@ import Observation
         guard !metadata.isEmpty else { return output }
         let yaml = YAMLMetadata.serialize(metadata)
         return "---\n\(yaml)---\n\n\(output)"
+    }
+
+    /// Extracts the metadata code_block's raw text if one is present at position 0 of `html` --
+    /// mirrors extractHTMLPreamble's shape, the closest existing analog for
+    /// "leading block" detection in this file. Confirmed against markupeditor-base's code_block
+    /// toDOM (`["pre", ["code", {class: "language-${language}"}, 0]]`) and getHtml()'s
+    /// DOMSerializer.fromSchema-based serialization: NodeView chrome (MetadataView's bar/table)
+    /// is presentation-only and never reaches this string, so plain prefix/range matching on the
+    /// schema's own toDOM shape is safe here, the same way it already is for the HTML preamble.
+    func extractMetadataBlock(from html: String) -> (metadata: String?, body: String) {
+        let trimmed = html.trimmingCharacters(in: .whitespacesAndNewlines)
+        let openTag = "<pre><code class=\"language-metadata\">"
+        let closeTag = "</code></pre>"
+        guard trimmed.hasPrefix(openTag) else { return (nil, html) }
+        guard let closeRange = trimmed.range(of: closeTag) else { return (nil, html) }
+        let contentStart = trimmed.index(trimmed.startIndex, offsetBy: openTag.count)
+        let escaped = String(trimmed[contentStart..<closeRange.lowerBound])
+        let content = unescapeHTMLEntities(escaped)
+        let afterBlock = String(trimmed[closeRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return (content, afterBlock)
+    }
+
+    /// The sync boundary: refreshes `metadata` from the metadata code_block's
+    /// current text in `html`, when one is found at position 0 -- never clears `metadata` when
+    /// none is found (a metadata-less document, or a Source-view round-trip that hasn't yet
+    /// re-seeded one, must not lose whatever `metadata` already held). "Found but empty" (an
+    /// existing block whose content was fully deleted) still overwrites, to `[]` -- a different
+    /// outcome from "not found" (left untouched), matching the restored sync-safety rule.
+    func syncMetadata(fromHTML html: String, warnings: inout [String]) {
+        guard let content = extractMetadataBlock(from: html).metadata else { return }
+        metadata = YAMLMetadata.parse(content, warnings: &warnings)
+    }
+
+    /// Ensures `html` has a metadata code_block at position 0 whenever `metadata` is non-empty --
+    /// conditional, not unconditional: a document with no metadata gets nothing inserted, so a genuinely
+    /// leading block already in `html` stays undisturbed at position 0. Always seeds from
+    /// `metadata`'s current value, never by re-parsing `html` itself -- Markdown-derived HTML
+    /// never carries frontmatter to begin with (it's stripped before conversion and lives only
+    /// in `metadata`), so re-parsing would always seed empty and silently blank real metadata.
+    func seedMetadataBlock(in html: String) -> String {
+        guard !metadata.isEmpty else { return html }
+        // YAMLMetadata.serialize's trailing "\n" is load-bearing for injectYAMLFrontMatter
+        // (it's what puts the closing "---" on its own line) but reads as a stray blank line
+        // at the end of the block when shown as code_block content -- trimmed here only, not
+        // in serialize() itself.
+        var yaml = YAMLMetadata.serialize(metadata)
+        if yaml.hasSuffix("\n") { yaml.removeLast() }
+        let escaped = escapeHTMLEntities(yaml)
+        return "<pre><code class=\"language-metadata\">\(escaped)</code></pre>" + html
+    }
+
+    private func escapeHTMLEntities(_ s: String) -> String {
+        // Order matters: & must be escaped first, or the & introduced by escaping < and >
+        // would themselves get re-escaped into &amp;lt;/&amp;gt;.
+        s.replacingOccurrences(of: "&", with: "&amp;")
+         .replacingOccurrences(of: "<", with: "&lt;")
+         .replacingOccurrences(of: ">", with: "&gt;")
     }
 
 }
