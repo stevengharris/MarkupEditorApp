@@ -342,6 +342,61 @@ describe('makeCodeBlockFactory: language changed TO html via the Language dialog
   })
 })
 
+// A metadata code_block (markupeditor-codeview-metadata, a sibling plugin) is also a
+// leading-position block and takes position 0 when present, shifting the HTML preamble's
+// own expected position to right after it -- expectedPreamblePosition is what makes this plugin aware of
+// that sequencing rule without a package dependency between the two plugins.
+describe('sequencing with a leading metadata block (expectedPreamblePosition)', () => {
+  it('an HTML preamble at position 1 activates as FrontMatterView when a metadata block occupies position 0', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('code_block', { language: 'metadata' }, schema.text('title: X')),
+      schema.node('code_block', { language: 'html' }, schema.text('<p>preamble</p>')),
+      schema.node('paragraph', null, schema.text('body'))
+    ])
+    const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
+    const wrappedFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const plugin = frontMatterPlugin.createPlugin()
+    const state = EditorState.create({ schema, doc, plugins: [plugin] })
+    const container = document.body.appendChild(document.createElement('div'))
+    const view = new EditorView(container, { state, nodeViews: { code_block: wrappedFactory } })
+
+    const preamblePos = doc.child(0).nodeSize
+    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(FrontMatterView) // the metadata block itself
+    expect(view.nodeDOM(preamblePos).codeView).toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(preamblePos).codeView.mode).toBe('rendered')
+
+    view.destroy()
+    container.remove()
+  })
+
+  it('an HTML preamble already active at position 0 stays active (not forced to Source) when a metadata block is inserted before it, shifting it to position 1', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('code_block', { language: 'html' }, schema.text('<p>preamble</p>')),
+      schema.node('paragraph', null, schema.text('body'))
+    ])
+    const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
+    const wrappedFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const plugin = frontMatterPlugin.createPlugin()
+    const state = EditorState.create({ schema, doc, plugins: [plugin] })
+    const container = document.body.appendChild(document.createElement('div'))
+    const view = new EditorView(container, { state, nodeViews: { code_block: wrappedFactory } })
+    const instance = view.nodeDOM(0).codeView
+    expect(instance.positionValid).toBe(true)
+
+    const metadataBlock = schema.node('code_block', { language: 'metadata' }, schema.text('title: X'))
+    view.dispatch(view.state.tr.insert(0, metadataBlock))
+    // A pure position shift -- doesn't reach FrontMatterView.update() at all (see that
+    // class's own doc comment); the Plugin's view-update hook, wired via createPlugin()
+    // above, is what calls checkAllPositions() on every transaction including this one.
+
+    expect(instance.positionValid).toBe(true)
+    expect(instance.mode).toBe('rendered')
+
+    view.destroy()
+    container.remove()
+  })
+})
+
 // Mirrors mermaid-plugin.test.js's wrapPasteCodeForDiagram coverage: on
 // macOS, Cmd+V never reaches the DOM as a paste event -- NSResponder's
 // paste(_:) calls MU.pasteCode(text) directly, bypassing

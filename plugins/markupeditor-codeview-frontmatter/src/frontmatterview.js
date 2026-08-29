@@ -13,6 +13,20 @@ export function isFrontMatterLanguage(language) {
     return (language ?? '').trim().toLowerCase() === 'html'
 }
 
+// A metadata code_block (markupeditor-codeview-metadata, a sibling plugin) is also a
+// leading-position block, and takes position 0 when present -- shifting the HTML preamble's
+// own valid position to right after it. A plain inline string check rather than a package
+// dependency on that plugin: "metadata" is a lightweight, deliberate convention here (matching
+// how isFrontMatterLanguage's own "html" check works), not a shared API surface worth a
+// build-time coupling between two otherwise-independent plugins.
+//
+// Returns a ProseMirror POSITION, not a child index: "the block after metadata" is at
+// position `first.nodeSize` (however large that node is), not literally position 1.
+export function expectedPreamblePosition(doc) {
+    const first = doc.firstChild
+    return (first?.type.name === 'code_block' && first.attrs.language === 'metadata') ? first.nodeSize : 0
+}
+
 // Instances add themselves in the constructor, remove themselves in
 // destroy(). Needed because ProseMirror does NOT call a NodeView's own
 // update() for a PURE position shift (a preceding sibling inserted, this
@@ -29,8 +43,10 @@ export function isFrontMatterLanguage(language) {
 const liveInstances = new Set()
 
 /**
- * NodeView for a code_block whose language is html AND which sits at
- * document position 0 -- the shape markupeditor-app's markdown import
+ * NodeView for a code_block whose language is html AND which sits at the
+ * expected leading position -- position 0 normally, or right after it when a
+ * metadata code_block (markupeditor-codeview-metadata) occupies position 0
+ * (see expectedPreamblePosition) -- the shape markupeditor-app's markdown import
  * rewrites a leading raw-HTML block into (see markdown.js), and the shape
  * MarkupDocument.extractHTMLPreamble unwraps back to raw HTML on export.
  * Extends MU.CodeView: inherits dom (<pre>), contentDOM (<code>), the
@@ -42,7 +58,7 @@ const liveInstances = new Set()
  * call), this view is position-dependent and renders untrusted content
  * synchronously through DOMPurify. Position enforcement is NOT solely
  * update()-based (see liveInstances comment above) -- once
- * checkAllPositions() (or update()) observes getPos() !== 0, this instance
+ * checkAllPositions() (or update()) observes getPos() !== expectedPreamblePosition(...), this instance
  * permanently falls back to Source-only display via forceSourceOnly()
  * rather than ProseMirror discarding/reconstructing it as a plain CodeView
  * (there is no public API to force that rebuild from outside the NodeView
@@ -109,7 +125,9 @@ export class FrontMatterView extends MU.CodeView {
         // checkAllPositions() is what actually catches that case. This
         // check only matters for the (unobserved) case of a
         // content-changing edit that also happens to shift position.
-        if (this.getPos() !== 0) {
+        // expectedPreamblePosition, not a bare 0: a metadata block at position 0 shifts the
+        // HTML preamble's own valid position to 1.
+        if (this.getPos() !== expectedPreamblePosition(this.view.state.doc)) {
             this.forceSourceOnly()
             return true
         }
@@ -166,7 +184,7 @@ export class FrontMatterView extends MU.CodeView {
     // view-update hook on every transaction.
     static checkAllPositions() {
         for (const instance of liveInstances) {
-            if (instance.getPos() !== 0) instance.forceSourceOnly()
+            if (instance.getPos() !== expectedPreamblePosition(instance.view.state.doc)) instance.forceSourceOnly()
         }
     }
 
