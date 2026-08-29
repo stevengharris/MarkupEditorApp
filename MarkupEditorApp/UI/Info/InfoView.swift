@@ -9,9 +9,8 @@ import SwiftUI
 import MarkupEditor
 
 struct InfoView: View {
-    
+
     @Binding var url: URL?
-    @Binding var metadataInfo: [MetadataTuple]
     @State private var infoType: InfoType
     
     let height = ToolbarConfig.fromDefaults().toolbarHeight() - 1
@@ -37,8 +36,6 @@ struct InfoView: View {
                 LogInfoView()
             case .document:
                 DocumentInfoView(url: $url)
-            case .metadata:
-                MetadataInfoView(metadataInfo: $metadataInfo)
             }
             
             Spacer()
@@ -49,9 +46,8 @@ struct InfoView: View {
         }
     }
     
-    init(url: Binding<URL?>? = nil, metadataInfo: Binding<[MetadataTuple]>? = nil) {
+    init(url: Binding<URL?>? = nil) {
         _url = url ?? .constant(nil)
-        _metadataInfo = metadataInfo ?? .constant([])
         let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.document.rawValue
         _infoType = State(initialValue: InfoType(rawValue: stored) ?? .document)
     }

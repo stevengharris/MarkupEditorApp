@@ -68,7 +68,7 @@ struct MarkupDocumentView: View {
                 }
             },
             right: {
-                InfoView(url: $doc.url, metadataInfo: $doc.metadata)
+                InfoView(url: $doc.url)
             }
         )
         .fraction(docFraction)
