@@ -227,9 +227,7 @@ describe('arrow-key atomic hop around a Table-mode block', () => {
     expect(pmPlugin.props.handleKeyDown(view, keyEvent('ArrowLeft'))).toBe(true)
     // Landing creates a NodeSelection wrapping the whole block (selectable, not
     // editable -- see handleMetadataTextInput), not a TextSelection inside its
-    // (hidden) content the way FrontMatterView/MermaidView's own "arrowing in
-    // lands on the canonical position" precedent does; see the comment on
-    // handleMetadataArrowKey for why MetadataView deliberately departs from that.
+    // hidden content.
     expect(view.state.selection).toBeInstanceOf(NodeSelection)
     expect(view.state.selection.from).toBe(0)
     expect(view.state.selection.node.attrs.language).toBe('metadata')
@@ -322,14 +320,10 @@ describe('text input blocked while a Table-mode block is whole-node selected', (
 })
 
 describe('Delete/Backspace whole-block deletion around a Table-mode block', () => {
-  // Delete/Backspace pressed WHILE POSITIONED INSIDE the block's text is no longer
-  // this plugin's own concern: correctStraySelection converts that TextSelection to
-  // a NodeSelection on the transaction that first creates it (see
-  // handleMetadataArrowKey's comment), so by the time a keydown could fire, the
-  // selection is already a NodeSelection -- handleMetadataDeleteKey correctly
-  // returns false and defers to ProseMirror's own default keymap, which deletes a
-  // selected node natively. Confirmed directly here via the same deleteSelection
-  // transform method the default keymap itself uses, not through handleKeyDown.
+  // Delete/Backspace pressed while positioned inside the block's text is not this
+  // plugin's concern: correctStraySelection already converts that to a NodeSelection,
+  // so handleMetadataDeleteKey defers to ProseMirror's default keymap, which deletes
+  // a selected node natively.
   it('a NodeSelection parked on the block is not intercepted by this plugin -- deleteSelection removes it via ProseMirror default handling', () => {
     const doc = metadataDoc()
     const { view, pmPlugin, teardown } = mountView(doc)

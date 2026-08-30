@@ -19,14 +19,10 @@ export function isMetadataLanguage(language) {
 }
 
 /**
- * Best-effort, glanceable parse of the raw metadata text into key/value
- * rows for Table display. Deliberately not a real YAML parser -- the
- * authoritative parse (with warnings for anything unsupported) is
- * `YAMLMetadata.parse` on the Swift side, at the sync boundary. This only
- * needs to handle the same simple `key: value` shape that parser documents
- * as in-scope; anything else (multi-line scalars, nested mappings, list
- * items) is silently skipped here rather than misrendered, since Table is
- * a preview, not a save path.
+ * Best-effort parse of raw metadata text into key/value rows for Table
+ * display. Not a full YAML parser -- only handles simple `key: value`
+ * lines; anything else is silently skipped, since this is a preview, not
+ * a save path. The authoritative parse is YAMLMetadata.parse on the Swift side.
  */
 export function parseMetadataRows(text) {
     const rows = []
@@ -40,47 +36,36 @@ export function parseMetadataRows(text) {
     return rows
 }
 
-// Instances add themselves in the constructor, remove themselves in
-// destroy(). Needed for the same reason as FrontMatterView's liveInstances:
-// ProseMirror does NOT call a NodeView's own update() for a PURE position
-// shift, so position enforcement and collapse-state sync both have to be
-// driven from MetadataPlugin's Plugin view-update hook (which DOES fire on
-// every transaction) rather than update() alone.
+// Instances register themselves in the constructor, deregister in
+// destroy(). ProseMirror does not call a NodeView's update() for a pure
+// position shift, so position and collapse-state sync run from the
+// Plugin's view-update hook instead, which fires on every transaction.
 const liveInstances = new Set()
 
 /**
- * NodeView for a code_block whose language is "metadata" AND which sits at
- * document position 0 -- the always-recognized shape a document's YAML
- * frontmatter round-trips through while being edited. Extends
- * MU.CodeView: inherits dom (<pre>), contentDOM (<code>) as the Source
- * editing surface, and the this.dom.codeView = this backreference
- * codeLanguageTabPlugin uses -- though this view suppresses the inherited
- * Language tab entirely (setActive override below).
+ * NodeView for a code_block with language "metadata" at document position 0
+ * -- the shape a document's YAML frontmatter round-trips through while
+ * being edited. Extends MU.CodeView: dom (<pre>) and contentDOM (<code>)
+ * remain the Source editing surface; the inherited Language tab is
+ * suppressed (see setActive).
  *
- * Adds a persistent collapse/expand bar (chrome, sibling of contentDOM) and,
- * when expanded, a Table/Source toggle -- Table (the default) is a
- * view-only rendering of the same content Source holds; Source is
- * contentDOM itself, shown/hidden via the same HIDDEN_CODE_CLASS pattern
- * FrontMatterView uses for its Rendered mode.
+ * Adds a collapse/expand bar and, when expanded, a Table/Source toggle.
+ * Table is a read-only rendering of the same content Source holds; Source
+ * is contentDOM itself, shown/hidden via HIDDEN_CODE_CLASS.
  *
  * Position enforcement mirrors FrontMatterView: once checkAllPositions()
- * (driven by MetadataPlugin) observes getPos() !== 0, this instance
- * permanently falls back to plain-CodeView-like display via
- * forcePlainOnly() -- no bar, no Table/Source toggle; it just renders as an
- * ordinary code block from then on. Unlike
- * FrontMatterView, there is no separate language-away defense-in-depth
- * check in update(): MetadataPlugin's appendTransaction guard (not a
- * passive, reversible reasoning) already prevents node.attrs.language from
- * ever being observably different from "metadata" while at position 0, so
- * by the time update() runs the language has already been corrected within
- * the same transaction batch.
+ * observes getPos() !== 0, the instance permanently falls back to plain
+ * code-block rendering via forcePlainOnly(). Unlike FrontMatterView, there
+ * is no language-away check in update() -- MetadataPlugin's
+ * appendTransaction guard already prevents node.attrs.language from ever
+ * differing from "metadata" at position 0.
  */
 export class MetadataView extends MU.CodeView {
     constructor(node, view, getPos, languageDialog) {
         super(node, view, getPos, languageDialog)
         this.getPos = getPos
         this.node = node
-        this.mode = null // set for real by setMode(true) below -- must NOT start equal to 'table', or that call's no-op guard would skip applying the initial DOM classes entirely
+        this.mode = null // setMode(true) below sets the real value; starting at 'table' would make its no-op guard skip initial DOM class application
         this.isActive = false
         this.positionValid = true // factory only ever constructs this when getPos() === 0 already holds
 
@@ -105,8 +90,7 @@ export class MetadataView extends MU.CodeView {
             this.toggleCollapsed()
         })
 
-        // Clicking Table/Source while collapsed also expands -- the click is a clear signal
-        // the user wants to see that content now, not a no-op hidden behind the collapse bar.
+        // Clicking Table/Source while collapsed also expands, rather than being a no-op.
         this.tableTab = this.buildModeTab('Table', 'table', () => { this.ensureExpanded(); this.setMode(true) })
         this.sourceTab = this.buildModeTab('Source', 'source', () => { this.ensureExpanded(); this.setMode(false) })
         this.bar.appendChild(this.tableTab)
@@ -119,11 +103,9 @@ export class MetadataView extends MU.CodeView {
         this.tableContainer.className = TABLE_CLASS
         this.tableContainer.contentEditable = 'false'
 
-        // contentDOM starts as a direct child of dom (the base CodeView
-        // constructor put it there); appendChild here MOVES it into content,
-        // as a sibling of tableContainer, so Table and Source share the same
-        // padded wrapper -- keeps spacing identical between the two modes
-        // instead of contentDOM sitting outside content's padding box.
+        // contentDOM starts as a child of dom (base CodeView constructor);
+        // appendChild here moves it into content, as a sibling of
+        // tableContainer, so Table and Source share the same padding.
         this.dom.appendChild(this.bar)
         this.dom.appendChild(this.content)
         this.content.appendChild(this.tableContainer)
@@ -135,13 +117,9 @@ export class MetadataView extends MU.CodeView {
     }
 
     update(node) {
-        // Regression: super.update() -> syncLanguageClass() does
-        // `this.contentDOM.className = ...`, a full overwrite rather than an
-        // additive change -- it silently wipes out HIDDEN_CODE_CLASS on
-        // every content update (i.e. every keystroke while positioned
-        // inside contentDOM), unhiding the raw Source text while
-        // tableContainer is still also showing. Re-apply after, not just at
-        // construction/setMode time.
+        // super.update() -> syncLanguageClass() overwrites contentDOM.className
+        // entirely, wiping HIDDEN_CODE_CLASS on every keystroke. Re-apply
+        // after calling super, not just at construction/setMode time.
         const handled = super.update(node)
         if (!handled) return false
         this.node = node
@@ -150,31 +128,21 @@ export class MetadataView extends MU.CodeView {
         return true
     }
 
-    // The active language-change guard lives in MetadataPlugin's
-    // appendTransaction hook -- this view never needs to inspect
-    // node.attrs.language for "did it change away" the way FrontMatterView
-    // does, since the guard already prevented that from ever landing in a
-    // committed state.
+    // The language-change guard lives in MetadataPlugin's appendTransaction
+    // hook, so this view never needs to check node.attrs.language itself.
     setActive(isActive) {
-        // Deliberately does NOT call super.setActive -- suppresses the
-        // inherited Language tab entirely (kept even though
-        // the appendTransaction guard is the actual protection, so a user
-        // never even sees the option on this block's own chrome). isActive
-        // itself no longer drives the selected outline -- see
-        // syncSelectedFromState: codeLanguageTabPlugin's setActive callback
-        // is TextSelection-inside-only per CodeView's own doc comment,
-        // never a NodeSelection, which is exactly the selection kind
-        // landing on a Table-mode block now creates (MetadataPlugin's
-        // handleMetadataArrowKey).
+        // Does not call super.setActive -- suppresses the inherited
+        // Language tab. The selected outline is driven separately by
+        // syncSelectedFromState, since codeLanguageTabPlugin's setActive is
+        // TextSelection-only per CodeView's doc comment, never the
+        // NodeSelection a Table-mode block gets.
         this.isActive = isActive
     }
 
-    // Toggles the whole-block selected outline directly from live selection
-    // state (called from MetadataPlugin's Plugin view-update hook on every
-    // transaction), not from setActive. Applied to `dom` (the whole <pre> --
-    // bar, content, contentDOM together), not just tableContainer, so the
-    // outline reads as "this whole block is selected," matching Mermaid's/
-    // FrontMatterView's own selected-diagram/-block outline.
+    // Toggles the whole-block selected outline from live selection state,
+    // called from the Plugin's view-update hook on every transaction.
+    // Applied to dom (the whole block), matching Mermaid's/FrontMatterView's
+    // selected outline.
     syncSelectedFromState(state) {
         if (!this.positionValid) return
         const sel = state.selection
@@ -191,10 +159,8 @@ export class MetadataView extends MU.CodeView {
         super.destroy()
     }
 
-    // The actual position-0 enforcement mechanism -- called from
-    // MetadataPlugin's Plugin view-update hook on every transaction, since
-    // a pure position shift never reaches update() at all (see class doc
-    // comment).
+    // Called from the Plugin's view-update hook on every transaction, since
+    // a pure position shift never reaches update() (see class doc comment).
     static checkAllPositions() {
         for (const instance of liveInstances) {
             if (instance.getPos() !== 0) instance.forcePlainOnly()
@@ -205,11 +171,9 @@ export class MetadataView extends MU.CodeView {
         for (const instance of liveInstances) instance.syncCollapsedFromPluginState()
     }
 
-    // Idempotent, one-way: once a block is no longer at position 0, it
-    // never shows the bar/Table/Source chrome again for the lifetime of
-    // this instance (undo back to position 0 constructs a fresh instance
-    // via the factory, which re-evaluates the position check from scratch)
-    // -- it just renders as an ordinary code block from then on.
+    // Idempotent, one-way: once no longer at position 0, this instance
+    // never shows the bar/Table/Source chrome again. Undo back to position
+    // 0 constructs a fresh instance via the factory.
     forcePlainOnly() {
         if (!this.positionValid) return
         this.positionValid = false
@@ -225,9 +189,8 @@ export class MetadataView extends MU.CodeView {
         this.view.dispatch(this.view.state.tr.setMeta(metadataPluginKey, { collapsed: !current }))
     }
 
-    // One-directional: expands if currently collapsed, does nothing if already expanded.
-    // Used by the Table/Source tabs so clicking one while collapsed reveals it, without
-    // accidentally re-collapsing an already-expanded block.
+    // Expands if collapsed; no-op if already expanded. Lets Table/Source tab
+    // clicks reveal a collapsed block without re-collapsing an expanded one.
     ensureExpanded() {
         if (!this.positionValid) return
         const current = metadataPluginKey.getState(this.view.state)?.collapsed ?? false
@@ -262,9 +225,9 @@ export class MetadataView extends MU.CodeView {
         if (nextMode === this.mode) return
         this.mode = nextMode
         this.syncModeClasses()
-        // A Table/Source tab click dispatches no transaction of its own, so the Plugin's
-        // view-update hook won't fire from this alone -- resync the outline immediately
-        // against the CURRENT (unchanged) selection, now that mode has moved.
+        // A tab click dispatches no transaction, so the view-update hook
+        // won't fire from this alone -- resync the outline against the
+        // current selection.
         this.syncSelectedFromState(this.view.state)
         if (this.mode === 'table') this.renderTable()
     }
@@ -293,10 +256,8 @@ export class MetadataView extends MU.CodeView {
             return
         }
         // Cells are direct children of tableContainer (a CSS grid, not
-        // per-row flexboxes) so the key column's width is computed ONCE
-        // across every row's content -- a real <table>'s column-sizing
-        // behavior, which independent per-row flex rows can't reproduce
-        // (each would size its own key cell to only its own text).
+        // per-row flexboxes) so the key column's width is computed once
+        // across every row.
         rows.forEach(({ key, value }, index) => {
             const striped = index % 2 === 1
             const keyEl = document.createElement('span')

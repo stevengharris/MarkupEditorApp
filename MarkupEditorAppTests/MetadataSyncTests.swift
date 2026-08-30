@@ -113,8 +113,8 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
 @MainActor struct SeedMetadataBlockTests {
 
     @Test func isANoOpWhenMetadataIsEmpty() {
-        // Revised 2026-08-29: the "always seed, even empty" plan was reversed -- a document
-        // with no metadata gets nothing inserted, so a genuinely leading block stays undisturbed.
+        // A document with no metadata gets nothing inserted, so a genuinely leading block
+        // already present stays undisturbed.
         let doc = MarkupDocument()
         #expect(doc.metadata.isEmpty)
         let html = "<pre><code class=\"language-swift\">let x = 1</code></pre>"
@@ -133,8 +133,8 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 
     @Test func hasNoTrailingBlankLineWithMultipleKeys() {
-        // Regression: YAMLMetadata.serialize's own trailing "\n" leaked through into the code
-        // block's content, showing as an empty line after the last key when viewing Source.
+        // YAMLMetadata.serialize's own trailing "\n" must not leak through as an empty line
+        // after the last key when viewing Source.
         let doc = MarkupDocument()
         doc.metadata = [makeMetadata("title", "My Post"), makeMetadata("author", "Steve"), makeMetadata("date", "2026-08-29")]
         let seeded = doc.seedMetadataBlock(in: "<p></p>")
@@ -225,10 +225,8 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 
     @Test func writesMarkdownVerbatimEvenWithNonEmptyMetadata() throws {
-        // Regression guard for the old behavior (saveMd itself called injectYAMLFrontMatter):
-        // every call site that produces the markdown getCurrentContents() returns now injects
-        // frontmatter itself before saveMd ever sees it -- saveMd re-injecting on top would
-        // duplicate it. document.metadata being non-empty here must NOT cause any prepending.
+        // Every call site that produces markdown injects frontmatter itself before saveMd
+        // sees it; saveMd must not re-inject on top and duplicate it.
         let doc = MarkupDocument()
         doc.metadata = [makeMetadata("title", "Should Not Appear Twice")]
         let dir = try makeTempDir()

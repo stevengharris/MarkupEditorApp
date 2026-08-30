@@ -13,15 +13,14 @@ export function isFrontMatterLanguage(language) {
     return (language ?? '').trim().toLowerCase() === 'html'
 }
 
-// A metadata code_block (markupeditor-codeview-metadata, a sibling plugin) is also a
-// leading-position block, and takes position 0 when present -- shifting the HTML preamble's
-// own valid position to right after it. A plain inline string check rather than a package
-// dependency on that plugin: "metadata" is a lightweight, deliberate convention here (matching
-// how isFrontMatterLanguage's own "html" check works), not a shared API surface worth a
-// build-time coupling between two otherwise-independent plugins.
+// A metadata code_block (a sibling plugin) is also a leading-position
+// block and takes position 0 when present, shifting the HTML preamble's
+// own valid position to right after it. A plain inline string check
+// rather than a package dependency, matching isFrontMatterLanguage's own
+// "html" check.
 //
-// Returns a ProseMirror POSITION, not a child index: "the block after metadata" is at
-// position `first.nodeSize` (however large that node is), not literally position 1.
+// Returns a ProseMirror position, not a child index: the block after
+// metadata is at position `first.nodeSize`, not position 1.
 export function expectedPreamblePosition(doc) {
     const first = doc.firstChild
     return (first?.type.name === 'code_block' && first.attrs.language === 'metadata') ? first.nodeSize : 0
@@ -125,8 +124,8 @@ export class FrontMatterView extends MU.CodeView {
         // checkAllPositions() is what actually catches that case. This
         // check only matters for the (unobserved) case of a
         // content-changing edit that also happens to shift position.
-        // expectedPreamblePosition, not a bare 0: a metadata block at position 0 shifts the
-        // HTML preamble's own valid position to 1.
+        // expectedPreamblePosition, not a bare 0 -- a metadata block at
+        // position 0 shifts the HTML preamble's own valid position.
         if (this.getPos() !== expectedPreamblePosition(this.view.state.doc)) {
             this.forceSourceOnly()
             return true

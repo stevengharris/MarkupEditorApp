@@ -283,12 +283,9 @@ struct MarkupDocumentView: View {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard await checkSave() else { return }
         editLog.info("Opening a new document")
-        // Deliberately NOT routed through document.seedMetadataBlock(in:)/setHTML(_:):
-        // document.metadata is still whatever the PREVIOUS document held at
-        // this point (document.reset() below hasn't run yet) and is always empty immediately
-        // after it does, so seeding here would be a permanent no-op either way -- while
-        // webView.emptyDocument() also clears MU's selectedID, a side effect setHTML(_:) alone
-        // does not have. No behavior change to preserve for zero seeding benefit.
+        // Not routed through seedMetadataBlock/setHTML: document.metadata is empty again
+        // immediately after document.reset() below, so seeding would be a no-op, while
+        // webView.emptyDocument() also clears MU's selectedID, which setHTML alone does not.
         await webView.emptyDocument()
         document.setSource("", documentType: .md)
         currentHtml = MarkupDocument.emptyHTML
@@ -426,9 +423,8 @@ struct MarkupDocumentView: View {
     private func setDocumentSourceFromView() async {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard let html = await webView.getHtml() else { return }
-        // Sync boundary: refresh document.metadata from the
-        // metadata code_block's current text before anything else -- never clears it when
-        // no block is found at position 0 (the sync-safety rule).
+        // Refresh document.metadata from the metadata code_block's current text; never
+        // clears it when no block is found.
         var metadataWarnings: [String] = []
         document.syncMetadata(fromHTML: html, warnings: &metadataWarnings)
         editLog.warnings(metadataWarnings)
@@ -437,11 +433,8 @@ struct MarkupDocumentView: View {
             currentSource = html
         } else {
             do {
-                // The app's own Source view must represent the real document -- the same
-                // complete text openMd already stores verbatim from a freshly-opened file,
-                // frontmatter included -- not a body-only view with the metadata silently
-                // dropped. document.metadata (just refreshed above) stays the source of
-                // truth; this only renders it, the same way Table does.
+                // Source view shows the complete document, frontmatter included, not just
+                // the body -- document.metadata stays the source of truth; this renders it.
                 let bodyMarkdown = try await getMarkdown(from: html)
                 let markdown = document.injectYAMLFrontMatter(into: bodyMarkdown)
                 document.setSource(markdown)
@@ -536,8 +529,7 @@ struct MarkupDocumentView: View {
         } catch {
             throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
         }
-        // Seed a metadata code_block at position 0 -- a no-op when
-        // this document has no frontmatter, per document.metadata already being set above.
+        // No-op when this document has no frontmatter.
         try setHTML(document.seedMetadataBlock(in: converted.result))
         currentSource = markdown
         track(url: url)
@@ -571,17 +563,12 @@ struct MarkupDocumentView: View {
             }
         } else if let htmlContents = await webView.getHtml() {
             html = htmlContents
-            // Sync boundary: save must reflect the latest in-editor
-            // metadata edit even when the user never visited the app's own Source view this
-            // session -- non-negotiable, since injectYAMLFrontMatter runs from document.metadata
-            // right after this. No-op (never clears) when no metadata block is found.
+            // Save must reflect the latest in-editor metadata edit even when the user never
+            // visited the app's own Source view this session. No-op when no block is found.
             var metadataWarnings: [String] = []
             document.syncMetadata(fromHTML: htmlContents, warnings: &metadataWarnings)
             editLog.warnings(metadataWarnings)
             if !document.isHTMLish {
-                // document.metadata was just refreshed above -- inject it into the body markdown
-                // so this branch's result is the same complete, frontmatter-included
-                // representation the sourceShowing branch already has via currentSource.
                 markdown = (try? await getMarkdown(from: htmlContents)).map { document.injectYAMLFrontMatter(into: $0) }
             }
         }
@@ -598,17 +585,10 @@ struct MarkupDocumentView: View {
         return converted.result
     }
 
-    /// Return the HTML that is derived from the `markdown` string. Both call sites (leaving the
-    /// app's own Source view, and getCurrentContents() while still showing it) are exactly the
-    /// "every Source-view exit" seeding points, so the seed
-    /// happens here once rather than at each call site.
-    ///
-    /// `markdown` may itself carry real "---\n...\n---\n" frontmatter -- the app's Source view
-    /// shows the complete document (setDocumentSourceFromView renders document.metadata into
-    /// it), and the user may have edited that text directly. The write-back half of that round
-    /// trip: same frontmatter-stripping importMarkdownDecoded already does for openMd, applied
-    /// here too, so an edit made in Source view reaches document.metadata -- the authoritative
-    /// source of truth throughout -- before seeding the returned HTML from its new value.
+    /// Return the HTML that is derived from the `markdown` string. `markdown` may itself carry
+    /// "---\n...\n---\n" frontmatter, since the app's own Source view shows the complete
+    /// document and the user may have edited that text directly -- importMarkdownDecoded strips
+    /// it back out into `document.metadata` before the returned HTML is seeded from that value.
     func getHTML(from markdown: String) async throws -> String {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable

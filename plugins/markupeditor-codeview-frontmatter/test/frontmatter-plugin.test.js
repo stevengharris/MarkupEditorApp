@@ -342,10 +342,8 @@ describe('makeCodeBlockFactory: language changed TO html via the Language dialog
   })
 })
 
-// A metadata code_block (markupeditor-codeview-metadata, a sibling plugin) is also a
-// leading-position block and takes position 0 when present, shifting the HTML preamble's
-// own expected position to right after it -- expectedPreamblePosition is what makes this plugin aware of
-// that sequencing rule without a package dependency between the two plugins.
+// A metadata code_block (a sibling plugin) is also a leading-position block and takes
+// position 0 when present, shifting the HTML preamble's expected position to right after it.
 describe('sequencing with a leading metadata block (expectedPreamblePosition)', () => {
   it('an HTML preamble at position 1 activates as FrontMatterView when a metadata block occupies position 0', () => {
     const doc = schema.node('doc', null, [
@@ -385,9 +383,8 @@ describe('sequencing with a leading metadata block (expectedPreamblePosition)', 
 
     const metadataBlock = schema.node('code_block', { language: 'metadata' }, schema.text('title: X'))
     view.dispatch(view.state.tr.insert(0, metadataBlock))
-    // A pure position shift -- doesn't reach FrontMatterView.update() at all (see that
-    // class's own doc comment); the Plugin's view-update hook, wired via createPlugin()
-    // above, is what calls checkAllPositions() on every transaction including this one.
+    // A pure position shift doesn't reach FrontMatterView.update() -- the Plugin's
+    // view-update hook (wired via createPlugin() above) calls checkAllPositions() instead.
 
     expect(instance.positionValid).toBe(true)
     expect(instance.mode).toBe('rendered')

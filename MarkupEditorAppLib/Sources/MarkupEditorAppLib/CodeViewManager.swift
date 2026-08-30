@@ -76,10 +76,8 @@ public enum CodeViewManager {
     }
 
     /// Re-syncs internal plugins (currently just Metadata) from the app bundle, unconditionally,
-    /// every launch -- NOT gated by the first-launch-only check that governs `setupOnLaunch`'s
-    /// Mermaid install. An internal plugin has no user-facing update mechanism (it's never shown
-    /// in Settings), so an existing install must pick up a newer bundled copy the same way a
-    /// fresh install would, not just once at the user's true first launch.
+    /// every launch -- not gated by the first-launch-only check `setupOnLaunch` uses, since an
+    /// internal plugin has no user-facing update mechanism and must pick up a newer bundled copy.
     public static func syncInternalPlugins(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
         guard
             let filename = metadata.filename,
@@ -91,10 +89,8 @@ public enum CodeViewManager {
         return add(name: metadata.name, url: source, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir, allowProtectedNames: true)
     }
 
-    /// - Parameter allowProtectedNames: Internal escape hatch for `syncInternalPlugins` alone --
-    ///   every ordinary caller (Settings' add flow, the plugin-discovery install flow) leaves this
-    ///   at its default and gets refused for a name in `protectedNames`, so a user can never
-    ///   overwrite or hijack the internal Metadata plugin's slot this way.
+    /// - Parameter allowProtectedNames: Escape hatch for `syncInternalPlugins` alone -- ordinary
+    ///   callers leave this at its default and are refused for a name in `protectedNames`.
     public static func add(name: String, url: URL?, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL, allowProtectedNames: Bool = false) -> [Plugin] {
         guard !name.isEmpty, let source = url else { return codeViews }
         guard allowProtectedNames || !protectedNames.contains(name) else {

@@ -114,12 +114,9 @@ describe('MetadataView defaults', () => {
   })
 
   it('hides the raw Source content on initial construction, not just after a later mode switch', () => {
-    // Regression: setMode(true) in the constructor was a no-op if this.mode
-    // already equaled 'table' before that call, since setMode short-circuits
-    // on "already there" -- meaning the initial DOM classes (hiding
-    // contentDOM, showing the table) never got applied until some LATER
-    // mode change triggered them. A freshly constructed instance must not
-    // show raw Source text underneath the Table view.
+    // setMode's own "already there" short-circuit must not skip the initial DOM class
+    // application -- a freshly constructed instance must not show raw Source text
+    // underneath the Table view.
     const { view, teardown } = mountView(metadataDoc())
     const instance = view.nodeDOM(0).codeView
     expect(instance.contentDOM.classList.contains('metadata-hidden-code')).toBe(true)
@@ -274,11 +271,9 @@ describe('MetadataView position-0 enforcement', () => {
 })
 
 describe('MetadataView content updates while in Table mode', () => {
-  it('keeps Source hidden after a content update -- regression for super.update() clobbering contentDOM.className', () => {
-    // super.update() -> syncLanguageClass() does `contentDOM.className = ...`, a full
-    // overwrite, not additive -- it used to silently wipe HIDDEN_CODE_CLASS on every
-    // content change (i.e. every keystroke while positioned inside contentDOM),
-    // leaving both Table and the raw Source text visible at once.
+  it('keeps Source hidden after a content update, even though super.update() overwrites contentDOM.className', () => {
+    // syncLanguageClass() does a full `className = ...` overwrite, not additive, so
+    // HIDDEN_CODE_CLASS must be re-applied after every content update.
     const { view, teardown } = mountView(metadataDoc('title: X'))
     const instance = view.nodeDOM(0).codeView
     expect(instance.contentDOM.classList.contains('metadata-hidden-code')).toBe(true)

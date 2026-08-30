@@ -93,27 +93,19 @@
   caret-color: transparent;
 }
 
-/* Table mode: hide contentDOM (the actual editable Source text). No direct-child
-   combinator here -- contentDOM lives inside .metadata-content (moved there by
-   MetadataView's constructor, a grandchild of the <pre>, not a direct child),
-   so it shares that wrapper's padding with .metadata-table and reads at the
-   same position/inset regardless of which mode is showing. */
+/* Hides contentDOM (the editable Source text) in Table mode. contentDOM is
+   a grandchild of the <pre>, moved inside .metadata-content by MetadataView's
+   constructor, so it shares that wrapper's padding with .metadata-table. */
 code.metadata-hidden-code {
   font-size: 0;
   line-height: 0;
   margin: 0;
 }
 
-/* GitHub-style bordered table for the frontmatter key/value rows: full grid
-   lines and zebra striping, matching how GitHub itself renders a markdown
-   table (github.com's markdown-body CSS: 1px bordered cells, alternating
-   row background). A real CSS grid, not per-row flexboxes -- grid-template-
-   columns computes the key column's width ONCE across every row's content,
-   the same column-sizing behavior a real <table> has; independent per-row
-   flex rows can't reproduce that (each would size only to its own text,
-   producing a jagged, unaligned column edge). Cells are appended directly
-   as grid children by renderTable(), two per logical row, rather than
-   wrapped in a per-row element.  */
+/* A CSS grid, not per-row flexboxes: grid-template-columns computes the key
+   column's width once across every row, matching a real <table>'s column
+   sizing. Cells are appended directly as grid children by renderTable(),
+   two per logical row. */
 .metadata-table {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -123,10 +115,8 @@ code.metadata-hidden-code {
   overflow: hidden;
 }
 
-/* Dashed outline while active/selected -- matches FrontMatterView's
-   .frontmatter-rendered-selected / Mermaid's own selected-diagram outline,
-   the visual indicator a Table-mode block (an atomic unit for keyboard
-   navigation) is currently the selection, since it draws no native caret. */
+/* Dashed outline for the selected Table-mode block, matching FrontMatterView's
+   .frontmatter-rendered-selected / Mermaid's selected-diagram outline. */
 .metadata-selected {
   outline: 1px var(--Markup-accent-color, blue) dashed;
   outline-offset: 2px;

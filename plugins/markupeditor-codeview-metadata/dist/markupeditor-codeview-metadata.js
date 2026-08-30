@@ -1,6 +1,6 @@
 import { PluginKey, MU, NodeSelection, Selection, TextSelection, __parseFromClipboard, Plugin } from './markup-editor.js';
 
-const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter to hide the bar/toggle chrome when the block is selected,\n   matching markupeditor-codeview-frontmatter's equivalent rule. */\n#editor.Markup-exporting .metadata-bar,\n#editor.Markup-exporting .metadata-mode-toggle {\n  display: none;\n}\n\n.metadata-bar {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 4px 8px;\n  cursor: pointer;\n  user-select: none;\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 4px 4px 0 0;\n  font-size: 0.85rem;\n  font-weight: 600;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-bar {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-disclosure {\n  display: inline-block;\n  width: 0;\n  height: 0;\n  border-style: solid;\n  border-width: 5px 0 5px 7px;\n  border-color: transparent transparent transparent currentColor;\n  transition: transform 0.1s ease;\n}\n\n.metadata-disclosure-collapsed {\n  transform: rotate(0deg);\n}\n\n.metadata-disclosure:not(.metadata-disclosure-collapsed) {\n  transform: rotate(90deg);\n}\n\n.metadata-label {\n  margin-right: auto; /* pushes Table/Source to the right end of the same line */\n}\n\n.metadata-content {\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 0 0 4px 4px;\n  padding: 8px;\n  margin-bottom: 8px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-content {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-content-collapsed {\n  display: none;\n}\n\n.metadata-mode-toggle {\n  font-size: 0.75rem;\n  padding: 2px 8px;\n  border: none;\n  border-radius: 4px;\n  cursor: pointer;\n  opacity: 0.6;\n  color: white;\n  background: var(--Markup-accent-color, blue);\n}\n\n.metadata-mode-toggle:hover {\n  opacity: 0.9;\n}\n\n.metadata-mode-toggle-active {\n  opacity: 0.9;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-mode-toggle {\n    background: var(--Markup-accent-color, lightblue);\n    color: black;\n  }\n}\n\n.metadata-hide-caret {\n  caret-color: transparent;\n}\n\n/* Table mode: hide contentDOM (the actual editable Source text). No direct-child\n   combinator here -- contentDOM lives inside .metadata-content (moved there by\n   MetadataView's constructor, a grandchild of the <pre>, not a direct child),\n   so it shares that wrapper's padding with .metadata-table and reads at the\n   same position/inset regardless of which mode is showing. */\ncode.metadata-hidden-code {\n  font-size: 0;\n  line-height: 0;\n  margin: 0;\n}\n\n/* GitHub-style bordered table for the frontmatter key/value rows: full grid\n   lines and zebra striping, matching how GitHub itself renders a markdown\n   table (github.com's markdown-body CSS: 1px bordered cells, alternating\n   row background). A real CSS grid, not per-row flexboxes -- grid-template-\n   columns computes the key column's width ONCE across every row's content,\n   the same column-sizing behavior a real <table> has; independent per-row\n   flex rows can't reproduce that (each would size only to its own text,\n   producing a jagged, unaligned column edge). Cells are appended directly\n   as grid children by renderTable(), two per logical row, rather than\n   wrapped in a per-row element.  */\n.metadata-table {\n  display: grid;\n  grid-template-columns: auto 1fr;\n  font-size: 0.85rem;\n  border: 1px solid var(--Markup-border-color, #d0d7de);\n  border-radius: 6px;\n  overflow: hidden;\n}\n\n/* Dashed outline while active/selected -- matches FrontMatterView's\n   .frontmatter-rendered-selected / Mermaid's own selected-diagram outline,\n   the visual indicator a Table-mode block (an atomic unit for keyboard\n   navigation) is currently the selection, since it draws no native caret. */\n.metadata-selected {\n  outline: 1px var(--Markup-accent-color, blue) dashed;\n  outline-offset: 2px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-selected {\n    outline-color: var(--Markup-accent-color, lightblue);\n  }\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table {\n    border-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-key,\n.metadata-table-value {\n  padding: 6px 13px;\n}\n\n.metadata-table-row-border {\n  border-top: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-row-border {\n    border-top-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-striped {\n  background: var(--Markup-table-stripe, #f6f8fa);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-striped {\n    background: var(--Markup-table-stripe, #161b22);\n  }\n}\n\n.metadata-table-key {\n  font-weight: 600;\n  white-space: nowrap;\n  border-right: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-key {\n    border-right-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-value {\n  min-width: 0;\n  word-break: break-word;\n}\n\n.metadata-table-empty {\n  font-style: italic;\n  opacity: 0.6;\n}\n");
+const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter to hide the bar/toggle chrome when the block is selected,\n   matching markupeditor-codeview-frontmatter's equivalent rule. */\n#editor.Markup-exporting .metadata-bar,\n#editor.Markup-exporting .metadata-mode-toggle {\n  display: none;\n}\n\n.metadata-bar {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 4px 8px;\n  cursor: pointer;\n  user-select: none;\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 4px 4px 0 0;\n  font-size: 0.85rem;\n  font-weight: 600;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-bar {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-disclosure {\n  display: inline-block;\n  width: 0;\n  height: 0;\n  border-style: solid;\n  border-width: 5px 0 5px 7px;\n  border-color: transparent transparent transparent currentColor;\n  transition: transform 0.1s ease;\n}\n\n.metadata-disclosure-collapsed {\n  transform: rotate(0deg);\n}\n\n.metadata-disclosure:not(.metadata-disclosure-collapsed) {\n  transform: rotate(90deg);\n}\n\n.metadata-label {\n  margin-right: auto; /* pushes Table/Source to the right end of the same line */\n}\n\n.metadata-content {\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 0 0 4px 4px;\n  padding: 8px;\n  margin-bottom: 8px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-content {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-content-collapsed {\n  display: none;\n}\n\n.metadata-mode-toggle {\n  font-size: 0.75rem;\n  padding: 2px 8px;\n  border: none;\n  border-radius: 4px;\n  cursor: pointer;\n  opacity: 0.6;\n  color: white;\n  background: var(--Markup-accent-color, blue);\n}\n\n.metadata-mode-toggle:hover {\n  opacity: 0.9;\n}\n\n.metadata-mode-toggle-active {\n  opacity: 0.9;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-mode-toggle {\n    background: var(--Markup-accent-color, lightblue);\n    color: black;\n  }\n}\n\n.metadata-hide-caret {\n  caret-color: transparent;\n}\n\n/* Hides contentDOM (the editable Source text) in Table mode. contentDOM is\n   a grandchild of the <pre>, moved inside .metadata-content by MetadataView's\n   constructor, so it shares that wrapper's padding with .metadata-table. */\ncode.metadata-hidden-code {\n  font-size: 0;\n  line-height: 0;\n  margin: 0;\n}\n\n/* A CSS grid, not per-row flexboxes: grid-template-columns computes the key\n   column's width once across every row, matching a real <table>'s column\n   sizing. Cells are appended directly as grid children by renderTable(),\n   two per logical row. */\n.metadata-table {\n  display: grid;\n  grid-template-columns: auto 1fr;\n  font-size: 0.85rem;\n  border: 1px solid var(--Markup-border-color, #d0d7de);\n  border-radius: 6px;\n  overflow: hidden;\n}\n\n/* Dashed outline for the selected Table-mode block, matching FrontMatterView's\n   .frontmatter-rendered-selected / Mermaid's selected-diagram outline. */\n.metadata-selected {\n  outline: 1px var(--Markup-accent-color, blue) dashed;\n  outline-offset: 2px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-selected {\n    outline-color: var(--Markup-accent-color, lightblue);\n  }\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table {\n    border-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-key,\n.metadata-table-value {\n  padding: 6px 13px;\n}\n\n.metadata-table-row-border {\n  border-top: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-row-border {\n    border-top-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-striped {\n  background: var(--Markup-table-stripe, #f6f8fa);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-striped {\n    background: var(--Markup-table-stripe, #161b22);\n  }\n}\n\n.metadata-table-key {\n  font-weight: 600;\n  white-space: nowrap;\n  border-right: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-key {\n    border-right-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-value {\n  min-width: 0;\n  word-break: break-word;\n}\n\n.metadata-table-empty {\n  font-style: italic;\n  opacity: 0.6;\n}\n");
 
 // Separate module so both metadataview.js (reads/dispatches collapse state)
 // and metadataplugin.js (owns the Plugin whose state this keys into) can
@@ -25,14 +25,10 @@ function isMetadataLanguage(language) {
 }
 
 /**
- * Best-effort, glanceable parse of the raw metadata text into key/value
- * rows for Table display. Deliberately not a real YAML parser -- the
- * authoritative parse (with warnings for anything unsupported) is
- * `YAMLMetadata.parse` on the Swift side, at the sync boundary. This only
- * needs to handle the same simple `key: value` shape that parser documents
- * as in-scope; anything else (multi-line scalars, nested mappings, list
- * items) is silently skipped here rather than misrendered, since Table is
- * a preview, not a save path.
+ * Best-effort parse of raw metadata text into key/value rows for Table
+ * display. Not a full YAML parser -- only handles simple `key: value`
+ * lines; anything else is silently skipped, since this is a preview, not
+ * a save path. The authoritative parse is YAMLMetadata.parse on the Swift side.
  */
 function parseMetadataRows(text) {
     const rows = [];
@@ -46,47 +42,36 @@ function parseMetadataRows(text) {
     return rows
 }
 
-// Instances add themselves in the constructor, remove themselves in
-// destroy(). Needed for the same reason as FrontMatterView's liveInstances:
-// ProseMirror does NOT call a NodeView's own update() for a PURE position
-// shift, so position enforcement and collapse-state sync both have to be
-// driven from MetadataPlugin's Plugin view-update hook (which DOES fire on
-// every transaction) rather than update() alone.
+// Instances register themselves in the constructor, deregister in
+// destroy(). ProseMirror does not call a NodeView's update() for a pure
+// position shift, so position and collapse-state sync run from the
+// Plugin's view-update hook instead, which fires on every transaction.
 const liveInstances = new Set();
 
 /**
- * NodeView for a code_block whose language is "metadata" AND which sits at
- * document position 0 -- the always-recognized shape a document's YAML
- * frontmatter round-trips through while being edited. Extends
- * MU.CodeView: inherits dom (<pre>), contentDOM (<code>) as the Source
- * editing surface, and the this.dom.codeView = this backreference
- * codeLanguageTabPlugin uses -- though this view suppresses the inherited
- * Language tab entirely (setActive override below).
+ * NodeView for a code_block with language "metadata" at document position 0
+ * -- the shape a document's YAML frontmatter round-trips through while
+ * being edited. Extends MU.CodeView: dom (<pre>) and contentDOM (<code>)
+ * remain the Source editing surface; the inherited Language tab is
+ * suppressed (see setActive).
  *
- * Adds a persistent collapse/expand bar (chrome, sibling of contentDOM) and,
- * when expanded, a Table/Source toggle -- Table (the default) is a
- * view-only rendering of the same content Source holds; Source is
- * contentDOM itself, shown/hidden via the same HIDDEN_CODE_CLASS pattern
- * FrontMatterView uses for its Rendered mode.
+ * Adds a collapse/expand bar and, when expanded, a Table/Source toggle.
+ * Table is a read-only rendering of the same content Source holds; Source
+ * is contentDOM itself, shown/hidden via HIDDEN_CODE_CLASS.
  *
  * Position enforcement mirrors FrontMatterView: once checkAllPositions()
- * (driven by MetadataPlugin) observes getPos() !== 0, this instance
- * permanently falls back to plain-CodeView-like display via
- * forcePlainOnly() -- no bar, no Table/Source toggle; it just renders as an
- * ordinary code block from then on. Unlike
- * FrontMatterView, there is no separate language-away defense-in-depth
- * check in update(): MetadataPlugin's appendTransaction guard (not a
- * passive, reversible reasoning) already prevents node.attrs.language from
- * ever being observably different from "metadata" while at position 0, so
- * by the time update() runs the language has already been corrected within
- * the same transaction batch.
+ * observes getPos() !== 0, the instance permanently falls back to plain
+ * code-block rendering via forcePlainOnly(). Unlike FrontMatterView, there
+ * is no language-away check in update() -- MetadataPlugin's
+ * appendTransaction guard already prevents node.attrs.language from ever
+ * differing from "metadata" at position 0.
  */
 class MetadataView extends MU.CodeView {
     constructor(node, view, getPos, languageDialog) {
         super(node, view, getPos, languageDialog);
         this.getPos = getPos;
         this.node = node;
-        this.mode = null; // set for real by setMode(true) below -- must NOT start equal to 'table', or that call's no-op guard would skip applying the initial DOM classes entirely
+        this.mode = null; // setMode(true) below sets the real value; starting at 'table' would make its no-op guard skip initial DOM class application
         this.isActive = false;
         this.positionValid = true; // factory only ever constructs this when getPos() === 0 already holds
 
@@ -111,8 +96,7 @@ class MetadataView extends MU.CodeView {
             this.toggleCollapsed();
         });
 
-        // Clicking Table/Source while collapsed also expands -- the click is a clear signal
-        // the user wants to see that content now, not a no-op hidden behind the collapse bar.
+        // Clicking Table/Source while collapsed also expands, rather than being a no-op.
         this.tableTab = this.buildModeTab('Table', 'table', () => { this.ensureExpanded(); this.setMode(true); });
         this.sourceTab = this.buildModeTab('Source', 'source', () => { this.ensureExpanded(); this.setMode(false); });
         this.bar.appendChild(this.tableTab);
@@ -125,11 +109,9 @@ class MetadataView extends MU.CodeView {
         this.tableContainer.className = TABLE_CLASS;
         this.tableContainer.contentEditable = 'false';
 
-        // contentDOM starts as a direct child of dom (the base CodeView
-        // constructor put it there); appendChild here MOVES it into content,
-        // as a sibling of tableContainer, so Table and Source share the same
-        // padded wrapper -- keeps spacing identical between the two modes
-        // instead of contentDOM sitting outside content's padding box.
+        // contentDOM starts as a child of dom (base CodeView constructor);
+        // appendChild here moves it into content, as a sibling of
+        // tableContainer, so Table and Source share the same padding.
         this.dom.appendChild(this.bar);
         this.dom.appendChild(this.content);
         this.content.appendChild(this.tableContainer);
@@ -141,13 +123,9 @@ class MetadataView extends MU.CodeView {
     }
 
     update(node) {
-        // Regression: super.update() -> syncLanguageClass() does
-        // `this.contentDOM.className = ...`, a full overwrite rather than an
-        // additive change -- it silently wipes out HIDDEN_CODE_CLASS on
-        // every content update (i.e. every keystroke while positioned
-        // inside contentDOM), unhiding the raw Source text while
-        // tableContainer is still also showing. Re-apply after, not just at
-        // construction/setMode time.
+        // super.update() -> syncLanguageClass() overwrites contentDOM.className
+        // entirely, wiping HIDDEN_CODE_CLASS on every keystroke. Re-apply
+        // after calling super, not just at construction/setMode time.
         const handled = super.update(node);
         if (!handled) return false
         this.node = node;
@@ -156,31 +134,21 @@ class MetadataView extends MU.CodeView {
         return true
     }
 
-    // The active language-change guard lives in MetadataPlugin's
-    // appendTransaction hook -- this view never needs to inspect
-    // node.attrs.language for "did it change away" the way FrontMatterView
-    // does, since the guard already prevented that from ever landing in a
-    // committed state.
+    // The language-change guard lives in MetadataPlugin's appendTransaction
+    // hook, so this view never needs to check node.attrs.language itself.
     setActive(isActive) {
-        // Deliberately does NOT call super.setActive -- suppresses the
-        // inherited Language tab entirely (kept even though
-        // the appendTransaction guard is the actual protection, so a user
-        // never even sees the option on this block's own chrome). isActive
-        // itself no longer drives the selected outline -- see
-        // syncSelectedFromState: codeLanguageTabPlugin's setActive callback
-        // is TextSelection-inside-only per CodeView's own doc comment,
-        // never a NodeSelection, which is exactly the selection kind
-        // landing on a Table-mode block now creates (MetadataPlugin's
-        // handleMetadataArrowKey).
+        // Does not call super.setActive -- suppresses the inherited
+        // Language tab. The selected outline is driven separately by
+        // syncSelectedFromState, since codeLanguageTabPlugin's setActive is
+        // TextSelection-only per CodeView's doc comment, never the
+        // NodeSelection a Table-mode block gets.
         this.isActive = isActive;
     }
 
-    // Toggles the whole-block selected outline directly from live selection
-    // state (called from MetadataPlugin's Plugin view-update hook on every
-    // transaction), not from setActive. Applied to `dom` (the whole <pre> --
-    // bar, content, contentDOM together), not just tableContainer, so the
-    // outline reads as "this whole block is selected," matching Mermaid's/
-    // FrontMatterView's own selected-diagram/-block outline.
+    // Toggles the whole-block selected outline from live selection state,
+    // called from the Plugin's view-update hook on every transaction.
+    // Applied to dom (the whole block), matching Mermaid's/FrontMatterView's
+    // selected outline.
     syncSelectedFromState(state) {
         if (!this.positionValid) return
         const sel = state.selection;
@@ -197,10 +165,8 @@ class MetadataView extends MU.CodeView {
         super.destroy();
     }
 
-    // The actual position-0 enforcement mechanism -- called from
-    // MetadataPlugin's Plugin view-update hook on every transaction, since
-    // a pure position shift never reaches update() at all (see class doc
-    // comment).
+    // Called from the Plugin's view-update hook on every transaction, since
+    // a pure position shift never reaches update() (see class doc comment).
     static checkAllPositions() {
         for (const instance of liveInstances) {
             if (instance.getPos() !== 0) instance.forcePlainOnly();
@@ -211,11 +177,9 @@ class MetadataView extends MU.CodeView {
         for (const instance of liveInstances) instance.syncCollapsedFromPluginState();
     }
 
-    // Idempotent, one-way: once a block is no longer at position 0, it
-    // never shows the bar/Table/Source chrome again for the lifetime of
-    // this instance (undo back to position 0 constructs a fresh instance
-    // via the factory, which re-evaluates the position check from scratch)
-    // -- it just renders as an ordinary code block from then on.
+    // Idempotent, one-way: once no longer at position 0, this instance
+    // never shows the bar/Table/Source chrome again. Undo back to position
+    // 0 constructs a fresh instance via the factory.
     forcePlainOnly() {
         if (!this.positionValid) return
         this.positionValid = false;
@@ -231,9 +195,8 @@ class MetadataView extends MU.CodeView {
         this.view.dispatch(this.view.state.tr.setMeta(metadataPluginKey, { collapsed: !current }));
     }
 
-    // One-directional: expands if currently collapsed, does nothing if already expanded.
-    // Used by the Table/Source tabs so clicking one while collapsed reveals it, without
-    // accidentally re-collapsing an already-expanded block.
+    // Expands if collapsed; no-op if already expanded. Lets Table/Source tab
+    // clicks reveal a collapsed block without re-collapsing an expanded one.
     ensureExpanded() {
         if (!this.positionValid) return
         const current = metadataPluginKey.getState(this.view.state)?.collapsed ?? false;
@@ -268,9 +231,9 @@ class MetadataView extends MU.CodeView {
         if (nextMode === this.mode) return
         this.mode = nextMode;
         this.syncModeClasses();
-        // A Table/Source tab click dispatches no transaction of its own, so the Plugin's
-        // view-update hook won't fire from this alone -- resync the outline immediately
-        // against the CURRENT (unchanged) selection, now that mode has moved.
+        // A tab click dispatches no transaction, so the view-update hook
+        // won't fire from this alone -- resync the outline against the
+        // current selection.
         this.syncSelectedFromState(this.view.state);
         if (this.mode === 'table') this.renderTable();
     }
@@ -299,10 +262,8 @@ class MetadataView extends MU.CodeView {
             return
         }
         // Cells are direct children of tableContainer (a CSS grid, not
-        // per-row flexboxes) so the key column's width is computed ONCE
-        // across every row's content -- a real <table>'s column-sizing
-        // behavior, which independent per-row flex rows can't reproduce
-        // (each would size its own key cell to only its own text).
+        // per-row flexboxes) so the key column's width is computed once
+        // across every row.
         rows.forEach(({ key, value }, index) => {
             const striped = index % 2 === 1;
             const keyEl = document.createElement('span');
@@ -339,14 +300,10 @@ class MetadataPlugin {
     }
 
     // Table mode is the "atomic" shape (like Mermaid's diagram mode, or
-    // FrontMatterView's rendered mode) -- contentDOM is present but visually
-    // collapsed to nothing (font-size/line-height: 0), so without this the
-    // caret can silently land inside it: arrow-key navigation drops the user
-    // into invisible text, and typing there updates the code_block's real
-    // content while Table is still showing, producing exactly the "both
-    // Table and Source visible at once" symptom this plugin's keyboard/
-    // clipboard handling exists to prevent. Source mode is ordinary text
-    // editing and is NOT atomic.
+    // FrontMatterView's rendered mode): contentDOM is present but visually
+    // collapsed to nothing, so without this the caret can silently land
+    // inside it via arrow-key navigation or typing. Source mode is ordinary
+    // text editing and is not atomic.
     tableBlockAt(view, pos) {
         const instance = this.metadataViewAt(view, pos);
         return instance?.mode === 'table' ? instance : null
@@ -362,8 +319,8 @@ class MetadataPlugin {
         const sel = state.selection;
         const dir = event.key === 'ArrowLeft' ? -1 : 1;
 
-        // Already parked ON a table block (a NodeSelection -- see the landing
-        // case below) -- arrow away from it to whichever side dir points.
+        // Already parked on a table block (a NodeSelection) -- arrow away
+        // from it to whichever side dir points.
         if (sel instanceof NodeSelection && this.tableBlockAt(view, sel.from)) {
             const targetPos = dir < 0 ? sel.from : sel.to;
             if (targetPos < 0 || targetPos > state.doc.content.size) return false
@@ -372,20 +329,18 @@ class MetadataPlugin {
             return true
         }
 
-        // No "currently inside the block's text, hop out" branch here (unlike
-        // FrontMatterPlugin/MermaidPlugin, which need one): correctStraySelection
-        // (the Plugin's view-update hook) converts any TextSelection that lands
-        // inside a Table-mode block's content to a NodeSelection on the very
-        // transaction that puts it there, before any subsequent keydown could
-        // ever observe it as a TextSelection -- so that case is unreachable here.
+        // No "currently inside, hop out" branch here (unlike
+        // FrontMatterPlugin/MermaidPlugin): correctStraySelection (the
+        // view-update hook) converts any TextSelection landing inside a
+        // Table-mode block to a NodeSelection before any subsequent
+        // keydown could observe it as a TextSelection.
 
         if (!(sel instanceof TextSelection) || !sel.empty) return false
 
-        // ArrowLeft only: landing FORWARD onto a table block from something positioned
-        // before it (the dir > 0 / ArrowRight analog) is unreachable for MetadataView
-        // specifically -- unlike Mermaid/FrontMatter, which can appear anywhere in the
-        // document, a Table-mode metadata block is always at position 0 (tableBlockAt
-        // requires getPos() === 0), so nothing can ever be positioned before it.
+        // ArrowLeft only: landing forward onto a table block (the
+        // ArrowRight analog) is unreachable here -- a Table-mode metadata
+        // block is always at position 0, so nothing can be positioned
+        // before it.
         if (dir > 0) return false
         const targetPos = sel.from + dir;
         if (targetPos < 0 || targetPos > state.doc.content.size) return false
@@ -396,13 +351,11 @@ class MetadataPlugin {
             if (before && before.type.name === 'code_block') blockPos = targetPos - before.nodeSize;
         }
         if (blockPos === null || !this.tableBlockAt(view, blockPos)) return false
-        // Whole-node selection, not a text cursor inside the (hidden) content: selectable,
-        // not directly editable, matching how an atomic node like an image behaves.
-        // code_block's schema isn't atomic (Source mode needs real editable text), so this
-        // is simulated at the plugin level -- NodeSelection.create works for any node type
-        // regardless of atomicity, unlike Selection.near, which always prefers a text
-        // position when one exists (why the "hop out" branch above still needs
-        // TextSelection handling -- that's leaving an existing text cursor, not landing).
+        // Whole-node selection, not a text cursor inside the (hidden)
+        // content -- matches how an atomic node like an image behaves.
+        // code_block's schema isn't atomic, so this is simulated at the
+        // plugin level via NodeSelection.create, which works for any node
+        // type regardless of atomicity.
         const newSel = NodeSelection.create(state.doc, blockPos);
         view.dispatch(state.tr.setSelection(newSel).scrollIntoView());
         return true
@@ -415,18 +368,16 @@ class MetadataPlugin {
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
         const { state } = view;
         const sel = state.selection;
-        // No "currently inside the block's text" branch, and no explicit NodeSelection
-        // handling either: correctStraySelection already guarantees the selection is
-        // never a TextSelection inside a Table-mode block's content by the time this
-        // runs (see handleMetadataArrowKey's comment), and ProseMirror's own default
-        // keymap already handles Delete/Backspace on a NodeSelection natively (deletes
-        // the selected node) -- falling through (returning false below) is correct.
+        // No "currently inside the block's text" branch, and no explicit
+        // NodeSelection handling: correctStraySelection already guarantees
+        // the selection is never a TextSelection inside a Table-mode
+        // block's content, and ProseMirror's default keymap already
+        // handles Delete/Backspace on a NodeSelection natively.
         if (!(sel instanceof TextSelection) || !sel.empty) return false
 
-        // Backspace only: "Delete pressed immediately before the block" (the forward
-        // analog) is unreachable for MetadataView specifically, same reasoning as
-        // handleMetadataArrowKey's dir > 0 case -- a Table-mode metadata block is
-        // always at position 0, so nothing can ever be positioned before it.
+        // Backspace only: "Delete pressed immediately before the block" is
+        // unreachable here, same reasoning as handleMetadataArrowKey -- a
+        // Table-mode metadata block is always at position 0.
         if (event.key !== 'Backspace') return false
         const targetPos = sel.from - 1;
         if (targetPos < 0 || targetPos > state.doc.content.size) return false
@@ -440,21 +391,16 @@ class MetadataPlugin {
         return true
     }
 
-    // Catches ANY route that lands a TextSelection inside a Table-mode block's
-    // hidden content -- not just ArrowLeft/Right (handled proactively above),
-    // but ArrowUp/Down, Home/End, a mouse click into the zero-size hidden
-    // text, or anything else ProseMirror's own default selection handling
-    // might do that this plugin doesn't explicitly intercept. Corrects the
-    // resulting STATE after the fact rather than trying to enumerate every
-    // possible cause -- the same philosophy MetadataPlugin's appendTransaction
-    // guard already uses for the language attribute. Called from the view
-    // -update hook, which fires on every transaction including pure
-    // selection changes (no doc change required), so vertical arrow-key
-    // movement (computed from DOM layout, not something this plugin can
-    // easily predict/intercept proactively) is caught just as reliably as
-    // horizontal. Returns true if it dispatched a correction -- the
-    // dispatch re-triggers this same update hook against the corrected
-    // state, so the caller should skip its own (now-stale) sync work.
+    // Catches any route that lands a TextSelection inside a Table-mode
+    // block's hidden content -- not just ArrowLeft/Right (handled above),
+    // but ArrowUp/Down, Home/End, a mouse click, or anything else
+    // ProseMirror's default selection handling might do. Corrects the
+    // resulting state after the fact rather than enumerating every
+    // possible cause. Called from the view-update hook, which fires on
+    // every transaction including pure selection changes, so vertical
+    // arrow-key movement is caught the same as horizontal. Returns true if
+    // it dispatched a correction, since that dispatch re-triggers this
+    // same hook against the corrected state.
     correctStraySelection(view) {
         const sel = view.state.selection;
         if (!(sel instanceof TextSelection)) return false
@@ -467,13 +413,10 @@ class MetadataPlugin {
 
     selectedTableBlockPos(view) {
         const sel = view.state.selection;
-        // The normal case now: landing on a table block via arrow key creates a
-        // NodeSelection (see handleMetadataArrowKey) -- ProseMirror's own default
-        // copy/cut would actually handle this correctly without any of the
-        // methods below (NodeSelection.content() already serializes the whole
-        // node), but recognizing it here keeps this plugin's own clipboard path
-        // uniform and explicit rather than depending on that default silently
-        // continuing to do the right thing.
+        // Landing on a table block via arrow key creates a NodeSelection
+        // (see handleMetadataArrowKey); recognizing it here keeps this
+        // plugin's clipboard path explicit rather than relying on
+        // ProseMirror's default NodeSelection.content() serialization.
         if (sel instanceof NodeSelection && this.tableBlockAt(view, sel.from)) return sel.from
         if (!(sel instanceof TextSelection) || !sel.empty) return null
         if (sel.$from.depth === 0 || sel.$from.parent.type.name !== 'code_block') return null
@@ -535,10 +478,11 @@ class MetadataPlugin {
         return false
     }
 
-    // On macOS, Cmd+V never reaches the DOM as a paste event when the selection is
-    // inside a <pre> (MarkupWKWebView.swift routes it through MU.pasteCode instead) --
-    // wrapping MU.pasteCode itself catches this regardless of which path fires.
-    // Mirrors MermaidPlugin.wrapPasteCodeForDiagram / FrontMatterPlugin.wrapPasteCodeForFrontMatter.
+    // On macOS, Cmd+V never reaches the DOM as a paste event when the
+    // selection is inside a <pre> -- MarkupWKWebView.swift routes it
+    // through MU.pasteCode instead. Wrapping MU.pasteCode catches this
+    // regardless of which path fires. Mirrors MermaidPlugin/
+    // FrontMatterPlugin's own wrapper.
     wrapPasteCodeForMetadata(view) {
         const originalPasteCode = MU.pasteCode;
         MU.pasteCode = (text) => {
@@ -566,13 +510,12 @@ class MetadataPlugin {
 
     // A non-metadata instance can still see a language change TO "metadata"
     // later (the Language dialog / Source-view fence typing mutates
-    // node.attrs.language on the SAME node identity, so ProseMirror calls
-    // update() on the EXISTING instance rather than reconsulting the
-    // factory) -- this is the deliberate bootstrap-creation path AC8
-    // describes. Mirrors FrontMatterPlugin.wrapForFrontMatterUpgrade.
-    // update() returning false tells ProseMirror to discard this instance
-    // and ask the factory again, which (now metadata-language, and only if
-    // also at position 0) builds a MetadataView.
+    // node.attrs.language on the same node identity, so ProseMirror calls
+    // update() on the existing instance rather than reconsulting the
+    // factory). update() returning false tells ProseMirror to discard this
+    // instance and ask the factory again, which (now metadata-language,
+    // and only if also at position 0) builds a MetadataView. Mirrors
+    // FrontMatterPlugin.wrapForFrontMatterUpgrade.
     wrapForMetadataUpgrade(instance, getPos) {
         const delegateUpdate = instance.update.bind(instance);
         instance.update = (node) => (isMetadataLanguage(node.attrs.language) && getPos() === 0) ? false : delegateUpdate(node);
@@ -595,13 +538,11 @@ class MetadataPlugin {
                 init: () => ({ collapsed: false }),
                 // A whole-document load (MU.setHTML) dispatches its
                 // replace-content transaction with addToHistory: false --
-                // the only production path that does. Detecting it here
-                // resets collapse to expanded for the new document, since
-                // this Plugin's own state persists across document loads
-                // (setHTML replaces content via a transaction on the
-                // existing EditorState, not a fresh EditorState.create) and
-                // would otherwise carry a prior document's collapse choice
-                // into the next one.
+                // the only production path that does. Detecting it resets
+                // collapse to expanded for the new document, since this
+                // Plugin's state persists across document loads and would
+                // otherwise carry a prior document's collapse choice into
+                // the next one.
                 apply: (tr, value) => {
                     if (tr.getMeta('addToHistory') === false) return { collapsed: false }
                     const meta = tr.getMeta(metadataPluginKey);
@@ -610,15 +551,12 @@ class MetadataPlugin {
                 }
             },
             // appendTransaction, not view.update: composes the corrective
-            // change into the SAME resulting state as the transaction that
-            // tried to make it, so there is never a committed state (one a
-            // concurrent save could observe) where the position-0 block's
-            // language differs from "metadata". Confirmed via a standalone
-            // spike against a minimal schema before this was built --
-            // view.update (a separate, later
-            // dispatch, the mechanism FrontMatterPlugin uses for its own,
-            // weaker "reversible but not atomic" position handling) cannot
-            // give this guarantee.
+            // change into the same resulting state as the transaction that
+            // tried to make it, so there is never a committed state where
+            // the position-0 block's language differs from "metadata".
+            // view.update (a separate, later dispatch, the mechanism
+            // FrontMatterPlugin uses for its own weaker position handling)
+            // cannot give this guarantee.
             appendTransaction(transactions, oldState, newState) {
                 if (!transactions.some(tr => tr.docChanged)) return null
                 const oldFirst = oldState.doc.firstChild;
@@ -630,12 +568,12 @@ class MetadataPlugin {
                 return newState.tr.setNodeMarkup(0, undefined, { ...first.attrs, language: 'metadata' })
             },
             view: (editorView) => {
-                // Hides the native caret whenever the selection is inside a Table-mode
-                // block's (invisible) contentDOM -- belt-and-suspenders alongside the
-                // arrow-key/delete handling above: those prevent the selection from
-                // landing there via keyboard navigation, this hides any caret that
-                // still ends up there some other way (e.g. a mouse click into the
-                // zero-size hidden text). Mirrors MermaidPlugin/FrontMatterPlugin.
+                // Hides the native caret whenever the selection is inside a
+                // Table-mode block's (invisible) contentDOM --
+                // belt-and-suspenders alongside the arrow-key/delete
+                // handling above, for a selection that lands there some
+                // other way (e.g. a mouse click). Mirrors MermaidPlugin/
+                // FrontMatterPlugin.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection;
                     let hideCaret = false;
@@ -644,33 +582,33 @@ class MetadataPlugin {
                     }
                     v.dom.classList.toggle(HIDE_CARET_CLASS, hideCaret);
                 };
-                // Runs on EVERY transaction, unlike a NodeView's own
-                // update() -- the actual position-0 enforcement mechanism,
-                // same reasoning as FrontMatterPlugin's onUpdate. Also
-                // syncs collapse-state chrome across live instances, since
-                // a meta-only transaction (the bar's own click handler)
+                // Runs on every transaction, unlike a NodeView's own
+                // update() -- the actual position-0 enforcement mechanism.
+                // Also syncs collapse-state chrome across live instances,
+                // since a meta-only transaction (the bar's click handler)
                 // touches no document content and so never reaches any
                 // NodeView's update() either.
                 const onUpdate = (v) => {
-                    // Dispatches (and returns true) if it corrects a stray selection --
-                    // that dispatch re-enters this same hook against the corrected
-                    // state, so the rest of this pass would just be redoing work
-                    // against a state that's about to change anyway.
+                    // Dispatches (and returns true) if it corrects a stray
+                    // selection -- that dispatch re-enters this hook
+                    // against the corrected state, so the rest of this
+                    // pass would be redoing work against a state about to
+                    // change.
                     if (this.correctStraySelection(v)) return
                     syncCaretClass(v);
                     MetadataView.checkAllPositions();
                     MetadataView.syncAllCollapsedState();
-                    // codeLanguageTabPlugin's setActive callback (CodeView's usual
-                    // selected-instance signal) is TextSelection-inside-only per its own
-                    // doc comment, never a NodeSelection -- exactly the selection kind
-                    // landing on a Table-mode block now creates, so the selected outline
-                    // is driven directly from live selection state here instead.
+                    // codeLanguageTabPlugin's setActive callback is
+                    // TextSelection-inside-only per its own doc comment,
+                    // never a NodeSelection -- exactly the kind a
+                    // Table-mode block now creates, so the selected
+                    // outline is driven directly from live selection state
+                    // here instead.
                     MetadataView.syncAllSelectedState(v.state);
                 };
-                // Also run once at construction, not just on subsequent transactions --
-                // covers the (currently unhandled, separately tracked) case where the
-                // document's own initial/default selection on load already happens to
-                // land inside a table block, same as onUpdate would catch afterward.
+                // Also run once at construction: covers the case where the
+                // document's initial/default selection on load already
+                // lands inside a table block.
                 if (!this.correctStraySelection(editorView)) {
                     syncCaretClass(editorView);
                     MetadataView.syncAllSelectedState(editorView.state);
@@ -680,12 +618,12 @@ class MetadataPlugin {
         })
     }
 
-    // Wires this plugin into the currently active editor view: adopts the
-    // metadata stylesheet, installs the code_block NodeView factory
-    // override, and adds the position/guard/collapse-state Plugin to the
-    // editor state. Deliberately does NOT call MU.registerPlugin -- keeping
-    // "metadata" out of isRecognizedLanguage is what keeps it out of the
-    // toolbar's Code Language submenu.
+    // Wires this plugin into the active editor view: adopts the metadata
+    // stylesheet, installs the code_block NodeView factory override, and
+    // adds the position/guard/collapse-state Plugin to the editor state.
+    // Deliberately does not call MU.registerPlugin -- keeping "metadata"
+    // out of isRecognizedLanguage is what keeps it out of the toolbar's
+    // Code Language submenu.
     install() {
         const view = MU.activeView();
         if (!view) return

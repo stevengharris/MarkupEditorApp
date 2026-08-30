@@ -23,14 +23,10 @@ export class MetadataPlugin {
     }
 
     // Table mode is the "atomic" shape (like Mermaid's diagram mode, or
-    // FrontMatterView's rendered mode) -- contentDOM is present but visually
-    // collapsed to nothing (font-size/line-height: 0), so without this the
-    // caret can silently land inside it: arrow-key navigation drops the user
-    // into invisible text, and typing there updates the code_block's real
-    // content while Table is still showing, producing exactly the "both
-    // Table and Source visible at once" symptom this plugin's keyboard/
-    // clipboard handling exists to prevent. Source mode is ordinary text
-    // editing and is NOT atomic.
+    // FrontMatterView's rendered mode): contentDOM is present but visually
+    // collapsed to nothing, so without this the caret can silently land
+    // inside it via arrow-key navigation or typing. Source mode is ordinary
+    // text editing and is not atomic.
     tableBlockAt(view, pos) {
         const instance = this.metadataViewAt(view, pos)
         return instance?.mode === 'table' ? instance : null
@@ -46,8 +42,8 @@ export class MetadataPlugin {
         const sel = state.selection
         const dir = event.key === 'ArrowLeft' ? -1 : 1
 
-        // Already parked ON a table block (a NodeSelection -- see the landing
-        // case below) -- arrow away from it to whichever side dir points.
+        // Already parked on a table block (a NodeSelection) -- arrow away
+        // from it to whichever side dir points.
         if (sel instanceof NodeSelection && this.tableBlockAt(view, sel.from)) {
             const targetPos = dir < 0 ? sel.from : sel.to
             if (targetPos < 0 || targetPos > state.doc.content.size) return false
@@ -56,20 +52,18 @@ export class MetadataPlugin {
             return true
         }
 
-        // No "currently inside the block's text, hop out" branch here (unlike
-        // FrontMatterPlugin/MermaidPlugin, which need one): correctStraySelection
-        // (the Plugin's view-update hook) converts any TextSelection that lands
-        // inside a Table-mode block's content to a NodeSelection on the very
-        // transaction that puts it there, before any subsequent keydown could
-        // ever observe it as a TextSelection -- so that case is unreachable here.
+        // No "currently inside, hop out" branch here (unlike
+        // FrontMatterPlugin/MermaidPlugin): correctStraySelection (the
+        // view-update hook) converts any TextSelection landing inside a
+        // Table-mode block to a NodeSelection before any subsequent
+        // keydown could observe it as a TextSelection.
 
         if (!(sel instanceof TextSelection) || !sel.empty) return false
 
-        // ArrowLeft only: landing FORWARD onto a table block from something positioned
-        // before it (the dir > 0 / ArrowRight analog) is unreachable for MetadataView
-        // specifically -- unlike Mermaid/FrontMatter, which can appear anywhere in the
-        // document, a Table-mode metadata block is always at position 0 (tableBlockAt
-        // requires getPos() === 0), so nothing can ever be positioned before it.
+        // ArrowLeft only: landing forward onto a table block (the
+        // ArrowRight analog) is unreachable here -- a Table-mode metadata
+        // block is always at position 0, so nothing can be positioned
+        // before it.
         if (dir > 0) return false
         const targetPos = sel.from + dir
         if (targetPos < 0 || targetPos > state.doc.content.size) return false
@@ -80,13 +74,11 @@ export class MetadataPlugin {
             if (before && before.type.name === 'code_block') blockPos = targetPos - before.nodeSize
         }
         if (blockPos === null || !this.tableBlockAt(view, blockPos)) return false
-        // Whole-node selection, not a text cursor inside the (hidden) content: selectable,
-        // not directly editable, matching how an atomic node like an image behaves.
-        // code_block's schema isn't atomic (Source mode needs real editable text), so this
-        // is simulated at the plugin level -- NodeSelection.create works for any node type
-        // regardless of atomicity, unlike Selection.near, which always prefers a text
-        // position when one exists (why the "hop out" branch above still needs
-        // TextSelection handling -- that's leaving an existing text cursor, not landing).
+        // Whole-node selection, not a text cursor inside the (hidden)
+        // content -- matches how an atomic node like an image behaves.
+        // code_block's schema isn't atomic, so this is simulated at the
+        // plugin level via NodeSelection.create, which works for any node
+        // type regardless of atomicity.
         const newSel = NodeSelection.create(state.doc, blockPos)
         view.dispatch(state.tr.setSelection(newSel).scrollIntoView())
         return true
@@ -99,18 +91,16 @@ export class MetadataPlugin {
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
         const { state } = view
         const sel = state.selection
-        // No "currently inside the block's text" branch, and no explicit NodeSelection
-        // handling either: correctStraySelection already guarantees the selection is
-        // never a TextSelection inside a Table-mode block's content by the time this
-        // runs (see handleMetadataArrowKey's comment), and ProseMirror's own default
-        // keymap already handles Delete/Backspace on a NodeSelection natively (deletes
-        // the selected node) -- falling through (returning false below) is correct.
+        // No "currently inside the block's text" branch, and no explicit
+        // NodeSelection handling: correctStraySelection already guarantees
+        // the selection is never a TextSelection inside a Table-mode
+        // block's content, and ProseMirror's default keymap already
+        // handles Delete/Backspace on a NodeSelection natively.
         if (!(sel instanceof TextSelection) || !sel.empty) return false
 
-        // Backspace only: "Delete pressed immediately before the block" (the forward
-        // analog) is unreachable for MetadataView specifically, same reasoning as
-        // handleMetadataArrowKey's dir > 0 case -- a Table-mode metadata block is
-        // always at position 0, so nothing can ever be positioned before it.
+        // Backspace only: "Delete pressed immediately before the block" is
+        // unreachable here, same reasoning as handleMetadataArrowKey -- a
+        // Table-mode metadata block is always at position 0.
         if (event.key !== 'Backspace') return false
         const targetPos = sel.from - 1
         if (targetPos < 0 || targetPos > state.doc.content.size) return false
@@ -124,21 +114,16 @@ export class MetadataPlugin {
         return true
     }
 
-    // Catches ANY route that lands a TextSelection inside a Table-mode block's
-    // hidden content -- not just ArrowLeft/Right (handled proactively above),
-    // but ArrowUp/Down, Home/End, a mouse click into the zero-size hidden
-    // text, or anything else ProseMirror's own default selection handling
-    // might do that this plugin doesn't explicitly intercept. Corrects the
-    // resulting STATE after the fact rather than trying to enumerate every
-    // possible cause -- the same philosophy MetadataPlugin's appendTransaction
-    // guard already uses for the language attribute. Called from the view
-    // -update hook, which fires on every transaction including pure
-    // selection changes (no doc change required), so vertical arrow-key
-    // movement (computed from DOM layout, not something this plugin can
-    // easily predict/intercept proactively) is caught just as reliably as
-    // horizontal. Returns true if it dispatched a correction -- the
-    // dispatch re-triggers this same update hook against the corrected
-    // state, so the caller should skip its own (now-stale) sync work.
+    // Catches any route that lands a TextSelection inside a Table-mode
+    // block's hidden content -- not just ArrowLeft/Right (handled above),
+    // but ArrowUp/Down, Home/End, a mouse click, or anything else
+    // ProseMirror's default selection handling might do. Corrects the
+    // resulting state after the fact rather than enumerating every
+    // possible cause. Called from the view-update hook, which fires on
+    // every transaction including pure selection changes, so vertical
+    // arrow-key movement is caught the same as horizontal. Returns true if
+    // it dispatched a correction, since that dispatch re-triggers this
+    // same hook against the corrected state.
     correctStraySelection(view) {
         const sel = view.state.selection
         if (!(sel instanceof TextSelection)) return false
@@ -151,13 +136,10 @@ export class MetadataPlugin {
 
     selectedTableBlockPos(view) {
         const sel = view.state.selection
-        // The normal case now: landing on a table block via arrow key creates a
-        // NodeSelection (see handleMetadataArrowKey) -- ProseMirror's own default
-        // copy/cut would actually handle this correctly without any of the
-        // methods below (NodeSelection.content() already serializes the whole
-        // node), but recognizing it here keeps this plugin's own clipboard path
-        // uniform and explicit rather than depending on that default silently
-        // continuing to do the right thing.
+        // Landing on a table block via arrow key creates a NodeSelection
+        // (see handleMetadataArrowKey); recognizing it here keeps this
+        // plugin's clipboard path explicit rather than relying on
+        // ProseMirror's default NodeSelection.content() serialization.
         if (sel instanceof NodeSelection && this.tableBlockAt(view, sel.from)) return sel.from
         if (!(sel instanceof TextSelection) || !sel.empty) return null
         if (sel.$from.depth === 0 || sel.$from.parent.type.name !== 'code_block') return null
@@ -219,10 +201,11 @@ export class MetadataPlugin {
         return false
     }
 
-    // On macOS, Cmd+V never reaches the DOM as a paste event when the selection is
-    // inside a <pre> (MarkupWKWebView.swift routes it through MU.pasteCode instead) --
-    // wrapping MU.pasteCode itself catches this regardless of which path fires.
-    // Mirrors MermaidPlugin.wrapPasteCodeForDiagram / FrontMatterPlugin.wrapPasteCodeForFrontMatter.
+    // On macOS, Cmd+V never reaches the DOM as a paste event when the
+    // selection is inside a <pre> -- MarkupWKWebView.swift routes it
+    // through MU.pasteCode instead. Wrapping MU.pasteCode catches this
+    // regardless of which path fires. Mirrors MermaidPlugin/
+    // FrontMatterPlugin's own wrapper.
     wrapPasteCodeForMetadata(view) {
         const originalPasteCode = MU.pasteCode
         MU.pasteCode = (text) => {
@@ -250,13 +233,12 @@ export class MetadataPlugin {
 
     // A non-metadata instance can still see a language change TO "metadata"
     // later (the Language dialog / Source-view fence typing mutates
-    // node.attrs.language on the SAME node identity, so ProseMirror calls
-    // update() on the EXISTING instance rather than reconsulting the
-    // factory) -- this is the deliberate bootstrap-creation path AC8
-    // describes. Mirrors FrontMatterPlugin.wrapForFrontMatterUpgrade.
-    // update() returning false tells ProseMirror to discard this instance
-    // and ask the factory again, which (now metadata-language, and only if
-    // also at position 0) builds a MetadataView.
+    // node.attrs.language on the same node identity, so ProseMirror calls
+    // update() on the existing instance rather than reconsulting the
+    // factory). update() returning false tells ProseMirror to discard this
+    // instance and ask the factory again, which (now metadata-language,
+    // and only if also at position 0) builds a MetadataView. Mirrors
+    // FrontMatterPlugin.wrapForFrontMatterUpgrade.
     wrapForMetadataUpgrade(instance, getPos) {
         const delegateUpdate = instance.update.bind(instance)
         instance.update = (node) => (isMetadataLanguage(node.attrs.language) && getPos() === 0) ? false : delegateUpdate(node)
@@ -279,13 +261,11 @@ export class MetadataPlugin {
                 init: () => ({ collapsed: false }),
                 // A whole-document load (MU.setHTML) dispatches its
                 // replace-content transaction with addToHistory: false --
-                // the only production path that does. Detecting it here
-                // resets collapse to expanded for the new document, since
-                // this Plugin's own state persists across document loads
-                // (setHTML replaces content via a transaction on the
-                // existing EditorState, not a fresh EditorState.create) and
-                // would otherwise carry a prior document's collapse choice
-                // into the next one.
+                // the only production path that does. Detecting it resets
+                // collapse to expanded for the new document, since this
+                // Plugin's state persists across document loads and would
+                // otherwise carry a prior document's collapse choice into
+                // the next one.
                 apply: (tr, value) => {
                     if (tr.getMeta('addToHistory') === false) return { collapsed: false }
                     const meta = tr.getMeta(metadataPluginKey)
@@ -294,15 +274,12 @@ export class MetadataPlugin {
                 }
             },
             // appendTransaction, not view.update: composes the corrective
-            // change into the SAME resulting state as the transaction that
-            // tried to make it, so there is never a committed state (one a
-            // concurrent save could observe) where the position-0 block's
-            // language differs from "metadata". Confirmed via a standalone
-            // spike against a minimal schema before this was built --
-            // view.update (a separate, later
-            // dispatch, the mechanism FrontMatterPlugin uses for its own,
-            // weaker "reversible but not atomic" position handling) cannot
-            // give this guarantee.
+            // change into the same resulting state as the transaction that
+            // tried to make it, so there is never a committed state where
+            // the position-0 block's language differs from "metadata".
+            // view.update (a separate, later dispatch, the mechanism
+            // FrontMatterPlugin uses for its own weaker position handling)
+            // cannot give this guarantee.
             appendTransaction(transactions, oldState, newState) {
                 if (!transactions.some(tr => tr.docChanged)) return null
                 const oldFirst = oldState.doc.firstChild
@@ -314,12 +291,12 @@ export class MetadataPlugin {
                 return newState.tr.setNodeMarkup(0, undefined, { ...first.attrs, language: 'metadata' })
             },
             view: (editorView) => {
-                // Hides the native caret whenever the selection is inside a Table-mode
-                // block's (invisible) contentDOM -- belt-and-suspenders alongside the
-                // arrow-key/delete handling above: those prevent the selection from
-                // landing there via keyboard navigation, this hides any caret that
-                // still ends up there some other way (e.g. a mouse click into the
-                // zero-size hidden text). Mirrors MermaidPlugin/FrontMatterPlugin.
+                // Hides the native caret whenever the selection is inside a
+                // Table-mode block's (invisible) contentDOM --
+                // belt-and-suspenders alongside the arrow-key/delete
+                // handling above, for a selection that lands there some
+                // other way (e.g. a mouse click). Mirrors MermaidPlugin/
+                // FrontMatterPlugin.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection
                     let hideCaret = false
@@ -328,33 +305,33 @@ export class MetadataPlugin {
                     }
                     v.dom.classList.toggle(HIDE_CARET_CLASS, hideCaret)
                 }
-                // Runs on EVERY transaction, unlike a NodeView's own
-                // update() -- the actual position-0 enforcement mechanism,
-                // same reasoning as FrontMatterPlugin's onUpdate. Also
-                // syncs collapse-state chrome across live instances, since
-                // a meta-only transaction (the bar's own click handler)
+                // Runs on every transaction, unlike a NodeView's own
+                // update() -- the actual position-0 enforcement mechanism.
+                // Also syncs collapse-state chrome across live instances,
+                // since a meta-only transaction (the bar's click handler)
                 // touches no document content and so never reaches any
                 // NodeView's update() either.
                 const onUpdate = (v) => {
-                    // Dispatches (and returns true) if it corrects a stray selection --
-                    // that dispatch re-enters this same hook against the corrected
-                    // state, so the rest of this pass would just be redoing work
-                    // against a state that's about to change anyway.
+                    // Dispatches (and returns true) if it corrects a stray
+                    // selection -- that dispatch re-enters this hook
+                    // against the corrected state, so the rest of this
+                    // pass would be redoing work against a state about to
+                    // change.
                     if (this.correctStraySelection(v)) return
                     syncCaretClass(v)
                     MetadataView.checkAllPositions()
                     MetadataView.syncAllCollapsedState()
-                    // codeLanguageTabPlugin's setActive callback (CodeView's usual
-                    // selected-instance signal) is TextSelection-inside-only per its own
-                    // doc comment, never a NodeSelection -- exactly the selection kind
-                    // landing on a Table-mode block now creates, so the selected outline
-                    // is driven directly from live selection state here instead.
+                    // codeLanguageTabPlugin's setActive callback is
+                    // TextSelection-inside-only per its own doc comment,
+                    // never a NodeSelection -- exactly the kind a
+                    // Table-mode block now creates, so the selected
+                    // outline is driven directly from live selection state
+                    // here instead.
                     MetadataView.syncAllSelectedState(v.state)
                 }
-                // Also run once at construction, not just on subsequent transactions --
-                // covers the (currently unhandled, separately tracked) case where the
-                // document's own initial/default selection on load already happens to
-                // land inside a table block, same as onUpdate would catch afterward.
+                // Also run once at construction: covers the case where the
+                // document's initial/default selection on load already
+                // lands inside a table block.
                 if (!this.correctStraySelection(editorView)) {
                     syncCaretClass(editorView)
                     MetadataView.syncAllSelectedState(editorView.state)
@@ -364,12 +341,12 @@ export class MetadataPlugin {
         })
     }
 
-    // Wires this plugin into the currently active editor view: adopts the
-    // metadata stylesheet, installs the code_block NodeView factory
-    // override, and adds the position/guard/collapse-state Plugin to the
-    // editor state. Deliberately does NOT call MU.registerPlugin -- keeping
-    // "metadata" out of isRecognizedLanguage is what keeps it out of the
-    // toolbar's Code Language submenu.
+    // Wires this plugin into the active editor view: adopts the metadata
+    // stylesheet, installs the code_block NodeView factory override, and
+    // adds the position/guard/collapse-state Plugin to the editor state.
+    // Deliberately does not call MU.registerPlugin -- keeping "metadata"
+    // out of isRecognizedLanguage is what keeps it out of the toolbar's
+    // Code Language submenu.
     install() {
         const view = MU.activeView()
         if (!view) return
