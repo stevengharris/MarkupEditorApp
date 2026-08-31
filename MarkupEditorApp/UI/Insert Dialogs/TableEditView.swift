@@ -8,15 +8,13 @@
 import SwiftUI
 import MarkupEditor
 
-/// Shown as a popover when the selection is already in a table, grouping the Add/Delete/Border
+/// Shown as a popover when the selection is already in a table, grouping the Add/Delete/Align
 /// commands under native pull-down Menus -- matching TableInsertView's popover positioning and
 /// disclosure-arrow presentation instead of AppDelegate's earlier NSMenu.popUp, which had
 /// inconsistent positioning relative to the selection.
 struct TableEditView: View {
 
     @Binding private var presented: Bool
-    private let showHeader: Bool
-    private let showBorder: Bool
 
     var body: some View {
         HStack(spacing: 16) {
@@ -25,23 +23,16 @@ struct TableEditView: View {
                 Button("Row Below") { perform { await MarkupEditor.selectedWebView?.addRow(.after) } }
                 Button("Column Before") { perform { await MarkupEditor.selectedWebView?.addCol(.before) } }
                 Button("Column After") { perform { await MarkupEditor.selectedWebView?.addCol(.after) } }
-                if showHeader {
-                    Divider()
-                    Button("Header") { perform { await MarkupEditor.selectedWebView?.addHeader() } }
-                }
             }
             Menu("Delete") {
                 Button("Row") { perform { await MarkupEditor.selectedWebView?.deleteRow() } }
                 Button("Column") { perform { await MarkupEditor.selectedWebView?.deleteCol() } }
                 Button("Table") { perform { await MarkupEditor.selectedWebView?.deleteTable() } }
             }
-            if showBorder {
-                Menu("Border") {
-                    Button("All") { perform { await MarkupEditor.selectedWebView?.borderTable(.cell) } }
-                    Button("Outer") { perform { await MarkupEditor.selectedWebView?.borderTable(.outer) } }
-                    Button("Header") { perform { await MarkupEditor.selectedWebView?.borderTable(.header) } }
-                    Button("None") { perform { await MarkupEditor.selectedWebView?.borderTable(.none) } }
-                }
+            Menu("Align") {
+                Button("Left") { perform { await MarkupEditor.selectedWebView?.justifyColumn(.left) } }
+                Button("Center") { perform { await MarkupEditor.selectedWebView?.justifyColumn(.center) } }
+                Button("Right") { perform { await MarkupEditor.selectedWebView?.justifyColumn(.right) } }
             }
         }
         .padding(10)
@@ -49,9 +40,6 @@ struct TableEditView: View {
 
     public init(presented: Binding<Bool>) {
         _presented = presented
-        let menus = ToolbarConfig.fromDefaults().menus
-        showHeader = menus["tableHeader"] == true
-        showBorder = menus["tableBorder"] == true
     }
 
     private func perform(_ action: @escaping () async -> Void) {

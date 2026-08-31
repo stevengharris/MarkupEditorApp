@@ -28,6 +28,23 @@ function sanitizeFenceLanguage(language) {
 }
 
 /**
+ * Return the GFM delimiter-row marker for a column's align attr, matching markdown-it's
+ * own emission: ':---' for left, ':---:' for center, '---:' for right, plain '---' when
+ * unaligned (null) -- distinguishable from an explicit 'left', not collapsed into it.
+ *
+ * @param {'left' | 'center' | 'right' | null | undefined} align
+ * @returns {string}
+ */
+function alignMarker(align) {
+  switch (align) {
+    case 'left':   return ':---'
+    case 'center': return ':---:'
+    case 'right':  return '---:'
+    default:       return '---'
+  }
+}
+
+/**
  * Build a MarkdownSerializer that extends the default one with custom
  * node and mark rules for the MarkupEditor schema.
  *
@@ -73,14 +90,16 @@ export function makeSerializer(warnings) {
       // Render header row
       const headerRow = rows[0]
       const cells = []
+      const markers = []
       headerRow.forEach(cell => {
         cells.push(cell.textContent.trim())
+        markers.push(alignMarker(cell.attrs.align))
       })
       state.write('| ' + cells.join(' | ') + ' |')
       state.write('\n')
 
-      // Separator
-      state.write('| ' + cells.map(() => '---').join(' | ') + ' |')
+      // Separator — one alignMarker() result per column.
+      state.write('| ' + markers.join(' | ') + ' |')
       state.write('\n')
 
       // Body rows

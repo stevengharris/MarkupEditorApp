@@ -56,18 +56,31 @@ export function makeParser(schema, warnings) {
     }
   })
 
+  // GFM column alignment rides on each cell's own th_open/td_open token as a
+  // style="text-align:..." attribute (markdown-it does not emit a separate token for
+  // the delimiter row itself) -- extract it so cellOpen/headerCellOpen can carry it
+  // through to the table_cell/table_header node's align attr.
+  function alignFromToken(tok) {
+    const style = tok.attrGet('style')
+    if (!style) return null
+    const m = style.match(/text-align:\s*(left|center|right)/)
+    return m ? m[1] : null
+  }
+
   // Manually add cell handlers that wrap content in a paragraph.
   // We reach into the tokenHandlers map after construction via a wrapper.
-  const cellOpen = (state) => {
-    state.openNode(schema.nodes.table_cell, null)
+  const cellOpen = (state, tok) => {
+    const align = alignFromToken(tok)
+    state.openNode(schema.nodes.table_cell, align ? { align } : null)
     state.openNode(schema.nodes.paragraph, null)
   }
   const cellClose = (state) => {
     state.closeNode() // close paragraph
     state.closeNode() // close table_cell
   }
-  const headerCellOpen = (state) => {
-    state.openNode(schema.nodes.table_header, null)
+  const headerCellOpen = (state, tok) => {
+    const align = alignFromToken(tok)
+    state.openNode(schema.nodes.table_header, align ? { align } : null)
     state.openNode(schema.nodes.paragraph, null)
   }
   const headerCellClose = (state) => {
