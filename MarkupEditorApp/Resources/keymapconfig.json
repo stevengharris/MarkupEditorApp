@@ -2,7 +2,7 @@
     "undo": "Mod-z",
     "redo": "Mod-Shift-z",
     "link": "Mod-k",
-    "table": "Mod-Shift-t",
+    "table": "Ctrl-Shift-t",
     "p": "Ctrl-Shift-0",
     "h1": "Ctrl-Shift-1",
     "h2": "Ctrl-Shift-2",
