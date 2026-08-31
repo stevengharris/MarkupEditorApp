@@ -61,7 +61,9 @@ export function makeSerializer(warnings) {
       if (node.attrs.class != null) {
         warnings.add(`Table class attribute dropped (not supported in Markdown): ${node.attrs.class}`)
       }
-      // Gather rows — first row is treated as header, rest as body
+      // Gather rows — GFM pipe-table syntax requires a header + separator row to
+      // even be recognized as a table, so row 1 always serializes as the header,
+      // whether or not it's a real table_header row.
       const rows = []
       node.forEach(child => {
         if (child.type.name === 'table_row') rows.push(child)

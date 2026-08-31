@@ -23,6 +23,12 @@ function makeCell(text) {
   ])
 }
 
+function makeHeaderCell(text) {
+  return schema.nodes.table_header.create(null, [
+    schema.nodes.paragraph.create(null, [schema.text(text)])
+  ])
+}
+
 function serialize(doc) {
   const warnings = makeWarnings()
   const serializer = makeSerializer(warnings)
@@ -41,11 +47,11 @@ function parse(md) {
 // GFM pipe-table serialization
 // ---------------------------------------------------------------------------
 
-describe('simple 2-column table', () => {
+describe('table with a real header row (added via addHeader())', () => {
   test('emits correct pipe-table markdown with header and separator rows', () => {
     const doc = schema.nodes.doc.create(null, [
       makeTable(null, [
-        makeRow([makeCell('Name'), makeCell('Age')]),
+        makeRow([makeHeaderCell('Name'), makeHeaderCell('Age')]),
         makeRow([makeCell('Alice'), makeCell('30')]),
         makeRow([makeCell('Bob'), makeCell('25')])
       ])
@@ -69,8 +75,43 @@ describe('simple 2-column table', () => {
   })
 })
 
+describe('table with no real header (all rows are plain table_cell)', () => {
+  test('row 1 still serializes as the header -- GFM pipe-table syntax has no way to represent a table with zero header rows', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeCell('Alice'), makeCell('30')]),
+        makeRow([makeCell('Bob'), makeCell('25')])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings).toHaveLength(0)
+
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+
+    expect(lines[0]).toBe('| Alice | 30 |')
+    expect(lines[1]).toMatch(/^\|(\s*---\s*\|)+$/)
+    expect(lines[2]).toBe('| Bob | 25 |')
+  })
+})
+
 describe('table round-trip', () => {
-  test('serialize → parse → re-serialize produces identical markdown', () => {
+  test('a table with a real header: serialize → parse → re-serialize produces identical markdown', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col1'), makeHeaderCell('Col2')]),
+        makeRow([makeCell('val1'), makeCell('val2')])
+      ])
+    ])
+    const { md: md1 } = serialize(doc)
+
+    const { doc: parsedDoc } = parse(md1)
+    const { md: md2 } = serialize(parsedDoc)
+
+    expect(md2.trim()).toBe(md1.trim())
+  })
+
+  test('a headerless table: serialize → parse → re-serialize produces identical markdown', () => {
     const doc = schema.nodes.doc.create(null, [
       makeTable(null, [
         makeRow([makeCell('Col1'), makeCell('Col2')]),
@@ -90,7 +131,7 @@ describe('table with class attribute', () => {
   test('class is dropped, warning is emitted, table content is still correct', () => {
     const doc = schema.nodes.doc.create(null, [
       makeTable({ class: 'bordered' }, [
-        makeRow([makeCell('X'), makeCell('Y')]),
+        makeRow([makeHeaderCell('X'), makeHeaderCell('Y')]),
         makeRow([makeCell('1'), makeCell('2')])
       ])
     ])

@@ -24,15 +24,16 @@ export function makeParser(schema, warnings) {
     tbody:    { ignore: true },
     tr:       { block: 'table_row' },
 
-    // table_cell requires block+ content. The prosemirror-markdown `block` mapping
-    // would open the cell node and let inline text land directly in it, but
+    // table_cell/table_header require block+ content. The prosemirror-markdown `block`
+    // mapping would open the cell node and let inline text land directly in it, but
     // `createAndFill` would then silently drop the text because it can't satisfy
     // the `block+` constraint with raw inline nodes.
     //
     // Instead, use custom `_open`/`_close` handlers that also open/close a
     // paragraph inside each cell so the inline text has a valid block to live in.
-    //
-    // th maps to table_cell (header status is not preserved in the schema)
+    // th maps to table_header (not table_cell) so a real header row survives a
+    // round-trip through Markdown -- the serializer only treats row 1 as a header
+    // when it's actually made of table_header cells.
 
     // Strikethrough mark
     s:        { mark: 's' },
@@ -65,13 +66,21 @@ export function makeParser(schema, warnings) {
     state.closeNode() // close paragraph
     state.closeNode() // close table_cell
   }
+  const headerCellOpen = (state) => {
+    state.openNode(schema.nodes.table_header, null)
+    state.openNode(schema.nodes.paragraph, null)
+  }
+  const headerCellClose = (state) => {
+    state.closeNode() // close paragraph
+    state.closeNode() // close table_header
+  }
 
   // Build the parser, then replace the auto-generated th/td handlers with our
   // paragraph-wrapping versions.  MarkdownParser stores handlers in
   // `this.tokenHandlers` which is a plain object we can patch directly.
   const parser = new MarkdownParser(schema, tokenizer, tokens)
-  parser.tokenHandlers['th_open']  = cellOpen
-  parser.tokenHandlers['th_close'] = cellClose
+  parser.tokenHandlers['th_open']  = headerCellOpen
+  parser.tokenHandlers['th_close'] = headerCellClose
   parser.tokenHandlers['td_open']  = cellOpen
   parser.tokenHandlers['td_close'] = cellClose
 

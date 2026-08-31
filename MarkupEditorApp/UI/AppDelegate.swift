@@ -13,6 +13,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
+    /// Direct accessor for the running AppDelegate instance, set in applicationWillFinishLaunching.
+    /// `NSApplication.shared.delegate as? AppDelegate` is the more usual way to reach it, and works
+    /// at most call sites in this file, but was observed returning nil from inside an async WKWebView
+    /// JS-bridge completion callback -- this sidesteps that unreliability rather than depending on it.
+    static weak var shared: AppDelegate?
     static var pendingFinderURL: URL?
     static var docIcon: NSImage?
     /// Set by handleQuit after the user confirms quit via the window-close path,
@@ -67,6 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        Self.shared = self
         NSWindow.allowsAutomaticWindowTabbing = false
         keymap = KeymapConfig.fromDefaults()         // Use app's keymapconfig.json
         if let bundleURL = Bundle.main.url(forResource: "markupeditor-icon", withExtension: "icns") {

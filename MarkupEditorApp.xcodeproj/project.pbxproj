@@ -561,6 +561,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 0.9.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;
@@ -776,6 +777,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 0.9.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;
@@ -821,6 +823,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 0.9.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
 				PRODUCT_MODULE_NAME = MarkupEditorApp;
 				PRODUCT_NAME = MarkupEditor;

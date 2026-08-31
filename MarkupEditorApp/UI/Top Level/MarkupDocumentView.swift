@@ -31,6 +31,8 @@ struct MarkupDocumentView: View {
     @State private var popupAnchor: PopoverAttachmentAnchor = PopoverAttachmentAnchor.rect(.rect(CGRect.zero))
     @State private var showLinkDialog: Bool = false
     @State private var showImageDialog: Bool = false
+    @State private var showTableDialog: Bool = false
+    @State private var showTableEditDialog: Bool = false
     
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
@@ -105,6 +107,12 @@ struct MarkupDocumentView: View {
         }
         .popover(isPresented: $showLinkDialog, attachmentAnchor: popupAnchor) {
             LinkInsertView(presented: $showLinkDialog)
+        }
+        .popover(isPresented: $showTableDialog, attachmentAnchor: popupAnchor) {
+            TableInsertView(presented: $showTableDialog)
+        }
+        .popover(isPresented: $showTableEditDialog, attachmentAnchor: popupAnchor) {
+            TableEditView(presented: $showTableEditDialog)
         }
         // Consolidate menu items into a single .task modifier
         .task {
@@ -750,6 +758,20 @@ extension MarkupDocumentView: MarkupDelegate {
         }
     }
 
+    /// Already in a table: show TableEditView (Add/Delete/Border) instead of TableInsertView,
+    /// which only ever creates a new table. Both are popovers sharing the same popupAnchor
+    /// positioning, so the two flows feel consistent regardless of which one comes up.
+    func markupInsertTable(_ view: MarkupWKWebView?) {
+        view?.getSelectionState { selectionState in
+            popupAnchor = PopoverAttachmentAnchor.rect(.rect(selectionState.sourceRect ?? CGRect.zero))
+            if selectionState.isInTable {
+                showTableEditDialog = true
+            } else {
+                showTableDialog = true
+            }
+        }
+    }
+
     /// Override the default open-externally behavior to skip a same-page fragment href like
     /// "#introduction" (inserted via the heading-link picker in LinkInsertView). The browser has
     /// already navigated to it in-page via native anchor handling on this same click, so there's
@@ -766,8 +788,7 @@ extension MarkupDocumentView: MarkupDelegate {
     }
 
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
-        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
-        appDelegate.populateExportMenu()
+        AppDelegate.shared?.populateExportMenu()
     }
 
     /// An error occurred on the JavaScript side (internal MUErrors, or a plugin using
