@@ -53,3 +53,79 @@
 #editor.Markup-exporting .Markup-code-language-tab {
   display: none;
 }
+
+/* GitHub-look overrides below (tables, H1/H2): markup.css's plain defaults are
+   right for markupeditor-base/MarkupEditor generally, but this app's documents
+   are typically GitHub READMEs round-tripped through Markdown, so they should
+   render like GitHub does. Values match GitHub's actual light/dark CSS. */
+
+/* prosemirror-tables omits the colspan attribute unless > 1, so this matches a
+   per-column header without touching a colspanned caption header, which should
+   stay centered. Align overrides either via its higher-specificity inline style. */
+table th:not([colspan]) {
+  text-align: left;
+}
+
+/* GitHub underlines only H1/H2, via border-bottom rather than text-decoration.
+   margin-bottom is raised from markup.css's shared 10px so the border sits close
+   to the heading text (0.3em padding-bottom) instead of close to the following
+   paragraph. */
+h1, h2 {
+  padding-bottom: 0.3em;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #d0d7de;
+}
+@media (prefers-color-scheme: dark) {
+  h1, h2 {
+    border-bottom-color: #30363d;
+  }
+}
+
+table th {
+  font-weight: 600;
+}
+
+table th, table td {
+  padding: 6px 13px;
+}
+
+/* Not GitHub's `display: block; overflow: auto` wide-table scroll wrapper --
+   would fight table-layout: fixed and this app's own table selection/editing. */
+.bordered-table-outer,
+.bordered-table-header,
+.bordered-table-cell,
+.bordered-table-header th,
+.bordered-table-cell th,
+.bordered-table-cell td,
+table:not(.bordered-table-none, .bordered-table-outer, .bordered-table-header, .bordered-table-cell),
+table:not(.bordered-table-none, .bordered-table-outer, .bordered-table-header, .bordered-table-cell) td,
+table:not(.bordered-table-none, .bordered-table-outer, .bordered-table-header, .bordered-table-cell) th {
+  border-color: #d0d7de;
+}
+@media (prefers-color-scheme: dark) {
+  .bordered-table-outer,
+  .bordered-table-header,
+  .bordered-table-cell,
+  .bordered-table-header th,
+  .bordered-table-cell th,
+  .bordered-table-cell td,
+  table:not(.bordered-table-none, .bordered-table-outer, .bordered-table-header, .bordered-table-cell),
+  table:not(.bordered-table-none, .bordered-table-outer, .bordered-table-header, .bordered-table-cell) td,
+  table:not(.bordered-table-none, .bordered-table-outer, .bordered-table-header, .bordered-table-cell) th {
+    border-color: #30363d;
+  }
+}
+
+/* This schema has no thead/tbody split, so GitHub's own `tr:nth-child(2n)`
+   (scoped within tbody, never touching the header row) isn't equivalent here --
+   excluding :first-child reproduces the same visual striping pattern against a
+   flat row list. Left transparent rather than GitHub's literal background color
+   so it matches whatever background the editor itself is using. */
+table tr:nth-child(odd):not(:first-child) {
+  background-color: #f6f8fa;
+}
+@media (prefers-color-scheme: dark) {
+  table tr:nth-child(odd):not(:first-child) {
+    background-color: #161b22;
+  }
+}
