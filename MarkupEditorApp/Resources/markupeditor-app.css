@@ -69,14 +69,16 @@ table th:not([colspan]) {
 /* GitHub underlines only H1/H2, via border-bottom rather than text-decoration.
    margin-bottom is raised from markup.css's shared 10px so the border sits close
    to the heading text (0.3em padding-bottom) instead of close to the following
-   paragraph. */
-h1, h2 {
+   paragraph. Excludes .Markup-stylelabel: the paragraph-style dropdown renders
+   its "Header 1"/"Header 2" entries as real h1/h2 elements for live style
+   preview, and this underline should not appear there. */
+h1:not(.Markup-stylelabel), h2:not(.Markup-stylelabel) {
   padding-bottom: 0.3em;
   margin-bottom: 16px;
   border-bottom: 1px solid #d0d7de;
 }
 @media (prefers-color-scheme: dark) {
-  h1, h2 {
+  h1:not(.Markup-stylelabel), h2:not(.Markup-stylelabel) {
     border-bottom-color: #30363d;
   }
 }
