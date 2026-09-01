@@ -18,11 +18,13 @@ struct ImageInsertView: View {
     @Binding private var presented: Bool
     @State private var src: String = MarkupEditor.selectionState.src ?? ""
     @State private var alt: String = MarkupEditor.selectionState.alt ?? ""
+    @State private var fileImporterShowing: Bool = false
     @FocusState private var focus: FocusField?
     private var originalSrc: String? = MarkupEditor.selectionState.src
     private var originalAlt: String? = MarkupEditor.selectionState.alt
     private var argSrc: String? { src.isEmpty ? nil : src.trimmingCharacters(in: .whitespacesAndNewlines) }
-    
+    private var selectImageEnabled: Bool { BehaviorConfig.fromDefaults().selectImage }
+
     var body: some View {
         //let _ = Self._printChanges()
         VStack {
@@ -35,6 +37,10 @@ struct ImageInsertView: View {
                 .focused($focus, equals: .alt)
             Spacer()
             HStack {
+                if selectImageEnabled {
+                    styledButton("Select...", isDefault: false, action: { fileImporterShowing = true })
+                }
+                Spacer()
                 styledButton("Cancel", isDefault: !isSavable(), action: cancel)
                     .keyboardShortcut(isSavable() ? .cancelAction : .defaultAction)
                 styledButton("Save", isDefault: isSavable(), action: save)
@@ -46,6 +52,13 @@ struct ImageInsertView: View {
         .padding(.horizontal, 8)
         .onAppear {
             focus = .src
+        }
+        .fileImporter(isPresented: $fileImporterShowing, allowedContentTypes: MarkupEditor.supportedImageTypes, allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                let accessing = url.startAccessingSecurityScopedResource()
+                defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                selectLocalImage(url: url)
+            }
         }
         .frame(width: 300)
     }
@@ -71,7 +84,12 @@ struct ImageInsertView: View {
         MarkupEditor.selectedWebView?.insertImage(src: argSrc, alt: alt)
         dismiss()
     }
-    
+
+    private func selectLocalImage(url: URL) {
+        MarkupEditor.selectedWebView?.insertLocalImage(url: url)
+        dismiss()
+    }
+
     private func cancel() {
         dismiss()
     }
