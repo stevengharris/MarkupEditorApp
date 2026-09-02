@@ -26,6 +26,20 @@ struct MarkupDocumentView: View {
     @State private var document = MarkupDocument()  // The document we are editing, Markdown by default
     @State private var currentHtml = ""             // HTML for the MarkupEditorView when it starts or refreshes
     @State private var currentSource: String = ""   // HTML or Markdown that is shown in SourceView
+    // UTF-16 code unit offset to place SourceView's cursor at when it next appears -- set
+    // by handleToggleSource before flipping sourceShowing (Document -> Source), consumed
+    // and cleared by SourceView itself.
+    @State private var pendingSourceOffset: Int? = nil
+    // Top-level block index to restore the ProseMirror selection to once the next
+    // MarkupWKWebView finishes loading -- set by handleToggleSource before flipping
+    // sourceShowing (Source -> Document), consumed and cleared in markupDidLoad.
+    @State private var pendingBlockIndex: Int? = nil
+    // Live-tracked UTF-16 code unit offset of SourceView's current cursor position,
+    // kept in sync by SourceView itself via its `currentOffset` binding. Read (not
+    // consumed/cleared) by handleToggleSource when the user toggles away from source --
+    // `nil` means "no selection change observed yet in this SourceView instance," not
+    // "offset 0"; callers must supply their own fallback.
+    @State private var sourceCursorOffset: Int? = nil
     @State private var documentPickerShowing: Bool = false
     @State private var sourceShowing: Bool = false
     @State private var popupAnchor: PopoverAttachmentAnchor = PopoverAttachmentAnchor.rect(.rect(CGRect.zero))
@@ -55,7 +69,9 @@ struct MarkupDocumentView: View {
                     if sourceShowing {
                         SourceView(
                             document: $document,
-                            source: $currentSource
+                            source: $currentSource,
+                            pendingOffset: $pendingSourceOffset,
+                            currentOffset: $sourceCursorOffset
                         )
                     } else {
                         MarkupEditorView(
@@ -291,6 +307,7 @@ struct MarkupDocumentView: View {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard await checkSave() else { return }
         editLog.info("Opening a new document")
+        clearPendingSelectionRestoreState()
         // Not routed through seedMetadataBlock/setHTML: document.metadata is empty again
         // immediately after document.reset() below, so seeding would be a no-op, while
         // webView.emptyDocument() also clears MU's selectedID, which setHTML alone does not.
@@ -340,18 +357,75 @@ struct MarkupDocumentView: View {
     }
     
     /// Toggle the source view. Trigger a content refresh of the new view that opens.
+    ///
+    /// Both directions capture a selection-preservation target BEFORE the toggle and
+    /// store it in `pendingSourceOffset`/`pendingBlockIndex`, consumed by SourceView's
+    /// own `.onAppear` and by `markupDidLoad` respectively. HTML documents are excluded
+    /// in both directions: `document.isHTMLish` sources are raw HTML, and
+    /// blockIndexAtOffset/offsetForBlockIndex are markdown-it based -- applying them to
+    /// HTML would produce a meaningless offset, not just an imprecise one, so this skips
+    /// restore entirely for HTML documents rather than risk that.
     private func handleToggleSource() async {
         if !sourceShowing {
-            // If we are viewing the MarkupEditor, then set the document source
-            // to what is currently in the view before showing the source.
+            // Document -> Source. Capture the ProseMirror selection's top-level block
+            // index BEFORE setDocumentSourceFromView() -- the webView's live doc is still
+            // the one the selection was captured against. Convert to a UTF-16 offset
+            // AFTER that call, against the freshly-derived currentSource, since
+            // offsetForBlockIndex measures against the actual text SourceView is about
+            // to display (frontmatter injected, HTML-ish handling applied, etc. --
+            // whatever setDocumentSourceFromView() just did).
+            let webView = MarkupEditor.selectedWebView
+            let blockIndex = await webView?.getSelectionBlockIndex()
             await setDocumentSourceFromView()
+            if document.isHTMLish {
+                pendingSourceOffset = nil
+            } else if let blockIndex, let webView {
+                pendingSourceOffset = await webView.offsetForBlockIndex(markdownText: currentSource, index: blockIndex)
+            } else {
+                pendingSourceOffset = nil
+            }
             withAnimation(.easeInOut(duration: 0.25)) { sourceShowing.toggle() }
         } else {
-            // Else, the document.source contains any changes to source,
-            // so we need to set the initialSource (HTML) based on it.
+            // Source -> Document. Capture SourceView's live cursor offset (sourceCursorOffset,
+            // kept in sync by SourceView itself; nil means "no selection change observed
+            // in this instance," treated as the top of the document -- a harmless,
+            // accepted approximation, not a bug) and convert it to a top-level block
+            // index against the CURRENT currentSource. setCurrentHtmlFromSource() only
+            // derives currentHtml from currentSource -- it doesn't mutate currentSource --
+            // so this capture is independent of whether it runs before or after; captured
+            // first to keep the "capture, then transition, then toggle" shape symmetric
+            // with the other direction.
+            //
+            // blockIndexAtOffset is a pure markdown-text function (no dependency on the
+            // CALLING webView's own loaded document), so the still-alive-but-orphaned
+            // webView from before this toggle (MarkupEditorView's branch isn't mounted
+            // while sourceShowing is true, so there is no "current" webView in the normal
+            // sense) is a valid bridge to call it through.
+            if document.isHTMLish {
+                pendingBlockIndex = nil
+            } else {
+                let offset = sourceCursorOffset ?? 0
+                pendingBlockIndex = await MarkupEditor.selectedWebView?.blockIndexAtOffset(markdownText: currentSource, offset: offset)
+            }
             await setCurrentHtmlFromSource()
             withAnimation(.easeInOut(duration: 0.25)) { sourceShowing.toggle() }
         }
+    }
+
+    /// Clears both selection-restore targets (and the live-tracked source cursor offset
+    /// that feeds one of them) so a value captured for one document/toggle can never be
+    /// misapplied to a different one that replaces it before the value is consumed.
+    /// `pendingBlockIndex` in particular is set just before `sourceShowing.toggle()`
+    /// returns, well before the new MarkupWKWebView's async `loadInitialHtml` actually
+    /// fires `markupDidLoad` -- a user CAN trigger a New/Open in that window, since
+    /// `handleToggleSource()` doesn't await the new webview's load. Called from every
+    /// place a document can change out from under a pending value: handleNew() and
+    /// openDocument(at:) (the shared entry point for Open, Open Recent, onOpenURL, and
+    /// the pendingURL branch of markupDidLoad itself).
+    private func clearPendingSelectionRestoreState() {
+        pendingSourceOffset = nil
+        pendingBlockIndex = nil
+        sourceCursorOffset = nil
     }
 
     /// The user selected a file from the Open Recent menu
@@ -471,6 +545,10 @@ struct MarkupDocumentView: View {
     /// The user identified the `url` of a document to open. It should just have one of the `DocumentType.exts()`,
     /// but if not, then let the user know and return.
     private func openDocument(at url: URL) async {
+        // Single choke point for Open/Open Recent/onOpenURL/pendingURL-in-markupDidLoad --
+        // any of those replace the document out from under a pending selection-restore
+        // target, which would otherwise land on unrelated content once consumed.
+        clearPendingSelectionRestoreState()
         guard let docType = DocumentType.for(url: url) else {
             let supported = DocumentType.exts().joined(separator: ", ")
             let alert = NSAlert()
@@ -721,9 +799,42 @@ extension MarkupDocumentView: MarkupDelegate {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(!AppConfig.shared.isHidden())
         if let url = AppDelegate.consumePendingURL() {
+            // A freshly-opened document invalidates any stale restore target left over
+            // from whatever toggle/document preceded it.
+            pendingBlockIndex = nil
             Task {
                 await openDocument(at: url)
                 handler?()
+            }
+        } else if let blockIndex = pendingBlockIndex {
+            pendingBlockIndex = nil // consumed exactly once
+            // handler?() runs the package's own focus/placement first (loadInitialHtml
+            // -> becomeFirstResponderIfReady() -> focus { setSelection() }); selectBlockIndex
+            // is dispatched after. Existing pendingURL behavior above is untouched; this is
+            // an added `else if`, never reached when a pendingURL is also present.
+            //
+            // This restore is not protected by JS-call submission order. In
+            // MarkupWKWebView.swift, becomeFirstResponderIfReady() calls
+            // focus { self.setSelection() }; focus()'s own executeJavaScript("MU.focus()")
+            // completion -- an async WebKit IPC round trip -- is what invokes setSelection(),
+            // which then calls getSelectionState (a second async round trip) and, only if
+            // that reports an invalid selection, calls resetSelection() ("reset the
+            // selection to the beginning of the document") -- the actual competing write.
+            // That path needs two completed WebKit round trips before it can even be
+            // dispatched, all after handler?() has already returned here.
+            //
+            // What actually protects the restore: `Task { await view.selectBlockIndex(...) }`
+            // resumes at the next main-actor turn -- a fast, in-process hop with no IPC wait
+            // -- so its own executeJavaScript("MU.selectBlockIndex(...)") call reaches
+            // WebKit and executes well before resetSelection()'s two-round-trip path could
+            // even be enqueued. This is a latency race (microseconds vs. milliseconds), not
+            // a call-ordering guarantee -- it holds given typical relative timings, but a
+            // future change to MarkupWKWebView.swift's dispatch structure or WebKit's own
+            // IPC timing could shift the balance. Verify the restored selection is actually
+            // visible/correct in the running app rather than trusting this reasoning alone.
+            handler?()
+            Task {
+                await view.selectBlockIndex(blockIndex)
             }
         }
     }

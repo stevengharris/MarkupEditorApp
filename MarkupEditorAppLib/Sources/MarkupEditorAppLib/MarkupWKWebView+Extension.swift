@@ -29,6 +29,75 @@ extension MarkupWKWebView {
         }
     }
 
+    /// The top-level block index (0-based) containing the active editor's current selection,
+    /// or `nil` if there is no active view (`MU.getSelectionBlockIndex()` returns JS `null` in
+    /// that case) or the JS call itself errors.
+    public func getSelectionBlockIndex() async -> Int? {
+        await withCheckedContinuation { continuation in
+            executeJavaScript("MU.getSelectionBlockIndex()") { result, error in
+                if let error { Logger.webview.error("Error getting selection block index: \(error)") }
+                continuation.resume(returning: error == nil ? Self.jsInt(result) : nil)
+            }
+        }
+    }
+
+    /// Select the start of the `index`th top-level block in the active editor. No-ops when
+    /// there is no active view or `index` is out of range (`MU.selectBlockIndex` clamps rather
+    /// than throwing -- see markupeditor-app/src/blocks.js).
+    public func selectBlockIndex(_ index: Int) async {
+        await withCheckedContinuation { continuation in
+            executeJavaScript("MU.selectBlockIndex(\(index))") { _, error in
+                if let error { Logger.webview.error("Error selecting block index \(index): \(error)") }
+                continuation.resume()
+            }
+        }
+    }
+
+    /// The top-level markdown block index (0-based) containing `offset` in `markdownText`, or
+    /// `nil` on error.
+    ///
+    /// `offset` is a **UTF-16 code unit offset**, not a `Character`/grapheme-cluster count --
+    /// the unit `markupeditor-app/src/blocks.js`'s `blockIndexAtOffset`/`offsetForBlockIndex`
+    /// were built on (JS strings are UTF-16 code unit sequences; see that file's "OFFSET UNIT
+    /// DECISION" comment). This function does no unit conversion itself -- it passes `offset`
+    /// through to JS as a bare numeric literal and returns whatever JS computes, unchanged.
+    /// The conversion point is upstream: whoever derives `offset` from a Swift `String`
+    /// position (or consumes this function's returned index to derive one) MUST measure via
+    /// that string's `.utf16` view, never `String.count`/`Character`-based indexing -- Swift's
+    /// grapheme-cluster counting diverges from JS's UTF-16 indexing on emoji/combining marks,
+    /// silently drifting the offset on any document containing them.
+    public func blockIndexAtOffset(markdownText: String, offset: Int) async -> Int? {
+        await withCheckedContinuation { continuation in
+            executeJavaScript("MU.blockIndexAtOffset('\(markdownText.escaped)', \(offset))") { result, error in
+                if let error { Logger.webview.error("Error getting block index at offset \(offset): \(error)") }
+                continuation.resume(returning: error == nil ? Self.jsInt(result) : nil)
+            }
+        }
+    }
+
+    /// The character offset (0-based) of the start of the `index`th top-level markdown block
+    /// in `markdownText`, or `nil` on error.
+    ///
+    /// Returns a **UTF-16 code unit offset** -- see `blockIndexAtOffset`'s doc comment for the
+    /// full rationale and the same conversion-point warning; it applies symmetrically here.
+    public func offsetForBlockIndex(markdownText: String, index: Int) async -> Int? {
+        await withCheckedContinuation { continuation in
+            executeJavaScript("MU.offsetForBlockIndex('\(markdownText.escaped)', \(index))") { result, error in
+                if let error { Logger.webview.error("Error getting offset for block index \(index): \(error)") }
+                continuation.resume(returning: error == nil ? Self.jsInt(result) : nil)
+            }
+        }
+    }
+
+    /// Bridges a JS number result (an `NSNumber`, since `executeJavaScript` hands back `Any?`)
+    /// to `Int` without force-casting. JS `null`/`undefined` bridge to `NSNull`/`nil`, neither
+    /// of which satisfies either cast, so both correctly fall through to `nil` here.
+    private static func jsInt(_ result: Any?) -> Int? {
+        if let value = result as? Int { return value }
+        if let number = result as? NSNumber { return number.intValue }
+        return nil
+    }
+
     /// Invoke the plugin registered under `name` (via `MU.runPlugin(name)`) and return its raw,
     /// undecoded result. Uses `callAsyncJavaScript` rather than the package's `executeJavaScript`
     /// wrapper, since only `callAsyncJavaScript` awaits a returned `Promise` —
