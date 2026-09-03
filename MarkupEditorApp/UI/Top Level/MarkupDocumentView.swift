@@ -699,7 +699,8 @@ struct MarkupDocumentView: View {
         guard document.hasChanges || newURL != nil else { return }   // newURL passed for saveAs
         guard let webView = MarkupEditor.selectedWebView else { return }
         let oldURL = document.url
-        document.url = newURL ?? getSaveURL()
+        // If newURL is unspecified, then use oldURL if it exists, else get a new one from the user.
+        document.url = newURL ?? oldURL ?? getSaveURL()
         guard let url = document.url else {
             document.url = oldURL
             return
