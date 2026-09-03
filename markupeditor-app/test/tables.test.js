@@ -279,7 +279,7 @@ describe('table cell inline content (marks and images)', () => {
 })
 
 describe('table cell block content (approximated with a warning -- GFM cells have no block syntax)', () => {
-  test('two paragraphs in one cell are joined with a line break and warn about flattening', () => {
+  test('two paragraphs in one cell are joined with a line break and warn about nothing -- this round-trips losslessly', () => {
     const doc = schema.nodes.doc.create(null, [
       makeTable(null, [
         makeRow([makeHeaderCell('Col')]),
@@ -293,7 +293,7 @@ describe('table cell block content (approximated with a warning -- GFM cells hav
     ])
     const { md, warnings } = serialize(doc)
 
-    expect(warnings.some(w => w.toLowerCase().includes('multiple blocks'))).toBe(true)
+    expect(warnings).toHaveLength(0)
     const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
     expect(lines[2]).toBe('| first<br>second |')
   })
@@ -391,7 +391,7 @@ describe('the <br> a flattened cell emits round-trips back into real block struc
       ])
     ])
     const { md, warnings: serializeWarnings } = serialize(doc)
-    expect(serializeWarnings.some(w => w.toLowerCase().includes('multiple blocks'))).toBe(true)
+    expect(serializeWarnings).toHaveLength(0)
 
     const { doc: parsedDoc, warnings: parseWarnings } = parse(md)
     expect(parseWarnings.some(w => w.toLowerCase().includes('stripped'))).toBe(false)

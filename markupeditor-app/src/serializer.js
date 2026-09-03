@@ -135,10 +135,6 @@ function serializeCell(state, cell, warnings, cellState) {
   const blocks = []
   cell.forEach(child => blocks.push(child))
 
-  if (blocks.length > 1) {
-    warnings.add('Table cell contains multiple blocks; flattened onto one line')
-  }
-
   const pieces = blocks.map(block => serializeCellBlock(state, block, warnings, cellState))
   return pieces.join('<br>').trim().replace(/\|/g, '\\|')
 }

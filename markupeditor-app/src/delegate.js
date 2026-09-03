@@ -31,4 +31,21 @@ export class MarkupEditorDelegate {
         return true
     }
 
+    // GFM table cells have no block-content syntax -- a heading or list in a
+    // cell can only be represented via a lossy, warned approximation in the
+    // serializer. Vetoing them here means a user never reaches that.
+    canStyle(inTable) {
+        return !inTable
+    }
+
+    canList(inTable) {
+        return !inTable
+    }
+
+    // A horizontal rule inside a table cell has no Markdown equivalent either --
+    // same reasoning as canStyle/canList above.
+    canInsertHRule(inTable) {
+        return !inTable
+    }
+
 }
