@@ -67,25 +67,34 @@ export function makeParser(schema, warnings) {
     return m ? m[1] : null
   }
 
+  // Tracks whether the parser is currently inside a table_cell/table_header, so
+  // html_inline (below) can treat a <br> there as a paragraph break instead of an
+  // inline hard_break -- see that handler for why.
+  let inCell = false
+
   // Manually add cell handlers that wrap content in a paragraph.
   // We reach into the tokenHandlers map after construction via a wrapper.
   const cellOpen = (state, tok) => {
     const align = alignFromToken(tok)
     state.openNode(schema.nodes.table_cell, align ? { align } : null)
     state.openNode(schema.nodes.paragraph, null)
+    inCell = true
   }
   const cellClose = (state) => {
     state.closeNode() // close paragraph
     state.closeNode() // close table_cell
+    inCell = false
   }
   const headerCellOpen = (state, tok) => {
     const align = alignFromToken(tok)
     state.openNode(schema.nodes.table_header, align ? { align } : null)
     state.openNode(schema.nodes.paragraph, null)
+    inCell = true
   }
   const headerCellClose = (state) => {
     state.closeNode() // close paragraph
     state.closeNode() // close table_header
+    inCell = false
   }
 
   // Build the parser, then replace the auto-generated th/td handlers with our
@@ -130,9 +139,25 @@ export function makeParser(schema, warnings) {
     }
   }
 
-  // html_inline: <img> within paragraph text becomes an inline image node;
-  // everything else warns and is dropped.
+  // html_inline: <img> within paragraph text becomes an inline image node.
+  // <br> is context-dependent: inside a table cell, the serializer only ever emits
+  // <br> to join separate BLOCKS it had to flatten onto one line (multiple
+  // paragraphs, or a list's items) -- so importing it back as a paragraph break
+  // (close the current paragraph, open a fresh one in the same cell) reconstructs
+  // that structure, letting a cell with real multiple paragraphs round-trip through
+  // Markdown and back losslessly instead of collapsing into one paragraph. Outside
+  // a cell, <br> becomes a real inline hard_break node instead, since there's no
+  // enclosing block to split there. Everything else warns and is dropped.
   parser.tokenHandlers['html_inline'] = (state, tok) => {
+    if (/^<br\s*\/?>$/i.test(tok.content.trim())) {
+      if (inCell) {
+        state.closeNode()
+        state.openNode(schema.nodes.paragraph, null)
+      } else {
+        state.addNode(schema.nodes.hard_break)
+      }
+      return
+    }
     const img = parseImgTag(tok.content)
     if (img && img.src) {
       state.addNode(schema.nodes.image, img)

@@ -45,6 +45,105 @@ function alignMarker(align) {
 }
 
 /**
+ * Render `node`'s inline content (marks, images, etc.) through the serializer's own
+ * node/mark rules, capturing the result as a plain string instead of writing it into
+ * the document output -- MarkdownSerializerState has no API for rendering inline
+ * content in isolation, so this borrows its `out` buffer temporarily.
+ *
+ * Sets `cellState.active` for the duration of the render so the `hard_break` node
+ * rule (see makeSerializer below) knows to emit `<br>` instead of its normal
+ * backslash-newline -- a literal newline here would corrupt the pipe-table row this
+ * content is being rendered into.
+ *
+ * @param {import('prosemirror-markdown').MarkdownSerializerState} state
+ * @param {import('prosemirror-model').Node} node
+ * @param {{active: boolean}} cellState
+ * @returns {string}
+ */
+function renderInlineToString(state, node, cellState) {
+  const savedOut = state.out
+  const savedClosed = state.closed
+  const savedAtBlockStart = state.atBlockStart
+  const savedActive = cellState.active
+  state.out = ''
+  state.closed = null
+  cellState.active = true
+  state.renderInline(node)
+  const rendered = state.out
+  state.out = savedOut
+  state.closed = savedClosed
+  state.atBlockStart = savedAtBlockStart
+  cellState.active = savedActive
+  return rendered
+}
+
+/**
+ * Serialize one block child of a table cell to a single line of inline Markdown.
+ * GFM pipe-table cells have no block-content syntax, so anything block-shaped here
+ * (heading, list, or a type this function doesn't otherwise recognize) is a lossy
+ * approximation flagged via `warnings`, never a silent drop.
+ *
+ * @param {import('prosemirror-markdown').MarkdownSerializerState} state
+ * @param {import('prosemirror-model').Node} block
+ * @param {ReturnType<typeof import('./warnings.js').makeWarnings>} warnings
+ * @param {{active: boolean}} cellState
+ * @returns {string}
+ */
+function serializeCellBlock(state, block, warnings, cellState) {
+  switch (block.type.name) {
+    case 'paragraph':
+      return renderInlineToString(state, block, cellState)
+    case 'heading':
+      warnings.add('Heading inside table cell has no Markdown equivalent; rendered as bold text')
+      return '**' + renderInlineToString(state, block, cellState) + '**'
+    case 'bullet_list':
+    case 'ordered_list': {
+      warnings.add('List inside table cell has no Markdown equivalent; flattened to inline text')
+      const items = []
+      let n = 1
+      block.forEach(item => {
+        const prefix = block.type.name === 'ordered_list' ? `${n}.` : '•'
+        const itemPieces = []
+        item.forEach(itemChild => itemPieces.push(serializeCellBlock(state, itemChild, warnings, cellState)))
+        items.push(prefix + ' ' + itemPieces.join('<br>'))
+        n++
+      })
+      return items.join('<br>')
+    }
+    default:
+      warnings.add(`Table cell content (${block.type.name}) has no Markdown equivalent; flattened to plain text`)
+      return state.esc(block.textContent.trim())
+  }
+}
+
+/**
+ * Serialize a table_cell/table_header's content to the single line of text a GFM
+ * pipe-table row cell can hold. A cell's schema content is `block+` (it can legally
+ * hold multiple paragraphs, headings, or lists), none of which pipe-table syntax can
+ * represent as block content -- each block is rendered by serializeCellBlock and
+ * joined with `<br>` (real inline HTML, valid inside a GFM cell), and a literal `|`
+ * is escaped afterward since MarkdownSerializerState.esc() doesn't escape it (it's
+ * only special inside a table row, which esc() has no notion of).
+ *
+ * @param {import('prosemirror-markdown').MarkdownSerializerState} state
+ * @param {import('prosemirror-model').Node} cell
+ * @param {ReturnType<typeof import('./warnings.js').makeWarnings>} warnings
+ * @param {{active: boolean}} cellState
+ * @returns {string}
+ */
+function serializeCell(state, cell, warnings, cellState) {
+  const blocks = []
+  cell.forEach(child => blocks.push(child))
+
+  if (blocks.length > 1) {
+    warnings.add('Table cell contains multiple blocks; flattened onto one line')
+  }
+
+  const pieces = blocks.map(block => serializeCellBlock(state, block, warnings, cellState))
+  return pieces.join('<br>').trim().replace(/\|/g, '\\|')
+}
+
+/**
  * Build a MarkdownSerializer that extends the default one with custom
  * node and mark rules for the MarkupEditor schema.
  *
@@ -52,8 +151,29 @@ function alignMarker(align) {
  * @returns {MarkdownSerializer}
  */
 export function makeSerializer(warnings) {
+  // Shared with renderInlineToString/serializeCellBlock/serializeCell: true while
+  // rendering a table cell's inline content, so hard_break below knows to emit
+  // <br> instead of its usual backslash-newline (which would corrupt the row).
+  const cellState = { active: false }
+
   // Custom node rules extending the default set
   const nodes = Object.assign({}, defaultMarkdownSerializer.nodes, {
+
+    // hard_break: inside a table cell, emit <br> (real inline HTML, stays on one
+    // line); everywhere else, same behavior as prosemirror-markdown's own default
+    // (skip a trailing break with nothing after it before the block ends).
+    hard_break(state, node, parent, index) {
+      if (cellState.active) {
+        state.write('<br>')
+        return
+      }
+      for (let i = index + 1; i < parent.childCount; i++) {
+        if (parent.child(i).type !== node.type) {
+          state.write('\\\n')
+          return
+        }
+      }
+    },
 
     // image: emit <img> when width or height is set (preserves sizing); fall back to ![alt](src)
     image(state, node) {
@@ -92,7 +212,7 @@ export function makeSerializer(warnings) {
       const cells = []
       const markers = []
       headerRow.forEach(cell => {
-        cells.push(cell.textContent.trim())
+        cells.push(serializeCell(state, cell, warnings, cellState))
         markers.push(alignMarker(cell.attrs.align))
       })
       state.write('| ' + cells.join(' | ') + ' |')
@@ -106,7 +226,7 @@ export function makeSerializer(warnings) {
       for (let i = 1; i < rows.length; i++) {
         const rowCells = []
         rows[i].forEach(cell => {
-          rowCells.push(cell.textContent.trim())
+          rowCells.push(serializeCell(state, cell, warnings, cellState))
         })
         state.write('| ' + rowCells.join(' | ') + ' |')
         state.write('\n')

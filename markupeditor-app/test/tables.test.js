@@ -200,6 +200,261 @@ describe('column alignment', () => {
   })
 })
 
+describe('table cell inline content (marks and images)', () => {
+  test('bold and italic marks inside a cell serialize as real Markdown emphasis, not flattened to plain text', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.paragraph.create(null, [
+              schema.text('bold', [schema.marks.strong.create()]),
+              schema.text(' and '),
+              schema.text('italic', [schema.marks.em.create()])
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings).toHaveLength(0)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| **bold** and *italic* |')
+  })
+
+  test('a link mark inside a cell serializes as a real Markdown link', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.paragraph.create(null, [
+              schema.text('link', [schema.marks.link.create({ href: 'https://example.com' })])
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings).toHaveLength(0)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| [link](https://example.com) |')
+  })
+
+  test('an image inside a cell serializes as a real Markdown image, not silently dropped', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.paragraph.create(null, [
+              schema.nodes.image.create({ src: 'foo.png', alt: 'Foo' })
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings).toHaveLength(0)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| ![Foo](foo.png) |')
+  })
+
+  test('a literal pipe character in cell text is escaped so it does not break the row', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([makeCell('a | b')])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings).toHaveLength(0)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| a \\| b |')
+  })
+})
+
+describe('table cell block content (approximated with a warning -- GFM cells have no block syntax)', () => {
+  test('two paragraphs in one cell are joined with a line break and warn about flattening', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.paragraph.create(null, [schema.text('first')]),
+            schema.nodes.paragraph.create(null, [schema.text('second')])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings.some(w => w.toLowerCase().includes('multiple blocks'))).toBe(true)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| first<br>second |')
+  })
+
+  test('a heading in a cell is rendered as bold text and warns that heading semantics are lost', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.heading.create({ level: 2 }, [schema.text('Heading')])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings.some(w => w.toLowerCase().includes('heading'))).toBe(true)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| **Heading** |')
+  })
+
+  test('a bullet list in a cell is flattened to bullet-prefixed lines joined with a line break, with a warning', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.bullet_list.create(null, [
+              schema.nodes.list_item.create(null, [schema.nodes.paragraph.create(null, [schema.text('one')])]),
+              schema.nodes.list_item.create(null, [schema.nodes.paragraph.create(null, [schema.text('two')])])
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings.some(w => w.toLowerCase().includes('list'))).toBe(true)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| • one<br>• two |')
+  })
+
+  test('an ordered list in a cell is flattened to numbered lines joined with a line break, with a warning', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.ordered_list.create(null, [
+              schema.nodes.list_item.create(null, [schema.nodes.paragraph.create(null, [schema.text('one')])]),
+              schema.nodes.list_item.create(null, [schema.nodes.paragraph.create(null, [schema.text('two')])])
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings.some(w => w.toLowerCase().includes('list'))).toBe(true)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| 1. one<br>2. two |')
+  })
+})
+
+describe('the <br> a flattened cell emits round-trips back into real block structure', () => {
+  test('parsing a cell containing <br> splits it into two paragraphs, not a stripped tag or an inline hard_break', () => {
+    const md = [
+      '| Col |',
+      '| --- |',
+      '| one<br>two |'
+    ].join('\n')
+    const { doc, warnings } = parse(md)
+
+    expect(warnings.some(w => w.toLowerCase().includes('stripped'))).toBe(false)
+
+    const cell = doc.firstChild.child(1).child(0) // table -> body table_row -> table_cell
+    expect(cell.childCount).toBe(2)
+    expect(cell.child(0).type.name).toBe('paragraph')
+    expect(cell.child(0).textContent).toBe('one')
+    expect(cell.child(1).type.name).toBe('paragraph')
+    expect(cell.child(1).textContent).toBe('two')
+  })
+
+  test('a cell with two real paragraphs round-trips through Markdown and back to two paragraphs, not one flattened blob', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.paragraph.create(null, [schema.text('first')]),
+            schema.nodes.paragraph.create(null, [schema.text('second')])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings: serializeWarnings } = serialize(doc)
+    expect(serializeWarnings.some(w => w.toLowerCase().includes('multiple blocks'))).toBe(true)
+
+    const { doc: parsedDoc, warnings: parseWarnings } = parse(md)
+    expect(parseWarnings.some(w => w.toLowerCase().includes('stripped'))).toBe(false)
+
+    const cell = parsedDoc.firstChild.child(1).child(0)
+    expect(cell.childCount).toBe(2)
+    expect(cell.child(0).type.name).toBe('paragraph')
+    expect(cell.child(0).textContent).toBe('first')
+    expect(cell.child(1).type.name).toBe('paragraph')
+    expect(cell.child(1).textContent).toBe('second')
+
+    // And exporting the reconstructed doc reproduces the same Markdown -- the full
+    // round trip (export -> import -> export) is stable, not just the structure.
+    const { md: md2 } = serialize(parsedDoc)
+    expect(md2.trim()).toBe(md.trim())
+  })
+
+  test('re-serializing a cell whose paragraph contains a hard_break emits <br>, not a literal newline that would corrupt the row -- defensive: the parser itself no longer produces this shape from <br> in a cell, but a hard_break could still arrive there some other way (e.g. a hand-built doc, or a future non-Markdown import path)', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.paragraph.create(null, [
+              schema.text('one'),
+              schema.nodes.hard_break.create(),
+              schema.text('two')
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md, warnings } = serialize(doc)
+
+    expect(warnings).toHaveLength(0)
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    expect(lines[2]).toBe('| one<br>two |')
+  })
+
+  test('a bullet list flattened to <br>-joined cell text survives export -> import -> export unchanged (idempotent past the initial flatten)', () => {
+    const doc = schema.nodes.doc.create(null, [
+      makeTable(null, [
+        makeRow([makeHeaderCell('Col')]),
+        makeRow([
+          schema.nodes.table_cell.create(null, [
+            schema.nodes.bullet_list.create(null, [
+              schema.nodes.list_item.create(null, [schema.nodes.paragraph.create(null, [schema.text('one')])]),
+              schema.nodes.list_item.create(null, [schema.nodes.paragraph.create(null, [schema.text('two')])])
+            ])
+          ])
+        ])
+      ])
+    ])
+    const { md: md1 } = serialize(doc)
+    const { doc: parsedDoc, warnings: parseWarnings } = parse(md1)
+
+    expect(parseWarnings.some(w => w.toLowerCase().includes('stripped'))).toBe(false)
+
+    const { md: md2 } = serialize(parsedDoc)
+    expect(md2.trim()).toBe(md1.trim())
+  })
+})
+
 describe('table with class attribute', () => {
   test('class is dropped, warning is emitted, table content is still correct', () => {
     const doc = schema.nodes.doc.create(null, [
