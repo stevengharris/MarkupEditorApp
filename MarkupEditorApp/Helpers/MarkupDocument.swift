@@ -33,7 +33,7 @@ import Observation
     private var markdown: String
     var documentType: DocumentType = .md
     var metadata: [MetadataTuple] = [] {
-        didSet { hasChanges = true }
+        didSet { if metadata != oldValue { hasChanges = true } }
     }
     var isHTMLish: Bool { documentType == .html }
     

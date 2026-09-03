@@ -107,15 +107,11 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(!warnings.isEmpty)
     }
 
-    // Pins existing behavior rather than fixing it: syncMetadata always reassigns
-    // `metadata` when a block is found, with no equality check against the current
-    // value, and `metadata`'s didSet (MarkupDocument.swift:36) sets `hasChanges = true`
-    // unconditionally on every assignment -- Swift property observers fire on every
-    // `set` regardless of whether the new value equals the old one. So re-syncing
-    // byte-identical frontmatter content still marks the document dirty. Left
-    // unfixed here; a fix would give syncMetadata (or the didSet) an equality check
-    // before reassigning.
-    @Test func reSyncingIdenticalMetadataContentStillSetsHasChanges() {
+    // metadata's didSet (MarkupDocument.swift:36) only sets `hasChanges = true` when the
+    // new value differs from oldValue, so reassigning it to byte-identical content -- as
+    // syncMetadata does on every call that finds a block, whether or not anything changed --
+    // is a no-op for dirty-tracking purposes.
+    @Test func reSyncingIdenticalMetadataContentLeavesHasChangesUnset() {
         let doc = MarkupDocument()
         let html = "<pre><code class=\"language-metadata\">title: Same</code></pre><h1>Hello</h1>"
         var warnings: [String] = []
@@ -124,7 +120,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
 
         doc.syncMetadata(fromHTML: html, warnings: &warnings) // identical content, no edits
 
-        #expect(doc.hasChanges == true, "KNOWN pre-existing bug (not introduced by this feature): syncMetadata dirties the document even when re-parsing byte-identical content")
+        #expect(doc.hasChanges == false)
     }
 }
 
