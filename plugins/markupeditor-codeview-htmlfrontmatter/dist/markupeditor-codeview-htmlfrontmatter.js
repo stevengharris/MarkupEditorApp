@@ -1,6 +1,6 @@
 import { MU, Selection, TextSelection, NodeSelection, __parseFromClipboard, Plugin } from './markup-editor.js';
 
-const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter to hide the tabs and outline when the\n   rendered block is selected. */\n\n#editor.Markup-exporting .frontmatter-mode-toggle {\n  display: none;\n}\n#editor.Markup-exporting .frontmatter-rendered-selected {\n  outline: none;\n}\n\n/* Rendered mode: only the <code> content collapses; the <pre> stays a\n   normal, visible box since it hosts the rendered box and tabs as real DOM\n   children.\n   Unlike Mermaid's equivalent rule, this is NOT keyed off a static\n   language-html class present in the schema's own toDOM output -- language\n   alone doesn't distinguish a position-0 preamble block from any other\n   html-language code_block elsewhere in the document, and only the former\n   should ever render live. Hiding is opt-in, driven entirely by JS toggling\n   .frontmatter-hidden-code once a FrontMatterView instance confirms both\n   the language AND the position-0 constraint. */\npre > code.frontmatter-hidden-code {\n  font-size: 0;\n  line-height: 0;\n}\n\n.frontmatter-hidden-code::selection {\n  background: transparent;\n}\n\n.frontmatter-hide-caret {\n  caret-color: transparent;\n}\n\n.frontmatter-mode-toggle {\n  position: absolute;\n  bottom: 100%;\n  font-size: 0.75rem;\n  padding: 2px 6px;\n  border: none;\n  border-radius: 4px 4px 0 0;\n  cursor: pointer;\n  opacity: 0.6;\n  color: white;\n  background: var(--Markup-accent-color, blue);\n}\n\n.frontmatter-mode-toggle:hover {\n  opacity: 0.9;\n}\n\n.frontmatter-mode-toggle-active {\n  opacity: 0.9;\n}\n\n/* Applied when the code_block is too close to the top of the view for a tab to fit above */\n.frontmatter-mode-toggle-below {\n  bottom: auto;\n  top: 100%;\n  border-radius: 0 0 4px 4px;\n}\n\n/* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) */\n@media (prefers-color-scheme: dark) {\n  .frontmatter-mode-toggle {\n    background: var(--Markup-accent-color, lightblue);\n    color: black;\n  }\n}\n\n/* Dashed outline for the rendered block when selected */\n.frontmatter-rendered-selected {\n  outline: 1px var(--Markup-accent-color, blue) dashed;\n  outline-offset: 0;\n}\n\n@media (prefers-color-scheme: dark) {\n  .frontmatter-rendered-selected {\n    outline: 1px var(--Markup-accent-color, lightblue) dashed;\n  }\n}\n\n/* dom (the <pre>, inherited from MU.CodeView) sets white-space: pre via\n   the browser's UA stylesheet. renderedContainer lives inside dom as a DOM\n   sibling of contentDOM, and white-space is an inherited property -- left\n   unreset, the pretty-printed source's newlines between inline elements\n   (e.g. the <img> tags in a centered badge row) render as literal forced\n   line breaks instead of collapsing to a single space the way a browser\n   normally treats whitespace between inline elements. Mermaid has no\n   equivalent because its rendered content is a single <svg> string with no\n   comparable inter-element whitespace to preserve. */\n.frontmatter-rendered {\n  white-space: normal;\n}\n\n.frontmatter-rendered, .frontmatter-placeholder {\n  margin-bottom: 15px;\n}\n\n.frontmatter-placeholder {\n  border: 1px dashed #888;\n  padding: 8px;\n}\n");
+const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter to hide the tabs and outline when the\n   rendered block is selected. */\n\n#editor.Markup-exporting .htmlfrontmatter-mode-toggle {\n  display: none;\n}\n#editor.Markup-exporting .htmlfrontmatter-rendered-selected {\n  outline: none;\n}\n\n/* Rendered mode: only the <code> content collapses; the <pre> stays a\n   normal, visible box since it hosts the rendered box and tabs as real DOM\n   children.\n   Unlike Mermaid's equivalent rule, this is NOT keyed off a static\n   language-html class present in the schema's own toDOM output -- language\n   alone doesn't distinguish a position-0 preamble block from any other\n   html-language code_block elsewhere in the document, and only the former\n   should ever render live. Hiding is opt-in, driven entirely by JS toggling\n   .htmlfrontmatter-hidden-code once a HTMLFrontMatterView instance confirms both\n   the language AND the position-0 constraint. */\npre > code.htmlfrontmatter-hidden-code {\n  font-size: 0;\n  line-height: 0;\n}\n\n.htmlfrontmatter-hidden-code::selection {\n  background: transparent;\n}\n\n.htmlfrontmatter-hide-caret {\n  caret-color: transparent;\n}\n\n.htmlfrontmatter-mode-toggle {\n  position: absolute;\n  bottom: 100%;\n  font-size: 0.75rem;\n  padding: 2px 6px;\n  border: none;\n  border-radius: 4px 4px 0 0;\n  cursor: pointer;\n  opacity: 0.6;\n  color: white;\n  background: var(--Markup-accent-color, blue);\n}\n\n.htmlfrontmatter-mode-toggle:hover {\n  opacity: 0.9;\n}\n\n.htmlfrontmatter-mode-toggle-active {\n  opacity: 0.9;\n}\n\n/* Applied when the code_block is too close to the top of the view for a tab to fit above */\n.htmlfrontmatter-mode-toggle-below {\n  bottom: auto;\n  top: 100%;\n  border-radius: 0 0 4px 4px;\n}\n\n/* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) */\n@media (prefers-color-scheme: dark) {\n  .htmlfrontmatter-mode-toggle {\n    background: var(--Markup-accent-color, lightblue);\n    color: black;\n  }\n}\n\n/* Dashed outline for the rendered block when selected */\n.htmlfrontmatter-rendered-selected {\n  outline: 1px var(--Markup-accent-color, blue) dashed;\n  outline-offset: 0;\n}\n\n@media (prefers-color-scheme: dark) {\n  .htmlfrontmatter-rendered-selected {\n    outline: 1px var(--Markup-accent-color, lightblue) dashed;\n  }\n}\n\n/* dom (the <pre>, inherited from MU.CodeView) sets white-space: pre via\n   the browser's UA stylesheet. renderedContainer lives inside dom as a DOM\n   sibling of contentDOM, and white-space is an inherited property -- left\n   unreset, the pretty-printed source's newlines between inline elements\n   (e.g. the <img> tags in a centered badge row) render as literal forced\n   line breaks instead of collapsing to a single space the way a browser\n   normally treats whitespace between inline elements. Mermaid has no\n   equivalent because its rendered content is a single <svg> string with no\n   comparable inter-element whitespace to preserve. */\n.htmlfrontmatter-rendered {\n  white-space: normal;\n}\n\n.htmlfrontmatter-rendered, .htmlfrontmatter-placeholder {\n  margin-bottom: 15px;\n}\n\n.htmlfrontmatter-placeholder {\n  border: 1px dashed #888;\n  padding: 8px;\n}\n");
 
 /*! @license DOMPurify 3.4.14 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.4.14/LICENSE */
 
@@ -2663,22 +2663,22 @@ function createDOMPurify() {
 }
 var purify = createDOMPurify();
 
-const TAB_CLASS = 'frontmatter-mode-toggle';
-const TAB_ACTIVE_CLASS = 'frontmatter-mode-toggle-active';
-const TAB_BELOW_CLASS = 'frontmatter-mode-toggle-below';
-const RENDERED_SELECTED_CLASS = 'frontmatter-rendered-selected';
-const HIDDEN_CODE_CLASS = 'frontmatter-hidden-code';
-const RENDERED_CLASS = 'frontmatter-rendered';
-const PLACEHOLDER_CLASS = 'frontmatter-placeholder';
+const TAB_CLASS = 'htmlfrontmatter-mode-toggle';
+const TAB_ACTIVE_CLASS = 'htmlfrontmatter-mode-toggle-active';
+const TAB_BELOW_CLASS = 'htmlfrontmatter-mode-toggle-below';
+const RENDERED_SELECTED_CLASS = 'htmlfrontmatter-rendered-selected';
+const HIDDEN_CODE_CLASS = 'htmlfrontmatter-hidden-code';
+const RENDERED_CLASS = 'htmlfrontmatter-rendered';
+const PLACEHOLDER_CLASS = 'htmlfrontmatter-placeholder';
 
-function isFrontMatterLanguage(language) {
+function isHTMLFrontMatterLanguage(language) {
     return (language ?? '').trim().toLowerCase() === 'html'
 }
 
 // A metadata code_block (a sibling plugin) is also a leading-position
 // block and takes position 0 when present, shifting the HTML preamble's
 // own valid position to right after it. A plain inline string check
-// rather than a package dependency, matching isFrontMatterLanguage's own
+// rather than a package dependency, matching isHTMLFrontMatterLanguage's own
 // "html" check.
 //
 // Returns a ProseMirror position, not a child index: the block after
@@ -2696,7 +2696,7 @@ function expectedPreamblePosition(doc) {
 // destroyed/recreated), but update() is never invoked. That means
 // update()'s own position-0 check below can never fire for exactly the
 // case it exists to catch. checkAllPositions(), called from
-// FrontMatterPlugin's Plugin view-update hook (which DOES fire on every
+// HTMLFrontMatterPlugin's Plugin view-update hook (which DOES fire on every
 // transaction, unlike a NodeView's own update()), is the actual
 // enforcement mechanism; update()'s check is defense in depth for the
 // (currently unobserved, but not provably impossible) case where a
@@ -2731,7 +2731,7 @@ const liveInstances = new Set();
  * siblings of contentDOM inside dom, matching MermaidView's tab pattern.
  * Mode ('source' | 'rendered') is plain instance state.
  */
-class FrontMatterView extends MU.CodeView {
+class HTMLFrontMatterView extends MU.CodeView {
     constructor(node, view, getPos, languageDialog, { sanitize = purify.sanitize, purifyConfig = {} } = {}) {
         super(node, view, getPos, languageDialog);
         this.getPos = getPos;
@@ -2779,7 +2779,7 @@ class FrontMatterView extends MU.CodeView {
         // identity without ProseMirror rebuilding the NodeView -- returning
         // false tells it to discard this instance and ask the factory
         // again, which (language no longer html) builds a plain CodeView.
-        if (!isFrontMatterLanguage(node.attrs.language)) return false
+        if (!isHTMLFrontMatterLanguage(node.attrs.language)) return false
         // Defense in depth, not the primary enforcement -- see the class
         // doc comment and liveInstances' comment. A pure position shift
         // (no attrs/content change) never reaches this method at all;
@@ -2841,7 +2841,7 @@ class FrontMatterView extends MU.CodeView {
 
     // The actual position-0 enforcement mechanism -- see the class doc
     // comment and liveInstances' comment for why this exists instead of
-    // relying on update(). Called from FrontMatterPlugin's Plugin
+    // relying on update(). Called from HTMLFrontMatterPlugin's Plugin
     // view-update hook on every transaction.
     static checkAllPositions() {
         for (const instance of liveInstances) {
@@ -2940,7 +2940,7 @@ class FrontMatterView extends MU.CodeView {
         // MermaidView caching the resolved SVG (this.cached.svg), not
         // re-invoking render() on every paint. Caching input text alone
         // and re-sanitizing on every call was a real bug caught by
-        // frontmatterview.test.js's caching test (sanitize was called
+        // htmlfrontmatterview.test.js's caching test (sanitize was called
         // twice for one genuine content change, since switching modes
         // back and forth re-ran it on the unchanged cache hit too).
         if (this.lastRenderedText !== text) {
@@ -2967,34 +2967,34 @@ class FrontMatterView extends MU.CodeView {
     }
 }
 
-const HIDE_CARET_CLASS = 'frontmatter-hide-caret';
+const HIDE_CARET_CLASS = 'htmlfrontmatter-hide-caret';
 
-class FrontMatterPlugin {
+class HTMLFrontMatterPlugin {
 
-    // Add the frontmatter css to the root node
-    adoptFrontMatterStyles(view) {
+    // Add the htmlfrontmatter css to the root node
+    adoptHTMLFrontMatterStyles(view) {
         const root = view.dom.getRootNode();
         if (!root.adoptedStyleSheets?.includes(sheet)) {
             root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
         }
     }
 
-    // Return the FrontMatterView at the pos in the view
-    frontMatterViewAt(view, pos) {
+    // Return the HTMLFrontMatterView at the pos in the view
+    htmlFrontMatterViewAt(view, pos) {
         const instance = view.nodeDOM(pos)?.codeView;
-        return instance instanceof FrontMatterView ? instance : null
+        return instance instanceof HTMLFrontMatterView ? instance : null
     }
 
-    // If we are looking at rendered HTML as opposed to source, return the FrontMatterView
+    // If we are looking at rendered HTML as opposed to source, return the HTMLFrontMatterView
     renderedBlockAt(view, pos) {
-        const instance = this.frontMatterViewAt(view, pos);
+        const instance = this.htmlFrontMatterViewAt(view, pos);
         return instance?.mode === 'rendered' ? instance : null
     }
 
     // Plain ArrowLeft/ArrowRight treats a Rendered-mode code_block as a single
     // atomic hop, like an image: arrowing in lands on the canonical position.
     // Mirrors MermaidPlugin.handleDiagramArrowKey.
-    handleFrontMatterArrowKey(view, event) {
+    handleHTMLFrontMatterArrowKey(view, event) {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
         const { state } = view;
@@ -3035,7 +3035,7 @@ class FrontMatterPlugin {
 
     // Delete/Backspace on (or adjacent to) a Rendered-mode block removes the
     // WHOLE block atomically. Mirrors MermaidPlugin.handleDiagramDeleteKey.
-    handleFrontMatterDeleteKey(view, event) {
+    handleHTMLFrontMatterDeleteKey(view, event) {
         if (event.key !== 'Delete' && event.key !== 'Backspace') return false
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
         const { state } = view;
@@ -3083,7 +3083,7 @@ class FrontMatterPlugin {
     }
 
     // Writes the whole node to the clipboard, matching MermaidPlugin.handleDiagramCopy.
-    handleFrontMatterCopy(view, event) {
+    handleHTMLFrontMatterCopy(view, event) {
         const blockPos = this.selectedRenderedBlockPos(view);
         if (blockPos === null) return false
         const node = view.state.doc.nodeAt(blockPos);
@@ -3097,10 +3097,10 @@ class FrontMatterPlugin {
         return false
     }
 
-    handleFrontMatterCut(view, event) {
+    handleHTMLFrontMatterCut(view, event) {
         const blockPos = this.selectedRenderedBlockPos(view);
         if (blockPos === null) return false
-        this.handleFrontMatterCopy(view, event);
+        this.handleHTMLFrontMatterCopy(view, event);
         const node = view.state.doc.nodeAt(blockPos);
         if (node) view.dispatch(view.state.tr.delete(blockPos, blockPos + node.nodeSize).scrollIntoView().setMeta('uiEvent', 'cut'));
         return false
@@ -3108,7 +3108,7 @@ class FrontMatterPlugin {
 
     // Registered via handleDOMEvents.paste, not the handlePaste prop -- same
     // reasoning as MermaidPlugin.handleDiagramPaste.
-    handleFrontMatterPaste(view, event) {
+    handleHTMLFrontMatterPaste(view, event) {
         const blockPos = this.selectedRenderedBlockPos(view);
         if (blockPos === null) return false
         const node = view.state.doc.nodeAt(blockPos);
@@ -3129,11 +3129,11 @@ class FrontMatterPlugin {
     createPlugin() {
         return new Plugin({
             props: {
-                handleKeyDown: (view, event) => this.handleFrontMatterArrowKey(view, event) || this.handleFrontMatterDeleteKey(view, event),
+                handleKeyDown: (view, event) => this.handleHTMLFrontMatterArrowKey(view, event) || this.handleHTMLFrontMatterDeleteKey(view, event),
                 handleDOMEvents: {
-                    copy: (view, event) => this.handleFrontMatterCopy(view, event),
-                    cut: (view, event) => this.handleFrontMatterCut(view, event),
-                    paste: (view, event) => this.handleFrontMatterPaste(view, event)
+                    copy: (view, event) => this.handleHTMLFrontMatterCopy(view, event),
+                    cut: (view, event) => this.handleHTMLFrontMatterCut(view, event),
+                    paste: (view, event) => this.handleHTMLFrontMatterPaste(view, event)
                 }
             },
             view: (editorView) => {
@@ -3147,13 +3147,13 @@ class FrontMatterPlugin {
                 };
                 // Runs on EVERY transaction, unlike a NodeView's own
                 // update() -- the actual position-0 enforcement mechanism.
-                // See FrontMatterView's class doc comment: a pure position
+                // See HTMLFrontMatterView's class doc comment: a pure position
                 // shift (no attrs/content change on the code_block itself)
                 // never triggers a NodeView-level update() call at all, so
                 // enforcement has to live here instead.
                 const onUpdate = (v) => {
                     syncCaretClass(v);
-                    FrontMatterView.checkAllPositions();
+                    HTMLFrontMatterView.checkAllPositions();
                 };
                 syncCaretClass(editorView);
                 return { update: onUpdate }
@@ -3161,7 +3161,7 @@ class FrontMatterPlugin {
         })
     }
 
-    // A non-frontmatter instance can still see a language change TO html
+    // A non-htmlfrontmatter instance can still see a language change TO html
     // later (the Language dialog mutates node.attrs.language on the same
     // node identity, so ProseMirror calls update() on the EXISTING
     // instance rather than reconsulting the factory) -- mirrors
@@ -3169,11 +3169,11 @@ class FrontMatterPlugin {
     // plugin additionally needs. getPos is captured from
     // makeCodeBlockFactory's own closure (not read off instance) since a
     // plain CodeView is not guaranteed to expose it as a property the way
-    // FrontMatterView does. update() returning false is what tells
+    // HTMLFrontMatterView does. update() returning false is what tells
     // ProseMirror to discard this one instance and ask the factory again.
-    wrapForFrontMatterUpgrade(instance, view, getPos) {
+    wrapForHTMLFrontMatterUpgrade(instance, view, getPos) {
         const delegateUpdate = instance.update.bind(instance);
-        instance.update = (node) => (isFrontMatterLanguage(node.attrs.language) && getPos() === expectedPreamblePosition(view.state.doc)) ? false : delegateUpdate(node);
+        instance.update = (node) => (isHTMLFrontMatterLanguage(node.attrs.language) && getPos() === expectedPreamblePosition(view.state.doc)) ? false : delegateUpdate(node);
         return instance
     }
 
@@ -3184,16 +3184,16 @@ class FrontMatterPlugin {
     // load order.
     // The leading-position check (expectedPreamblePosition -- 0 normally, or right
     // after it when a metadata block occupies position 0) happens here, at factory time; ongoing
-    // enforcement as the document is edited is FrontMatterView.
+    // enforcement as the document is edited is HTMLFrontMatterView.
     // checkAllPositions(), not this factory (see that class's doc comment
     // for why a NodeView's own update() can't be relied on for a pure
     // position shift).
-    makeCodeBlockFactory(originalFactory, languageDialog, frontMatterViewOptions = {}) {
+    makeCodeBlockFactory(originalFactory, languageDialog, htmlFrontMatterViewOptions = {}) {
         return (node, view, getPos) => {
-            if (isFrontMatterLanguage(node.attrs.language) && getPos() === expectedPreamblePosition(view.state.doc)) {
-                return new FrontMatterView(node, view, getPos, languageDialog, frontMatterViewOptions)
+            if (isHTMLFrontMatterLanguage(node.attrs.language) && getPos() === expectedPreamblePosition(view.state.doc)) {
+                return new HTMLFrontMatterView(node, view, getPos, languageDialog, htmlFrontMatterViewOptions)
             }
-            return this.wrapForFrontMatterUpgrade(originalFactory(node, view, getPos), view, getPos)
+            return this.wrapForHTMLFrontMatterUpgrade(originalFactory(node, view, getPos), view, getPos)
         }
     }
 
@@ -3201,7 +3201,7 @@ class FrontMatterPlugin {
     // paste(_:) (MarkupWKWebView.swift) reads NSPasteboard directly and, whenever
     // the selection is inside a <pre>, calls MU.pasteCode(text) via
     // executeJavaScript -- bypassing handleDOMEvents.paste (and
-    // handleFrontMatterPaste) entirely. MU.pasteCode itself is a plain
+    // handleHTMLFrontMatterPaste) entirely. MU.pasteCode itself is a plain
     // view.dispatch(view.state.tr.insertText(text)) at the current (collapsed)
     // selection, with no notion of "this code_block is atomically selected and
     // should have its whole content replaced" -- landing the pasted text at the
@@ -3210,7 +3210,7 @@ class FrontMatterPlugin {
     // has no reason to know about front matter) catches this regardless of which
     // path (native Swift injection or a real DOM paste event, wherever one does
     // still fire) invoked it. Mirrors MermaidPlugin.wrapPasteCodeForDiagram.
-    wrapPasteCodeForFrontMatter(view) {
+    wrapPasteCodeForHTMLFrontMatter(view) {
         const originalPasteCode = MU.pasteCode;
         MU.pasteCode = (text) => {
             const blockPos = this.selectedRenderedBlockPos(view);
@@ -3224,31 +3224,38 @@ class FrontMatterPlugin {
     }
 
     // Wires this plugin into the currently active editor view: adopts the
-    // frontmatter stylesheet, installs the code_block NodeView factory
-    // override, wraps MU.pasteCode, registers with markupeditor-base's
-    // plugin registry, and adds the keyboard/clipboard Plugin to the
-    // editor state.
+    // htmlfrontmatter stylesheet, installs the code_block NodeView factory
+    // override, wraps MU.pasteCode, and adds the keyboard/clipboard Plugin
+    // to the editor state. Deliberately does not call MU.registerPlugin, as
+    // an internal plugin -- but unlike markupeditor-codeview-metadata's own
+    // 'metadata' tag, this doesn't hide the leading block from the Code
+    // Language submenu: 'html' is one of highlight.js's built-in recognized
+    // languages (isRecognizedLanguage in markupeditor-base falls back to
+    // hljs.getLanguage independent of any plugin registration), and the
+    // submenu's item label is the raw language string, not a registered
+    // plugin's display name. So an 'html'-language leading block still
+    // shows as "html" there, same as any ordinary HTML code sample would.
+    // Registering under this plugin's own display name never controlled
+    // that -- it only avoided an "unrecognized language" warning if someone
+    // typed the literal string "FrontMatter" into the free-text Language
+    // dialog, which is not a path that ever mattered.
     install() {
         const view = MU.activeView();
         if (!view) return
 
-        this.adoptFrontMatterStyles(view);
+        this.adoptHTMLFrontMatterStyles(view);
 
         const codeBlockFactory = this.makeCodeBlockFactory(view.props.nodeViews.code_block, MU.languageDialog);
         view.setProps({ nodeViews: { ...view.props.nodeViews, code_block: codeBlockFactory } });
-        this.wrapPasteCodeForFrontMatter(view);
-
-        // We need to register the codeview plugin so that isRecognizedLanguage returns
-        // true when used in the LanguageDialogItem of markupeditor-base
-        MU.registerPlugin({ name: 'FrontMatter', type: 'codeview' });
+        this.wrapPasteCodeForHTMLFrontMatter(view);
 
         const plugin = this.createPlugin();
         view.updateState(view.state.reconfigure({ plugins: [plugin, ...view.state.plugins] }));
     }
 }
 
-const frontMatterPlugin = new FrontMatterPlugin();
+const htmlFrontMatterPlugin = new HTMLFrontMatterPlugin();
 
-frontMatterPlugin.install();
+htmlFrontMatterPlugin.install();
 
-export { FrontMatterPlugin, frontMatterPlugin, isFrontMatterLanguage };
+export { HTMLFrontMatterPlugin, htmlFrontMatterPlugin, isHTMLFrontMatterLanguage };

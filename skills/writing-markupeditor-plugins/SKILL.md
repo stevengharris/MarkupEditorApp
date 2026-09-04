@@ -12,7 +12,7 @@ description: Use when building any MarkupEditor plugin, or when unsure whether y
 A plugin is a JavaScript module, its own independent npm package under `plugins/<name>/`, that MarkupEditor loads when a document opens. Every plugin declares a `name` and a `type`:
 
 - **`exporter`** -- adds a File → Export transform to another file format. Reference implementation: `plugins/markupeditor-exporter-docx`.
-- **`codeview`** -- changes how a fenced code block of a specific language renders inside the live document. Reference implementations: `plugins/markupeditor-codeview-mermaid`, `plugins/markupeditor-codeview-frontmatter`.
+- **`codeview`** -- changes how a fenced code block of a specific language renders inside the live document. Reference implementations: `plugins/markupeditor-codeview-mermaid`, `plugins/markupeditor-codeview-htmlfrontmatter` (the latter is internal -- bundled and auto-loaded, not user-installable; see `writing-codeview-plugins`).
 
 Registration is `MU.registerPlugin({ name, type })` from an `install()` that reads `MU.activeView()` directly. Plugins load via `userScript` well after markupeditor-base's own editor already exists and has already rendered the open document -- neither plugin type gets to assume a fresh, empty editor.
 

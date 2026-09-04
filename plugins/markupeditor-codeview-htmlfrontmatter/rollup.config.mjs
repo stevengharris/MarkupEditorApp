@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import css from 'rollup-plugin-import-css';
 
 export default {
-	input: 'src/frontmatterplugin.js',
+	input: 'src/htmlfrontmatterplugin.js',
 	// prosemirror-model/-state/-view are already bundled inside markup-editor.js
 	// and re-exported from there. Declaring them external prevents duplicate
 	// copies in this bundle (ProseMirror uses instanceof checks internally, so a
@@ -12,7 +12,7 @@ export default {
 	// both files share at runtime (they land in the same WKWebView cache directory).
 	external: ['prosemirror-model', 'prosemirror-state', 'prosemirror-view', 'markupeditor'],
 	output: {
-		file: 'dist/markupeditor-codeview-frontmatter.js',
+		file: 'dist/markupeditor-codeview-htmlfrontmatter.js',
 		format: 'es',
 		inlineDynamicImports: true,
 		paths: {

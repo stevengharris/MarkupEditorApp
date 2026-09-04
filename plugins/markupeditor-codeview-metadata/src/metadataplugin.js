@@ -23,7 +23,7 @@ export class MetadataPlugin {
     }
 
     // Table mode is the "atomic" shape (like Mermaid's diagram mode, or
-    // FrontMatterView's rendered mode): contentDOM is present but visually
+    // HTMLFrontMatterView's rendered mode): contentDOM is present but visually
     // collapsed to nothing, so without this the caret can silently land
     // inside it via arrow-key navigation or typing. Source mode is ordinary
     // text editing and is not atomic.
@@ -34,7 +34,7 @@ export class MetadataPlugin {
 
     // Plain ArrowLeft/ArrowRight treats a Table-mode code_block as a single
     // atomic hop, like an image. Mirrors MermaidPlugin.handleDiagramArrowKey
-    // / FrontMatterPlugin.handleFrontMatterArrowKey.
+    // / HTMLFrontMatterPlugin.handleHTMLFrontMatterArrowKey.
     handleMetadataArrowKey(view, event) {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
@@ -53,7 +53,7 @@ export class MetadataPlugin {
         }
 
         // No "currently inside, hop out" branch here (unlike
-        // FrontMatterPlugin/MermaidPlugin): correctStraySelection (the
+        // HTMLFrontMatterPlugin/MermaidPlugin): correctStraySelection (the
         // view-update hook) converts any TextSelection landing inside a
         // Table-mode block to a NodeSelection before any subsequent
         // keydown could observe it as a TextSelection.
@@ -157,7 +157,7 @@ export class MetadataPlugin {
     }
 
     // Writes the whole node to the clipboard, matching MermaidPlugin.handleDiagramCopy
-    // / FrontMatterPlugin.handleFrontMatterCopy.
+    // / HTMLFrontMatterPlugin.handleHTMLFrontMatterCopy.
     handleMetadataCopy(view, event) {
         const blockPos = this.selectedTableBlockPos(view)
         if (blockPos === null) return false
@@ -182,7 +182,7 @@ export class MetadataPlugin {
     }
 
     // Registered via handleDOMEvents.paste, not the handlePaste prop -- same
-    // reasoning as MermaidPlugin/FrontMatterPlugin.
+    // reasoning as MermaidPlugin/HTMLFrontMatterPlugin.
     handleMetadataPaste(view, event) {
         const blockPos = this.selectedTableBlockPos(view)
         if (blockPos === null) return false
@@ -205,7 +205,7 @@ export class MetadataPlugin {
     // selection is inside a <pre> -- MarkupWKWebView.swift routes it
     // through MU.pasteCode instead. Wrapping MU.pasteCode catches this
     // regardless of which path fires. Mirrors MermaidPlugin/
-    // FrontMatterPlugin's own wrapper.
+    // HTMLFrontMatterPlugin's own wrapper.
     wrapPasteCodeForMetadata(view) {
         const originalPasteCode = MU.pasteCode
         MU.pasteCode = (text) => {
@@ -221,7 +221,7 @@ export class MetadataPlugin {
 
     // Delegates to whatever's already installed for code_block, not assumed
     // to be CodeView specifically -- same composability contract
-    // FrontMatterPlugin/MermaidPlugin follow.
+    // HTMLFrontMatterPlugin/MermaidPlugin follow.
     makeCodeBlockFactory(originalFactory, languageDialog) {
         return (node, view, getPos) => {
             if (isMetadataLanguage(node.attrs.language) && getPos() === 0) {
@@ -238,7 +238,7 @@ export class MetadataPlugin {
     // factory). update() returning false tells ProseMirror to discard this
     // instance and ask the factory again, which (now metadata-language,
     // and only if also at position 0) builds a MetadataView. Mirrors
-    // FrontMatterPlugin.wrapForFrontMatterUpgrade.
+    // HTMLFrontMatterPlugin.wrapForHTMLFrontMatterUpgrade.
     wrapForMetadataUpgrade(instance, getPos) {
         const delegateUpdate = instance.update.bind(instance)
         instance.update = (node) => (isMetadataLanguage(node.attrs.language) && getPos() === 0) ? false : delegateUpdate(node)
@@ -278,7 +278,7 @@ export class MetadataPlugin {
             // tried to make it, so there is never a committed state where
             // the position-0 block's language differs from "metadata".
             // view.update (a separate, later dispatch, the mechanism
-            // FrontMatterPlugin uses for its own weaker position handling)
+            // HTMLFrontMatterPlugin uses for its own weaker position handling)
             // cannot give this guarantee.
             appendTransaction(transactions, oldState, newState) {
                 if (!transactions.some(tr => tr.docChanged)) return null
@@ -296,7 +296,7 @@ export class MetadataPlugin {
                 // belt-and-suspenders alongside the arrow-key/delete
                 // handling above, for a selection that lands there some
                 // other way (e.g. a mouse click). Mirrors MermaidPlugin/
-                // FrontMatterPlugin.
+                // HTMLFrontMatterPlugin.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection
                     let hideCaret = false

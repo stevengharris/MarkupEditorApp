@@ -68,6 +68,7 @@
 		AA8384B3302E4CD80034CD46 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"markupeditor-codeview-htmlfrontmatter/dist/markupeditor-codeview-htmlfrontmatter.js",
 				"markupeditor-codeview-mermaid/dist/markupeditor-codeview-mermaid.js",
 				"markupeditor-codeview-metadata/dist/markupeditor-codeview-metadata.js",
 				"markupeditor-exporter-docx/dist/markupeditor-exporter-docx.js",
@@ -146,6 +147,11 @@
 			path = "markupeditor-app";
 			sourceTree = "<group>";
 		};
+		AAE62565304B3BCD00692635 /* skills */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = skills;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -188,6 +194,7 @@
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA83FACE302E516F0034CD46 /* markupeditor-app */,
 				AA8327AF302E47F80034CD46 /* plugins */,
+				AAE62565304B3BCD00692635 /* skills */,
 				AA27464A303E395300AD8E61 /* templates */,
 				AA832770302E222B0034CD46 /* website */,
 				AAB8007C2FC5036A00212250 /* docs */,
@@ -386,7 +393,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# This is the internal pre-installed codeview plugin for metadata\ncd \"$SRCROOT/plugins/markupeditor-codeview-metadata\" && npm run build\n\n# These are the pre-installed plugins that can be deleted and/or replaced\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-frontmatter\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-geojson\" && npm run build\n";
+			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# This is the internal pre-installed codeview plugin for metadata\ncd \"$SRCROOT/plugins/markupeditor-codeview-metadata\" && npm run build\n\n# These are the pre-installed plugins that can be deleted and/or replaced\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-htmlfrontmatter\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-geojson\" && npm run build\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

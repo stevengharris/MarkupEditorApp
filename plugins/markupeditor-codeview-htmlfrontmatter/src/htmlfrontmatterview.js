@@ -1,22 +1,22 @@
 import { MU, Selection } from 'markupeditor'
 import DOMPurify from 'dompurify'
 
-const TAB_CLASS = 'frontmatter-mode-toggle'
-const TAB_ACTIVE_CLASS = 'frontmatter-mode-toggle-active'
-const TAB_BELOW_CLASS = 'frontmatter-mode-toggle-below'
-const RENDERED_SELECTED_CLASS = 'frontmatter-rendered-selected'
-const HIDDEN_CODE_CLASS = 'frontmatter-hidden-code'
-const RENDERED_CLASS = 'frontmatter-rendered'
-const PLACEHOLDER_CLASS = 'frontmatter-placeholder'
+const TAB_CLASS = 'htmlfrontmatter-mode-toggle'
+const TAB_ACTIVE_CLASS = 'htmlfrontmatter-mode-toggle-active'
+const TAB_BELOW_CLASS = 'htmlfrontmatter-mode-toggle-below'
+const RENDERED_SELECTED_CLASS = 'htmlfrontmatter-rendered-selected'
+const HIDDEN_CODE_CLASS = 'htmlfrontmatter-hidden-code'
+const RENDERED_CLASS = 'htmlfrontmatter-rendered'
+const PLACEHOLDER_CLASS = 'htmlfrontmatter-placeholder'
 
-export function isFrontMatterLanguage(language) {
+export function isHTMLFrontMatterLanguage(language) {
     return (language ?? '').trim().toLowerCase() === 'html'
 }
 
 // A metadata code_block (a sibling plugin) is also a leading-position
 // block and takes position 0 when present, shifting the HTML preamble's
 // own valid position to right after it. A plain inline string check
-// rather than a package dependency, matching isFrontMatterLanguage's own
+// rather than a package dependency, matching isHTMLFrontMatterLanguage's own
 // "html" check.
 //
 // Returns a ProseMirror position, not a child index: the block after
@@ -34,7 +34,7 @@ export function expectedPreamblePosition(doc) {
 // destroyed/recreated), but update() is never invoked. That means
 // update()'s own position-0 check below can never fire for exactly the
 // case it exists to catch. checkAllPositions(), called from
-// FrontMatterPlugin's Plugin view-update hook (which DOES fire on every
+// HTMLFrontMatterPlugin's Plugin view-update hook (which DOES fire on every
 // transaction, unlike a NodeView's own update()), is the actual
 // enforcement mechanism; update()'s check is defense in depth for the
 // (currently unobserved, but not provably impossible) case where a
@@ -69,7 +69,7 @@ const liveInstances = new Set()
  * siblings of contentDOM inside dom, matching MermaidView's tab pattern.
  * Mode ('source' | 'rendered') is plain instance state.
  */
-export class FrontMatterView extends MU.CodeView {
+export class HTMLFrontMatterView extends MU.CodeView {
     constructor(node, view, getPos, languageDialog, { sanitize = DOMPurify.sanitize, purifyConfig = {} } = {}) {
         super(node, view, getPos, languageDialog)
         this.getPos = getPos
@@ -117,7 +117,7 @@ export class FrontMatterView extends MU.CodeView {
         // identity without ProseMirror rebuilding the NodeView -- returning
         // false tells it to discard this instance and ask the factory
         // again, which (language no longer html) builds a plain CodeView.
-        if (!isFrontMatterLanguage(node.attrs.language)) return false
+        if (!isHTMLFrontMatterLanguage(node.attrs.language)) return false
         // Defense in depth, not the primary enforcement -- see the class
         // doc comment and liveInstances' comment. A pure position shift
         // (no attrs/content change) never reaches this method at all;
@@ -179,7 +179,7 @@ export class FrontMatterView extends MU.CodeView {
 
     // The actual position-0 enforcement mechanism -- see the class doc
     // comment and liveInstances' comment for why this exists instead of
-    // relying on update(). Called from FrontMatterPlugin's Plugin
+    // relying on update(). Called from HTMLFrontMatterPlugin's Plugin
     // view-update hook on every transaction.
     static checkAllPositions() {
         for (const instance of liveInstances) {
@@ -278,7 +278,7 @@ export class FrontMatterView extends MU.CodeView {
         // MermaidView caching the resolved SVG (this.cached.svg), not
         // re-invoking render() on every paint. Caching input text alone
         // and re-sanitizing on every call was a real bug caught by
-        // frontmatterview.test.js's caching test (sanitize was called
+        // htmlfrontmatterview.test.js's caching test (sanitize was called
         // twice for one genuine content change, since switching modes
         // back and forth re-ran it on the unchanged cache hit too).
         if (this.lastRenderedText !== text) {

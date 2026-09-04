@@ -1,14 +1,15 @@
 {
-  "name": "markupeditor-codeview-frontmatter",
+  "name": "markupeditor-codeview-htmlfrontmatter",
   "version": "1.0.0",
-  "description": "MarkupEditor codeview plugin that renders a leading HTML preamble block live, GitHub-README style, instead of as literal escaped text.",
+  "description": "Internal MarkupEditor codeview plugin that renders a leading HTML preamble block live, GitHub-README style, instead of as literal escaped text.",
   "type": "module",
-  "main": "dist/markupeditor-codeview-frontmatter.js",
+  "main": "dist/markupeditor-codeview-htmlfrontmatter.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "markupeditor": {
-    "name": "FrontMatter",
-    "type": "codeview"
+    "name": "HTMLFrontMatter",
+    "type": "codeview",
+    "internal": true
   },
   "dependencies": {
     "dompurify": "^3.4.13"

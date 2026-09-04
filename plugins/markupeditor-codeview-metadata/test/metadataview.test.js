@@ -105,7 +105,7 @@ describe('parseMetadataRows', () => {
 })
 
 describe('MetadataView defaults', () => {
-  it('defaults to Table mode, opposite of FrontMatterView', () => {
+  it('defaults to Table mode, opposite of HTMLFrontMatterView', () => {
     const { view, teardown } = mountView(metadataDoc())
     const instance = view.nodeDOM(0).codeView
     expect(instance).toBeInstanceOf(MetadataView)

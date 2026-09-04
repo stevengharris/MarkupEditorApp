@@ -1,5 +1,5 @@
 /* Allow the PDF exporter to hide the bar/toggle chrome when the block is selected,
-   matching markupeditor-codeview-frontmatter's equivalent rule. */
+   matching markupeditor-codeview-htmlfrontmatter's equivalent rule. */
 #editor.Markup-exporting .metadata-bar,
 #editor.Markup-exporting .metadata-mode-toggle {
   display: none;
@@ -115,8 +115,8 @@ code.metadata-hidden-code {
   overflow: hidden;
 }
 
-/* Dashed outline for the selected Table-mode block, matching FrontMatterView's
-   .frontmatter-rendered-selected / Mermaid's selected-diagram outline. */
+/* Dashed outline for the selected Table-mode block, matching HTMLFrontMatterView's
+   .htmlfrontmatter-rendered-selected / Mermaid's selected-diagram outline. */
 .metadata-selected {
   outline: 1px var(--Markup-accent-color, blue) dashed;
   outline-offset: 2px;

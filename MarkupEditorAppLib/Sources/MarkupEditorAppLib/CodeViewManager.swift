@@ -26,17 +26,28 @@ public enum CodeViewManager {
         Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-codeview-mermaid.js")
     }
 
-    /// The Metadata codeview plugin: pre-installed unconditionally via
-    /// `syncInternalPlugins`, never user-visible or user-removable. Never registered with
-    /// `MU.registerPlugin` JS-side -- that's what keeps `isRecognizedLanguage("metadata")` false.
-    public static var metadata: Plugin {
-        Plugin(name: "Metadata", type: "codeview", filename: "markupeditor-codeview-metadata.js")
+    /// Codeview plugins pre-installed unconditionally via `syncInternalPlugins`, never
+    /// user-visible or user-removable. Adding a new one is a single new case here -- it's
+    /// automatically picked up by `protectedNames` and `syncInternalPlugins` below, not
+    /// something to wire into multiple places by hand.
+    public enum InternalCodeView: String, CaseIterable {
+        case metadata = "Metadata"
+        case htmlFrontMatter = "HTMLFrontMatter"
+
+        var filename: String {
+            switch self {
+            case .metadata: "markupeditor-codeview-metadata.js"
+            case .htmlFrontMatter: "markupeditor-codeview-htmlfrontmatter.js"
+            }
+        }
+
+        var plugin: Plugin { Plugin(name: rawValue, type: "codeview", filename: filename) }
     }
 
-    /// Names no caller may add, display, or delete through the ordinary user-facing flows --
-    /// currently just the internal Metadata plugin. Checked by name (not by `Plugin` equality)
-    /// so a user can't hijack the slot by installing their own plugin under this name.
-    public static let protectedNames: Set<String> = [metadata.name]
+    /// Names no caller may add, display, or delete through the ordinary user-facing flows.
+    /// Checked by name (not by `Plugin` equality) so a user can't hijack a slot by installing
+    /// their own plugin under one of these names.
+    public static let protectedNames: Set<String> = Set(InternalCodeView.allCases.map(\.rawValue))
 
     /// The URL of the codeview directory under Application Support.
     public static var defaultDir: URL {
@@ -75,18 +86,21 @@ public enum CodeViewManager {
         return add(name: mermaid.name, url: source, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir)
     }
 
-    /// Re-syncs internal plugins (currently just Metadata) from the app bundle, unconditionally,
-    /// every launch -- not gated by the first-launch-only check `setupOnLaunch` uses, since an
-    /// internal plugin has no user-facing update mechanism and must pick up a newer bundled copy.
+    /// Re-syncs every internal plugin (`InternalCodeView.allCases`) from the app bundle,
+    /// unconditionally, every launch -- not gated by the first-launch-only check
+    /// `setupOnLaunch` uses, since an internal plugin has no user-facing update mechanism
+    /// and must pick up a newer bundled copy.
     public static func syncInternalPlugins(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
-        guard
-            let filename = metadata.filename,
-            let source = resourceURL?.appendingPathComponent(filename)
-        else {
+        guard let resourceURL else {
             logger.warning("Resource URL was not found.")
             return codeViews
         }
-        return add(name: metadata.name, url: source, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir, allowProtectedNames: true)
+        var updated = codeViews
+        for internalCodeView in InternalCodeView.allCases {
+            let source = resourceURL.appendingPathComponent(internalCodeView.filename)
+            updated = add(name: internalCodeView.plugin.name, url: source, exporters: exporters, codeViews: updated, cacheDir: cacheDir, allowProtectedNames: true)
+        }
+        return updated
     }
 
     /// - Parameter allowProtectedNames: Escape hatch for `syncInternalPlugins` alone -- ordinary

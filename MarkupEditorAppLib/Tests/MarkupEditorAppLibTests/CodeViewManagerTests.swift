@@ -10,11 +10,11 @@ import MarkupEditor
 
 private let testCacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("CodeViewManagerTests-cache", isDirectory: true)
 
-// .serialized: several tests here exercise syncInternalPlugins(), which derives its filename
-// internally from CodeViewManager.metadata.filename (not caller-injectable) and writes into the
-// real, shared CodeViewManager.defaultDir -- run in parallel, two such tests race on the same
-// path. PluginInstallerTests avoids this by using a uniquely-named test plugin; that's not an
-// option here since the whole point is exercising the real "Metadata" name/filename.
+// .serialized: several tests here exercise syncInternalPlugins(), which derives its filenames
+// internally from CodeViewManager.InternalCodeView.allCases (not caller-injectable) and writes
+// into the real, shared CodeViewManager.defaultDir -- run in parallel, two such tests race on the
+// same path. PluginInstallerTests avoids this by using a uniquely-named test plugin; that's not
+// an option here since the whole point is exercising the real internal-plugin names/filenames.
 @Suite(.serialized)
 struct CodeViewManagerTests {
 
@@ -32,8 +32,10 @@ struct CodeViewManagerTests {
         try? FileManager.default.removeItem(at: CodeViewManager.defaultDir.appendingPathComponent(filename))
     }
 
-    @Test func protectedNamesContainsMetadata() {
-        #expect(CodeViewManager.protectedNames.contains("Metadata"))
+    @Test func protectedNamesContainsAllInternalCodeViews() {
+        for internalCodeView in CodeViewManager.InternalCodeView.allCases {
+            #expect(CodeViewManager.protectedNames.contains(internalCodeView.rawValue))
+        }
     }
 
     @Test func addRefusesAProtectedNameByDefault() throws {
@@ -79,18 +81,30 @@ struct CodeViewManagerTests {
         #expect(FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)))
     }
 
+    /// Writes a stand-in bundle file into `resourceDir` for every `InternalCodeView` case,
+    /// so `syncInternalPlugins` (which iterates all of them, not just one) has something to
+    /// find for each. Returns the filenames so the caller can clean them up afterward.
+    private func writeStandInBundles(in resourceDir: URL, contents: String) throws -> [String] {
+        try CodeViewManager.InternalCodeView.allCases.map { internalCodeView in
+            let file = resourceDir.appendingPathComponent(internalCodeView.filename)
+            try Data(contents.utf8).write(to: file)
+            return internalCodeView.filename
+        }
+    }
+
     @Test func syncInternalPluginsInstallsFromTheGivenResourceURL() throws {
         try ensureDefaultDirExists()
         let resourceDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: resourceDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: resourceDir) }
-        let bundledFile = resourceDir.appendingPathComponent(CodeViewManager.metadata.filename ?? "markupeditor-codeview-metadata.js")
-        try Data("// stand-in for the real bundled plugin".utf8).write(to: bundledFile)
-        defer { removeDirectly(filename: bundledFile.lastPathComponent) }
+        let filenames = try writeStandInBundles(in: resourceDir, contents: "// stand-in for the real bundled plugin")
+        defer { for filename in filenames { removeDirectly(filename: filename) } }
 
         let result = CodeViewManager.syncInternalPlugins(exporters: [], codeViews: [], resourceURL: resourceDir, cacheDir: testCacheDir)
 
-        #expect(CodeViewManager.nameExists("Metadata", in: result))
+        for internalCodeView in CodeViewManager.InternalCodeView.allCases {
+            #expect(CodeViewManager.nameExists(internalCodeView.rawValue, in: result))
+        }
     }
 
     @Test func syncInternalPluginsIsSafeToCallRepeatedly() throws {
@@ -101,14 +115,15 @@ struct CodeViewManagerTests {
         let resourceDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: resourceDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: resourceDir) }
-        let bundledFile = resourceDir.appendingPathComponent(CodeViewManager.metadata.filename ?? "markupeditor-codeview-metadata.js")
-        try Data("// v1".utf8).write(to: bundledFile)
-        defer { removeDirectly(filename: bundledFile.lastPathComponent) }
+        let filenames = try writeStandInBundles(in: resourceDir, contents: "// v1")
+        defer { for filename in filenames { removeDirectly(filename: filename) } }
 
         let firstResult = CodeViewManager.syncInternalPlugins(exporters: [], codeViews: [], resourceURL: resourceDir, cacheDir: testCacheDir)
         let secondResult = CodeViewManager.syncInternalPlugins(exporters: [], codeViews: firstResult, resourceURL: resourceDir, cacheDir: testCacheDir)
 
-        #expect(secondResult.filter { $0.name == "Metadata" }.count == 1)
+        for internalCodeView in CodeViewManager.InternalCodeView.allCases {
+            #expect(secondResult.filter { $0.name == internalCodeView.rawValue }.count == 1)
+        }
     }
 
     @Test func syncInternalPluginsReturnsCodeViewsUnchangedWhenResourceURLIsNil() {
