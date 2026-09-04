@@ -14637,7 +14637,17 @@ function renderGeojson(geojson, map) {
         pointToLayer: (feature, latlng) => L$1.circleMarker(latlng)
     }).addTo(map);
     const bounds = map._geojsonLayer.getBounds();
-    if (bounds.isValid()) map.fitBounds(bounds);
+    // An empty FeatureCollection, or a Feature with geometry: null, is valid
+    // GeoJSON (RFC 7946 §3.2) but has nothing to fit a view to -- invalid
+    // bounds here means zero renderable geometry, not a Leaflet-internal
+    // edge case to shrug off. Left unhandled, the map never gets a view
+    // (fitBounds is the only thing that sets one), so it never becomes
+    // "loaded" and the tile layer's own onAdd -- deferred until then -- never
+    // runs: a permanently blank map with no error reported. Throwing routes
+    // this through ensureRendered's existing catch, which reports it and
+    // falls back to Source, exactly like any other unrenderable content.
+    if (!bounds.isValid()) throw new Error('GeoJSON contains no renderable geometry.')
+    map.fitBounds(bounds);
 }
 
 // Constructs a fully-initialized Leaflet map instance -- the base tile layer

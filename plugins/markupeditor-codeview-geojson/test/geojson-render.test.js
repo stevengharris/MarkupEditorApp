@@ -144,6 +144,38 @@ describe('real Leaflet rendering', () => {
     await teardown()
   })
 
+  // An empty FeatureCollection or a null-geometry Feature is valid GeoJSON
+  // (RFC 7946 SS3.2, accepted by parseGeojson -- see geo.test.js) but has no
+  // geometry to fit a view to. Unlike the malformed-JSON case above, parsing
+  // succeeds and the map DOES get constructed (mapFactory runs before
+  // render()) -- the failure is specifically in fitBounds being skipped for
+  // invalid bounds, which leaves the map without a view, which means it
+  // never becomes Leaflet-"loaded", which means the tile layer's onAdd
+  // (deferred via whenReady()) never runs at all.
+  describe.each([
+    ['an empty FeatureCollection', '{"type":"FeatureCollection","features":[]}'],
+    ['a Feature with geometry: null', '{"type":"Feature","properties":{},"geometry":null}']
+  ])('%s', (_label, text) => {
+    it('falls back to Source mode with a reported error instead of a permanently blank map', async () => {
+      const doc = codeBlockDoc(text, 'geojson')
+      const reportError = vi.fn()
+      const { view, teardown } = mountView(doc, { reportError })
+      const instance = view.nodeDOM(0).codeView
+
+      expect(instance.mode).toBe('source')
+      expect(reportError).toHaveBeenCalledTimes(1)
+      expect(reportError.mock.calls[0][0]).toBe('GeoJSONRenderError')
+      // The map object itself was constructed (parse succeeded before
+      // render() failed), but never acquired a view, so it never loaded and
+      // never requested a tile.
+      expect(instance.map).not.toBeNull()
+      expect(instance.map._loaded).toBeFalsy()
+      expect(instance.mapContainer.querySelectorAll('img.leaflet-tile').length).toBe(0)
+
+      await teardown()
+    })
+  })
+
   it('editing content while a map is showing replaces the vector layer rather than accumulating layers', async () => {
     const doc = codeBlockDoc(FEATURE, 'geojson')
     const { view, teardown } = mountView(doc)
