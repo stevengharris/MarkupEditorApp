@@ -1,10 +1,10 @@
 /* Allow the PDF exporter to hide the tabs and outline when the
    rendered block is selected. */
 
-#editor.Markup-exporting .frontmatter-mode-toggle {
+#editor.Markup-exporting .htmlfrontmatter-mode-toggle {
   display: none;
 }
-#editor.Markup-exporting .frontmatter-rendered-selected {
+#editor.Markup-exporting .htmlfrontmatter-rendered-selected {
   outline: none;
 }
 
@@ -16,22 +16,22 @@
    alone doesn't distinguish a position-0 preamble block from any other
    html-language code_block elsewhere in the document, and only the former
    should ever render live. Hiding is opt-in, driven entirely by JS toggling
-   .frontmatter-hidden-code once a FrontMatterView instance confirms both
+   .htmlfrontmatter-hidden-code once a HTMLFrontMatterView instance confirms both
    the language AND the position-0 constraint. */
-pre > code.frontmatter-hidden-code {
+pre > code.htmlfrontmatter-hidden-code {
   font-size: 0;
   line-height: 0;
 }
 
-.frontmatter-hidden-code::selection {
+.htmlfrontmatter-hidden-code::selection {
   background: transparent;
 }
 
-.frontmatter-hide-caret {
+.htmlfrontmatter-hide-caret {
   caret-color: transparent;
 }
 
-.frontmatter-mode-toggle {
+.htmlfrontmatter-mode-toggle {
   position: absolute;
   bottom: 100%;
   font-size: 0.75rem;
@@ -44,16 +44,16 @@ pre > code.frontmatter-hidden-code {
   background: var(--Markup-accent-color, blue);
 }
 
-.frontmatter-mode-toggle:hover {
+.htmlfrontmatter-mode-toggle:hover {
   opacity: 0.9;
 }
 
-.frontmatter-mode-toggle-active {
+.htmlfrontmatter-mode-toggle-active {
   opacity: 0.9;
 }
 
 /* Applied when the code_block is too close to the top of the view for a tab to fit above */
-.frontmatter-mode-toggle-below {
+.htmlfrontmatter-mode-toggle-below {
   bottom: auto;
   top: 100%;
   border-radius: 0 0 4px 4px;
@@ -61,20 +61,20 @@ pre > code.frontmatter-hidden-code {
 
 /* Matches markupeditor-base's .Markup-menuitem-active (toolbar.css) */
 @media (prefers-color-scheme: dark) {
-  .frontmatter-mode-toggle {
+  .htmlfrontmatter-mode-toggle {
     background: var(--Markup-accent-color, lightblue);
     color: black;
   }
 }
 
 /* Dashed outline for the rendered block when selected */
-.frontmatter-rendered-selected {
+.htmlfrontmatter-rendered-selected {
   outline: 1px var(--Markup-accent-color, blue) dashed;
   outline-offset: 0;
 }
 
 @media (prefers-color-scheme: dark) {
-  .frontmatter-rendered-selected {
+  .htmlfrontmatter-rendered-selected {
     outline: 1px var(--Markup-accent-color, lightblue) dashed;
   }
 }
@@ -88,15 +88,15 @@ pre > code.frontmatter-hidden-code {
    normally treats whitespace between inline elements. Mermaid has no
    equivalent because its rendered content is a single <svg> string with no
    comparable inter-element whitespace to preserve. */
-.frontmatter-rendered {
+.htmlfrontmatter-rendered {
   white-space: normal;
 }
 
-.frontmatter-rendered, .frontmatter-placeholder {
+.htmlfrontmatter-rendered, .htmlfrontmatter-placeholder {
   margin-bottom: 15px;
 }
 
-.frontmatter-placeholder {
+.htmlfrontmatter-placeholder {
   border: 1px dashed #888;
   padding: 8px;
 }

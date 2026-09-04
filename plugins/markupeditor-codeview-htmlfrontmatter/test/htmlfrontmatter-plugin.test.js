@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Schema, EditorState, EditorView, MU, Selection } from 'markupeditor'
 import { joinBackward } from 'prosemirror-commands'
-import { FrontMatterView, isFrontMatterLanguage } from '../src/frontmatterview.js'
-import { frontMatterPlugin } from '../src/frontmatterplugin.js'
+import { HTMLFrontMatterView, isHTMLFrontMatterLanguage } from '../src/htmlfrontmatterview.js'
+import { htmlFrontMatterPlugin } from '../src/htmlfrontmatterplugin.js'
 
 // Integration coverage for the keyboard/clipboard plugin against the REAL
-// wiring shape (FrontMatterView + FrontMatterPlugin.createPlugin()),
+// wiring shape (HTMLFrontMatterView + HTMLFrontMatterPlugin.createPlugin()),
 // mirroring mermaid-plugin.test.js. Doesn't exercise the top-level
-// `frontMatterPlugin.install()` module-load wiring itself (keyed to
+// `htmlFrontMatterPlugin.install()` module-load wiring itself (keyed to
 // MU.activeView(), an import-time side effect not practical to unit-test in
 // isolation) -- hand-wires the same factory shape instead, matching
-// frontmatterview.test.js's own approach.
+// htmlfrontmatterview.test.js's own approach.
 
 const schema = new Schema({
   nodes: {
@@ -28,11 +28,11 @@ const schema = new Schema({
 function mountView(doc, { sanitize = (html) => html } = {}) {
   const nodeViews = {
     code_block: (node, view, getPos) => {
-      if (isFrontMatterLanguage(node.attrs.language) && getPos() === 0) return new FrontMatterView(node, view, getPos, null, { sanitize })
+      if (isHTMLFrontMatterLanguage(node.attrs.language) && getPos() === 0) return new HTMLFrontMatterView(node, view, getPos, null, { sanitize })
       return new MU.CodeView(node, view, getPos, null)
     }
   }
-  const plugin = frontMatterPlugin.createPlugin()
+  const plugin = htmlFrontMatterPlugin.createPlugin()
   const state = EditorState.create({ schema, doc, plugins: [plugin] })
   const container = document.body.appendChild(document.createElement('div'))
   const view = new EditorView(container, { state, nodeViews })
@@ -225,20 +225,20 @@ describe('caret-hide class', () => {
     const { view, teardown } = mountView(doc)
 
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(1))))
-    expect(view.dom.classList.contains('frontmatter-hide-caret')).toBe(true)
+    expect(view.dom.classList.contains('htmlfrontmatter-hide-caret')).toBe(true)
 
     const bodyPos = doc.child(0).nodeSize + 1
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(bodyPos))))
-    expect(view.dom.classList.contains('frontmatter-hide-caret')).toBe(false)
+    expect(view.dom.classList.contains('htmlfrontmatter-hide-caret')).toBe(false)
 
     teardown()
   })
 })
 
-// Mirrors the ACTUAL capture-wrap-delegate pattern frontmatterplugin.js's
+// Mirrors the ACTUAL capture-wrap-delegate pattern htmlfrontmatterplugin.js's
 // own top-level wiring uses (view.props.nodeViews.code_block captured, then
 // wrapped via makeCodeBlockFactory) -- mountView's helper above hand-picks
-// FrontMatterView vs CodeView directly, which doesn't exercise the
+// HTMLFrontMatterView vs CodeView directly, which doesn't exercise the
 // delegation-to-whatever-was-already-installed path at all.
 describe('a leading html block coexisting with a non-html one, via the real capture-and-wrap factory pattern', () => {
   it('routes each block to the right NodeView and arrow-key navigation crosses both correctly', () => {
@@ -247,17 +247,17 @@ describe('a leading html block coexisting with a non-html one, via the real capt
       schema.node('code_block', { language: 'javascript' }, schema.text('const x = 1;'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const wrappedFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
-    const plugin = frontMatterPlugin.createPlugin()
+    const wrappedFactory = htmlFrontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const plugin = htmlFrontMatterPlugin.createPlugin()
     const state = EditorState.create({ schema, doc, plugins: [plugin] })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: wrappedFactory } })
 
     const htmlPos = 0
     const jsPos = doc.child(0).nodeSize
-    expect(view.nodeDOM(htmlPos).codeView).toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(htmlPos).codeView).toBeInstanceOf(HTMLFrontMatterView)
     expect(view.nodeDOM(jsPos).codeView).toBeInstanceOf(MU.CodeView)
-    expect(view.nodeDOM(jsPos).codeView).not.toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(jsPos).codeView).not.toBeInstanceOf(HTMLFrontMatterView)
 
     // The doc starts right with the html block, so the default selection
     // already lands INSIDE it (position 1) -- one ArrowRight is the
@@ -280,24 +280,24 @@ describe('a leading html block coexisting with a non-html one, via the real capt
 
 // Mirrors mermaid-plugin.test.js's "language changed TO mermaid" coverage,
 // plus the position-0 check this plugin additionally needs: a plain
-// code_block's language changing to html only upgrades to FrontMatterView
+// code_block's language changing to html only upgrades to HTMLFrontMatterView
 // when it's ALSO at position 0.
 describe('makeCodeBlockFactory: language changed TO html via the Language dialog', () => {
-  it('a plain code_block at position 0 upgrades to FrontMatterView once its language becomes html', () => {
+  it('a plain code_block at position 0 upgrades to HTMLFrontMatterView once its language becomes html', () => {
     const doc = schema.node('doc', null, [
       schema.node('code_block', { language: 'javascript' }, schema.text('<p>hi</p>'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const codeBlockFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const codeBlockFactory = htmlFrontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
     const state = EditorState.create({ schema, doc })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: codeBlockFactory } })
 
-    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(HTMLFrontMatterView)
 
     view.dispatch(view.state.tr.setNodeAttribute(0, 'language', 'html'))
 
-    expect(view.nodeDOM(0).codeView).toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(0).codeView).toBeInstanceOf(HTMLFrontMatterView)
 
     view.destroy()
     container.remove()
@@ -309,7 +309,7 @@ describe('makeCodeBlockFactory: language changed TO html via the Language dialog
       schema.node('code_block', { language: 'javascript' }, schema.text('<p>hi</p>'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const codeBlockFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const codeBlockFactory = htmlFrontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
     const state = EditorState.create({ schema, doc })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: codeBlockFactory } })
@@ -317,7 +317,7 @@ describe('makeCodeBlockFactory: language changed TO html via the Language dialog
     const blockPos = doc.child(0).nodeSize
     view.dispatch(view.state.tr.setNodeAttribute(blockPos, 'language', 'html'))
 
-    expect(view.nodeDOM(blockPos).codeView).not.toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(blockPos).codeView).not.toBeInstanceOf(HTMLFrontMatterView)
 
     view.destroy()
     container.remove()
@@ -328,14 +328,14 @@ describe('makeCodeBlockFactory: language changed TO html via the Language dialog
       schema.node('code_block', { language: 'javascript' }, schema.text('const x = 1;'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const codeBlockFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null)
+    const codeBlockFactory = htmlFrontMatterPlugin.makeCodeBlockFactory(originalFactory, null)
     const state = EditorState.create({ schema, doc })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: codeBlockFactory } })
 
     view.dispatch(view.state.tr.insertText('!', 1))
     expect(view.state.doc.firstChild.textContent).toBe('!const x = 1;')
-    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(HTMLFrontMatterView)
 
     view.destroy()
     container.remove()
@@ -345,22 +345,22 @@ describe('makeCodeBlockFactory: language changed TO html via the Language dialog
 // A metadata code_block (a sibling plugin) is also a leading-position block and takes
 // position 0 when present, shifting the HTML preamble's expected position to right after it.
 describe('sequencing with a leading metadata block (expectedPreamblePosition)', () => {
-  it('an HTML preamble at position 1 activates as FrontMatterView when a metadata block occupies position 0', () => {
+  it('an HTML preamble at position 1 activates as HTMLFrontMatterView when a metadata block occupies position 0', () => {
     const doc = schema.node('doc', null, [
       schema.node('code_block', { language: 'metadata' }, schema.text('title: X')),
       schema.node('code_block', { language: 'html' }, schema.text('<p>preamble</p>')),
       schema.node('paragraph', null, schema.text('body'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const wrappedFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
-    const plugin = frontMatterPlugin.createPlugin()
+    const wrappedFactory = htmlFrontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const plugin = htmlFrontMatterPlugin.createPlugin()
     const state = EditorState.create({ schema, doc, plugins: [plugin] })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: wrappedFactory } })
 
     const preamblePos = doc.child(0).nodeSize
-    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(FrontMatterView) // the metadata block itself
-    expect(view.nodeDOM(preamblePos).codeView).toBeInstanceOf(FrontMatterView)
+    expect(view.nodeDOM(0).codeView).not.toBeInstanceOf(HTMLFrontMatterView) // the metadata block itself
+    expect(view.nodeDOM(preamblePos).codeView).toBeInstanceOf(HTMLFrontMatterView)
     expect(view.nodeDOM(preamblePos).codeView.mode).toBe('rendered')
 
     view.destroy()
@@ -373,8 +373,8 @@ describe('sequencing with a leading metadata block (expectedPreamblePosition)', 
       schema.node('paragraph', null, schema.text('body'))
     ])
     const originalFactory = (node, view, getPos) => new MU.CodeView(node, view, getPos, null)
-    const wrappedFactory = frontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
-    const plugin = frontMatterPlugin.createPlugin()
+    const wrappedFactory = htmlFrontMatterPlugin.makeCodeBlockFactory(originalFactory, null, { sanitize: (html) => html })
+    const plugin = htmlFrontMatterPlugin.createPlugin()
     const state = EditorState.create({ schema, doc, plugins: [plugin] })
     const container = document.body.appendChild(document.createElement('div'))
     const view = new EditorView(container, { state, nodeViews: { code_block: wrappedFactory } })
@@ -383,7 +383,7 @@ describe('sequencing with a leading metadata block (expectedPreamblePosition)', 
 
     const metadataBlock = schema.node('code_block', { language: 'metadata' }, schema.text('title: X'))
     view.dispatch(view.state.tr.insert(0, metadataBlock))
-    // A pure position shift doesn't reach FrontMatterView.update() -- the Plugin's
+    // A pure position shift doesn't reach HTMLFrontMatterView.update() -- the Plugin's
     // view-update hook (wired via createPlugin() above) calls checkAllPositions() instead.
 
     expect(instance.positionValid).toBe(true)
@@ -398,7 +398,7 @@ describe('sequencing with a leading metadata block (expectedPreamblePosition)', 
 // macOS, Cmd+V never reaches the DOM as a paste event -- NSResponder's
 // paste(_:) calls MU.pasteCode(text) directly, bypassing
 // handleDOMEvents.paste entirely.
-describe('wrapPasteCodeForFrontMatter: MU.pasteCode, the path native macOS paste actually uses', () => {
+describe('wrapPasteCodeForHTMLFrontMatter: MU.pasteCode, the path native macOS paste actually uses', () => {
   let originalPasteCode
   beforeEach(() => { originalPasteCode = MU.pasteCode })
   afterEach(() => { MU.pasteCode = originalPasteCode })
@@ -407,7 +407,7 @@ describe('wrapPasteCodeForFrontMatter: MU.pasteCode, the path native macOS paste
     const doc = leadingHtmlDoc('<p>old</p>')
     const { view, teardown } = mountView(doc)
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(1))))
-    frontMatterPlugin.wrapPasteCodeForFrontMatter(view)
+    htmlFrontMatterPlugin.wrapPasteCodeForHTMLFrontMatter(view)
 
     MU.pasteCode('<p>new</p>')
 
@@ -425,7 +425,7 @@ describe('wrapPasteCodeForFrontMatter: MU.pasteCode, the path native macOS paste
     const spy = () => {}
     let called = null
     MU.pasteCode = (text) => { called = text }
-    frontMatterPlugin.wrapPasteCodeForFrontMatter(view)
+    htmlFrontMatterPlugin.wrapPasteCodeForHTMLFrontMatter(view)
 
     MU.pasteCode('!')
 
@@ -438,7 +438,7 @@ describe('wrapPasteCodeForFrontMatter: MU.pasteCode, the path native macOS paste
     const doc = leadingHtmlDoc('<p>old</p>')
     const { view, teardown } = mountView(doc)
     view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(1))))
-    frontMatterPlugin.wrapPasteCodeForFrontMatter(view)
+    htmlFrontMatterPlugin.wrapPasteCodeForHTMLFrontMatter(view)
 
     MU.pasteCode('')
 

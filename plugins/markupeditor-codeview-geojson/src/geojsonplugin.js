@@ -184,7 +184,7 @@ export class GeoJSONPlugin {
                 // WebKit can't place a caret inside zero-size (font-size: 0) text, so
                 // it falls back to painting one at the nearest non-collapsed content
                 // instead -- scoping caret-color to the editor root (not the hidden
-                // text itself) is the actual fix, matching MermaidPlugin/FrontMatterPlugin.
+                // text itself) is the actual fix, matching MermaidPlugin/HTMLFrontMatterPlugin.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection
                     let hideCaret = false
@@ -210,7 +210,7 @@ export class GeoJSONPlugin {
 
     // Delegates to whatever's already installed for code_block, not assumed
     // to be CodeView specifically -- composable with any other independently-
-    // loaded code_block NodeView plugin (Mermaid, FrontMatter, or a future
+    // loaded code_block NodeView plugin (Mermaid, HTMLFrontMatter, or a future
     // one), the same capture-wrap-delegate contract they all follow.
     makeCodeBlockFactory(originalFactory, languageDialog, geojsonViewOptions = {}) {
         return (node, view, getPos) => {

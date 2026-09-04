@@ -53,9 +53,9 @@ const liveInstances = new Set()
  * Table is a read-only rendering of the same content Source holds; Source
  * is contentDOM itself, shown/hidden via HIDDEN_CODE_CLASS.
  *
- * Position enforcement mirrors FrontMatterView: once checkAllPositions()
+ * Position enforcement mirrors HTMLFrontMatterView: once checkAllPositions()
  * observes getPos() !== 0, the instance permanently falls back to plain
- * code-block rendering via forcePlainOnly(). Unlike FrontMatterView, there
+ * code-block rendering via forcePlainOnly(). Unlike HTMLFrontMatterView, there
  * is no language-away check in update() -- MetadataPlugin's
  * appendTransaction guard already prevents node.attrs.language from ever
  * differing from "metadata" at position 0.
@@ -141,7 +141,7 @@ export class MetadataView extends MU.CodeView {
 
     // Toggles the whole-block selected outline from live selection state,
     // called from the Plugin's view-update hook on every transaction.
-    // Applied to dom (the whole block), matching Mermaid's/FrontMatterView's
+    // Applied to dom (the whole block), matching Mermaid's/HTMLFrontMatterView's
     // selected outline.
     syncSelectedFromState(state) {
         if (!this.positionValid) return
@@ -219,7 +219,7 @@ export class MetadataView extends MU.CodeView {
         return button
     }
 
-    // Explicit SET, not a toggle -- matches FrontMatterView's setMode.
+    // Explicit SET, not a toggle -- matches HTMLFrontMatterView's setMode.
     setMode(isTable) {
         const nextMode = isTable ? 'table' : 'source'
         if (nextMode === this.mode) return

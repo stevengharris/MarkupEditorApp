@@ -1,6 +1,6 @@
 import { PluginKey, MU, NodeSelection, Selection, TextSelection, __parseFromClipboard, Plugin } from './markup-editor.js';
 
-const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter to hide the bar/toggle chrome when the block is selected,\n   matching markupeditor-codeview-frontmatter's equivalent rule. */\n#editor.Markup-exporting .metadata-bar,\n#editor.Markup-exporting .metadata-mode-toggle {\n  display: none;\n}\n\n.metadata-bar {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 4px 8px;\n  cursor: pointer;\n  user-select: none;\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 4px 4px 0 0;\n  font-size: 0.85rem;\n  font-weight: 600;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-bar {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-disclosure {\n  display: inline-block;\n  width: 0;\n  height: 0;\n  border-style: solid;\n  border-width: 5px 0 5px 7px;\n  border-color: transparent transparent transparent currentColor;\n  transition: transform 0.1s ease;\n}\n\n.metadata-disclosure-collapsed {\n  transform: rotate(0deg);\n}\n\n.metadata-disclosure:not(.metadata-disclosure-collapsed) {\n  transform: rotate(90deg);\n}\n\n.metadata-label {\n  margin-right: auto; /* pushes Table/Source to the right end of the same line */\n}\n\n.metadata-content {\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 0 0 4px 4px;\n  padding: 8px;\n  margin-bottom: 8px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-content {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-content-collapsed {\n  display: none;\n}\n\n.metadata-mode-toggle {\n  font-size: 0.75rem;\n  padding: 2px 8px;\n  border: none;\n  border-radius: 4px;\n  cursor: pointer;\n  opacity: 0.6;\n  color: white;\n  background: var(--Markup-accent-color, blue);\n}\n\n.metadata-mode-toggle:hover {\n  opacity: 0.9;\n}\n\n.metadata-mode-toggle-active {\n  opacity: 0.9;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-mode-toggle {\n    background: var(--Markup-accent-color, lightblue);\n    color: black;\n  }\n}\n\n.metadata-hide-caret {\n  caret-color: transparent;\n}\n\n/* Hides contentDOM (the editable Source text) in Table mode. contentDOM is\n   a grandchild of the <pre>, moved inside .metadata-content by MetadataView's\n   constructor, so it shares that wrapper's padding with .metadata-table. */\ncode.metadata-hidden-code {\n  font-size: 0;\n  line-height: 0;\n  margin: 0;\n}\n\n/* A CSS grid, not per-row flexboxes: grid-template-columns computes the key\n   column's width once across every row, matching a real <table>'s column\n   sizing. Cells are appended directly as grid children by renderTable(),\n   two per logical row. */\n.metadata-table {\n  display: grid;\n  grid-template-columns: auto 1fr;\n  font-size: 0.85rem;\n  border: 1px solid var(--Markup-border-color, #d0d7de);\n  border-radius: 6px;\n  overflow: hidden;\n}\n\n/* Dashed outline for the selected Table-mode block, matching FrontMatterView's\n   .frontmatter-rendered-selected / Mermaid's selected-diagram outline. */\n.metadata-selected {\n  outline: 1px var(--Markup-accent-color, blue) dashed;\n  outline-offset: 2px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-selected {\n    outline-color: var(--Markup-accent-color, lightblue);\n  }\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table {\n    border-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-key,\n.metadata-table-value {\n  padding: 6px 13px;\n}\n\n.metadata-table-row-border {\n  border-top: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-row-border {\n    border-top-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-striped {\n  background: var(--Markup-table-stripe, #f6f8fa);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-striped {\n    background: var(--Markup-table-stripe, #161b22);\n  }\n}\n\n.metadata-table-key {\n  font-weight: 600;\n  white-space: nowrap;\n  border-right: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-key {\n    border-right-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-value {\n  min-width: 0;\n  word-break: break-word;\n}\n\n.metadata-table-empty {\n  font-style: italic;\n  opacity: 0.6;\n}\n");
+const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter to hide the bar/toggle chrome when the block is selected,\n   matching markupeditor-codeview-htmlfrontmatter's equivalent rule. */\n#editor.Markup-exporting .metadata-bar,\n#editor.Markup-exporting .metadata-mode-toggle {\n  display: none;\n}\n\n.metadata-bar {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 4px 8px;\n  cursor: pointer;\n  user-select: none;\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 4px 4px 0 0;\n  font-size: 0.85rem;\n  font-weight: 600;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-bar {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-disclosure {\n  display: inline-block;\n  width: 0;\n  height: 0;\n  border-style: solid;\n  border-width: 5px 0 5px 7px;\n  border-color: transparent transparent transparent currentColor;\n  transition: transform 0.1s ease;\n}\n\n.metadata-disclosure-collapsed {\n  transform: rotate(0deg);\n}\n\n.metadata-disclosure:not(.metadata-disclosure-collapsed) {\n  transform: rotate(90deg);\n}\n\n.metadata-label {\n  margin-right: auto; /* pushes Table/Source to the right end of the same line */\n}\n\n.metadata-content {\n  background: var(--Markup-secondary-background, #eee);\n  border-radius: 0 0 4px 4px;\n  padding: 8px;\n  margin-bottom: 8px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-content {\n    background: var(--Markup-secondary-background, #333);\n  }\n}\n\n.metadata-content-collapsed {\n  display: none;\n}\n\n.metadata-mode-toggle {\n  font-size: 0.75rem;\n  padding: 2px 8px;\n  border: none;\n  border-radius: 4px;\n  cursor: pointer;\n  opacity: 0.6;\n  color: white;\n  background: var(--Markup-accent-color, blue);\n}\n\n.metadata-mode-toggle:hover {\n  opacity: 0.9;\n}\n\n.metadata-mode-toggle-active {\n  opacity: 0.9;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-mode-toggle {\n    background: var(--Markup-accent-color, lightblue);\n    color: black;\n  }\n}\n\n.metadata-hide-caret {\n  caret-color: transparent;\n}\n\n/* Hides contentDOM (the editable Source text) in Table mode. contentDOM is\n   a grandchild of the <pre>, moved inside .metadata-content by MetadataView's\n   constructor, so it shares that wrapper's padding with .metadata-table. */\ncode.metadata-hidden-code {\n  font-size: 0;\n  line-height: 0;\n  margin: 0;\n}\n\n/* A CSS grid, not per-row flexboxes: grid-template-columns computes the key\n   column's width once across every row, matching a real <table>'s column\n   sizing. Cells are appended directly as grid children by renderTable(),\n   two per logical row. */\n.metadata-table {\n  display: grid;\n  grid-template-columns: auto 1fr;\n  font-size: 0.85rem;\n  border: 1px solid var(--Markup-border-color, #d0d7de);\n  border-radius: 6px;\n  overflow: hidden;\n}\n\n/* Dashed outline for the selected Table-mode block, matching HTMLFrontMatterView's\n   .htmlfrontmatter-rendered-selected / Mermaid's selected-diagram outline. */\n.metadata-selected {\n  outline: 1px var(--Markup-accent-color, blue) dashed;\n  outline-offset: 2px;\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-selected {\n    outline-color: var(--Markup-accent-color, lightblue);\n  }\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table {\n    border-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-key,\n.metadata-table-value {\n  padding: 6px 13px;\n}\n\n.metadata-table-row-border {\n  border-top: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-row-border {\n    border-top-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-striped {\n  background: var(--Markup-table-stripe, #f6f8fa);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-striped {\n    background: var(--Markup-table-stripe, #161b22);\n  }\n}\n\n.metadata-table-key {\n  font-weight: 600;\n  white-space: nowrap;\n  border-right: 1px solid var(--Markup-border-color, #d0d7de);\n}\n\n@media (prefers-color-scheme: dark) {\n  .metadata-table-key {\n    border-right-color: var(--Markup-border-color, #30363d);\n  }\n}\n\n.metadata-table-value {\n  min-width: 0;\n  word-break: break-word;\n}\n\n.metadata-table-empty {\n  font-style: italic;\n  opacity: 0.6;\n}\n");
 
 // Separate module so both metadataview.js (reads/dispatches collapse state)
 // and metadataplugin.js (owns the Plugin whose state this keys into) can
@@ -59,9 +59,9 @@ const liveInstances = new Set();
  * Table is a read-only rendering of the same content Source holds; Source
  * is contentDOM itself, shown/hidden via HIDDEN_CODE_CLASS.
  *
- * Position enforcement mirrors FrontMatterView: once checkAllPositions()
+ * Position enforcement mirrors HTMLFrontMatterView: once checkAllPositions()
  * observes getPos() !== 0, the instance permanently falls back to plain
- * code-block rendering via forcePlainOnly(). Unlike FrontMatterView, there
+ * code-block rendering via forcePlainOnly(). Unlike HTMLFrontMatterView, there
  * is no language-away check in update() -- MetadataPlugin's
  * appendTransaction guard already prevents node.attrs.language from ever
  * differing from "metadata" at position 0.
@@ -147,7 +147,7 @@ class MetadataView extends MU.CodeView {
 
     // Toggles the whole-block selected outline from live selection state,
     // called from the Plugin's view-update hook on every transaction.
-    // Applied to dom (the whole block), matching Mermaid's/FrontMatterView's
+    // Applied to dom (the whole block), matching Mermaid's/HTMLFrontMatterView's
     // selected outline.
     syncSelectedFromState(state) {
         if (!this.positionValid) return
@@ -225,7 +225,7 @@ class MetadataView extends MU.CodeView {
         return button
     }
 
-    // Explicit SET, not a toggle -- matches FrontMatterView's setMode.
+    // Explicit SET, not a toggle -- matches HTMLFrontMatterView's setMode.
     setMode(isTable) {
         const nextMode = isTable ? 'table' : 'source';
         if (nextMode === this.mode) return
@@ -300,7 +300,7 @@ class MetadataPlugin {
     }
 
     // Table mode is the "atomic" shape (like Mermaid's diagram mode, or
-    // FrontMatterView's rendered mode): contentDOM is present but visually
+    // HTMLFrontMatterView's rendered mode): contentDOM is present but visually
     // collapsed to nothing, so without this the caret can silently land
     // inside it via arrow-key navigation or typing. Source mode is ordinary
     // text editing and is not atomic.
@@ -311,7 +311,7 @@ class MetadataPlugin {
 
     // Plain ArrowLeft/ArrowRight treats a Table-mode code_block as a single
     // atomic hop, like an image. Mirrors MermaidPlugin.handleDiagramArrowKey
-    // / FrontMatterPlugin.handleFrontMatterArrowKey.
+    // / HTMLFrontMatterPlugin.handleHTMLFrontMatterArrowKey.
     handleMetadataArrowKey(view, event) {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false
         if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return false
@@ -330,7 +330,7 @@ class MetadataPlugin {
         }
 
         // No "currently inside, hop out" branch here (unlike
-        // FrontMatterPlugin/MermaidPlugin): correctStraySelection (the
+        // HTMLFrontMatterPlugin/MermaidPlugin): correctStraySelection (the
         // view-update hook) converts any TextSelection landing inside a
         // Table-mode block to a NodeSelection before any subsequent
         // keydown could observe it as a TextSelection.
@@ -434,7 +434,7 @@ class MetadataPlugin {
     }
 
     // Writes the whole node to the clipboard, matching MermaidPlugin.handleDiagramCopy
-    // / FrontMatterPlugin.handleFrontMatterCopy.
+    // / HTMLFrontMatterPlugin.handleHTMLFrontMatterCopy.
     handleMetadataCopy(view, event) {
         const blockPos = this.selectedTableBlockPos(view);
         if (blockPos === null) return false
@@ -459,7 +459,7 @@ class MetadataPlugin {
     }
 
     // Registered via handleDOMEvents.paste, not the handlePaste prop -- same
-    // reasoning as MermaidPlugin/FrontMatterPlugin.
+    // reasoning as MermaidPlugin/HTMLFrontMatterPlugin.
     handleMetadataPaste(view, event) {
         const blockPos = this.selectedTableBlockPos(view);
         if (blockPos === null) return false
@@ -482,7 +482,7 @@ class MetadataPlugin {
     // selection is inside a <pre> -- MarkupWKWebView.swift routes it
     // through MU.pasteCode instead. Wrapping MU.pasteCode catches this
     // regardless of which path fires. Mirrors MermaidPlugin/
-    // FrontMatterPlugin's own wrapper.
+    // HTMLFrontMatterPlugin's own wrapper.
     wrapPasteCodeForMetadata(view) {
         const originalPasteCode = MU.pasteCode;
         MU.pasteCode = (text) => {
@@ -498,7 +498,7 @@ class MetadataPlugin {
 
     // Delegates to whatever's already installed for code_block, not assumed
     // to be CodeView specifically -- same composability contract
-    // FrontMatterPlugin/MermaidPlugin follow.
+    // HTMLFrontMatterPlugin/MermaidPlugin follow.
     makeCodeBlockFactory(originalFactory, languageDialog) {
         return (node, view, getPos) => {
             if (isMetadataLanguage(node.attrs.language) && getPos() === 0) {
@@ -515,7 +515,7 @@ class MetadataPlugin {
     // factory). update() returning false tells ProseMirror to discard this
     // instance and ask the factory again, which (now metadata-language,
     // and only if also at position 0) builds a MetadataView. Mirrors
-    // FrontMatterPlugin.wrapForFrontMatterUpgrade.
+    // HTMLFrontMatterPlugin.wrapForHTMLFrontMatterUpgrade.
     wrapForMetadataUpgrade(instance, getPos) {
         const delegateUpdate = instance.update.bind(instance);
         instance.update = (node) => (isMetadataLanguage(node.attrs.language) && getPos() === 0) ? false : delegateUpdate(node);
@@ -555,7 +555,7 @@ class MetadataPlugin {
             // tried to make it, so there is never a committed state where
             // the position-0 block's language differs from "metadata".
             // view.update (a separate, later dispatch, the mechanism
-            // FrontMatterPlugin uses for its own weaker position handling)
+            // HTMLFrontMatterPlugin uses for its own weaker position handling)
             // cannot give this guarantee.
             appendTransaction(transactions, oldState, newState) {
                 if (!transactions.some(tr => tr.docChanged)) return null
@@ -573,7 +573,7 @@ class MetadataPlugin {
                 // belt-and-suspenders alongside the arrow-key/delete
                 // handling above, for a selection that lands there some
                 // other way (e.g. a mouse click). Mirrors MermaidPlugin/
-                // FrontMatterPlugin.
+                // HTMLFrontMatterPlugin.
                 const syncCaretClass = (v) => {
                     const sel = v.state.selection;
                     let hideCaret = false;
