@@ -684,7 +684,7 @@ struct MarkupDocumentView: View {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
-        let converted = try await MarkupConverter.importMarkdownDecoded(webView, content: markdown)
+        let converted = try await MarkupConverter.importMarkdownDecoded(webView, content: document.normalizeSmartPunctuation(in: markdown))
         var warnings = converted.warnings
         if let yamlString = converted.metadata {
             document.metadata = YAMLMetadata.parse(yamlString, warnings: &warnings)

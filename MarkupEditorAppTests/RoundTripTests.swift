@@ -222,3 +222,23 @@ struct YAMLFrontmatterFormatTests {
         #expect(preamble == "&nbsp;")
     }
 }
+
+// MARK: - normalizeSmartPunctuation
+
+@MainActor struct NormalizeSmartPunctuationTests {
+
+    @Test func curlyDoubleQuotesBecomeStraight() {
+        let result = MarkupDocument().normalizeSmartPunctuation(in: "src=\u{201C}x\u{201D}")
+        #expect(result == "src=\"x\"")
+    }
+
+    @Test func curlySingleQuotesBecomeStraight() {
+        let result = MarkupDocument().normalizeSmartPunctuation(in: "it\u{2019}s a \u{2018}test\u{2019}")
+        #expect(result == "it's a 'test'")
+    }
+
+    @Test func plainTextWithNoSmartPunctuationIsUnchanged() {
+        let html = "<p>Hello \"world\"</p>"
+        #expect(MarkupDocument().normalizeSmartPunctuation(in: html) == html)
+    }
+}

@@ -260,6 +260,17 @@ import Observation
         return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
     }
 
+    // MARK: - Smart punctuation
+
+    /// Replaces curly quotes/apostrophes with their straight ASCII equivalents. 
+    func normalizeSmartPunctuation(in text: String) -> String {
+        let replacements: [Character: Character] = [
+            "\u{2018}": "'", "\u{2019}": "'", // ‘ ’
+            "\u{201C}": "\"", "\u{201D}": "\"" // “ ”
+        ]
+        return String(text.map { replacements[$0] ?? $0 })
+    }
+
     // MARK: - HTML preamble
 
     /// Extracts the HTML preamble code block from the start of editor HTML, if present.
