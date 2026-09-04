@@ -23,7 +23,7 @@ public enum CodeViewManager {
     // as unsynchronized global mutable state under strict concurrency even though the value
     // never actually changes.
     public static var mermaid: Plugin {
-        Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-codeview-mermaid.js")
+        Plugin(name: "Mermaid", type: "codeview", filename: "codeview-mermaid.js")
     }
 
     /// Codeview plugins pre-installed unconditionally via `syncInternalPlugins`, never
@@ -36,8 +36,8 @@ public enum CodeViewManager {
 
         var filename: String {
             switch self {
-            case .metadata: "markupeditor-codeview-metadata.js"
-            case .htmlFrontMatter: "markupeditor-codeview-htmlfrontmatter.js"
+            case .metadata: "codeview-metadata.js"
+            case .htmlFrontMatter: "codeview-htmlfrontmatter.js"
             }
         }
 

@@ -30,7 +30,7 @@ struct PluginCatalogDecodingTests {
 
         let mermaid = try #require(catalog.codeview["Mermaid"])
         #expect(mermaid.name == "Mermaid")
-        #expect(mermaid.filename == "markupeditor-codeview-mermaid.js")
+        #expect(mermaid.filename == "codeview-mermaid.js")
         #expect(mermaid.ext == nil)
 
         let docx = try #require(catalog.exporter["DocX"])

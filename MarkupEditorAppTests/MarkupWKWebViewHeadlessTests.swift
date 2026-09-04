@@ -61,7 +61,7 @@ struct MarkupWKWebViewHeadlessTests {
         let repoRoot = thisFile
             .deletingLastPathComponent() // MarkupEditorAppTests/
             .deletingLastPathComponent() // repo root
-        let mdURL = repoRoot.appendingPathComponent("plugins/markupeditor-exporter-docx/test/fixtures/test-exporter.md")
+        let mdURL = repoRoot.appendingPathComponent("plugins/exporter-docx/test/fixtures/test-exporter.md")
         return try String(contentsOf: mdURL, encoding: .utf8)
     }
 

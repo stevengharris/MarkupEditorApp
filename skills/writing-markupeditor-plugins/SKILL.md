@@ -11,15 +11,15 @@ description: Use when building any MarkupEditor plugin, or when unsure whether y
 
 A plugin is a JavaScript module, its own independent npm package under `plugins/<name>/`, that MarkupEditor loads when a document opens. Every plugin declares a `name` and a `type`:
 
-- **`exporter`** -- adds a File → Export transform to another file format. Reference implementation: `plugins/markupeditor-exporter-docx`.
-- **`codeview`** -- changes how a fenced code block of a specific language renders inside the live document. Reference implementations: `plugins/markupeditor-codeview-mermaid`, `plugins/markupeditor-codeview-htmlfrontmatter` (the latter is internal -- bundled and auto-loaded, not user-installable; see `writing-codeview-plugins`).
+- **`exporter`** -- adds a File → Export transform to another file format. Reference implementation: `plugins/exporter-docx`.
+- **`codeview`** -- changes how a fenced code block of a specific language renders inside the live document. Reference implementations: `plugins/codeview-mermaid`, `plugins/codeview-htmlfrontmatter` (the latter is internal -- bundled and auto-loaded, not user-installable; see `writing-codeview-plugins`).
 
 Registration is `MU.registerPlugin({ name, type })` from an `install()` that reads `MU.activeView()` directly. Plugins load via `userScript` well after markupeditor-base's own editor already exists and has already rendered the open document -- neither plugin type gets to assume a fresh, empty editor.
 
 ## Which Type Do You Need?
 
 - Rendering a fenced code block as something else (a diagram, live HTML, syntax highlighting) → **REQUIRED SUB-SKILL:** `writing-codeview-plugins`.
-- Transforming the document into another file format for export → read `plugins/markupeditor-exporter-docx` as your reference implementation and follow this skill's conventions directly; no dedicated exporter-authoring skill exists yet.
+- Transforming the document into another file format for export → read `plugins/exporter-docx` as your reference implementation and follow this skill's conventions directly; no dedicated exporter-authoring skill exists yet.
 
 ## package.json Metadata
 
@@ -27,8 +27,8 @@ Every plugin's `package.json` needs a `markupeditor` object:
 
 ```json
 {
-  "name": "markupeditor-codeview-mermaid",
-  "main": "dist/markupeditor-codeview-mermaid.js",
+  "name": "codeview-mermaid",
+  "main": "dist/codeview-mermaid.js",
   "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
   "author": "Your Name <you@example.com>",
   "version": "1.0.0",

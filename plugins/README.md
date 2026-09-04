@@ -27,12 +27,12 @@ Mermaid Diagrams
 ## Testing
 
 A plugin's test suite lives entirely inside its own directory and runs via `npm test`
-(vitest) — no Xcode, no changes to MarkupEditorApp. `markupeditor-exporter-docx` establishes
+(vitest) — no Xcode, no changes to MarkupEditorApp. `exporter-docx` establishes
 the pattern in three tiers; only the third reaches outside the plugin's own directory.
 
 **1. Converter unit tests.** Hand-crafted HTML snippets fed directly into your own
 HTML-to-format conversion function, decoded with your own format's decode helper, asserted
-structurally. No mocking needed. See `markupeditor-exporter-docx/test/htmlToDocx.test.js`.
+structurally. No mocking needed. See `exporter-docx/test/htmlToDocx.test.js`.
 
 **2. Full-pipeline test.** Mock the base package so `run()` can be called standalone:
 
@@ -43,12 +43,12 @@ vi.mock('markupeditor', () => ({
 ```
 
 Call your plugin's exported `run()`, decode the result, assert. See
-`markupeditor-exporter-docx/test/docxexporter.test.js`.
+`exporter-docx/test/docxexporter.test.js`.
 
 **3. Real-document fidelity test (optional).** Drives `run()` from HTML produced by the real
 markdown-import pipeline (`markupeditor-app`'s `importMarkdown`) instead of a hand-authored
 snippet, so the test proves your exporter matches what the real app actually produces. See
-`markupeditor-exporter-docx/test/test-exporter-fidelity.test.js` and its
+`exporter-docx/test/test-exporter-fidelity.test.js` and its
 `test/helpers/renderTestDocument.js` harness.
 
 For tier 3:
@@ -61,16 +61,16 @@ For tier 3:
   `markupeditor-app/src/markdown.js`'s own `import { MU } from "markupeditor"` resolve to the
   SAME module instance — stubbing `MU.activeView()` (so `importMarkdown` can run without a live
   editor view) actually takes effect on the copy `importMarkdown` reads from. See
-  `markupeditor-exporter-docx/vitest.config.js`.
+  `exporter-docx/vitest.config.js`.
 * Don't `vi.mock('markupeditor', ...)` in a test file that also uses this alias-backed `MU` —
   Vitest mocks by resolved path, so a mock would replace the module for the whole graph
   reachable from that test file, including `markdown.js`'s own import, losing `MU.schema`. If
   your plugin's own `run()` also needs `MU` (e.g. `MU.getHTML()`), monkey-patch that property
   directly on the same real `MU` object instead — see
-  `markupeditor-exporter-docx/test/test-exporter-fidelity.test.js`.
+  `exporter-docx/test/test-exporter-fidelity.test.js`.
 * Loading the real `markupeditor` bundle needs a real DOM (`jsdom`) plus two small shims for
   gaps in `jsdom`'s own CSSOM support (`CSSStyleSheet.replaceSync`, `CSSStyleSheet.media`). See
-  `markupeditor-exporter-docx/test/vitest.setup.js`.
+  `exporter-docx/test/vitest.setup.js`.
 * Real image loading (`Image`/`canvas`) hangs indefinitely in this environment — mock
   `resolveImages` (or your format's equivalent) wholesale rather than trying to make it work;
   image-loading fidelity itself is out of scope for this kind of test and is verified manually.
@@ -81,8 +81,8 @@ Every plugin's `package.json` must include a `markupeditor` object describing it
 
 ```json
 {
-  "name": "markupeditor-codeview-mermaid",
-  "main": "dist/markupeditor-codeview-mermaid.js",
+  "name": "codeview-mermaid",
+  "main": "dist/codeview-mermaid.js",
   "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
   "author": "Your Name <you@example.com>",
   "version": "1.0.0",
