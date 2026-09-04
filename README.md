@@ -153,7 +153,7 @@ npx skills add stevengharris/MarkupEditorApp --skill writing-markupeditor-plugin
 npx skills add stevengharris/MarkupEditorApp --skill writing-codeview-plugins
 ```
 
-The `writing-markupeditor-plugins` skill covers the contract shared by every plugin type. The `writing-codeview-plugins` skill is specific to codeview plugins, such as the bundled Mermaid diagram support. If you are building an exporter plugin, see the `plugins/README.md` and use `plugins/markupeditor-exporter-docx` as your reference implementation -- a dedicated skill for that doesn't exist yet.
+The `writing-markupeditor-plugins` skill covers the contract shared by every plugin type. The `writing-codeview-plugins` skill is specific to codeview plugins, such as the bundled Mermaid diagram support. If you are building an exporter plugin, see the `plugins/README.md` and use `plugins/exporter-docx` as your reference implementation -- a dedicated skill for that doesn't exist yet.
 
 Once installed, just describe what you're trying to do -- Claude Code loads the relevant skill automatically. Send a pull request when you're done.
 

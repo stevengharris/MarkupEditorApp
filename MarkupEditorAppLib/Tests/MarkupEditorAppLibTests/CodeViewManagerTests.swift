@@ -57,9 +57,9 @@ struct CodeViewManagerTests {
         let sourceDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sourceDir) }
-        let sourceFile = sourceDir.appendingPathComponent("markupeditor-codeview-metadata-test.js")
+        let sourceFile = sourceDir.appendingPathComponent("codeview-metadata-test.js")
         try Data("// stand-in for the real bundle resource".utf8).write(to: sourceFile)
-        defer { removeDirectly(filename: "markupeditor-codeview-metadata-test.js") }
+        defer { removeDirectly(filename: "codeview-metadata-test.js") }
 
         let result = CodeViewManager.add(name: "Metadata", url: sourceFile, exporters: [], codeViews: [], cacheDir: testCacheDir, allowProtectedNames: true)
 
@@ -69,7 +69,7 @@ struct CodeViewManagerTests {
 
     @Test func deleteRefusesAProtectedName() throws {
         try ensureDefaultDirExists()
-        let filename = "markupeditor-codeview-metadata-delete-test.js"
+        let filename = "codeview-metadata-delete-test.js"
         let destination = CodeViewManager.defaultDir.appendingPathComponent(filename)
         try Data("// stand-in".utf8).write(to: destination)
         defer { removeDirectly(filename: filename) }
@@ -127,7 +127,7 @@ struct CodeViewManagerTests {
     }
 
     @Test func syncInternalPluginsReturnsCodeViewsUnchangedWhenResourceURLIsNil() {
-        let existing = [Plugin(name: "Mermaid", type: "codeview", filename: "markupeditor-codeview-mermaid.js")]
+        let existing = [Plugin(name: "Mermaid", type: "codeview", filename: "codeview-mermaid.js")]
         let result = CodeViewManager.syncInternalPlugins(exporters: [], codeViews: existing, resourceURL: nil, cacheDir: testCacheDir)
         #expect(result == existing)
     }

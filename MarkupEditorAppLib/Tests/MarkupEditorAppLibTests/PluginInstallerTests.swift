@@ -10,23 +10,23 @@ import MarkupEditor
 
 private let validExporterEntry = PluginCatalogEntry(
     name: "DocX",
-    filename: "markupeditor-exporter-docx.js",
+    filename: "exporter-docx.js",
     description: "MarkupEditor exporter plugin for DOCX.",
     author: "Steven G. Harris",
     version: "0.1.0",
     repo: "https://github.com/stevengharris/markupeditor-desktop",
-    source: "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/markupeditor-exporter-docx/dist/markupeditor-exporter-docx.js",
+    source: "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-docx/dist/exporter-docx.js",
     ext: "docx"
 )
 
 private let entryMissingExt = PluginCatalogEntry(
     name: "DocX",
-    filename: "markupeditor-exporter-docx.js",
+    filename: "exporter-docx.js",
     description: "MarkupEditor exporter plugin for DOCX.",
     author: "Steven G. Harris",
     version: "0.1.0",
     repo: "https://github.com/stevengharris/markupeditor-desktop",
-    source: "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/markupeditor-exporter-docx/dist/markupeditor-exporter-docx.js",
+    source: "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-docx/dist/exporter-docx.js",
     ext: nil
 )
 
@@ -40,7 +40,7 @@ struct PluginInstallerTests {
 
         let destination = installDestination(for: validExporterEntry, in: downloadDir)
 
-        #expect(destination.lastPathComponent == "markupeditor-exporter-docx.js")
+        #expect(destination.lastPathComponent == "exporter-docx.js")
         #expect(destination.deletingLastPathComponent().path == downloadDir.path)
     }
 

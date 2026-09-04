@@ -22,7 +22,7 @@ public enum ExporterManager {
     // as unsynchronized global mutable state under strict concurrency even though the value
     // never actually changes.
     public static var docx: Plugin {
-        Plugin(name: "DocX", type: "exporter", filename: "markupeditor-exporter-docx.js", ext: "docx")
+        Plugin(name: "DocX", type: "exporter", filename: "exporter-docx.js", ext: "docx")
     }
 
     /// The URL of the exporter directory under Application Support.

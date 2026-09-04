@@ -815,7 +815,7 @@ describe('topLevelBlockStarts / ProseMirror child count consistency', () => {
   })
 
   test('large realistic fixture (test-exporter.md): frontmatter-adjusted alignment', () => {
-    const path = resolve(import.meta.dirname, '../../plugins/markupeditor-exporter-docx/test/fixtures/test-exporter.md')
+    const path = resolve(import.meta.dirname, '../../plugins/exporter-docx/test/fixtures/test-exporter.md')
     const md = readFileSync(path, 'utf-8')
     const { body, hasFrontMatter } = splitFrontMatter(md)
     expect(hasFrontMatter).toBe(true)

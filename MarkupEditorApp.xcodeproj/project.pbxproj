@@ -65,16 +65,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AA8384B3302E4CD80034CD46 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"markupeditor-codeview-htmlfrontmatter/dist/markupeditor-codeview-htmlfrontmatter.js",
-				"markupeditor-codeview-mermaid/dist/markupeditor-codeview-mermaid.js",
-				"markupeditor-codeview-metadata/dist/markupeditor-codeview-metadata.js",
-				"markupeditor-exporter-docx/dist/markupeditor-exporter-docx.js",
-			);
-			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
-		};
 		AA83FAD0302E517C0034CD46 /* Exceptions for "markupeditor-app" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -86,6 +76,16 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+			);
+			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
+		};
+		AAE627C7304B522000692635 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"codeview-htmlfrontmatter/dist/codeview-htmlfrontmatter.js",
+				"codeview-mermaid/dist/codeview-mermaid.js",
+				"codeview-metadata/dist/codeview-metadata.js",
+				"exporter-docx/dist/exporter-docx.js",
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
 		};
@@ -123,14 +123,7 @@
 		AA8327AF302E47F80034CD46 /* plugins */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AA8384B3302E4CD80034CD46 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */,
-			);
-			explicitFolders = (
-				"markupeditor-codeview-mermaid/src",
-				"markupeditor-codeview-mermaid/styles",
-				"markupeditor-codeview-mermaid/test",
-				"markupeditor-exporter-docx/src",
-				"markupeditor-exporter-docx/test",
+				AAE627C7304B522000692635 /* Exceptions for "plugins" folder in "MarkupEditorApp" target */,
 			);
 			path = plugins;
 			sourceTree = "<group>";
@@ -393,7 +386,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# This is the internal pre-installed codeview plugin for metadata\ncd \"$SRCROOT/plugins/markupeditor-codeview-metadata\" && npm run build\n\n# These are the pre-installed plugins that can be deleted and/or replaced\ncd \"$SRCROOT/plugins/markupeditor-exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-htmlfrontmatter\" && npm run build\ncd \"$SRCROOT/plugins/markupeditor-codeview-geojson\" && npm run build\n";
+			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the internal pre-installed codeview plugins for markdown front matter\ncd \"$SRCROOT/plugins/codeview-metadata\" && npm run build\ncd \"$SRCROOT/plugins/codeview-htmlfrontmatter\" && npm run build\n\n# These are the pre-installed plugins that can be deleted and/or replaced\ncd \"$SRCROOT/plugins/exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/codeview-geojson\" && npm run build\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
