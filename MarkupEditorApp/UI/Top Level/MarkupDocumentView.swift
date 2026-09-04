@@ -9,9 +9,14 @@ import SwiftUI
 import MarkupEditor
 import MarkupEditorAppLib
 import SplitView
+import OSLog
 
 internal import UniformTypeIdentifiers
 internal import WebKit
+
+/// Logger for JS-side errors reported with `alert: false` -- OSLog only, bypassing
+/// EditLog so they don't show up in the user-visible Info panel.
+private let errorLogger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "Script")
 
 struct MarkupDocumentView: View {
     
@@ -904,10 +909,16 @@ extension MarkupDocumentView: MarkupDelegate {
     }
 
     /// An error occurred on the JavaScript side (internal MUErrors, or a plugin using
-    /// MU.reportError, e.g. markupeditor-mermaid on a failed diagram render). Route it
-    /// through the same info-view log Swift-originated errors already use, rather than
-    /// the default MarkupDelegate implementation's OSLog-only behavior.
+    /// MU.reportError, e.g. markupeditor-mermaid on a failed diagram render). When
+    /// `alert` is true, route it through the same info-view log Swift-originated
+    /// errors already use, so the user sees it. When false, log only -- the caller
+    /// is telling us this isn't something the user needs surfaced.
     func markupError(code: String, message: String, info: String?, alert: Bool) {
+        guard alert else {
+            errorLogger.error("Error \(code): \(message)")
+            if let info { errorLogger.info("\(info)") }
+            return
+        }
         showError("Error \(code): \(message)")
     }
 
