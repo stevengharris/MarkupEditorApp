@@ -157,6 +157,10 @@ struct PluginSettingsView: View {
                     Task { await addPlugin() }
                 }
                 .disabled(newPluginName.isEmpty)
+                Button("Cancel", role: .cancel) {
+                    newPluginURL?.stopAccessingSecurityScopedResource()
+                    newPluginURL = nil
+                }
             } else {
                 TextField(text: $newPluginExt, prompt: Text("Default export file extension")) {
                     Text("Extension")
