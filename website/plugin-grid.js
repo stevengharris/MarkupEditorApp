@@ -59,26 +59,36 @@ export function hasAnyEntries(sections) {
   return sections.some((section) => section.entries.length > 0);
 }
 
-/** "codeview" -> "Codeview", "widget-type" -> "Widget Type". Generic, no per-type lookup table. */
+/** "codeview" -> "Codeviews", "widget-type" -> "Widget Types". Generic, no per-type lookup table -- section headings read as a category of plugins, so the last word is pluralized (naive: append "s" unless it already ends in one). */
 function humanizeType(type) {
-  return type
+  const words = type
     .split(/[^a-zA-Z0-9]+/)
     .filter(Boolean)
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join(' ');
+    .map((word) => word[0].toUpperCase() + word.slice(1));
+  const last = words.length - 1;
+  if (last >= 0 && !words[last].toLowerCase().endsWith('s')) {
+    words[last] += 's';
+  }
+  return words.join(' ');
 }
 
 const STYLE_ELEMENT_ID = 'me-plugin-grid-style';
 
+// Values below assume the site's 62.5%-root convention (1rem == 10px), matching
+// the markupeditor theme's own screen.css -- NOT a bare 16px-root assumption.
+// Colors/spacing reference the theme's CSS custom properties (--color-border,
+// --color-secondary-text, --grid-gap, --container-gap) so cards stay in sync
+// with the site's palette and dark/light mode without duplicating values here.
 const STYLE_RULES = `
-.me-plugin-grid-section { margin: 0 0 2rem 0; }
-.me-plugin-grid-section h2 { font-size: 1.4rem; margin: 0 0 1rem 0; }
-.me-plugin-grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
-.me-plugin-grid-card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; }
-.me-plugin-grid-card h3 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
-.me-plugin-grid-card p { margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #444; }
-.me-plugin-grid-card .me-plugin-grid-meta { font-size: 0.8rem; color: #777; }
-.me-plugin-grid-unable { color: #777; font-style: italic; }
+.me-plugin-grid-section { margin: 0 0 3.2rem 0; }
+.me-plugin-grid-section h2 { font-size: calc(1.6em * var(--factor, 1)); letter-spacing: -0.02em; margin: 0 0 1.6rem 0; }
+.me-plugin-grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2rem; }
+.me-plugin-grid-card { border: 1px solid var(--color-border, #ddd); border-radius: 12px; padding: 2rem; }
+.me-plugin-grid-card h3 { margin: 0 0 0.8rem 0; font-size: 1.6rem; }
+.me-plugin-grid-card p { margin: 0 0 1rem 0; font-size: 1.4rem; line-height: 1.5; color: var(--color-secondary-text, #444); }
+.me-plugin-grid-card .me-plugin-grid-meta { font-size: 1.2rem; color: var(--color-secondary-text, #777); }
+.me-plugin-grid-card a { font-weight: 600; }
+.me-plugin-grid-unable { color: var(--color-secondary-text, #777); font-style: italic; }
 `;
 
 function ensureStylesInjected(doc) {
