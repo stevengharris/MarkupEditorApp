@@ -18,6 +18,7 @@ NOTARY_PROFILE="$DEFAULT_NOTARY_PROFILE"
 SKIP_SIGN=0
 SKIP_NOTARIZE=0
 ALLOW_UNNOTARIZED_APP=0
+VARIANT_OVERRIDE=""
 
 usage() {
     cat >&2 <<EOF
@@ -25,11 +26,18 @@ Usage: $0 --app <path/to/MarkupEditor.app> [--out <dir>]
           [--identity "<Developer ID Installer identity>"]
           [--notary-profile <name>]
           [--skip-sign] [--skip-notarize] [--allow-unnotarized-app]
+          [--variant Eval|Unlimited]
 
 --skip-sign implies --skip-notarize (an unsigned pkg cannot be notarized).
 --allow-unnotarized-app relaxes only the input .app's notarization checks,
 independent of --skip-sign -- used for local dry runs against a
 development-signed build.
+--variant is a confirmation, not a source of truth: the actual variant is
+always derived from the app's own MarkupEditorEvalVersion (baked in at build
+time from the Xcode build setting). If --variant disagrees with what the app
+itself says, the script refuses rather than trusting the flag -- a bare
+hand-passed flag would make shipping an eval binary labeled Unlimited a
+single-typo, unchecked error.
 EOF
     exit "${1:-2}"
 }
@@ -43,6 +51,7 @@ while [ $# -gt 0 ]; do
         --skip-sign) SKIP_SIGN=1; shift ;;
         --skip-notarize) SKIP_NOTARIZE=1; shift ;;
         --allow-unnotarized-app) ALLOW_UNNOTARIZED_APP=1; shift ;;
+        --variant) VARIANT_OVERRIDE="$2"; shift 2 ;;
         -h|--help) usage 0 ;;
         *) echo "error: unknown argument: $1" >&2; usage ;;
     esac
@@ -95,7 +104,68 @@ fi
 # ---------------------------------------------------------------------------
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
 
+# ---------------------------------------------------------------------------
+# Step 3b: derive the variant (Eval vs. Unlimited) from the app itself
+# ---------------------------------------------------------------------------
+# MarkupEditorEvalVersion is baked into Info.plist from the MARKUPEDITOR_EVAL_VERSION
+# build setting. Empirically confirmed (all four configurations built and
+# inspected directly, not assumed): Release-Eval produces the literal string "YES";
+# Debug, Release, and Release-AppStore -- none of which define the build setting --
+# all produce an empty string, never a missing key and never the unresolved literal
+# "$(MARKUPEDITOR_EVAL_VERSION)". The unresolved-literal and missing-key cases are
+# still handled defensively below in case that ever changes (e.g. an app built
+# before this key existed).
+#
+# Only the literal YES means eval. Anything else that isn't one of the known
+# "not eval" shapes fails loud -- mirroring MARKUPEDITOR_INCLUDE_CLI's existing
+# YES/NO/*-error shell build phase (project.pbxproj ~line 370). Guessing the
+# variant wrong ships an eval binary to a paying Unlimited customer.
+EVAL_MARKER=$(/usr/libexec/PlistBuddy -c "Print :MarkupEditorEvalVersion" "$APP/Contents/Info.plist" 2>/dev/null) || EVAL_MARKER=""
+case "$EVAL_MARKER" in
+    YES)
+        IS_EVAL=1
+        ;;
+    ""|NO|'$(MARKUPEDITOR_EVAL_VERSION)')
+        IS_EVAL=0
+        ;;
+    *)
+        echo "error: $APP has unexpected MarkupEditorEvalVersion '$EVAL_MARKER' (expected 'YES' or empty) -- refusing to guess the variant" >&2
+        exit 1
+        ;;
+esac
+
+if [ -n "$VARIANT_OVERRIDE" ]; then
+    case "$VARIANT_OVERRIDE" in
+        Eval) OVERRIDE_IS_EVAL=1 ;;
+        Unlimited) OVERRIDE_IS_EVAL=0 ;;
+        *) echo "error: --variant must be 'Eval' or 'Unlimited', got '$VARIANT_OVERRIDE'" >&2; exit 1 ;;
+    esac
+    if [ "$OVERRIDE_IS_EVAL" -ne "$IS_EVAL" ]; then
+        echo "error: --variant $VARIANT_OVERRIDE disagrees with $APP's own MarkupEditorEvalVersion ('$EVAL_MARKER') -- refusing to override a signal derived from the actual binary" >&2
+        exit 1
+    fi
+fi
+
+# Eval keeps the unadorned name -- README.md already publishes it under
+# MarkupEditor-<version>.pkg, so that name cannot change. Only Unlimited gets
+# a token, so the two variants never collide at the same path.
+if [ "$IS_EVAL" -eq 1 ]; then
+    PKG_BASENAME="MarkupEditor-$VERSION"
+else
+    PKG_BASENAME="MarkupEditor-$VERSION-Unlimited"
+fi
+
 mkdir -p "$OUT"
+
+# ---------------------------------------------------------------------------
+# Step 3c: refuse to clobber an existing output, before doing any expensive work
+# ---------------------------------------------------------------------------
+for candidate in "$OUT/$PKG_BASENAME.pkg" "$OUT/$PKG_BASENAME-unsigned.pkg"; do
+    if [ -e "$candidate" ]; then
+        echo "error: $candidate already exists -- refusing to overwrite" >&2
+        exit 1
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # Step 4: stage
@@ -129,7 +199,7 @@ pkgbuild --root "$WORK/root" --component-plist "$WORK/component.plist" \
 # Step 7: sign
 # ---------------------------------------------------------------------------
 if [ "$SKIP_SIGN" -eq 0 ]; then
-    FINAL_PKG="$OUT/MarkupEditor-$VERSION.pkg"
+    FINAL_PKG="$OUT/$PKG_BASENAME.pkg"
     # productsign as a separate step (rather than pkgbuild --sign) is what
     # makes --skip-sign a one-line branch.
     productsign --sign "$IDENTITY" "$WORK/MarkupEditor-unsigned.pkg" "$FINAL_PKG"
@@ -140,7 +210,7 @@ if [ "$SKIP_SIGN" -eq 0 ]; then
         exit 1
     fi
 else
-    FINAL_PKG="$OUT/MarkupEditor-$VERSION-unsigned.pkg"
+    FINAL_PKG="$OUT/$PKG_BASENAME-unsigned.pkg"
     cp "$WORK/MarkupEditor-unsigned.pkg" "$FINAL_PKG"
     echo "note: --skip-sign -- produced an unsigned pkg: $FINAL_PKG"
 fi
