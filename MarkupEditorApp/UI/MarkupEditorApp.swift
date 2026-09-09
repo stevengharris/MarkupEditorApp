@@ -8,6 +8,9 @@
 import SwiftUI
 import MarkupEditor
 import MarkupEditorAppLib
+#if EVAL_VERSION
+import Security
+#endif
 
 @main
 struct MarkupEditorApp: App {
@@ -85,3 +88,62 @@ struct MarkupEditorApp: App {
         }
     }
 }
+
+#if EVAL_VERSION
+/// Keychain-backed storage for the eval version's first-launch date.
+enum EvaluationKeychain {
+
+    private static let service = "com.stevengharris.MarkupEditorApp.eval"
+    private static let account = "firstLaunchDate"
+
+    enum Lookup {
+        case notFound
+        case found(Date)
+        /// Read failed, or the stored data was unreadable -- distinct from
+        /// `.notFound` so a real failure isn't mistaken for first launch,
+        /// and never treated as expiration either.
+        case failed(OSStatus)
+    }
+
+    static func lookupFirstLaunchDate() -> Lookup {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseDataProtectionKeychain as String: true
+        ]
+        var item: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        switch status {
+        case errSecSuccess:
+            guard let data = item as? Data,
+                  let date = try? JSONDecoder().decode(Date.self, from: data) else {
+                return .failed(status)
+            }
+            return .found(date)
+        case errSecItemNotFound:
+            return .notFound
+        default:
+            return .failed(status)
+        }
+    }
+
+    /// Add-only: never updates an existing item. A failed write just means
+    /// the next launch finds no item and retries as first launch -- fails
+    /// toward "never expires," not toward "expires immediately."
+    @discardableResult
+    static func recordFirstLaunch(_ date: Date) -> Bool {
+        guard let data = try? JSONEncoder().encode(date) else { return false }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data,
+            kSecUseDataProtectionKeychain as String: true
+        ]
+        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+    }
+}
+#endif
