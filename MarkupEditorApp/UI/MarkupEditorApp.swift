@@ -9,6 +9,7 @@ import SwiftUI
 import MarkupEditor
 import MarkupEditorAppLib
 #if EVAL_VERSION
+import AppKit
 import Security
 #endif
 
@@ -64,6 +65,11 @@ struct MarkupEditorApp: App {
     }
     
     init() {
+        #if EVAL_VERSION
+        // Checked first, before anything else in init(): an expired launch
+        // terminates immediately, and should not have run plugin setup first.
+        Self.performEvaluationCheck()
+        #endif
         MarkupEditor.allowLocalImages = true
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
@@ -90,6 +96,72 @@ struct MarkupEditorApp: App {
 }
 
 #if EVAL_VERSION
+extension MarkupEditorApp {
+
+    private static func performEvaluationCheck() {
+        switch EvaluationKeychain.lookupFirstLaunchDate() {
+        case .notFound:
+            let now = Date()
+            EvaluationKeychain.recordFirstLaunch(now)
+            presentFirstLaunchNotice(firstLaunch: now)
+        case .found(let firstLaunch):
+            if EvaluationPolicy.isExpired(firstLaunch: firstLaunch, now: Date()) {
+                presentExpirationAlertAndQuit()
+            }
+        case .failed:
+            // Fail safe: neither block the launch nor attempt a write that
+            // might collide with an item we failed to read.
+            break
+        }
+    }
+
+    private static func presentFirstLaunchNotice(firstLaunch: Date) {
+        let expiration = EvaluationPolicy.expirationDate(from: firstLaunch)
+        let formatted = DateFormatter.localizedString(from: expiration, dateStyle: .long, timeStyle: .none)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Evaluation Version"
+        // The body is one accessory view, not informativeText + a separate
+        // accessory -- two independently-laid-out text blocks left a visible
+        // gap mismatch between them. NSAlert.informativeText is a plain
+        // String and can't render a link itself, so the whole paragraph
+        // (with "markupeditor.app" as the one linked run) lives here instead.
+        alert.accessoryView = evaluationNoticeField(formattedExpiration: formatted)
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    /// A SwiftUI `Text` hosted as the accessory view -- its Markdown link
+    /// syntax renders "markupeditor.app" as a real clickable link with no
+    /// manual NSAttributedString/frame layout, which NSAlert.informativeText
+    /// (a plain String) can't do on its own.
+    private static func evaluationNoticeField(formattedExpiration: String) -> NSView {
+        let text = Text("This is an evaluation copy of MarkupEditor, usable through \(formattedExpiration). Subscribe at [markupeditor.app](https://www.markupeditor.app/downloads/) any time to keep using it afterward.")
+            .frame(width: 300, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+        let hosting = NSHostingView(rootView: text)
+        // NSAlert positions an accessoryView from its frame, not Auto
+        // Layout constraints, so size it explicitly rather than relying on
+        // constraints alone. 300 matches NSAlert's default message-column
+        // width; fittingSize gives the wrapped height for that width.
+        hosting.frame = NSRect(x: 0, y: 0, width: 300, height: hosting.fittingSize.height)
+        return hosting
+    }
+
+    private static func presentExpirationAlertAndQuit() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Evaluation Period Ended"
+        alert.informativeText = "Subscribe to continue using MarkupEditor."
+        alert.addButton(withTitle: "Subscribe…")
+        alert.addButton(withTitle: "Quit")
+        if alert.runModal() == .alertFirstButtonReturn, let url = URL(string: "https://www.markupeditor.app/downloads/") {
+            NSWorkspace.shared.open(url)
+        }
+        NSApplication.shared.terminate(nil)
+    }
+}
+
 /// Keychain-backed storage for the eval version's first-launch date.
 enum EvaluationKeychain {
 
@@ -111,8 +183,7 @@ enum EvaluationKeychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseDataProtectionKeychain as String: true
+            kSecMatchLimit as String: kSecMatchLimitOne
         ]
         var item: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -140,8 +211,7 @@ enum EvaluationKeychain {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecValueData as String: data,
-            kSecUseDataProtectionKeychain as String: true
+            kSecValueData as String: data
         ]
         return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
     }
