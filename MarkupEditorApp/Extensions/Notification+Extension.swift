@@ -21,5 +21,7 @@ extension Notification.Name {
     static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
     static let menuClearCacheDir = Notification.Name("menuClearCacheDir")
     static let resetTour = Notification.Name("resetTour")
+    static let setExpired = Notification.Name("setExpired")
+    static let setUnexpired = Notification.Name("setUnexpired")
 #endif
 }

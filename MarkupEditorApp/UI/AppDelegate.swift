@@ -190,6 +190,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func resetTour(_ sender: Any?) {
         NotificationCenter.default.post(name: .resetTour, object: nil)
     }
+    
+    @objc private func setExpired(_ sender: Any?) {
+        NotificationCenter.default.post(name: .setExpired, object: nil)
+    }
+    
+    @objc private func setUnexpired(_ sender: Any?) {
+        NotificationCenter.default.post(name: .setUnexpired, object: nil)
+    }
 #endif
 
     /// Fills Export and Import submenus from the plugin manifest.
@@ -339,6 +347,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         developMenu.addItem(NSMenuItem(title: "Clear UserDefaults", action: #selector(clearUserDefaults(_:)), keyEquivalent: ""))
         developMenu.addItem(NSMenuItem(title: "Clear Cache Directory", action: #selector(clearCacheDir(_:)), keyEquivalent: ""))
         developMenu.addItem(NSMenuItem(title: "Reset Tour", action: #selector(resetTour(_:)), keyEquivalent: ""))
+        developMenu.addItem(NSMenuItem(title: "Set Eval Expired", action: #selector(setExpired(_:)), keyEquivalent: ""))
+        developMenu.addItem(NSMenuItem(title: "Set Eval Unexpired", action: #selector(setUnexpired(_:)), keyEquivalent: ""))
         developMenuItem.submenu = developMenu
         mainMenu.addItem(developMenuItem)
 #endif
