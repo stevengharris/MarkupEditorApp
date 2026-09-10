@@ -13,7 +13,11 @@ struct TourView: View {
     @State private var selectedBlurb: Int = 0
     @Binding var editLog: EditLog
     public var force: Bool = false  // Mainly for previews
-    
+    #if EVAL_VERSION
+    var evaluationNotice: String? = nil
+    @State private var hasShownEvaluationNotice = false
+    #endif
+
     @State private var pageContents: [TourPage] = [
         TourPage(
             title: "Markdown",
@@ -41,15 +45,45 @@ struct TourView: View {
         )
     ]
 
+    /// The pages actually shown this launch. When there's a pending
+    /// evaluation notice, it's prepended as its own page -- the same
+    /// TourPageView rendering as any other page, not a separate window or
+    /// alert competing with this one. A returning user (hasSeenTour already
+    /// true) sees only that one page, not the whole tour replayed.
+    private var displayedPages: [TourPage] {
+        #if EVAL_VERSION
+        if let evaluationNotice, !hasShownEvaluationNotice {
+            let noticePage = TourPage(title: "Evaluation Version", blurbs: [evaluationNotice: "Placeholder"])
+            return hasSeenTour ? [noticePage] : [noticePage] + pageContents
+        }
+        #endif
+        return pageContents
+    }
+
+    private var toursComplete: Bool {
+        #if EVAL_VERSION
+        hasSeenTour && (evaluationNotice == nil || hasShownEvaluationNotice)
+        #else
+        hasSeenTour
+        #endif
+    }
+
     var body: some View {
-        let lastPage = pageContents.count - 1
-        let lastBlurb = pageContents[selectedPage].blurbs.count - 1
-        let finalBlurb = selectedPage == lastPage && selectedBlurb == lastBlurb
-        if hasSeenTour && !force {
+        if toursComplete && !force {
             MarkupDocumentView()
                 .environment(editLog)
         } else {
-            TourPageView(tourPage: pageContents[selectedPage], selectedBlurb: $selectedBlurb)
+            // displayedPages shrinks (drops the evaluation-notice page) the
+            // instant hasShownEvaluationNotice flips true on the final button
+            // press -- computed only in this branch, after the toursComplete
+            // check above, so selectedPage is never read against the wrong
+            // (shorter) array on that same transition. Reading it before the
+            // check crashed with an index-out-of-range trap.
+            let pages = displayedPages
+            let lastPage = pages.count - 1
+            let lastBlurb = pages[selectedPage].blurbs.count - 1
+            let finalBlurb = selectedPage == lastPage && selectedBlurb == lastBlurb
+            TourPageView(tourPage: pages[selectedPage], selectedBlurb: $selectedBlurb)
             .onAppear {
                 selectedPage = 0
                 selectedBlurb = 0
@@ -65,13 +99,16 @@ struct TourView: View {
                     }
                 } else {
                     hasSeenTour = true
+                    #if EVAL_VERSION
+                    hasShownEvaluationNotice = true
+                    #endif
                 }
             }
             .buttonStyle(.borderedProminent)
             .padding()
         }
     }
-        
+
 }
 
 #Preview {
