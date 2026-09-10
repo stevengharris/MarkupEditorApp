@@ -10,16 +10,14 @@ import MarkupEditor
 import MarkupEditorAppLib
 #if EVAL_VERSION
 import AppKit
-import Security
 #endif
 
 @main
 struct MarkupEditorApp: App {
     
-    static let firstLaunchPluginSetupKey = "hasCompletedFirstLaunchPluginSetup"
-    static let hasSeenTourKey = "hasSeenTour"
-    
-    static var hasSeenTour: Bool { UserDefaults.standard.bool(forKey: hasSeenTourKey) }
+    static let firstLaunchDateKey = "firstLaunchDateKey"
+    static let hasSetupPluginsKey = "hasSetupPluginsKey"
+    static let hasSeenTourKey = "hasSeenTourKey"
     
     static var versionString: String {
         version + "(\(build))"
@@ -28,14 +26,20 @@ struct MarkupEditorApp: App {
     static var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
     }
-
+    
     static var build: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
     }
     
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var editLog = EditLog()
+    
     @AppStorage(Self.hasSeenTourKey) private var hasSeenTour = false
+    @AppStorage(Self.hasSetupPluginsKey) private var hasSetupPlugins = false
+    
+#if EVAL_VERSION
+    @State private var evaluationNotice: String?
+#endif
     
     var body: some Scene {
         Window("MarkupEditor", id: "main") {
@@ -59,17 +63,26 @@ struct MarkupEditorApp: App {
         .defaultSize(width: 500, height: 400)
         .windowResizability(.automatic)
         Window("MarkupEditor", id: "welcome") {
+#if EVAL_VERSION
+            TourView(editLog: $editLog, evaluationNotice: evaluationNotice)
+#else
             TourView(editLog: $editLog)
+#endif
         }
+#if EVAL_VERSION
+        // Forced to present even if the Tour was already seen -- a fresh
+        // evaluation notice must still show at least once, and TourView folds
+        // it in as a leading page rather than this window skipping it.
+        .defaultLaunchBehavior((!hasSeenTour || evaluationNotice != nil) ? .presented : .automatic)
+#else
         .defaultLaunchBehavior(!hasSeenTour ? .presented : .automatic)
+#endif
     }
     
     init() {
-        #if EVAL_VERSION
-        // Checked first, before anything else in init(): an expired launch
-        // terminates immediately, and should not have run plugin setup first.
-        Self.performEvaluationCheck()
-        #endif
+#if EVAL_VERSION
+        _evaluationNotice = State(initialValue: Self.evaluationCheck())
+#endif
         MarkupEditor.allowLocalImages = true
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
@@ -77,14 +90,14 @@ struct MarkupEditorApp: App {
         // Pre-installed plugins (DocX, Mermaid) are seeded from the app bundle once, at true
         // first launch -- not every launch, which would re-copy over anything the user replaced
         // them with via Settings.
-        if !UserDefaults.standard.bool(forKey: Self.firstLaunchPluginSetupKey) {
+        if !hasSetupPlugins {
             AppConfig.update { config in
                 config.exporters = ExporterManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
             }
             AppConfig.update { config in
                 config.codeViews = CodeViewManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
             }
-            UserDefaults.standard.set(true, forKey: Self.firstLaunchPluginSetupKey)
+            hasSetupPlugins = true
         }
         // Internal plugins (currently just Metadata) are re-synced every launch, unlike the
         // first-launch-only seeding above -- they have no user-facing update mechanism, so an
@@ -93,61 +106,27 @@ struct MarkupEditorApp: App {
             config.codeViews = CodeViewManager.syncInternalPlugins(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
         }
     }
-}
-
+    
 #if EVAL_VERSION
-extension MarkupEditorApp {
-
-    private static func performEvaluationCheck() {
-        switch EvaluationKeychain.lookupFirstLaunchDate() {
-        case .notFound:
+    /// Returns the first-launch notice text for TourView to fold in as a
+    /// leading page (nil if there's nothing to show this launch). The
+    /// expired case is handled synchronously here instead, since it must
+    /// prevent window creation entirely -- only a check that runs before
+    /// body is ever evaluated can do that.
+    private static func evaluationCheck() -> String? {
+        guard EvaluationManager.firstLaunchDate != nil else {
             let now = Date()
-            EvaluationKeychain.recordFirstLaunch(now)
-            presentFirstLaunchNotice(firstLaunch: now)
-        case .found(let firstLaunch):
-            if EvaluationPolicy.isExpired(firstLaunch: firstLaunch, now: Date()) {
-                presentExpirationAlertAndQuit()
-            }
-        case .failed:
-            // Fail safe: neither block the launch nor attempt a write that
-            // might collide with an item we failed to read.
-            break
+            EvaluationManager.recordFirstLaunch(now)
+            let expiration = EvaluationManager.expirationDate()
+            let formatted = DateFormatter.localizedString(from: expiration, dateStyle: .long, timeStyle: .none)
+            return "This is an evaluation version of MarkupEditor, usable through \(formatted). Subscribe at markupeditor.app at any time."
         }
+        if EvaluationManager.isExpired() {
+            presentExpirationAlertAndQuit()
+        }
+        return nil
     }
-
-    private static func presentFirstLaunchNotice(firstLaunch: Date) {
-        let expiration = EvaluationPolicy.expirationDate(from: firstLaunch)
-        let formatted = DateFormatter.localizedString(from: expiration, dateStyle: .long, timeStyle: .none)
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Evaluation Version"
-        // The body is one accessory view, not informativeText + a separate
-        // accessory -- two independently-laid-out text blocks left a visible
-        // gap mismatch between them. NSAlert.informativeText is a plain
-        // String and can't render a link itself, so the whole paragraph
-        // (with "markupeditor.app" as the one linked run) lives here instead.
-        alert.accessoryView = evaluationNoticeField(formattedExpiration: formatted)
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    /// A SwiftUI `Text` hosted as the accessory view -- its Markdown link
-    /// syntax renders "markupeditor.app" as a real clickable link with no
-    /// manual NSAttributedString/frame layout, which NSAlert.informativeText
-    /// (a plain String) can't do on its own.
-    private static func evaluationNoticeField(formattedExpiration: String) -> NSView {
-        let text = Text("This is an evaluation copy of MarkupEditor, usable through \(formattedExpiration). Subscribe at [markupeditor.app](https://www.markupeditor.app/downloads/) any time to keep using it afterward.")
-            .frame(width: 300, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-        let hosting = NSHostingView(rootView: text)
-        // NSAlert positions an accessoryView from its frame, not Auto
-        // Layout constraints, so size it explicitly rather than relying on
-        // constraints alone. 300 matches NSAlert's default message-column
-        // width; fittingSize gives the wrapped height for that width.
-        hosting.frame = NSRect(x: 0, y: 0, width: 300, height: hosting.fittingSize.height)
-        return hosting
-    }
-
+    
     private static func presentExpirationAlertAndQuit() {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -160,60 +139,8 @@ extension MarkupEditorApp {
         }
         NSApplication.shared.terminate(nil)
     }
-}
-
-/// Keychain-backed storage for the eval version's first-launch date.
-enum EvaluationKeychain {
-
-    private static let service = "com.stevengharris.MarkupEditorApp.eval"
-    private static let account = "firstLaunchDate"
-
-    enum Lookup {
-        case notFound
-        case found(Date)
-        /// Read failed, or the stored data was unreadable -- distinct from
-        /// `.notFound` so a real failure isn't mistaken for first launch,
-        /// and never treated as expiration either.
-        case failed(OSStatus)
-    }
-
-    static func lookupFirstLaunchDate() -> Lookup {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var item: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        switch status {
-        case errSecSuccess:
-            guard let data = item as? Data,
-                  let date = try? JSONDecoder().decode(Date.self, from: data) else {
-                return .failed(status)
-            }
-            return .found(date)
-        case errSecItemNotFound:
-            return .notFound
-        default:
-            return .failed(status)
-        }
-    }
-
-    /// Add-only: never updates an existing item. A failed write just means
-    /// the next launch finds no item and retries as first launch -- fails
-    /// toward "never expires," not toward "expires immediately."
-    @discardableResult
-    static func recordFirstLaunch(_ date: Date) -> Bool {
-        guard let data = try? JSONEncoder().encode(date) else { return false }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: data
-        ]
-        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
-    }
-}
 #endif
+    
+}
+
+
