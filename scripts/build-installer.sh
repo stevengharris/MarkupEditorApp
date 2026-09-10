@@ -33,7 +33,7 @@ Usage: $0 --app <path/to/MarkupEditor.app> [--out <dir>]
 independent of --skip-sign -- used for local dry runs against a
 development-signed build.
 --variant is a confirmation, not a source of truth: the actual variant is
-always derived from the app's own MarkupEditorEvalVersion (baked in at build
+always derived from the app's MarkupEditorEvalVersion (baked in at build
 time from the Xcode build setting). If --variant disagrees with what the app
 itself says, the script refuses rather than trusting the flag -- a bare
 hand-passed flag would make shipping an eval binary labeled Unlimited a
@@ -141,7 +141,7 @@ if [ -n "$VARIANT_OVERRIDE" ]; then
         *) echo "error: --variant must be 'Eval' or 'Unlimited', got '$VARIANT_OVERRIDE'" >&2; exit 1 ;;
     esac
     if [ "$OVERRIDE_IS_EVAL" -ne "$IS_EVAL" ]; then
-        echo "error: --variant $VARIANT_OVERRIDE disagrees with $APP's own MarkupEditorEvalVersion ('$EVAL_MARKER') -- refusing to override a signal derived from the actual binary" >&2
+        echo "error: --variant $VARIANT_OVERRIDE disagrees with $APP's MarkupEditorEvalVersion ('$EVAL_MARKER') -- refusing to override a signal derived from the actual binary" >&2
         exit 1
     fi
 fi

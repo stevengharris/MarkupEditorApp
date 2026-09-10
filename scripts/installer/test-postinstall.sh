@@ -3,7 +3,7 @@
 # as a non-root user, via the MARKUP_APP/MARKUP_BIN_DIR env overrides.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-POSTINSTALL="$SCRIPT_DIR/../../scripts/installer/postinstall"
+POSTINSTALL="$SCRIPT_DIR/postinstall"
 
 pass_count=0
 fail_count=0
