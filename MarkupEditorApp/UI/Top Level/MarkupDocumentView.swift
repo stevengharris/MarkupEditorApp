@@ -155,7 +155,9 @@ struct MarkupDocumentView: View {
         .task {
             for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {
                 let ud = UserDefaults.standard
-                ud.removeObject(forKey: MarkupEditorApp.firstLaunchPluginSetupKey)
+                ud.removeObject(forKey: MarkupEditorApp.firstLaunchDateKey)
+                ud.removeObject(forKey: MarkupEditorApp.hasSeenTourKey)
+                ud.removeObject(forKey: MarkupEditorApp.hasSetupPluginsKey)
                 ud.removeObject(forKey: ConfigKeys.toolbar)
                 ud.removeObject(forKey: ConfigKeys.keymap)
                 ud.removeObject(forKey: ConfigKeys.behavior)
@@ -190,6 +192,16 @@ struct MarkupDocumentView: View {
         .task {
             for await _ in NotificationCenter.default.notifications(named: .resetTour) {
                 hasSeenTour = false
+            }
+        }
+        .task {
+            for await _ in NotificationCenter.default.notifications(named: .setExpired) {
+                UserDefaults.standard.setValue(Date.distantPast, forKey: MarkupEditorApp.firstLaunchDateKey)
+            }
+        }
+        .task {
+            for await _ in NotificationCenter.default.notifications(named: .setUnexpired) {
+                UserDefaults.standard.setValue(Date.distantFuture, forKey: MarkupEditorApp.firstLaunchDateKey)
             }
         }
 #endif
