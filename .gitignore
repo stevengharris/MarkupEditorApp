@@ -27,6 +27,7 @@ docs/release-runbook.md
 docs/rdr/
 docs/rdr-original/
 CLAUDE.md
+website/.env
 
 # Built from markupeditor-app/ (npm run build); regenerated at Xcode build time
 MarkupEditorApp/Resources/markupeditor-app.js
