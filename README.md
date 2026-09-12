@@ -109,7 +109,6 @@ MarkupEditorCLI/               - `markup` CLI tool target; embedded in the app b
 markupeditor-app/              - JavaScript project loaded as a userScript to support Markdown and more
 plugins/                       - JavaScript plugin projects for code views and exporters + plugins.json for discovery
 skills/                        - Claude Code skills to help developers understand and contribute to the app
-website/                       - Plugin discovery and rendering support for https://markupeditor.app/plugins
 ```
 
 The part of this repository related to the Swift app proper has, I believe, a fairly straightforward and easily understood structure. It is built using SwiftUI in Xcode with very few deviations into AppKit because of SwiftUI deficiencies. The UI and model/utility classes and structs are organized in their own directories as you might expect. The part that will seem unusual for many Swift developers is the mixture of Swift and JavaScript. This is in large part because the MarkupEditorApp is built on top of the MarkupEditor, a Swift package that wraps calls to an API exposed in the markupeditor-base JavaScript package. The markupeditor-base package in turn depends on ProseMirror to help with the WYSIWYG editing. Here, let's use a Mermaid diagram to show how it fits together:
