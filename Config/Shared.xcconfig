@@ -1,0 +1,7 @@
+// Shared build settings, committed to git.
+// Per-developer values (Apple Developer Team, etc.) live in the gitignored
+// Local.xcconfig -- see Local.xcconfig.example for the format. A fresh
+// clone has no Local.xcconfig, so DEVELOPMENT_TEAM stays unset and Xcode
+// prompts for a team on first build instead of failing against someone
+// else's team ID.
+#include? "Local.xcconfig"

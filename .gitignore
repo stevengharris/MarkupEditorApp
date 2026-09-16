@@ -1,6 +1,7 @@
 .DS_Store
 node_modules/
 xcuserdata/
+.swiftpm/
 .build/
 *.xccheckout
 *.moved-aside
@@ -27,6 +28,10 @@ docs/release-runbook.md
 docs/rdr/
 docs/rdr-original/
 CLAUDE.md
+scripts/
 
 # Built from markupeditor-app/ (npm run build); regenerated at Xcode build time
 MarkupEditorApp/Resources/markupeditor-app.js
+
+# Per-developer local build settings (Apple Developer Team, etc.)
+Config/Local.xcconfig
