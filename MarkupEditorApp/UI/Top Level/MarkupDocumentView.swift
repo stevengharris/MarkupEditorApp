@@ -52,7 +52,10 @@ struct MarkupDocumentView: View {
     @State private var showImageDialog: Bool = false
     @State private var showTableDialog: Bool = false
     @State private var showTableEditDialog: Bool = false
-    
+    // Set right before handleSave writes the file, so the event that write triggers isn't
+    // mistaken for an external change.
+    @State private var ignoreNextExternalFileChange: Bool = false
+
     @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
     
@@ -149,6 +152,15 @@ struct MarkupDocumentView: View {
                         await listenForMenuNotifications(named: name)
                     }
                 }
+            }
+        }
+        // Restarts automatically (cancelling any prior watch) whenever document.url changes --
+        // Open, Save As, or a new document going from nil to a real path. Runs only while a
+        // real file is open.
+        .task(id: document.url) {
+            guard let url = document.url else { return }
+            for await changedURL in FileChangeWatcher.watch(path: url.path(percentEncoded: false)) {
+                await handleExternalFileChange(at: changedURL)
             }
         }
 #if DEBUG
@@ -557,8 +569,40 @@ struct MarkupDocumentView: View {
         }
     }
     
+    /// Called when FileChangeWatcher detects that document.url's file changed outside the app
+    /// (e.g. edited in Xcode) or was renamed to `newURL` (e.g. renamed in Finder).
+    ///
+    /// A pure rename doesn't touch content -- nothing to reload, nothing at risk of being
+    /// overwritten -- so it's just followed silently. Only an actual content change prompts,
+    /// and only when it would overwrite unsaved edits; otherwise it reloads silently since
+    /// there's nothing local to lose.
+    private func handleExternalFileChange(at newURL: URL) async {
+        guard !ignoreNextExternalFileChange else {
+            ignoreNextExternalFileChange = false
+            return
+        }
+        guard let currentURL = document.url else { return }
+
+        if newURL != currentURL {
+            document.url = newURL
+            track(url: newURL)
+            return
+        }
+
+        if document.hasChanges {
+            let alert = NSAlert()
+            alert.messageText = "\(currentURL.lastPathComponent) changed on disk"
+            alert.informativeText = "This document has unsaved changes. Reloading will discard them."
+            alert.addButton(withTitle: "Reload from Disk")
+            alert.addButton(withTitle: "Keep My Changes")
+            alert.alertStyle = .warning
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        await openDocument(at: currentURL)
+    }
+
     //MARK: Opening files
-    
+
     /// The user identified the `url` of a document to open. It should just have one of the `DocumentType.exts()`,
     /// but if not, then let the user know and return.
     private func openDocument(at url: URL) async {
@@ -727,6 +771,10 @@ struct MarkupDocumentView: View {
         let srcs = await webView.getLocalImages()
         let baseUrl = webView.baseUrl
         do {
+            // Set right before the write that will trigger FileChangeWatcher's event for this
+            // same url, so handleExternalFileChange() doesn't mistake this save for an
+            // external change.
+            ignoreNextExternalFileChange = true
             switch document.documentType {
             case .html:
                 guard let html = contents.html else { throw MarkupDocumentError.noHTMLSource }
@@ -737,6 +785,10 @@ struct MarkupDocumentView: View {
             }
             track(url: url)
         } catch {
+            // The write may never have happened (e.g. noHTMLSource/noMarkdownSource thrown
+            // before reaching it) -- clear the flag so a later external change to this url
+            // isn't silently swallowed by a stale "ignore next" left over from here.
+            ignoreNextExternalFileChange = false
             editLog.error("Error saving: \(error.localizedDescription)")
             document.url = oldURL
         }
