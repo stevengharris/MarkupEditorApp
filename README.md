@@ -48,7 +48,7 @@ Developers can clone this repository, open the MarkupEditorApp project in Xcode,
 
 #### Command Line
 
-The `markup` command line utility is a separate target in Xcode, `MarkupEditorCLI`, producing a standalone tool rather than an app bundle. You're using the command line, so you probably want to build it directly from the repository root:
+The `markup` command line utility is a separate target in Xcode, `MarkupEditorCLI`, producing a standalone tool rather than an app bundle. If you want the command line utility, you might want to build it directly at the command line, from the repository root:
 
 ```bash
 xcodebuild -scheme MarkupEditorCLI -configuration Release -derivedDataPath ./build build
@@ -176,7 +176,7 @@ You don't need to know anything about the JavaScript toolchain just to work in t
 
 ## About AI
 
-I created the two original libraries that MarkupEditorApp is built-on (the JavaScript [markupeditor-base](https://github.com/stevengharris/markupeditor-base) and Swift [MarkupEditor](https://github.com/stevengharris/MarkupEditor)) without AI-assisted coding. When Xcode introduced a version with AI integration, I used it to help port the existing iOS/Catalyst version of the Swift MarkupEditor to run on MacOS, mainly because I had no real AppKit background and I was curious how the tools performed. With a proper MacOS version up and running, I started this project to focus on WYSIWYG editing of Markdown. I used Claude Code and a tool called [conexus](https://github.com/Hellblazer/nexus) to help in the development process. The code and comments are all reviewed by me, aimed at consumption by humans, not AI. The project's layout and code architecture were designed by me. The project is not vibe coded, at least in the pejorative sense that I would probably use the term. During development, I used a $20/month Claude Code plan and mostly the Sonnet 5 model.
+I created the two original libraries that MarkupEditorApp is built-on (the JavaScript [markupeditor-base](https://github.com/stevengharris/markupeditor-base) and Swift [MarkupEditor](https://github.com/stevengharris/MarkupEditor)) without AI-assisted coding. When Xcode introduced a version with AI integration, I used it to help port the existing iOS/Catalyst version of the Swift MarkupEditor to run on MacOS, mainly because I had no real AppKit background and I was curious how the tools performed. With a proper MacOS version up and running, I started this project to focus on WYSIWYG editing of Markdown. I used Claude Code and a tool called [conexus](https://github.com/Hellblazer/nexus) to help in the development process. The code and comments are all reviewed by me, aimed at consumption by humans, not AI. The project's layout and code architecture were designed by me. The project is not "vibe coded", at least in the pejorative sense that I would probably use the term. During development, I used a $20/month Claude Code plan and mostly the Sonnet 5 model.
 
 I have a lot of conflicted feelings about using AI tools, and I won't bore you with them in a README. I will just say that in my experience, the tools can be incredibly useful as a force multiplier for software development. One way they can help is to enable people to work on and contribute to this project without having to understand all of the details under the covers - and there is a *lot* to know about. For example:
 
