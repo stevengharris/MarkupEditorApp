@@ -19,7 +19,7 @@ Registration is `MU.registerPlugin({ name, type })` from an `install()` that rea
 ## Which Type Do You Need?
 
 - Rendering a fenced code block as something else (a diagram, live HTML, syntax highlighting) → **REQUIRED SUB-SKILL:** `writing-codeview-plugins`.
-- Transforming the document into another file format for export → read `plugins/exporter-docx` as your reference implementation and follow this skill's conventions directly; no dedicated exporter-authoring skill exists yet.
+- Transforming the document into another file format for export → **REQUIRED SUB-SKILL:** `writing-exporter-plugins`.
 
 ## package.json Metadata
 

@@ -17,7 +17,7 @@ A codeview plugin changes how one specific kind of content inside a MarkupEditor
 
 - Building a new codeview plugin (any language-triggered live rendering of a `code_block`).
 - Debugging why a codeview plugin's NodeView factory doesn't take effect, or why two independently-installed codeview plugins clobber each other's rendering.
-- Not for exporters (File → Export transforms) -- see `plugins/README.md`'s DocX reference instead.
+- Not for exporters (File → Export transforms) -- see `writing-exporter-plugins` instead.
 
 ## Core Pattern: capture-wrap-delegate
 

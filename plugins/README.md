@@ -1,6 +1,6 @@
 # MarkupEditor Plugins
 
-This document describes what a MarkupEditor plugin is and how to create one. The document is intended for developers and references the foundational libraries the MarkupEditor is built on. 
+This document describes what a MarkupEditor plugin is and how to create one. The document is intended for developers and references the foundational libraries the MarkupEditor is built on.
 
 A plugin is a JavaScript module that the MarkupEditor loads when it opens. Every plugin has a string `name` and `type`. The `type` can either be “exporter” or “codeview”:
 
@@ -26,13 +26,9 @@ Mermaid Diagrams
 
 ## Testing
 
-A plugin's test suite lives entirely inside its own directory and runs via `npm test`
-(vitest) — no Xcode, no changes to MarkupEditorApp. `exporter-docx` establishes
-the pattern in three tiers; only the third reaches outside the plugin's own directory.
+A plugin's test suite lives entirely inside its own directory and runs via `npm test` (vitest) — no Xcode, no changes to MarkupEditorApp. `exporter-docx` establishes the pattern in three tiers; only the third reaches outside the plugin's own directory.
 
-**1. Converter unit tests.** Hand-crafted HTML snippets fed directly into your own
-HTML-to-format conversion function, decoded with your own format's decode helper, asserted
-structurally. No mocking needed. See `exporter-docx/test/htmlToDocx.test.js`.
+**1. Converter unit tests.** Hand-crafted HTML snippets fed directly into your own HTML-to-format conversion function, decoded with your own format's decode helper, asserted structurally. No mocking needed. See `exporter-docx/test/htmlToDocx.test.js`.
 
 **2. Full-pipeline test.** Mock the base package so `run()` can be called standalone:
 
@@ -42,38 +38,19 @@ vi.mock('markupeditor', () => ({
 }))
 ```
 
-Call your plugin's exported `run()`, decode the result, assert. See
-`exporter-docx/test/docxexporter.test.js`.
+Call your plugin's exported `run()`, decode the result, assert. See `exporter-docx/test/docxexporter.test.js`.
 
-**3. Real-document fidelity test (optional).** Drives `run()` from HTML produced by the real
-markdown-import pipeline (`markupeditor-app`'s `importMarkdown`) instead of a hand-authored
-snippet, so the test proves your exporter matches what the real app actually produces. See
-`exporter-docx/test/test-exporter-fidelity.test.js` and its
-`test/helpers/renderTestDocument.js` harness.
+**3. Real-document fidelity test (optional).** Drives `run()` from HTML produced by the real markdown-import pipeline (`markupeditor-app`'s `importMarkdown`) instead of a hand-authored snippet, so the test proves your exporter matches what the real app actually produces. See `exporter-docx/test/test-exporter-fidelity.test.js` and its `test/helpers/renderTestDocument.js` harness.
 
 For tier 3:
 
-* Alias the `markupeditor` specifier (`resolve.alias` in `vitest.config.js`) to
-  `MarkupEditor/Resources/markup-editor.js` — the exact bundle the real app loads at runtime —
-  rather than letting it resolve to whichever package's own `node_modules/markupeditor` copy
-  happens to be installed nearby, which can drift out of sync with what's actually shipped. The
-  alias applies across the whole module graph, so your `import { MU } from 'markupeditor'` and
-  `markupeditor-app/src/markdown.js`'s own `import { MU } from "markupeditor"` resolve to the
-  SAME module instance — stubbing `MU.activeView()` (so `importMarkdown` can run without a live
-  editor view) actually takes effect on the copy `importMarkdown` reads from. See
-  `exporter-docx/vitest.config.js`.
-* Don't `vi.mock('markupeditor', ...)` in a test file that also uses this alias-backed `MU` —
-  Vitest mocks by resolved path, so a mock would replace the module for the whole graph
-  reachable from that test file, including `markdown.js`'s own import, losing `MU.schema`. If
-  your plugin's own `run()` also needs `MU` (e.g. `MU.getHTML()`), monkey-patch that property
-  directly on the same real `MU` object instead — see
-  `exporter-docx/test/test-exporter-fidelity.test.js`.
-* Loading the real `markupeditor` bundle needs a real DOM (`jsdom`) plus two small shims for
-  gaps in `jsdom`'s own CSSOM support (`CSSStyleSheet.replaceSync`, `CSSStyleSheet.media`). See
-  `exporter-docx/test/vitest.setup.js`.
-* Real image loading (`Image`/`canvas`) hangs indefinitely in this environment — mock
-  `resolveImages` (or your format's equivalent) wholesale rather than trying to make it work;
-  image-loading fidelity itself is out of scope for this kind of test and is verified manually.
+* Alias the `markupeditor` specifier (`resolve.alias` in `vitest.config.js`) to `MarkupEditor/Resources/markup-editor.js` — the exact bundle the real app loads at runtime — rather than letting it resolve to whichever package's own `node_modules/markupeditor` copy happens to be installed nearby, which can drift out of sync with what's actually shipped. The alias applies across the whole module graph, so your `import { MU } from 'markupeditor'` and `markupeditor-app/src/markdown.js`'s own `import { MU } from "markupeditor"` resolve to the SAME module instance — stubbing `MU.activeView()` (so `importMarkdown` can run without a live editor view) actually takes effect on the copy `importMarkdown` reads from. See `exporter-docx/vitest.config.js`.
+
+* Don't `vi.mock('markupeditor', ...)` in a test file that also uses this alias-backed `MU` — Vitest mocks by resolved path, so a mock would replace the module for the whole graph reachable from that test file, including `markdown.js`'s own import, losing `MU.schema`. If your plugin's own `run()` also needs `MU` (e.g. `MU.getHTML()`), monkey-patch that property directly on the same real `MU` object instead — see `exporter-docx/test/test-exporter-fidelity.test.js`.
+
+* Loading the real `markupeditor` bundle needs a real DOM (`jsdom`) plus two small shims for gaps in `jsdom`'s own CSSOM support (`CSSStyleSheet.replaceSync`, `CSSStyleSheet.media`). See `exporter-docx/test/vitest.setup.js`.
+
+* Real image loading (`Image`/`canvas`) hangs indefinitely in this environment — mock `resolveImages` (or your format's equivalent) wholesale rather than trying to make it work; image-loading fidelity itself is out of scope for this kind of test and is verified manually.
 
 ## package.json Metadata
 
@@ -96,7 +73,9 @@ Every plugin's `package.json` must include a `markupeditor` object describing it
 Fields:
 
 * `name` — the plugin's display name. Must match the `name` passed to `MU.registerPlugin(...)` in the plugin's source exactly. That call is the runtime source of truth; `package.json` only mirrors it, and nothing checks the two stay in sync automatically, so keep them matching by hand.
+
 * `type` — `"exporter"` or `"codeview"`. Must also match the `type` passed to `MU.registerPlugin(...)`.
+
 * `ext` — required for `type: "exporter"` only, omitted for `"codeview"`. The file extension the exporter produces, bare with no leading dot (`"docx"`, not `".docx"`).
 
 An exporter's `markupeditor` object also needs `ext`:
@@ -124,3 +103,58 @@ git commit -m "Update plugins.json"
 ```
 
 The generator reads every `plugins/<dir>/package.json`, validates each one against the rules above, and writes `plugins/plugins.json`. It fails loudly — refusing to write anything — if any plugin's metadata is missing or malformed, naming the offending directory.
+
+## Using AI and Skills
+
+Here is an example of a prompt used with Claude Code to produce a working EPUB document exporter:
+
+```
+Build a real, working EPUB exporter plugin for MarkupEditorApp.
+
+Before writing any code, read these skills in order and follow them:
+1. skills/developing-markupeditorapp (three-repo architecture, setup)
+2. skills/writing-markupeditor-plugins (shared plugin contract, package.json metadata, testing infra)
+3. skills/writing-exporter-plugins (exporter-specific contract, the {result,warnings,metadata}
+   envelope, and a worked-example walkthrough of EPUB's package structure)
+
+Also read plugins/exporter-docx in full (src/, test/, package.json, rollup.config.mjs) as your
+structural reference implementation, and plugins/README.md's Testing and package.json Metadata
+sections.
+
+Task: create plugins/exporter-epub, a new exporter plugin that converts the live MarkupEditor
+document to a valid EPUB3 file.
+
+Requirements:
+- Same plugin shape as exporter-docx: its own package.json with a `markupeditor` object
+  (name: "EPUB", type: "exporter", ext: "epub"), src/, test/, dist/ (built via rollup, mirror
+  exporter-docx's rollup.config.mjs), and an npm dependency on a pure-JS zip library (no Node
+  API dependency -- this runs inside a WKWebView JS context).
+- Produces a spec-valid EPUB3 package: mimetype (first entry, stored uncompressed),
+  META-INF/container.xml, an OPF package document (metadata with dc:identifier/dc:title/
+  dc:language/dcterms:modified, manifest, spine), an EPUB3 nav document, and one or more
+  well-formed XHTML content documents converted from MU.getHTML()'s output.
+- Images referenced in the document become real files inside the zip (correct relative href
+  and media-type in both the XHTML and the OPF manifest), not inline data: URIs. You'll need
+  the same Image/<canvas> local-image-loading workaround exporter-docx's resolveImages.js
+  uses (WKWebView blocks fetch() of file:// images) -- reuse or adapt that file rather than
+  reinventing it, but decode the result back to raw bytes for a zip entry instead of handing
+  it to a DOCX-style embed.
+- run() returns the same JSON-stringified {result, warnings, metadata} envelope exporter-docx
+  uses (result is base64, chunked to avoid call-stack overflow on encode). Non-fatal problems
+  (unrecognized tag, image that couldn't embed) go in warnings; only a genuine failure returns
+  result: null.
+- Cover every tag markupeditor-base's schema can produce (schema/index.js in
+  markupeditor-base is the authority) in your HTML-to-XHTML conversion; warn on anything
+  unrecognized rather than dropping it silently.
+- Tests: follow the three-tier pattern from plugins/README.md -- converter unit tests, a
+  full-pipeline test with markupeditor mocked so run() executes standalone, and if practical
+  a real-document fidelity test using the markupeditor bundle alias exporter-docx's
+  vitest.config.js sets up. If epubcheck (the standard external EPUB validator) is available
+  on this machine, use it manually to sanity-check output; don't wire it into the automated
+  suite or block on installing it if it isn't already present.
+- After the plugin works and its tests pass, regenerate the discovery manifest per
+  plugins/README.md's Publishing section (node plugins/generate-plugins-json.mjs).
+
+Work incrementally and show me the plugin working (a real document round-tripped through it,
+tests passing) before proposing a commit.
+```
