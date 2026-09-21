@@ -79,7 +79,9 @@ public struct PluginBanner: Equatable, Sendable {
 
         // Both end up inside a comment in the file.
         func stringField(_ key: String) -> String? {
-            guard let value = fields[key] as? String, !value.isEmpty, !value.contains("*/") else { return nil }
+            // A literal search: String.contains compares Characters, so "*/" followed by a
+            // combining mark would go unnoticed.
+            guard let value = fields[key] as? String, !value.isEmpty, value.range(of: "*/", options: .literal) == nil else { return nil }
             return value
         }
         guard let name = stringField("name") else { throw .invalid(field: "name") }

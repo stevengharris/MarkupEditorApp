@@ -103,46 +103,43 @@ public enum CodeViewManager {
         return updated
     }
 
+    /// Adds the codeview, returning the list unchanged when it cannot be installed (which is
+    /// logged).
     /// - Parameter allowProtectedNames: Escape hatch for `syncInternalPlugins` alone -- ordinary
     ///   callers leave this at its default and are refused for a name in `protectedNames`.
     public static func add(name: String, url: URL?, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL, allowProtectedNames: Bool = false) -> [Plugin] {
         guard !name.isEmpty, let source = url else { return codeViews }
-        guard allowProtectedNames || !protectedNames.contains(name) else {
-            logger.warning("Refused to add codeview using protected name: \(name)")
+        do {
+            return try install(name: name, url: source, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir, allowProtectedNames: allowProtectedNames)
+        } catch {
+            logger.error("Failed to add codeview \(name): \(error.localizedDescription)")
             return codeViews
         }
+    }
+
+    /// Copies the codeview's file into `defaultDir` and returns the list with it recorded,
+    /// replacing an entry of the same name. Throws when the name is protected or the file cannot
+    /// be installed; an installed copy is left intact in that case.
+    public static func install(name: String, url source: URL, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL, allowProtectedNames: Bool = false) throws(PluginInstallError) -> [Plugin] {
         // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
         // in the app's plugin settings UI's fileImporter. Harmless no-op for setupOnLaunch()'s
         // bundle-resource URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
+        guard allowProtectedNames || !protectedNames.contains(name) else {
+            throw .protectedName(name)
+        }
         let filename = source.lastPathComponent
         let codeview = Plugin(name: name, type: "codeview", filename: filename)
-        let destination = defaultDir.appendingPathComponent(filename)
-
-        guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
-            logger.warning("CodeView not found: \(filename)")
-            return codeViews
+        try PluginFileInstaller.install(source: source, destination: defaultDir.appendingPathComponent(filename))
+        logger.info("Added codeview \(codeview.name): \(filename)")
+        var updated = codeViews
+        if let index = updated.firstIndex(where: { existing in codeview.name == existing.name }) {
+            updated[index] = codeview
+        } else {
+            updated.append(codeview)
         }
-
-        do {
-            if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
-                try FileManager.default.removeItem(at: destination)
-                logger.info("Removed existing codeview file: \(filename)")
-            }
-            try FileManager.default.copyItem(at: source, to: destination)
-            logger.info("Added codeview \(codeview.name): \(filename)")
-            var updated = codeViews
-            if let index = updated.firstIndex(where: { existing in codeview.name == existing.name }) {
-                updated[index] = codeview
-            } else {
-                updated.append(codeview)
-            }
-            PluginCacheSync.sync(cacheDir: cacheDir, exporters: exporters, codeViews: updated)
-            return updated
-        } catch {
-            logger.error("Failed to save codeview \(filename): \(error.localizedDescription)")
-            return codeViews
-        }
+        PluginCacheSync.sync(cacheDir: cacheDir, exporters: exporters, codeViews: updated)
+        return updated
     }
 
     public static func delete(_ codeview: Plugin?, codeViews: [Plugin], cacheDir: URL) -> [Plugin] {

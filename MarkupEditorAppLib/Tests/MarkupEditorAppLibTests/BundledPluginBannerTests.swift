@@ -26,15 +26,18 @@ private func distURL(for filename: String) -> URL {
 struct BundledPluginBannerTests {
 
     @Test func everyBuiltPluginCarriesAReadableBanner() throws {
-        let plugins = try FileManager.default.contentsOfDirectory(atPath: pluginsDir.path(percentEncoded: false))
+        let fileManager = FileManager.default
+        let plugins = try fileManager.contentsOfDirectory(atPath: pluginsDir.path(percentEncoded: false))
         var checked = 0
         for dir in plugins.sorted() {
-            let dist = pluginsDir.appendingPathComponent(dir).appendingPathComponent("dist").appendingPathComponent("\(dir).js")
-            guard FileManager.default.fileExists(atPath: dist.path(percentEncoded: false)) else { continue }
+            let pluginDir = pluginsDir.appendingPathComponent(dir)
+            guard fileManager.fileExists(atPath: pluginDir.appendingPathComponent("package.json").path(percentEncoded: false)) else { continue }
+            let dist = pluginDir.appendingPathComponent("dist").appendingPathComponent("\(dir).js")
+            #expect(fileManager.fileExists(atPath: dist.path(percentEncoded: false)), "\(dir) has no built dist")
             _ = try PluginBanner.read(from: dist)
             checked += 1
         }
-        #expect(checked >= 6)
+        #expect(checked > 0, "no plugin directories were found to check")
     }
 
     @Test func swiftDefaultsAgreeWithTheBuiltBanners() throws {

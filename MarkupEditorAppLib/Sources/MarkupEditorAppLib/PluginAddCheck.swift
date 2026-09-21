@@ -42,13 +42,19 @@ public enum PluginAddCheck {
             throw .protectedName(banner.name)
         }
         let installed = exporters + codeViews
-        // The editor's plugin registry is keyed by name across both kinds, so a second plugin
-        // under an existing name would silently replace the first.
-        if installed.contains(where: { $0.name == banner.name && ($0.filename != filename || $0.type != banner.kind.rawValue) }) {
-            throw .nameInUse(banner.name)
+        // Names are compared exactly, since the editor's plugin registry is; filenames are
+        // compared ignoring case, since the volume they are installed on does.
+        func isSameFile(_ other: String?) -> Bool {
+            other?.caseInsensitiveCompare(filename) == .orderedSame
+        }
+        // The registry is keyed by name across both kinds, so a second plugin under an existing
+        // name would silently replace the first. A plugin with no file (the built-in PDF
+        // exporter) can't be deleted to make room.
+        if let clash = installed.first(where: { $0.name == banner.name && !($0.type == banner.kind.rawValue && isSameFile($0.filename)) }) {
+            throw clash.filename == nil ? .protectedName(banner.name) : .nameInUse(banner.name)
         }
         // Installing copies the file over any installed file of the same name.
-        if let other = installed.first(where: { $0.filename == filename && $0.name != banner.name }) {
+        if let other = installed.first(where: { $0.name != banner.name && isSameFile($0.filename) }) {
             throw .filenameInUse(filename, plugin: other.name)
         }
     }

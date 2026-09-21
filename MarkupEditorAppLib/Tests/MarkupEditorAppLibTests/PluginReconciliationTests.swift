@@ -69,6 +69,11 @@ struct PluginReconciliationTests {
         ])
     }
 
+    @Test func ignoresRegisteredPluginsOfAnyOtherKind() {
+        let problems = PluginReconciliation.problems(recordedExporters: [], recordedCodeViews: [], registered: [["name": "Mermaid", "type": "renderer"]])
+        #expect(problems == [])
+    }
+
     @Test func skipsRegisteredEntriesWithoutANameOrType() {
         let problems = PluginReconciliation.problems(recordedExporters: [], recordedCodeViews: [], registered: [["type": "exporter"], ["name": "X"], [:]])
         #expect(problems == [])

@@ -218,23 +218,28 @@ struct PluginSettingsView: View {
 
     private func addPlugin(_ pending: PendingPlugin) {
         let banner = pending.banner
-        let filename = pending.url.lastPathComponent
+        var failure: String?
         AppConfig.update { config in
-            switch banner.kind {
-            case .codeview:
-                config.codeViews = CodeViewManager.add(name: banner.name, url: pending.url, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
-            case .exporter:
-                config.exporters = ExporterManager.add(name: banner.name, url: pending.url, ext: banner.ext ?? "", exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+            do {
+                switch banner.kind {
+                case .codeview:
+                    config.codeViews = try CodeViewManager.install(name: banner.name, url: pending.url, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                case .exporter:
+                    guard let ext = banner.ext else {
+                        failure = "The exporter “\(banner.name)” declares no file extension."
+                        return
+                    }
+                    config.exporters = try ExporterManager.install(name: banner.name, url: pending.url, ext: ext, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                }
+                config.pluginsRevision += 1
+            } catch {
+                failure = error.localizedDescription
             }
-            config.pluginsRevision += 1
         }
         addPluginType = .None
-        // The managers return the list unchanged when the copy fails, so check the result. Set
-        // after this alert's own dismissal, which would otherwise clear the message.
-        let installed = (banner.kind == .exporter ? AppConfig.shared.exporters : AppConfig.shared.codeViews)
-            .contains { $0.name == banner.name && $0.filename == filename }
-        if !installed {
-            Task { present(.failure("“\(banner.name)” could not be installed.")) }
+        if let failure {
+            // Presented after this alert has finished dismissing, which would clear it.
+            Task { present(.failure(failure)) }
         }
     }
 

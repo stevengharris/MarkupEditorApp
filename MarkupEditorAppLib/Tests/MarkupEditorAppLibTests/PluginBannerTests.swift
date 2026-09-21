@@ -63,6 +63,8 @@ struct PluginBannerParseTests {
         (#"{"name":"","type":"codeview"}"#, "name"),
         (#"{"name":3,"type":"codeview"}"#, "name"),
         (#"{"name":"A*/B","type":"codeview"}"#, "name"),
+        ("{\"name\":\"a*/\u{0301}\",\"type\":\"codeview\"}", "name"),
+        ("{\"name\":\"X\",\"type\":\"exporter\",\"ext\":\"a*/\u{0301}\"}", "ext"),
         (#"{"name":"X"}"#, "type"),
         (#"{"name":"X","type":"importer"}"#, "type"),
         (#"{"name":"X","type":"exporter"}"#, "ext"),
@@ -76,7 +78,7 @@ struct PluginBannerParseTests {
             _ = try PluginBanner.parse("/*! markupeditor-plugin \(json) */\n")
             Issue.record("expected \(json) to be rejected")
         } catch {
-            #expect(error == .invalid(field: field) || error == .invalidJSON, "\(json) -> \(error)")
+            #expect(error == .invalid(field: field), "\(json) -> \(error)")
         }
     }
 
@@ -119,6 +121,14 @@ struct PluginBannerReadTests {
 
     @Test func reportsMissingWhenTheFirstLineIsTooLongToBeABanner() throws {
         let url = try write(String(repeating: "x", count: 100_000) + "\n\(exporterLine)\n")
+        defer { try? FileManager.default.removeItem(at: url) }
+        #expect(throws: PluginBannerError.missing) { try PluginBanner.read(from: url) }
+    }
+
+    @Test func aBannerFollowedByMoreThanTheReadLimitOfSpacesIsNotABanner() throws {
+        // The bytes read are the banner plus spaces with no newline; without the length guard
+        // trailing whitespace would be trimmed and this would parse as a valid banner.
+        let url = try write(codeViewLine + String(repeating: " ", count: 9_000) + "trailing text\n")
         defer { try? FileManager.default.removeItem(at: url) }
         #expect(throws: PluginBannerError.missing) { try PluginBanner.read(from: url) }
     }

@@ -976,7 +976,7 @@ extension MarkupDocumentView: MarkupDelegate {
             registered: plugins
         )
         for problem in problems {
-            errorLogger.warning("Plugin registration: \(problem.description)")
+            errorLogger.warning("Plugin registration: \(problem.description, privacy: .public)")
         }
     }
 

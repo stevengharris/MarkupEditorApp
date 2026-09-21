@@ -63,6 +63,31 @@ struct PluginAddCheckTests {
         }
     }
 
+    @Test func comparesFilenamesCaseInsensitivelyBecauseTheVolumeDoes() {
+        let banner = PluginBanner(name: "Other", kind: .exporter, ext: "o")
+        #expect(throws: PluginAddError.filenameInUse("Exporter-DocX.js", plugin: "DocX")) {
+            try PluginAddCheck.validate(banner, filename: "Exporter-DocX.js", expected: nil, exporters: [docx], codeViews: [])
+        }
+    }
+
+    @Test func allowsReplacingAPluginWhenTheFilenameDiffersOnlyInCase() throws {
+        let sameDocx = PluginBanner(name: "DocX", kind: .exporter, ext: "docx")
+        try PluginAddCheck.validate(sameDocx, filename: "Exporter-DocX.js", expected: nil, exporters: [docx], codeViews: [])
+    }
+
+    @Test func keepsNamesCaseSensitiveBecauseTheEditorsRegistryIs() throws {
+        let lower = PluginBanner(name: "docx", kind: .exporter, ext: "docx")
+        try PluginAddCheck.validate(lower, filename: "exporter-docx-lower.js", expected: nil, exporters: [docx], codeViews: [])
+    }
+
+    @Test func treatsABuiltInPluginsNameAsReservedNotAsSomethingToDelete() {
+        let pdf = Plugin(name: "PDF", type: "exporter", ext: "pdf")
+        let banner = PluginBanner(name: "PDF", kind: .exporter, ext: "pdf")
+        #expect(throws: PluginAddError.protectedName("PDF")) {
+            try PluginAddCheck.validate(banner, filename: "exporter-pdf.js", expected: nil, exporters: [pdf], codeViews: [])
+        }
+    }
+
     @Test func refusesAFileAlreadyBackingADifferentPlugin() {
         let banner = PluginBanner(name: "Other", kind: .exporter, ext: "o")
         #expect(throws: PluginAddError.filenameInUse("exporter-docx.js", plugin: "DocX")) {

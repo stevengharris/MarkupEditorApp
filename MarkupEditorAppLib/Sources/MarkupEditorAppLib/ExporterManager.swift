@@ -72,39 +72,37 @@ public enum ExporterManager {
         return add(name: docx.name, url: source, ext: docx.ext ?? "docx", exporters: updated, codeViews: codeViews, cacheDir: cacheDir)
     }
 
+    /// Adds the exporter, returning the list unchanged when the copy fails (which is logged).
     public static func add(name: String, url: URL?, ext: String, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) -> [Plugin] {
         guard !name.isEmpty, let source = url else { return exporters }
+        do {
+            return try install(name: name, url: source, ext: ext, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir)
+        } catch {
+            logger.error("Failed to add exporter \(name): \(error.localizedDescription)")
+            return exporters
+        }
+    }
+
+    /// Copies the exporter's file into `defaultDir` and returns the list with it recorded,
+    /// replacing an entry of the same name. Throws when the file cannot be installed; an
+    /// installed copy is left intact in that case.
+    public static func install(name: String, url source: URL, ext: String, exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) throws(PluginInstallError) -> [Plugin] {
         // Balances the startAccessingSecurityScopedResource() call made when the URL was picked
         // in the app's plugin settings UI's fileImporter. Harmless no-op for setupOnLaunch()'s
         // bundle-resource URL, which was never subject to a matching start call.
         defer { source.stopAccessingSecurityScopedResource() }
         let filename = source.lastPathComponent
         let exporter = Plugin(name: name, type: "exporter", filename: filename, ext: ext)
-        let destination = defaultDir.appendingPathComponent(filename)
-
-        guard FileManager.default.fileExists(atPath: source.path(percentEncoded: false)) else {
-            logger.warning("Exporter not found: \(filename)")
-            return exporters
+        try PluginFileInstaller.install(source: source, destination: defaultDir.appendingPathComponent(filename))
+        logger.info("Saved exporter \(exporter.name): \(filename)")
+        var updated = exporters
+        if let index = updated.firstIndex(where: { existing in exporter.name == existing.name }) {
+            updated[index] = exporter
+        } else {
+            updated.append(exporter)
         }
-
-        do {
-            if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
-                try FileManager.default.removeItem(at: destination)
-            }
-            try FileManager.default.copyItem(at: source, to: destination)
-            logger.info("Saved exporter \(exporter.name): \(filename)")
-            var updated = exporters
-            if let index = updated.firstIndex(where: { existing in exporter.name == existing.name }) {
-                updated[index] = exporter
-            } else {
-                updated.append(exporter)
-            }
-            PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
-            return updated
-        } catch {
-            logger.error("Failed to save exporter \(filename): \(error.localizedDescription)")
-            return exporters
-        }
+        PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
+        return updated
     }
 
     public static func delete(_ exporter: Plugin?, exporters: [Plugin], cacheDir: URL) -> [Plugin] {

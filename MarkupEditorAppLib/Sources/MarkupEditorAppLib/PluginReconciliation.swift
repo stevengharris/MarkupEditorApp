@@ -48,7 +48,7 @@ public enum PluginReconciliation {
             let ext: String?
         }
         let entries = registered.compactMap { manifest -> Entry? in
-            guard let name = manifest["name"], let kind = manifest["type"] else { return nil }
+            guard let name = manifest["name"], let kind = manifest["type"], kind == "exporter" || kind == "codeview" else { return nil }
             return Entry(name: name, kind: kind, ext: manifest["ext"])
         }
         func registeredNames(_ kind: String) -> [String] {

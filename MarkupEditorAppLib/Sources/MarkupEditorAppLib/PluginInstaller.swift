@@ -19,6 +19,9 @@ public enum PluginInstallError: Error, Equatable, Sendable {
     case invalidSourceURL(String)
     case downloadFailed(String)
     case verificationFailed(String)
+    case sourceNotFound(String)
+    case copyFailed(filename: String, reason: String)
+    case protectedName(String)
 }
 
 extension PluginInstallError: LocalizedError {
@@ -32,6 +35,12 @@ extension PluginInstallError: LocalizedError {
             return "Could not download plugin '\(name)'."
         case .verificationFailed(let name):
             return "Plugin '\(name)' did not install successfully."
+        case .sourceNotFound(let filename):
+            return "The file “\(filename)” could not be found."
+        case .copyFailed(let filename, let reason):
+            return "“\(filename)” could not be installed: \(reason)"
+        case .protectedName(let name):
+            return "“\(name)” is reserved for a built-in plugin."
         }
     }
 }
