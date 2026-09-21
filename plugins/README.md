@@ -30,15 +30,16 @@ A plugin's test suite lives entirely inside its own directory and runs via `npm 
 
 **1. Converter unit tests.** Hand-crafted HTML snippets fed directly into your own HTML-to-format conversion function, decoded with your own format's decode helper, asserted structurally. No mocking needed. See `exporter-docx/test/htmlToDocx.test.js`.
 
-**2. Full-pipeline test.** Mock the base package so `run()` can be called standalone:
+**2. Full-pipeline test.** Import the real built `dist/*.js`, not `src/`, so the test exercises the artifact the app actually loads. The bundle imports `MU` from a relative `./markup-editor.js` (rollup's `paths` rewrite of the `markupeditor` specifier) that doesn't exist in the repo, so alias that literal specifier in `vitest.config.js` to a stub exporting `MU.getHTML`/`registerPlugin`/`activeView` (`test/helpers/markup-editor-stub.js`), then set those properties on the stub before importing the dist:
 
 ```js
-vi.mock('markupeditor', () => ({
-  MU: { getHTML: (...args) => getHTML(...args), registerPlugin: (...args) => registerPlugin(...args) },
-}))
+import { MU } from './helpers/markup-editor-stub.js'
+MU.getHTML = vi.fn(() => '<p>hello</p>')
+MU.registerPlugin = vi.fn()
+const { myExporter } = await import('../dist/my-exporter.js')
 ```
 
-Call your plugin's exported `run()`, decode the result, assert. See `exporter-docx/test/docxexporter.test.js`.
+Call your plugin's exported `run()`, decode the result, assert. Rebuild `dist/` in vitest's `globalSetup` so the test never runs against a stale bundle. See `exporter-docx/test/docxexporter.test.js`, `exporter-docx/vitest.config.js`, and `exporter-docx/test/globalSetup.js`.
 
 **3. Real-document fidelity test (optional).** Drives `run()` from HTML produced by the real markdown-import pipeline (`markupeditor-app`'s `importMarkdown`) instead of a hand-authored snippet, so the test proves your exporter matches what the real app actually produces. See `exporter-docx/test/test-exporter-fidelity.test.js` and its `test/helpers/renderTestDocument.js` harness.
 
