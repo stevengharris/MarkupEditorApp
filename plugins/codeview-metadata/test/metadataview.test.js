@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Schema, EditorState, EditorView, MU, Plugin, NodeSelection, TextSelection } from 'markupeditor'
-import { MetadataView, isMetadataLanguage, parseMetadataRows } from '../src/metadataview.js'
+import { MetadataView } from '../src/metadataview.js'
+import { isMetadataLanguage } from 'markupeditor-plugin-kit/metadata'
 import { metadataPluginKey } from '../src/metadatapluginkey.js'
 
 // MetadataView unit coverage in isolation, via a hand-wired nodeViews
@@ -70,40 +71,6 @@ function mountView(doc) {
   }
 }
 
-describe('isMetadataLanguage', () => {
-  it.each([
-    ['metadata', true],
-    ['Metadata', true],
-    [' METADATA ', true],
-    ['html', false],
-    ['mermaid', false],
-    [null, false],
-    [undefined, false],
-  ])('%s -> %s', (input, expected) => {
-    expect(isMetadataLanguage(input)).toBe(expected)
-  })
-})
-
-describe('parseMetadataRows', () => {
-  it('parses simple key: value lines', () => {
-    expect(parseMetadataRows('title: My Post\nauthor: Steve')).toEqual([
-      { key: 'title', value: 'My Post' },
-      { key: 'author', value: 'Steve' }
-    ])
-  })
-
-  it('skips blank lines, comments, and a leading/trailing --- fence', () => {
-    expect(parseMetadataRows('---\ntitle: X\n\n# a comment\n---')).toEqual([
-      { key: 'title', value: 'X' }
-    ])
-  })
-
-  it('returns an empty array for empty or unparseable content', () => {
-    expect(parseMetadataRows('')).toEqual([])
-    expect(parseMetadataRows('just some prose, no colons here at all if trimmed oddly')).toEqual([])
-  })
-})
-
 describe('MetadataView defaults', () => {
   it('defaults to Table mode, opposite of HTMLFrontMatterView', () => {
     const { view, teardown } = mountView(metadataDoc())
@@ -140,6 +107,21 @@ describe('MetadataView defaults', () => {
     expect(keys[0].classList.contains('metadata-table-row-border')).toBe(false)
     expect(keys[1].classList.contains('metadata-table-row-border')).toBe(true)
     expect(keys[1].classList.contains('metadata-table-striped')).toBe(true)
+    teardown()
+  })
+
+  it('shows parsed values in Table mode: quotes stripped, list items joined, block-sequence items listed', () => {
+    const { view, teardown } = mountView(metadataDoc('title: "A: B"\nsubject: [a, "c, d"]\nkeywords:\n  - x\n  - y'))
+    const instance = view.nodeDOM(0).codeView
+    const values = instance.tableContainer.querySelectorAll('.metadata-table-value')
+    expect(Array.from(values, (el) => el.textContent)).toEqual(['A: B', 'a, c, d', 'x, y'])
+    teardown()
+  })
+
+  it('keeps a key\'s typed case in Table mode', () => {
+    const { view, teardown } = mountView(metadataDoc('Title: X'))
+    const instance = view.nodeDOM(0).codeView
+    expect(instance.tableContainer.querySelector('.metadata-table-key').textContent).toBe('Title')
     teardown()
   })
 

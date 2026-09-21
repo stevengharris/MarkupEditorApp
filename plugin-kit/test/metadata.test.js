@@ -1,27 +1,66 @@
 import { describe, it, expect } from 'vitest'
-import { extractMetadata, metadataScalar, parseMetadataList, stripMetadataBlock } from '../src/metadata.js'
+import {
+    METADATA_LANGUAGE,
+    extractMetadata,
+    isMetadataLanguage,
+    metadataScalar,
+    parseFrontmatter,
+    parseFrontmatterEntries,
+    parseMetadataList,
+    stripMetadataBlock,
+} from '../src/metadata.js'
 
-function fakeMetadataDoc(text) {
-    return { state: { doc: { firstChild: { type: { name: 'code_block' }, attrs: { language: 'metadata' }, textContent: text } } } }
+function fakeNode({ typeName = 'code_block', language, text = '' } = {}) {
+    return { type: { name: typeName }, attrs: { language }, textContent: text }
+}
+
+function fakeMU(firstChild) {
+    return { activeView: () => ({ state: { doc: { firstChild } } }) }
 }
 
 describe('extractMetadata', () => {
-    it('parses scalar key: value lines off the position-0 metadata code_block', () => {
-        const MU = { activeView: () => fakeMetadataDoc('creator: Steven G. Harris\ntitle: My Document') }
-        expect(extractMetadata(MU)).toEqual({ creator: 'Steven G. Harris', title: 'My Document' })
-    })
-
-    it('lowercases field names, so a differently-cased key still matches the field lookups exporters do', () => {
-        const MU = { activeView: () => fakeMetadataDoc('Creator: Steven G. Harris\nTITLE: My Document') }
-        expect(extractMetadata(MU)).toEqual({ creator: 'Steven G. Harris', title: 'My Document' })
-    })
-
-    it('returns {} when there is no active view', () => {
+    it('returns {} when there is no active view at all', () => {
+        expect(extractMetadata({})).toEqual({})
         expect(extractMetadata({ activeView: () => null })).toEqual({})
     })
 
-    it('returns {} when the document has no leading metadata code_block', () => {
-        const MU = { activeView: () => ({ state: { doc: { firstChild: { type: { name: 'paragraph' } } } } }) }
+    it('returns {} when the document has no leading metadata block', () => {
+        const MU = fakeMU(fakeNode({ typeName: 'paragraph' }))
+        expect(extractMetadata(MU)).toEqual({})
+    })
+
+    it('returns {} when the leading code_block is a different language', () => {
+        const MU = fakeMU(fakeNode({ language: 'swift', text: 'let x = 1' }))
+        expect(extractMetadata(MU)).toEqual({})
+    })
+
+    it('extracts a scalar field from a real metadata code_block', () => {
+        const MU = fakeMU(fakeNode({ language: 'metadata', text: 'creator: Steven G. Harris\nsubject: [foo, bar]' }))
+        expect(extractMetadata(MU).creator).toBe('Steven G. Harris')
+    })
+
+    it('lowercases field names, so a differently-cased key still matches opf.js\'s RESERVED_KEYS exclusion and the title/language/identifier lookups', () => {
+        const MU = fakeMU(fakeNode({ language: 'metadata', text: 'Title: Something Else\nLANGUAGE: fr' }))
+        expect(extractMetadata(MU)).toEqual({ title: 'Something Else', language: 'fr' })
+    })
+
+    it('matches the language check case-insensitively and trims whitespace, mirroring codeview-metadata', () => {
+        const MU = fakeMU(fakeNode({ language: ' Metadata ', text: 'author: Steve' }))
+        expect(extractMetadata(MU).author).toBe('Steve')
+    })
+
+    it('strips matching surrounding quotes from a value', () => {
+        const MU = fakeMU(fakeNode({ language: 'metadata', text: 'author: "Steven G. Harris"' }))
+        expect(extractMetadata(MU).author).toBe('Steven G. Harris')
+    })
+
+    it('skips blank lines, comments, and the closing --- fence', () => {
+        const MU = fakeMU(fakeNode({ language: 'metadata', text: 'author: Steve\n\n# a comment\n---' }))
+        expect(extractMetadata(MU)).toEqual({ author: 'Steve' })
+    })
+
+    it('returns {} for an empty metadata block rather than throwing', () => {
+        const MU = fakeMU(fakeNode({ language: 'metadata', text: '' }))
         expect(extractMetadata(MU)).toEqual({})
     })
 })
@@ -135,5 +174,68 @@ describe('stripMetadataBlock', () => {
     it('handles null/empty input without throwing', () => {
         expect(stripMetadataBlock(null)).toBe('')
         expect(stripMetadataBlock('')).toBe('')
+    })
+})
+
+describe('METADATA_LANGUAGE / isMetadataLanguage', () => {
+    it('names the language a leading frontmatter code_block carries', () => {
+        expect(METADATA_LANGUAGE).toBe('metadata')
+    })
+
+    it.each([
+        ['metadata', true],
+        ['Metadata', true],
+        [' METADATA ', true],
+        ['html', false],
+        ['mermaid', false],
+        [null, false],
+        [undefined, false],
+    ])('%s -> %s', (input, expected) => {
+        expect(isMetadataLanguage(input)).toBe(expected)
+    })
+})
+
+describe('parseFrontmatterEntries', () => {
+    it('keeps key case and source order, and parses each value', () => {
+        expect(parseFrontmatterEntries('Title: My Post\nsubject: [a, b]\ncreator: Steve')).toEqual([
+            { key: 'Title', value: 'My Post' },
+            { key: 'subject', value: ['a', 'b'] },
+            { key: 'creator', value: 'Steve' },
+        ])
+    })
+
+    it('keeps a repeated key as separate entries', () => {
+        expect(parseFrontmatterEntries('a: 1\na: 2')).toEqual([
+            { key: 'a', value: '1' },
+            { key: 'a', value: '2' },
+        ])
+    })
+
+    it('skips blank lines, comments, and a leading/trailing --- fence', () => {
+        expect(parseFrontmatterEntries('---\ntitle: X\n\n# a comment\n---')).toEqual([{ key: 'title', value: 'X' }])
+    })
+
+    it('returns an empty array for empty, missing, or unparseable content', () => {
+        expect(parseFrontmatterEntries('')).toEqual([])
+        expect(parseFrontmatterEntries(undefined)).toEqual([])
+        expect(parseFrontmatterEntries('just some prose, no colons here at all if trimmed oddly')).toEqual([])
+    })
+
+    it('reads a block sequence as one entry with its items', () => {
+        expect(parseFrontmatterEntries('subject:\n  - a\n  - b\ntitle: T')).toEqual([
+            { key: 'subject', value: ['a', 'b'] },
+            { key: 'title', value: 'T' },
+        ])
+    })
+})
+
+describe('parseFrontmatter', () => {
+    it('returns an object keyed by lowercased field name, the last duplicate winning', () => {
+        expect(parseFrontmatter('Title: A\nTITLE: B\nsubject: [x]')).toEqual({ title: 'B', subject: ['x'] })
+    })
+
+    it('returns {} for empty or missing text', () => {
+        expect(parseFrontmatter('')).toEqual({})
+        expect(parseFrontmatter(undefined)).toEqual({})
     })
 })

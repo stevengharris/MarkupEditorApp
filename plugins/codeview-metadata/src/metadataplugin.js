@@ -1,6 +1,7 @@
 import { MU, Plugin, Selection, TextSelection, NodeSelection, __parseFromClipboard } from "markupeditor"
 import metadataStyle from "../styles/metadata.css" with { type: "css" }
-import { MetadataView, isMetadataLanguage } from "./metadataview.js"
+import { MetadataView } from "./metadataview.js"
+import { METADATA_LANGUAGE, isMetadataLanguage } from "markupeditor-plugin-kit/metadata"
 import { metadataPluginKey } from "./metadatapluginkey.js"
 
 export { isMetadataLanguage }
@@ -288,7 +289,7 @@ export class MetadataPlugin {
                 const first = newState.doc.firstChild
                 if (!first || first.type.name !== 'code_block') return null // deletion/displacement -- not this guard's concern
                 if (isMetadataLanguage(first.attrs.language)) return null
-                return newState.tr.setNodeMarkup(0, undefined, { ...first.attrs, language: 'metadata' })
+                return newState.tr.setNodeMarkup(0, undefined, { ...first.attrs, language: METADATA_LANGUAGE })
             },
             view: (editorView) => {
                 // Hides the native caret whenever the selection is inside a

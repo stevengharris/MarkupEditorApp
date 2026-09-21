@@ -7,6 +7,99 @@ const sheet = new CSSStyleSheet();sheet.replaceSync("/* Allow the PDF exporter t
 // import it without a circular dependency between the two.
 const metadataPluginKey = new PluginKey('metadata');
 
+const METADATA_LANGUAGE = 'metadata';
+
+// Matched trimmed and case-insensitively, as the metadata codeview does.
+function isMetadataLanguage(language) {
+    return (language ?? '').trim().toLowerCase() === METADATA_LANGUAGE
+}
+
+// Strips quotes and unescapes a scalar token, as YAMLMetadata.parseScalar (Swift) does.
+function parseScalar(token) {
+    if (token.length >= 2 && token.startsWith('"') && token.endsWith('"')) {
+        return token.slice(1, -1).replace(/\\(["\\])/g, '$1')
+    }
+    if (token.length >= 2 && token.startsWith("'") && token.endsWith("'")) {
+        return token.slice(1, -1).replace(/''/g, "'")
+    }
+    return token
+}
+
+// Splits a flow sequence (`[a, "b, c", d]`) on commas outside quotes. A quote only opens at
+// the start of an item, so an apostrophe inside a bare word ("don't") is literal.
+function parseFlowSequence(text) {
+    let inner = text.trim();
+    if (inner.startsWith('[')) inner = inner.slice(1);
+    if (inner.endsWith(']')) inner = inner.slice(0, -1);
+    const items = [];
+    let current = '';
+    let quote = null;
+    for (let i = 0; i < inner.length; i++) {
+        const ch = inner[i];
+        if (quote) {
+            current += ch;
+            if (quote === '"' && ch === '\\' && i + 1 < inner.length) current += inner[++i];
+            else if (ch === quote) quote = null;
+        } else if ((ch === '"' || ch === "'") && current.trim() === '') {
+            quote = ch;
+            current += ch;
+        } else if (ch === ',') {
+            items.push(parseScalar(current.trim()));
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    if (current.trim()) items.push(parseScalar(current.trim()));
+    return items
+}
+
+// Best-effort frontmatter parser for the constructs YAMLMetadata.parse (Swift) handles: scalar
+// values (quotes stripped, escapes undone), flow sequences ("key: [a, b]") and block sequences
+// ("key:" followed by "- item" lines). Returns ordered {key, value} entries with the key as
+// typed; a scalar value is a string and a sequence a string array. Not a full YAML parser, and
+// not a round-trip: it only reads values back out.
+function parseFrontmatterEntries(text) {
+    const entries = [];
+    const lines = (text ?? '').split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line.startsWith('#') || line === '---') continue
+        if (line.endsWith(': |') || line.endsWith(': >')) continue
+        const match = line.match(/^([^:\s][^:]*):\s?(.*)$/);
+        if (!match) continue
+        const key = match[1].trim();
+        const rawValue = match[2].trim();
+        if (rawValue === '') {
+            const items = [];
+            let j = i + 1;
+            while (j < lines.length) {
+                const next = lines[j].trim();
+                if (next.startsWith('- ')) items.push(parseScalar(next.slice(2).trim()));
+                else if (next !== '') break
+                j++;
+            }
+            if (items.length) {
+                entries.push({ key, value: items });
+                i = j - 1;
+            } else {
+                entries.push({ key, value: '' });
+            }
+        } else if (rawValue.startsWith('[')) {
+            entries.push({ key, value: parseFlowSequence(rawValue) });
+        } else {
+            entries.push({ key, value: parseScalar(rawValue) });
+        }
+    }
+    return entries
+}
+
+// The string form of a value that is expected to be a scalar (title, language, ...); a sequence
+// written there is joined instead of reaching an XML/document writer as an array.
+function metadataScalar(value) {
+    return Array.isArray(value) ? value.join(', ') : (value ?? '')
+}
+
 const BAR_CLASS = 'metadata-bar';
 const DISCLOSURE_CLASS = 'metadata-disclosure';
 const DISCLOSURE_COLLAPSED_CLASS = 'metadata-disclosure-collapsed';
@@ -19,28 +112,6 @@ const HIDDEN_CODE_CLASS = 'metadata-hidden-code';
 const TABLE_CLASS = 'metadata-table';
 const TABLE_EMPTY_CLASS = 'metadata-table-empty';
 const SELECTED_CLASS = 'metadata-selected';
-
-function isMetadataLanguage(language) {
-    return (language ?? '').trim().toLowerCase() === 'metadata'
-}
-
-/**
- * Best-effort parse of raw metadata text into key/value rows for Table
- * display. Not a full YAML parser -- only handles simple `key: value`
- * lines; anything else is silently skipped, since this is a preview, not
- * a save path. The authoritative parse is YAMLMetadata.parse on the Swift side.
- */
-function parseMetadataRows(text) {
-    const rows = [];
-    for (const rawLine of (text ?? '').split('\n')) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith('#') || line === '---') continue
-        const match = line.match(/^([^:\s][^:]*):\s?(.*)$/);
-        if (!match) continue
-        rows.push({ key: match[1].trim(), value: match[2].trim() });
-    }
-    return rows
-}
 
 // Instances register themselves in the constructor, deregister in
 // destroy(). ProseMirror does not call a NodeView's update() for a pure
@@ -252,7 +323,7 @@ class MetadataView extends MU.CodeView {
     }
 
     renderTable() {
-        const rows = parseMetadataRows(this.node.textContent);
+        const rows = parseFrontmatterEntries(this.node.textContent);
         this.tableContainer.replaceChildren();
         this.tableContainer.classList.toggle(TABLE_EMPTY_CLASS, rows.length === 0);
         if (rows.length === 0) {
@@ -271,7 +342,7 @@ class MetadataView extends MU.CodeView {
             keyEl.textContent = key;
             const valueEl = document.createElement('span');
             valueEl.className = 'metadata-table-value' + (striped ? ' metadata-table-striped' : '');
-            valueEl.textContent = value;
+            valueEl.textContent = metadataScalar(value);
             if (index > 0) {
                 keyEl.classList.add('metadata-table-row-border');
                 valueEl.classList.add('metadata-table-row-border');
@@ -565,7 +636,7 @@ class MetadataPlugin {
                 const first = newState.doc.firstChild;
                 if (!first || first.type.name !== 'code_block') return null // deletion/displacement -- not this guard's concern
                 if (isMetadataLanguage(first.attrs.language)) return null
-                return newState.tr.setNodeMarkup(0, undefined, { ...first.attrs, language: 'metadata' })
+                return newState.tr.setNodeMarkup(0, undefined, { ...first.attrs, language: METADATA_LANGUAGE })
             },
             view: (editorView) => {
                 // Hides the native caret whenever the selection is inside a

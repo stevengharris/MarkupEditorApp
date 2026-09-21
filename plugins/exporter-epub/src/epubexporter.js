@@ -6,7 +6,7 @@ import { htmlToXhtmlBody, extractDocumentTitle, extractHeadings } from "./htmlTo
 import { buildOpf } from "./opf.js"
 import { buildNavXhtml } from "./nav.js"
 import { buildContentXhtml } from "./contentDocument.js"
-import { extractMetadata, metadataScalar, stripMetadataBlock } from "./metadata.js"
+import { extractMetadata, metadataScalar, stripMetadataBlock } from "markupeditor-plugin-kit/metadata"
 import { CONTAINER_XML } from "./container.js"
 import { MIMETYPE } from "./mimetype.js"
 import { STYLESHEET } from "./styles.js"

@@ -1,8 +1,7 @@
-const METADATA_LANGUAGE = 'metadata'
+export const METADATA_LANGUAGE = 'metadata'
 
-// Mirrors plugins/codeview-metadata/src/metadataview.js's isMetadataLanguage check
-// (case-insensitive, trimmed) -- reimplemented since that plugin isn't a dependency here.
-function isMetadataLanguage(language) {
+// Matched trimmed and case-insensitively, as the metadata codeview does.
+export function isMetadataLanguage(language) {
     return (language ?? '').trim().toLowerCase() === METADATA_LANGUAGE
 }
 
@@ -48,10 +47,11 @@ function parseFlowSequence(text) {
 
 // Best-effort frontmatter parser for the constructs YAMLMetadata.parse (Swift) handles: scalar
 // values (quotes stripped, escapes undone), flow sequences ("key: [a, b]") and block sequences
-// ("key:" followed by "- item" lines). A scalar comes back as a string, a sequence as a string
-// array. Not a full YAML parser, and not a round-trip: only reads values back out for export.
-function parseMetadataLines(text) {
-    const values = {}
+// ("key:" followed by "- item" lines). Returns ordered {key, value} entries with the key as
+// typed; a scalar value is a string and a sequence a string array. Not a full YAML parser, and
+// not a round-trip: it only reads values back out.
+export function parseFrontmatterEntries(text) {
+    const entries = []
     const lines = (text ?? '').split('\n')
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim()
@@ -59,12 +59,7 @@ function parseMetadataLines(text) {
         if (line.endsWith(': |') || line.endsWith(': >')) continue
         const match = line.match(/^([^:\s][^:]*):\s?(.*)$/)
         if (!match) continue
-        // Lowercased -- the metadata.title/.language/.identifier lookups here and opf.js's
-        // RESERVED_KEYS exclusion both match a fixed lowercase name. A user-typed "Title:"
-        // would otherwise both miss the title-override logic and slip past RESERVED_KEYS into
-        // the Dublin Core sweep, producing a stray, wrong-cased <dc:Title> alongside the real
-        // <dc:title>.
-        const key = match[1].trim().toLowerCase()
+        const key = match[1].trim()
         const rawValue = match[2].trim()
         if (rawValue === '') {
             const items = []
@@ -76,29 +71,37 @@ function parseMetadataLines(text) {
                 j++
             }
             if (items.length) {
-                values[key] = items
+                entries.push({ key, value: items })
                 i = j - 1
             } else {
-                values[key] = ''
+                entries.push({ key, value: '' })
             }
         } else if (rawValue.startsWith('[')) {
-            values[key] = parseFlowSequence(rawValue)
+            entries.push({ key, value: parseFlowSequence(rawValue) })
         } else {
-            values[key] = parseScalar(rawValue)
+            entries.push({ key, value: parseScalar(rawValue) })
         }
     }
+    return entries
+}
+
+// Field names are free-typed, so "Title:" and "title:" are equally likely. Lowercasing here
+// lets callers look fields up by one fixed name; a repeated key keeps its last value.
+export function parseFrontmatter(text) {
+    const values = {}
+    for (const { key, value } of parseFrontmatterEntries(text)) values[key.toLowerCase()] = value
     return values
 }
 
 // The document's YAML frontmatter is seeded into the live ProseMirror document as a code_block
 // at position 0 (MarkupDocument.seedMetadataBlock, Swift-side) whenever metadata is non-empty.
-// MU.activeView() is the only way to reach the document model (creator, etc. as structured
-// data). Returns {} when there's no metadata block or no active view.
+// MU.activeView() is the only way to reach the document model. Returns {} when there's no
+// metadata block or no active view.
 export function extractMetadata(MU) {
     const view = MU.activeView?.()
     const first = view?.state?.doc?.firstChild
     if (!first || first.type?.name !== 'code_block' || !isMetadataLanguage(first.attrs?.language)) return {}
-    return parseMetadataLines(first.textContent)
+    return parseFrontmatter(first.textContent)
 }
 
 // A sequence value comes back as its items; a scalar as a single-element array; an
@@ -116,6 +119,8 @@ export function metadataScalar(value) {
     return Array.isArray(value) ? value.join(', ') : (value ?? '')
 }
 
+const METADATA_BLOCK = new RegExp(`^\\s*<pre><code class="language-${METADATA_LANGUAGE}">[\\s\\S]*?<\\/code><\\/pre>\\s*`)
+
 // MU.getHTML()'s output, unlike the markdown serializer (markupeditor-app/src/serializer.js's
 // code_block handler), has no awareness of the metadata convention -- the base editor's
 // generic DOMSerializer renders the position-0 metadata code_block exactly like any other
@@ -123,5 +128,5 @@ export function metadataScalar(value) {
 // serializer.js's rule (doc-root index 0, language "metadata") at the HTML-string level, since
 // that's all getHTML() gives a plugin. Metadata is data about the document, not part of it.
 export function stripMetadataBlock(html) {
-    return (html ?? '').replace(/^\s*<pre><code class="language-metadata">[\s\S]*?<\/code><\/pre>\s*/, '')
+    return (html ?? '').replace(METADATA_BLOCK, '')
 }

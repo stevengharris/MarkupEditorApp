@@ -1,5 +1,6 @@
 import { MU, NodeSelection } from 'markupeditor'
 import { metadataPluginKey } from './metadatapluginkey.js'
+import { metadataScalar, parseFrontmatterEntries } from 'markupeditor-plugin-kit/metadata'
 
 const BAR_CLASS = 'metadata-bar'
 const DISCLOSURE_CLASS = 'metadata-disclosure'
@@ -13,28 +14,6 @@ const HIDDEN_CODE_CLASS = 'metadata-hidden-code'
 const TABLE_CLASS = 'metadata-table'
 const TABLE_EMPTY_CLASS = 'metadata-table-empty'
 const SELECTED_CLASS = 'metadata-selected'
-
-export function isMetadataLanguage(language) {
-    return (language ?? '').trim().toLowerCase() === 'metadata'
-}
-
-/**
- * Best-effort parse of raw metadata text into key/value rows for Table
- * display. Not a full YAML parser -- only handles simple `key: value`
- * lines; anything else is silently skipped, since this is a preview, not
- * a save path. The authoritative parse is YAMLMetadata.parse on the Swift side.
- */
-export function parseMetadataRows(text) {
-    const rows = []
-    for (const rawLine of (text ?? '').split('\n')) {
-        const line = rawLine.trim()
-        if (!line || line.startsWith('#') || line === '---') continue
-        const match = line.match(/^([^:\s][^:]*):\s?(.*)$/)
-        if (!match) continue
-        rows.push({ key: match[1].trim(), value: match[2].trim() })
-    }
-    return rows
-}
 
 // Instances register themselves in the constructor, deregister in
 // destroy(). ProseMirror does not call a NodeView's update() for a pure
@@ -246,7 +225,7 @@ export class MetadataView extends MU.CodeView {
     }
 
     renderTable() {
-        const rows = parseMetadataRows(this.node.textContent)
+        const rows = parseFrontmatterEntries(this.node.textContent)
         this.tableContainer.replaceChildren()
         this.tableContainer.classList.toggle(TABLE_EMPTY_CLASS, rows.length === 0)
         if (rows.length === 0) {
@@ -265,7 +244,7 @@ export class MetadataView extends MU.CodeView {
             keyEl.textContent = key
             const valueEl = document.createElement('span')
             valueEl.className = 'metadata-table-value' + (striped ? ' metadata-table-striped' : '')
-            valueEl.textContent = value
+            valueEl.textContent = metadataScalar(value)
             if (index > 0) {
                 keyEl.classList.add('metadata-table-row-border')
                 valueEl.classList.add('metadata-table-row-border')

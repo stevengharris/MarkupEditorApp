@@ -22,6 +22,7 @@
     "@rollup/plugin-node-resolve": "^16.0.0",
     "jsdom": "^30.1.0",
     "markupeditor": "^0.9.32",
+    "markupeditor-plugin-kit": "*",
     "rollup": "^4.31.0",
     "vitest": "^3.2.4"
   },

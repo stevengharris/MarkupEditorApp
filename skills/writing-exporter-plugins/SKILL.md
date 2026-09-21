@@ -82,7 +82,7 @@ const rawHtml = stripMetadataBlock(MU.getHTML())
 * Flow sequences (`keywords: [foo, "a, b"]`), split on commas outside quotes. A plain `split(',')` breaks a quoted element that contains a comma.
 * Block sequences (`keywords:` followed by indented `- item` lines).
 
-Return sequences as arrays and scalars as strings, and join an array in a field you expect to be a scalar rather than passing it to your format's writer. `plugins/exporter-docx/src/metadata.js` is a working parser to copy from; its `parseMetadataList` and `metadataScalar` handle the array-versus-string split.
+Return sequences as arrays and scalars as strings, and join an array in a field you expect to be a scalar rather than passing it to your format's writer. `plugin-kit/src/metadata.js` is a working parser to copy from; its `parseMetadataList` and `metadataScalar` handle the array-versus-string split.
 
 If your format has a fixed vocabulary of metadata fields (e.g. EPUB's Dublin Core elements), map non-reserved fields through an allowlist of that vocabulary rather than turning arbitrary frontmatter keys into elements or attributes, and warn on the rest -- schemas reject unknown names, and an unvalidated key would leak arbitrary frontmatter into the output. See the Worked Example below.
 

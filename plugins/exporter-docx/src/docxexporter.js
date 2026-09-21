@@ -4,7 +4,7 @@ import { resolveImages } from "./resolveImages.js"
 import { htmlToDocxChildren, PAGE_WIDTH_TWIPS, PAGE_HEIGHT_TWIPS, PAGE_MARGIN_TWIPS } from "./htmlToDocx.js"
 import { documentStyles } from "./styles.js"
 import { numberingConfig } from "./numbering.js"
-import { extractMetadata, metadataScalar, parseMetadataList, stripMetadataBlock } from "./metadata.js"
+import { extractMetadata, metadataScalar, parseMetadataList, stripMetadataBlock } from "markupeditor-plugin-kit/metadata"
 
 // btoa expects a binary string, not raw bytes -- chunk to stay well under any engine's
 // call-stack argument-count limit (a single String.fromCharCode(...spread) over a real

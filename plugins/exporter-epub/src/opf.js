@@ -1,5 +1,5 @@
 import { escapeXmlText, escapeXmlAttr } from './xmlEscape.js'
-import { parseMetadataList } from './metadata.js'
+import { parseMetadataList } from 'markupeditor-plugin-kit/metadata'
 
 // EPUB3 requires dc:identifier/dc:title/dc:language plus a dcterms:modified <meta> (OPF spec,
 // Package Metadata). No filename/title is passed into run() (see MarkupWKWebView+
@@ -27,7 +27,7 @@ function manifestEntry({ id, href, mediaType, properties }) {
 // item per real zip entry -- not per <img> tag reuse, so a document that repeats the same image
 // still gets one manifest entry per occurrence (see extractImages.js's no-dedup note).
 //
-// `metadata` is the document's raw frontmatter (src/metadata.js's extractMetadata), including
+// `metadata` is the document's raw frontmatter (extractMetadata), including
 // the reserved keys already pulled out into identifier/title/language above -- callers don't
 // need to filter it first, buildOpf does that itself so it stays the single place the
 // reserved-vs-Dublin-Core split is defined.
