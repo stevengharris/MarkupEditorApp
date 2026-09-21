@@ -7,7 +7,7 @@
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "markupeditor": {
-    "name": "Metadata Front Matter",
+    "name": "Metadata",
     "type": "codeview",
     "internal": true
   },
