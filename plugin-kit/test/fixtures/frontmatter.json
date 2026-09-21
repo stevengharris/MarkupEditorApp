@@ -1,0 +1,425 @@
+{
+  "description": "Frontmatter parsing cases shared by the JS parser (plugin-kit/src/metadata.js parseFrontmatterEntries) and the Swift parser (YAMLMetadata.parse). Each case's `entries` is the ordered list of key/value pairs both must produce; a value is a string or an array of strings.",
+  "cases": [
+    {
+      "name": "plain scalar",
+      "yaml": "title: My Post",
+      "entries": [
+        {
+          "key": "title",
+          "value": "My Post"
+        }
+      ]
+    },
+    {
+      "name": "key case is preserved",
+      "yaml": "Title: X\nCREATOR: Y",
+      "entries": [
+        {
+          "key": "Title",
+          "value": "X"
+        },
+        {
+          "key": "CREATOR",
+          "value": "Y"
+        }
+      ]
+    },
+    {
+      "name": "a key with spaces",
+      "yaml": "my key: v",
+      "entries": [
+        {
+          "key": "my key",
+          "value": "v"
+        }
+      ]
+    },
+    {
+      "name": "repeated keys stay separate entries",
+      "yaml": "a: 1\na: 2",
+      "entries": [
+        {
+          "key": "a",
+          "value": "1"
+        },
+        {
+          "key": "a",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "name": "surrounding whitespace is trimmed",
+      "yaml": "  title:   spaced value   ",
+      "entries": [
+        {
+          "key": "title",
+          "value": "spaced value"
+        }
+      ]
+    },
+    {
+      "name": "tab indentation is trimmed",
+      "yaml": "\ttitle: X",
+      "entries": [
+        {
+          "key": "title",
+          "value": "X"
+        }
+      ]
+    },
+    {
+      "name": "empty value",
+      "yaml": "title:\ncreator: Steve",
+      "entries": [
+        {
+          "key": "title",
+          "value": ""
+        },
+        {
+          "key": "creator",
+          "value": "Steve"
+        }
+      ]
+    },
+    {
+      "name": "colons inside an unquoted value",
+      "yaml": "url: http://example.com:8080/x",
+      "entries": [
+        {
+          "key": "url",
+          "value": "http://example.com:8080/x"
+        }
+      ]
+    },
+    {
+      "name": "a hash inside an unquoted value is kept",
+      "yaml": "title: a # b",
+      "entries": [
+        {
+          "key": "title",
+          "value": "a # b"
+        }
+      ]
+    },
+    {
+      "name": "a brace value stays a scalar",
+      "yaml": "map: {a: 1}",
+      "entries": [
+        {
+          "key": "map",
+          "value": "{a: 1}"
+        }
+      ]
+    },
+    {
+      "name": "unicode values",
+      "yaml": "title: café ☕\ncreator: 日本語",
+      "entries": [
+        {
+          "key": "title",
+          "value": "café ☕"
+        },
+        {
+          "key": "creator",
+          "value": "日本語"
+        }
+      ]
+    },
+    {
+      "name": "double-quoted scalar",
+      "yaml": "title: \"A: B\"",
+      "entries": [
+        {
+          "key": "title",
+          "value": "A: B"
+        }
+      ]
+    },
+    {
+      "name": "double-quoted empty string",
+      "yaml": "title: \"\"",
+      "entries": [
+        {
+          "key": "title",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "name": "double-quoted escapes",
+      "yaml": "title: \"say \\\"hi\\\" \\\\ bye\"",
+      "entries": [
+        {
+          "key": "title",
+          "value": "say \"hi\" \\ bye"
+        }
+      ]
+    },
+    {
+      "name": "single-quoted scalar with a doubled quote",
+      "yaml": "title: 'it''s'",
+      "entries": [
+        {
+          "key": "title",
+          "value": "it's"
+        }
+      ]
+    },
+    {
+      "name": "quoted values that start with an indicator",
+      "yaml": "title: \"- dashed\"\ntag: \"#swift\"",
+      "entries": [
+        {
+          "key": "title",
+          "value": "- dashed"
+        },
+        {
+          "key": "tag",
+          "value": "#swift"
+        }
+      ]
+    },
+    {
+      "name": "a quoted bracket value is a scalar, not a list",
+      "yaml": "title: \"[x]\"",
+      "entries": [
+        {
+          "key": "title",
+          "value": "[x]"
+        }
+      ]
+    },
+    {
+      "name": "comments, blank lines and a --- fence are skipped",
+      "yaml": "---\ntitle: X\n\n# a comment\n---",
+      "entries": [
+        {
+          "key": "title",
+          "value": "X"
+        }
+      ]
+    },
+    {
+      "name": "a line without a colon is skipped",
+      "yaml": "just prose\ntitle: X",
+      "entries": [
+        {
+          "key": "title",
+          "value": "X"
+        }
+      ]
+    },
+    {
+      "name": "multi-line scalar indicators are skipped",
+      "yaml": "description: |\ntitle: X\nsummary: >",
+      "entries": [
+        {
+          "key": "title",
+          "value": "X"
+        }
+      ]
+    },
+    {
+      "name": "flow sequence",
+      "yaml": "subject: [foo, bar]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "foo",
+            "bar"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "empty flow sequence",
+      "yaml": "subject: []",
+      "entries": [
+        {
+          "key": "subject",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "flow sequence with a trailing comma",
+      "yaml": "subject: [a, b,]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "a",
+            "b"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "flow sequence with an empty middle item",
+      "yaml": "subject: [a, , b]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "a",
+            "",
+            "b"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "flow sequence with spaces around items",
+      "yaml": "subject: [ a ,b , c ]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "a",
+            "b",
+            "c"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "double-quoted flow elements with a comma and a leading hash",
+      "yaml": "subject: [\"#swift\", \"a, b\", plain]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "#swift",
+            "a, b",
+            "plain"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "single-quoted flow elements",
+      "yaml": "subject: ['a, b', c]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "a, b",
+            "c"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "an escaped quote inside a quoted flow element",
+      "yaml": "subject: [\"a\\\", b\", c]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "a\", b",
+            "c"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "an apostrophe inside a bare flow element",
+      "yaml": "subject: [don't, stop]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "don't",
+            "stop"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "an apostrophe in a bare element before a quoted one",
+      "yaml": "subject: [don't, \"x, y\"]",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "don't",
+            "x, y"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "block sequence",
+      "yaml": "subject:\n  - foo\n  - bar\ntitle: T",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "foo",
+            "bar"
+          ]
+        },
+        {
+          "key": "title",
+          "value": "T"
+        }
+      ]
+    },
+    {
+      "name": "single-item block sequence",
+      "yaml": "k:\n  - only",
+      "entries": [
+        {
+          "key": "k",
+          "value": [
+            "only"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "block sequence with blank lines between items",
+      "yaml": "subject:\n- foo\n\n- bar",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "foo",
+            "bar"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "block sequence with quoted items",
+      "yaml": "subject:\n  - \"#swift\"\n  - 'it''s'\n  - \"a, b\"",
+      "entries": [
+        {
+          "key": "subject",
+          "value": [
+            "#swift",
+            "it's",
+            "a, b"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a dash without a space is not a block item",
+      "yaml": "subject:\n-x\ntitle: T",
+      "entries": [
+        {
+          "key": "subject",
+          "value": ""
+        },
+        {
+          "key": "title",
+          "value": "T"
+        }
+      ]
+    }
+  ]
+}

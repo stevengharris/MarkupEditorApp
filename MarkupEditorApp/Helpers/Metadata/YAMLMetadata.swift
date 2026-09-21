@@ -85,7 +85,7 @@ struct YAMLMetadata {
             case .scalar(let s):
                 lines.append("\(entry.key): \(quoteIfNeeded(s))")
             case .array(let elements):
-                let quoted = elements.map { quoteIfNeeded($0) }.joined(separator: ", ")
+                let quoted = elements.map { quoteIfNeeded($0, inSequence: true) }.joined(separator: ", ")
                 lines.append("\(entry.key): [\(quoted)]")
             }
         }
@@ -109,19 +109,31 @@ struct YAMLMetadata {
         return nil
     }
 
-    // Parse a flow sequence string like `[a, "b", c]` into an array of scalar strings.
+    // Parse a flow sequence string like `[a, "b", c]` into an array of scalar strings. A quote
+    // only opens at the start of an item, so an apostrophe inside a bare word (`don't`) is
+    // literal, and a backslash inside a double-quoted item escapes the next character.
     private static func parseFlowSequence(_ s: String) -> [String] {
         var inner = s.trimmingCharacters(in: .whitespaces)
         if inner.hasPrefix("[") { inner = String(inner.dropFirst()) }
         if inner.hasSuffix("]") { inner = String(inner.dropLast()) }
         var items: [String] = []
         var current = ""
-        var inSingle = false
-        var inDouble = false
+        var quote: Character?
+        var escaped = false
         for ch in inner {
-            if ch == "'" && !inDouble { inSingle.toggle(); current.append(ch) }
-            else if ch == "\"" && !inSingle { inDouble.toggle(); current.append(ch) }
-            else if ch == "," && !inSingle && !inDouble {
+            if let open = quote {
+                current.append(ch)
+                if escaped {
+                    escaped = false
+                } else if open == "\"" && ch == "\\" {
+                    escaped = true
+                } else if ch == open {
+                    quote = nil
+                }
+            } else if (ch == "\"" || ch == "'") && current.allSatisfy(\.isWhitespace) {
+                quote = ch
+                current.append(ch)
+            } else if ch == "," {
                 items.append(parseScalar(current.trimmingCharacters(in: .whitespaces)))
                 current = ""
             } else {
@@ -148,8 +160,10 @@ struct YAMLMetadata {
     }
 
     // Double-quote a value when it contains characters that would be misread by a YAML parser.
-    private static func quoteIfNeeded(_ s: String) -> String {
+    // Inside a flow sequence a comma anywhere in the value would also split it into two items.
+    private static func quoteIfNeeded(_ s: String, inSequence: Bool = false) -> String {
         guard !s.isEmpty else { return "\"\"" }
+        if inSequence && s.contains(",") { return doubleQuote(s) }
         let indicators: Set<Character> = ["-", "?", ",", "!", "|", ">", "'", "\"", "%", "@", "`", "&", "*", "#"]
         if let first = s.first, indicators.contains(first) { return doubleQuote(s) }
         if s.contains(": ") { return doubleQuote(s) }
