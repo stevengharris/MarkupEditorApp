@@ -13,9 +13,17 @@
     "./base64": "./src/base64.js",
     "./export": "./src/export.js",
     "./images": "./src/images.js",
+    "./manifest": "./src/manifest.js",
     "./metadata": "./src/metadata.js",
+    "./rollup": "./src/rollup.js",
     "./testing": "./src/testing/vitestConfig.js",
     "./testing/stub": "./src/testing/markup-editor-stub.js"
+  },
+  "dependencies": {
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "rollup": "^4.31.0",
+    "rollup-plugin-import-css": "^4.0.1"
   },
   "devDependencies": {
     "jsdom": "^27.0.1",

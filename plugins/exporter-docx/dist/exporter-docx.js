@@ -1,3 +1,4 @@
+/*! markupeditor-plugin {"name":"DocX","type":"exporter","ext":"docx"} */
 import { MU } from './markup-editor.js';
 
 var buffer = {};

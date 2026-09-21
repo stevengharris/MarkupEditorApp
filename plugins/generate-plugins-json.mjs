@@ -5,6 +5,7 @@
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateMarkupEditorBlock } from 'markupeditor-plugin-kit/manifest';
 
 // TEMPORARY host: MarkupEditorApp is currently a private repo, so
 // raw.githubusercontent.com 404s against it. markupeditor-desktop is a
@@ -13,8 +14,6 @@ import { fileURLToPath } from 'node:url';
 // that happens. Both are named constants so the revert is a one-line change.
 const GITHUB_OWNER = 'stevengharris';
 const GITHUB_REPO = 'markupeditor-desktop';
-
-const VALID_TYPES = new Set(['exporter', 'codeview']);
 
 /**
  * Reads every plugins/<dir>/package.json under pluginsDir and derives the
@@ -60,35 +59,7 @@ export async function loadPluginMetadata(pluginsDir) {
       continue;
     }
 
-    const md = pkg.markupeditor;
-    if (!md || typeof md !== 'object') {
-      throw new Error(`Plugin "${dirName}": package.json is missing the "markupeditor" object`);
-    }
-    if (!md.name) {
-      throw new Error(`Plugin "${dirName}": markupeditor.name is missing`);
-    }
-    if (typeof md.name !== 'string') {
-      throw new Error(`Plugin "${dirName}": markupeditor.name must be a string, got ${typeof md.name}`);
-    }
-    if (!md.type) {
-      throw new Error(`Plugin "${dirName}": markupeditor.type is missing`);
-    }
-    if (!VALID_TYPES.has(md.type)) {
-      throw new Error(
-        `Plugin "${dirName}": markupeditor.type must be "exporter" or "codeview", got "${md.type}"`
-      );
-    }
-    if (md.type === 'exporter') {
-      if (!md.ext) {
-        throw new Error(`Plugin "${dirName}": markupeditor.ext is required when type is "exporter"`);
-      }
-      if (typeof md.ext !== 'string') {
-        throw new Error(`Plugin "${dirName}": markupeditor.ext must be a string, got ${typeof md.ext}`);
-      }
-      if (md.ext.startsWith('.')) {
-        throw new Error(`Plugin "${dirName}": markupeditor.ext must not have a leading dot, got "${md.ext}"`);
-      }
-    }
+    const md = validateMarkupEditorBlock(pkg.markupeditor, `Plugin "${dirName}"`);
     if (pkg.name !== dirName) {
       throw new Error(
         `Plugin "${dirName}": plugins/${dirName} directory name does not match package.json "name" ("${pkg.name}")`

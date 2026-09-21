@@ -1,3 +1,4 @@
+/*! markupeditor-plugin {"name":"Mermaid","type":"codeview"} */
 import { MU, Selection as Selection$2, TextSelection, NodeSelection, __parseFromClipboard, Plugin } from './markup-editor.js';
 
 var __defProp$1 = Object.defineProperty;

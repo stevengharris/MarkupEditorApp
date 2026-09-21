@@ -1,3 +1,4 @@
+/*! markupeditor-plugin {"name":"EPUB","type":"exporter","ext":"epub"} */
 import { MU } from './markup-editor.js';
 
 // DEFLATE is a complex format; to read this code, you should probably check the RFC first:
