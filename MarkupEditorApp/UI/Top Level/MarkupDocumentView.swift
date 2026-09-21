@@ -968,6 +968,16 @@ extension MarkupDocumentView: MarkupDelegate {
 
     func markupPluginsDidLoad(_ view: MarkupWKWebView, plugins: [[String: String]]) {
         AppDelegate.shared?.populateExportMenu()
+        // The editor runs a plugin by exact registered name, so a difference from Settings is a
+        // plugin that will fail to run. Logged rather than shown: nothing has been asked yet.
+        let problems = PluginReconciliation.problems(
+            recordedExporters: AppConfig.shared.exporters,
+            recordedCodeViews: AppConfig.shared.codeViews,
+            registered: plugins
+        )
+        for problem in problems {
+            errorLogger.warning("Plugin registration: \(problem.description)")
+        }
     }
 
     /// An error occurred on the JavaScript side (internal MUErrors, or a plugin using
