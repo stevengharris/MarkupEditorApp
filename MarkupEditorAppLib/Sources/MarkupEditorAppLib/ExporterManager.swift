@@ -9,8 +9,8 @@ import MarkupEditor
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "ExporterManager")
 
-/// Manages the exporters directory under Application Support: first-launch setup (prepopulated
-/// with the built-in PDF exporter), add, delete, and membership checks.
+/// Manages the exporters directory under Application Support: first-launch setup, the built-in
+/// HTML and PDF exporters, add, delete, and membership checks.
 ///
 /// Every method is caller-injected/pure-returning rather than reading/writing a shared config
 /// singleton: this package has no knowledge of `AppConfig` (stays app-side). The caller reads
@@ -25,6 +25,46 @@ public enum ExporterManager {
         Plugin(name: "DocX", type: "exporter", filename: "exporter-docx.js", ext: "docx")
     }
 
+    /// Exporters the app implements itself, so they have no file and are not registered with the
+    /// editor. They always lead the exporters list, in this order.
+    public enum BuiltIn: String, CaseIterable {
+        case html = "HTML"
+        case pdf = "PDF"
+
+        public var plugin: Plugin {
+            Plugin(name: rawValue, type: "exporter", ext: rawValue.lowercased())
+        }
+    }
+
+    /// The built-in exporter `plugin` stands for, or nil for one installed from a file, which
+    /// takes precedence even when it shares a built-in's name.
+    public static func builtIn(_ plugin: Plugin) -> BuiltIn? {
+        guard plugin.filename == nil else { return nil }
+        return BuiltIn(rawValue: plugin.name)
+    }
+
+    /// Returns `exporters` with the built-in exporters first, followed by the rest in their
+    /// existing order. Idempotent, and restores a list saved before a built-in existed.
+    public static func ensureBuiltIns(_ exporters: [Plugin]) -> [Plugin] {
+        let ensured = BuiltIn.allCases.map(\.plugin) + exporters.filter { builtIn($0) == nil }
+        if ensured != exporters { logger.info("Updated built-in exporters") }
+        return ensured
+    }
+
+    /// The order of the Export menu's items: `exporters` in order, with a nil entry for a
+    /// separator between the built-in exporters and any that follow them.
+    public static func menuLayout(for exporters: [Plugin]) -> [Plugin?] {
+        var layout: [Plugin?] = []
+        var previousWasBuiltIn = false
+        for exporter in exporters {
+            let isBuiltIn = builtIn(exporter) != nil
+            if previousWasBuiltIn && !isBuiltIn { layout.append(nil) }
+            layout.append(exporter)
+            previousWasBuiltIn = isBuiltIn
+        }
+        return layout
+    }
+
     /// The URL of the exporter directory under Application Support.
     public static var defaultDir: URL {
         let support = FileManager.default
@@ -32,11 +72,11 @@ public enum ExporterManager {
         return support.appendingPathComponent("exporters")
     }
 
-    /// First-launch setup: ensures `defaultDir` exists, the built-in PDF exporter is registered,
+    /// First-launch setup: ensures `defaultDir` exists, the built-in exporters are listed,
     /// and the bundled DocX exporter is installed from `resourceURL` (mirrors CodeViewManager's
-    /// Mermaid handling). PDF is distinct from every other exporter because it exports using the
-    /// WKWebView's own PDF export rather than a JS module file, so it's just a list insertion,
-    /// no file to copy. `resourceURL` is the app bundle's resource directory (`Bundle.main.
+    /// Mermaid handling). The built-ins are distinct from every other exporter because the app
+    /// exports them natively rather than through a JS module file, so they're just list
+    /// insertions, no file to copy. `resourceURL` is the app bundle's resource directory (`Bundle.main.
     /// resourceURL` at the app-side call site) -- injected since this package can't reach
     /// `Bundle.main` itself. Returns the updated exporters list.
     ///
@@ -54,12 +94,7 @@ public enum ExporterManager {
             return exporters
         }
 
-        let pdfExporter = Plugin(name: "PDF", type: "exporter", ext: "pdf")
-        var updated = exporters
-        if updated.firstIndex(where: { existing in pdfExporter.name == existing.name }) == nil {
-            logger.info("Added exporter \(pdfExporter.name)")
-            updated.insert(pdfExporter, at: 0)
-        }
+        let updated = ensureBuiltIns(exporters)
 
         guard
             let filename = docx.filename,

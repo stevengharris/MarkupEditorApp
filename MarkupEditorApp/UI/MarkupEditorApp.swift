@@ -99,6 +99,10 @@ struct MarkupEditorApp: App {
             }
             hasSetupPlugins = true
         }
+        // Built-in exporters need no file, so an existing install picks up a newly added one here.
+        AppConfig.update { config in
+            config.exporters = ExporterManager.ensureBuiltIns(config.exporters)
+        }
         // Internal plugins (currently just Metadata) are re-synced every launch, unlike the
         // first-launch-only seeding above -- they have no user-facing update mechanism, so an
         // existing install must also pick up a newer bundled copy.

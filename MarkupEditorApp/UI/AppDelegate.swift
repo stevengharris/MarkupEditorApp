@@ -7,6 +7,7 @@
 
 import AppKit
 import MarkupEditor
+import MarkupEditorAppLib
 import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
@@ -206,7 +207,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Each Export item posts `.menuExport` along with the `Plugin` under "plugin" in `userInfo`.
     public func populateExportMenu() {
         exportSubmenu.removeAllItems()
-        for exporter in AppConfig.shared.exporters {
+        for entry in ExporterManager.menuLayout(for: AppConfig.shared.exporters) {
+            guard let exporter = entry else {
+                exportSubmenu.addItem(.separator())
+                continue
+            }
             let exportItem = NSMenuItem(title: exporter.name, action: #selector(exportAction(_:)), keyEquivalent: "")
             exportItem.target = self
             exportItem.representedObject = exporter

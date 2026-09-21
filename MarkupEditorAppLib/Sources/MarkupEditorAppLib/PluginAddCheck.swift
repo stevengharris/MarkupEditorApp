@@ -48,7 +48,7 @@ public enum PluginAddCheck {
             other?.caseInsensitiveCompare(filename) == .orderedSame
         }
         // The registry is keyed by name across both kinds, so a second plugin under an existing
-        // name would silently replace the first. A plugin with no file (the built-in PDF
+        // name would silently replace the first. A plugin with no file (a built-in
         // exporter) can't be deleted to make room.
         if let clash = installed.first(where: { $0.name == banner.name && !($0.type == banner.kind.rawValue && isSameFile($0.filename)) }) {
             throw clash.filename == nil ? .protectedName(banner.name) : .nameInUse(banner.name)

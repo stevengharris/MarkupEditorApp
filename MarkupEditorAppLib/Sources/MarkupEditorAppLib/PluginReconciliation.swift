@@ -39,7 +39,7 @@ public enum PluginReconciliation {
 
     /// - Parameter registered: the manifests the editor reports for its registered plugins, as
     ///   received by `markupPluginsDidLoad` (`name`, `type`, and `ext` for an exporter).
-    /// Plugins with no backing file (the built-in PDF exporter) and the internal codeviews, which
+    /// Plugins with no backing file (the built-in exporters) and the internal codeviews, which
     /// load but never register, are not expected to be registered.
     public static func problems(recordedExporters: [Plugin], recordedCodeViews: [Plugin], registered: [[String: String]]) -> [Problem] {
         struct Entry {

@@ -5,6 +5,7 @@
 
 import Foundation
 import Observation
+internal import UniformTypeIdentifiers
 
 /**
  One of the challenges with MarkupDocument is that its source can be either HTML or Markdown. However, to
@@ -116,6 +117,23 @@ import Observation
         try copyImageAssets(srcs: srcs, from: baseUrl, to: url.deletingLastPathComponent(), skipMissing: true, replaceExisting: false)
         self.url = url
         hasChanges = false
+    }
+
+    /// Writes `html` to `url` as a single self-contained file, without making `url` the
+    /// document's location or clearing `hasChanges`. The metadata block is stripped as in
+    /// `saveHtml`. Local images are embedded as `data:` URIs rather than copied alongside,
+    /// since the save panel grants access to `url` only, not its folder. An image that cannot
+    /// be read is left as its original relative reference.
+    func exportHtml(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
+        var body = extractMetadataBlock(from: html).body
+        for src in Set(srcs) {
+            let file = baseUrl.appendingPathComponent(src)
+            guard let data = try? Data(contentsOf: file) else { continue }
+            let mime = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+            let dataUri = "data:\(mime);base64,\(data.base64EncodedString())"
+            body = body.replacingOccurrences(of: "src=\"\(src)\"", with: "src=\"\(dataUri)\"")
+        }
+        try body.write(to: url, atomically: true, encoding: .utf8)
     }
     
     /// `markdown` is expected to already carry frontmatter -- every call site producing it

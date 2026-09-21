@@ -814,15 +814,20 @@ struct MarkupDocumentView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            // The built-in PDF exporter is distinguished from a user-installed plugin by
-            // having no filename -- ExporterManager.add always sets one, so a user-installed
-            // plugin literally named "PDF" still routes through the generic path below rather
-            // than being shadowed by this special case.
-            if plugin.name == "PDF" && plugin.filename == nil {
+            // A built-in exporter is distinguished from a user-installed plugin by having no
+            // filename -- ExporterManager.add always sets one, so a user-installed plugin
+            // literally named "PDF" still routes through the generic path below rather than
+            // being shadowed by this special case.
+            switch ExporterManager.builtIn(plugin) {
+            case .pdf:
                 let data = try await webView.exportPDF()
                 try data.write(to: url)
                 editLog.info("PDF exported to: \(url.path)")
-            } else {
+            case .html:
+                guard let html = await webView.getHtml() else { throw MarkupDocumentError.noHTMLSource }
+                try document.exportHtml(html: html, to: url, srcs: await webView.getLocalImages(), baseUrl: webView.baseUrl)
+                editLog.info("HTML exported to: \(url.path)")
+            case nil:
                 let exportStart = Date()
                 let (outputData, warnings) = try await MarkupConverter.runExporterDecoded(webView, name: plugin.name)
                 let exportElapsed = Date().timeIntervalSince(exportStart)
