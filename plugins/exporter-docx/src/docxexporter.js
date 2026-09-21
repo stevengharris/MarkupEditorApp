@@ -4,6 +4,7 @@ import { resolveImages } from "./resolveImages.js"
 import { htmlToDocxChildren, PAGE_WIDTH_TWIPS, PAGE_HEIGHT_TWIPS, PAGE_MARGIN_TWIPS } from "./htmlToDocx.js"
 import { documentStyles } from "./styles.js"
 import { numberingConfig } from "./numbering.js"
+import { extractMetadata, metadataScalar, parseMetadataList, stripMetadataBlock } from "./metadata.js"
 
 // btoa expects a binary string, not raw bytes -- chunk to stay well under any engine's
 // call-stack argument-count limit (a single String.fromCharCode(...spread) over a real
@@ -27,9 +28,20 @@ export class DocXExporter {
     async run() {
         const warnings = []
         try {
-            const html = await resolveImages(MU.getHTML(), warnings)
+            const html = await resolveImages(stripMetadataBlock(MU.getHTML()), warnings)
             const children = htmlToDocxChildren(html, warnings)
+            const metadata = extractMetadata(MU)
+            const keywords = parseMetadataList(metadata.keywords)
             const doc = new Document({
+                // docx's Document constructor exposes these directly (IPropertiesOptions) --
+                // only set when present, so an untagged/unauthored document gets no empty
+                // core-properties entries. Field names (creator/keywords) match
+                // IPropertiesOptions directly rather than translating from another vocabulary
+                // (e.g. "author") -- one name, not a synonym to remember.
+                ...(metadata.title ? { title: metadataScalar(metadata.title) } : {}),
+                ...(metadata.creator ? { creator: metadataScalar(metadata.creator) } : {}),
+                ...(metadata.description ? { description: metadataScalar(metadata.description) } : {}),
+                ...(keywords.length ? { keywords: keywords.join(', ') } : {}),
                 styles: documentStyles,
                 numbering: { config: numberingConfig },
                 sections: [{

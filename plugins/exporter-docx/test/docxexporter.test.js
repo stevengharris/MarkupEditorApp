@@ -1,22 +1,38 @@
 // @vitest-environment jsdom
+//
+// Imports the real BUILT dist/exporter-docx.js, not src/ -- proving the actual bundled
+// artifact the app loads (the "markupeditor" specifier rewritten to a relative
+// "./markup-editor.js") behaves correctly, not just its pre-bundled sources. globalSetup
+// (vitest.config.js) rebuilds dist/ before this file (or any test file) runs, so it's always
+// current. The relative "./markup-editor.js" import dist carries is redirected, via
+// vitest.config.js's resolve.alias keyed to that exact resolved path, to the stub below --
+// there's no real markup-editor.js file in this repo at that path (the app copies one in at
+// runtime).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import JSZip from 'jszip'
+import { MU } from './helpers/markup-editor-stub.js'
 
 const getHTML = vi.fn(() => '<p>hello</p>')
 const registerPlugin = vi.fn()
+const activeView = vi.fn(() => null)
+MU.getHTML = getHTML
+MU.registerPlugin = registerPlugin
+MU.activeView = activeView
 
-vi.mock('markupeditor', () => ({
-    MU: { getHTML: (...args) => getHTML(...args), registerPlugin: (...args) => registerPlugin(...args) }
-}))
-
-const { docXExporter } = await import('../src/docxexporter.js')
+const { docXExporter } = await import('../dist/exporter-docx.js')
 // registerPlugin fires once, at module load, above -- capture it now, before any beforeEach
 // clears the mock's call history for the per-test assertions below.
 const registerPluginCallArgs = registerPlugin.mock.calls[0]
 
+function fakeMetadataDoc(text) {
+    return { state: { doc: { firstChild: { type: { name: 'code_block' }, attrs: { language: 'metadata' }, textContent: text } } } }
+}
+
 beforeEach(() => {
     getHTML.mockClear()
     getHTML.mockReturnValue('<p>hello</p>')
+    activeView.mockReset()
+    activeView.mockReturnValue(null)
 })
 
 describe('DocXExporter.arrayBufferToBase64', () => {
@@ -118,6 +134,68 @@ describe('DocXExporter.run(), the full real pipeline (resolveImages -> converter
         const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
         const documentXml = await zip.file('word/document.xml').async('string')
         expect(documentXml).toContain('<w:drawing>')
+    })
+
+    it('strips a leading metadata code_block (MarkupDocument.seedMetadataBlock\'s shape) out of the exported body -- it\'s data about the document, not part of it', async () => {
+        getHTML.mockReturnValue('<pre><code class="language-metadata">creator: Steven G. Harris</code></pre><p>hello</p>')
+        const json = await docXExporter.run()
+        const envelope = JSON.parse(json)
+        expect(envelope.warnings).toEqual([])
+
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        const documentXml = await zip.file('word/document.xml').async('string')
+        expect(documentXml).not.toContain('Steven G. Harris')
+        expect(documentXml).toContain('hello')
+    })
+
+    it('sets docx core-properties (title, creator, description, keywords) from document metadata', async () => {
+        getHTML.mockReturnValue('<p>hello</p>')
+        activeView.mockReturnValue(fakeMetadataDoc(
+            'creator: Steven G. Harris\ntitle: My Document\ndescription: A test document\nkeywords: [foo, bar, baz]'
+        ))
+
+        const json = await docXExporter.run()
+        const envelope = JSON.parse(json)
+        expect(envelope.warnings).toEqual([])
+
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        const coreXml = await zip.file('docProps/core.xml').async('string')
+        expect(coreXml).toContain('<dc:title>My Document</dc:title>')
+        expect(coreXml).toContain('<dc:creator>Steven G. Harris</dc:creator>')
+        expect(coreXml).toContain('<dc:description>A test document</dc:description>')
+        expect(coreXml).toContain('foo, bar, baz')
+    })
+
+    it('reads block-sequence keywords with quoted items into the keywords core-property', async () => {
+        activeView.mockReturnValue(fakeMetadataDoc('keywords:\n  - foo\n  - "#bar"\n  - baz'))
+        const json = await docXExporter.run()
+        const envelope = JSON.parse(json)
+        expect(envelope.warnings).toEqual([])
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        expect(await zip.file('docProps/core.xml').async('string')).toContain('foo, #bar, baz')
+    })
+
+    it('does not fail the export when a scalar field is written as a sequence', async () => {
+        activeView.mockReturnValue(fakeMetadataDoc('title: [One, Two]'))
+        const envelope = JSON.parse(await docXExporter.run())
+        expect(envelope.warnings).toEqual([])
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        expect(await zip.file('docProps/core.xml').async('string')).toContain('<dc:title>One, Two</dc:title>')
+    })
+
+    it('leaves docx\'s core-properties defaults alone for a document with no metadata block', async () => {
+        activeView.mockReturnValue(null)
+        const json = await docXExporter.run()
+        const envelope = JSON.parse(json)
+        expect(envelope.warnings).toEqual([])
+
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        const coreXml = await zip.file('docProps/core.xml').async('string')
+        // docx's library default ("Un-named"), not anything this exporter sets -- no
+        // metadata block means no title/description/keywords were passed at all.
+        expect(coreXml).not.toContain('<dc:title>')
+        expect(coreXml).not.toContain('<dc:description>')
+        expect(coreXml).toContain('<dc:creator>Un-named</dc:creator>')
     })
 
     it('returns a null result with a warning, without throwing, when something upstream fails', async () => {

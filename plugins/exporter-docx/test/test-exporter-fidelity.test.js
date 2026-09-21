@@ -42,23 +42,45 @@ vi.mock('../src/resolveImages.js', () => ({
 // which renderTestDocument.js needs to be real.
 const { docXExporter } = await import('../src/docxexporter.js')
 
-let xml, stylesXml, numberingXml, rels, exportWarnings
+let xml, stylesXml, numberingXml, rels, coreXml, exportWarnings
 
 beforeAll(async () => {
     const md = readFileSync(path.resolve(import.meta.dirname, 'fixtures/test-exporter.md'), 'utf8')
     const rendered = renderTestDocument(md)
     expect(rendered.warnings).toEqual([])
 
-    // docXExporter.run() reads MU.getHTML() internally -- monkey-patched the same way
-    // renderTestDocument.js patches MU.activeView(), not a separate mock module.
+    // docXExporter.run() reads MU.getHTML() AND MU.activeView() internally -- monkey-patched
+    // here, not a separate mock module. renderTestDocument.js only returns the fixture's raw
+    // YAML text (rendered.metadata) since importMarkdown() strips frontmatter from the HTML
+    // instead of seeding it into the doc -- that seeding is Swift-side
+    // (MarkupDocument.seedMetadataBlock), outside this harness's reach, so both the doc-model
+    // node and the leading <pre><code class="language-metadata"> HTML are faked here, matching
+    // seedMetadataBlock's escaping (& first, then </>). This catches getHTML() leaking metadata
+    // into exported body content, and lets extractMetadata() see the fixture's real frontmatter
+    // instead of the real bundle's default activeView() (no live editor in this harness).
+    const escapedMetadata = (rendered.metadata ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const htmlWithSeededMetadata = rendered.metadata
+        ? `<pre><code class="language-metadata">${escapedMetadata}</code></pre>${rendered.html}`
+        : rendered.html
     const originalGetHTML = MU.getHTML
-    MU.getHTML = () => rendered.html
+    const originalActiveView = MU.activeView
+    MU.getHTML = () => htmlWithSeededMetadata
+    MU.activeView = () => ({
+        state: {
+            doc: {
+                firstChild: rendered.metadata
+                    ? { type: { name: 'code_block' }, attrs: { language: 'metadata' }, textContent: rendered.metadata }
+                    : null,
+            },
+        },
+    })
 
     let envelope
     try {
         envelope = JSON.parse(await docXExporter.run())
     } finally {
         MU.getHTML = originalGetHTML
+        MU.activeView = originalActiveView
     }
     exportWarnings = envelope.warnings
     const buffer = Buffer.from(envelope.result, 'base64')
@@ -67,12 +89,13 @@ beforeAll(async () => {
     stylesXml = parts['word/styles.xml']
     numberingXml = parts['word/numbering.xml']
     rels = parts['word/_rels/document.xml.rels']
+    coreXml = parts['docProps/core.xml']
 })
 
 describe('headings H1-H6', () => {
     it('renders every level with its Heading style and text', () => {
         expect(xml).toContain('<w:pStyle w:val="Heading1"/>')
-        expect(xml).toContain('Test Document') // the document's own title, also an H1
+        expect(xml).toContain('Test Document') // the document body's H1 text (frontmatter's `title` is deliberately different -- see the metadata describe block below)
         expect(xml).toContain('H1 Style')
         for (let level = 2; level <= 6; level++) {
             expect(xml).toContain(`<w:pStyle w:val="Heading${level}"/>`)
@@ -86,6 +109,22 @@ describe('code block', () => {
         expect(xml).toContain('Code Style')
         expect(xml).toContain('SF Mono')
         expect(xml).not.toContain('language-html')
+    })
+})
+
+describe('metadata', () => {
+    it('does not leak the metadata block into the visible body -- it is data about the document, not part of it', () => {
+        expect(xml).not.toContain('Steven G. Harris')
+        expect(xml).not.toContain('language-metadata')
+    })
+
+    it('pulls creator/title/description/keywords from the fixture\'s real frontmatter into core-properties', () => {
+        expect(coreXml).toContain('<dc:creator>Steven G. Harris</dc:creator>')
+        // Deliberately different from the document body's H1 ("Test Document") -- proves the
+        // frontmatter title overrides rather than coincidentally matches.
+        expect(coreXml).toContain('<dc:title>MarkupEditor Fidelity Testing</dc:title>')
+        expect(coreXml).toContain('<dc:description>A baseline test document exercising every element the MarkupEditor supports.</dc:description>')
+        expect(coreXml).toContain('MarkupEditor, testing, fidelity')
     })
 })
 

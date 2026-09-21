@@ -1,6 +1,8 @@
 ---
-author: Steven G. Harris
-tags: [foo, bar, baz]
+creator: Steven G. Harris
+title: MarkupEditor Fidelity Testing
+description: A baseline test document exercising every element the MarkupEditor supports.
+keywords: [MarkupEditor, testing, fidelity]
 ---
 
 # Test Document

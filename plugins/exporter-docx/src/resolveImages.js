@@ -116,7 +116,10 @@ export function imageWidth(tag) {
 }
 
 // Link placeholder text for an image that couldn't embed: alt text plus url when alt is
-// present, just the url otherwise.
+// present, just the url otherwise. `alt`/`src` come from `MU.getHTML()`'s output, serialized
+// via a real ProseMirror DOMSerializer/DOM innerHTML (markup.js's getHTML()) -- already
+// correctly HTML-entity-escaped by construction, so the fallback `<a href="...">` below
+// concatenates them raw. Escaping again would double-escape legitimate content.
 export function imageLinkLabel(tag, src) {
     const match = tag.match(/\balt\s*=\s*["']([^"']*)["']/i)
     const alt = match && match[1].trim()
