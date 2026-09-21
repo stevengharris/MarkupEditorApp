@@ -1,29 +1,26 @@
 {
-  "name": "exporter-docx",
+  "name": "exporter-epub",
   "version": "0.1.0",
-  "description": "MarkupEditor exporter plugin for DOCX.",
+  "description": "MarkupEditor exporter plugin for EPUB3.",
   "type": "module",
-  "main": "dist/exporter-docx.js",
+  "main": "dist/exporter-epub.js",
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "engines": {
     "node": ">=22"
   },
   "markupeditor": {
-    "name": "DocX",
+    "name": "EPUB",
     "type": "exporter",
-    "ext": "docx"
+    "ext": "epub"
   },
   "dependencies": {
-    "buffer": "^6.0.3",
-    "docx": "^9.7.1"
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.3",
-    "@rollup/plugin-inject": "^5.0.5",
     "@rollup/plugin-node-resolve": "^16.0.0",
-    "jsdom": "^27.0.1",
-    "jszip": "^3.10.1",
+    "jsdom": "^30.1.0",
     "markupeditor": "^0.9.32",
     "rollup": "^4.31.0",
     "vitest": "^3.2.4"

@@ -29,6 +29,16 @@
       "version": "0.1.0",
       "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/exporter-docx",
       "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-docx/dist/exporter-docx.js"
+    },
+    "EPUB": {
+      "name": "EPUB",
+      "filename": "exporter-epub.js",
+      "ext": "epub",
+      "description": "MarkupEditor exporter plugin for EPUB3.",
+      "author": "Steven G. Harris <steven.g.harris@gmail.com>",
+      "version": "0.1.0",
+      "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/exporter-epub",
+      "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-epub/dist/exporter-epub.js"
     }
   }
 }

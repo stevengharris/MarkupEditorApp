@@ -1,6 +1,9 @@
 {
   "name": "markupeditorapp-workspace",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "workspaces": [
     "markupeditor-app",
     "plugins/*"
