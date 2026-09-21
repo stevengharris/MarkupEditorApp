@@ -18,8 +18,6 @@
     "fflate": "^0.8.3"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^29.0.3",
-    "@rollup/plugin-node-resolve": "^16.0.0",
     "jsdom": "^30.1.0",
     "markupeditor": "^0.9.32",
     "markupeditor-plugin-kit": "*",

@@ -53,6 +53,14 @@ export function registrationProblems({ block, packageJson, source, registrations
         }
     }
 
+    // The kit's register functions hold the only MU.registerPlugin call; a second one is a
+    // hand-typed registration. Internal plugins register nothing.
+    const expectedSites = block.internal ? 0 : 1
+    const sites = (source.match(/\bMU\.registerPlugin\(/g) ?? []).length
+    if (sites !== expectedSites) {
+        problems.push(`expected ${expectedSites} MU.registerPlugin call site${expectedSites === 1 ? '' : 's'} in the dist, found ${sites}; register through the kit's register functions`)
+    }
+
     // Only fields distinctive enough not to appear in bundled libraries.
     for (const field of ['author', 'description']) {
         if (packageJson[field] && source.includes(packageJson[field])) {
@@ -62,25 +70,30 @@ export function registrationProblems({ block, packageJson, source, registrations
     return problems
 }
 
-// Defines the contract test for the plugin at `pluginDir`: its built dist must carry a banner
-// and no untrimmed package.json content, and (exporters) must register exactly what package.json
-// says. Call from a test file in the plugin's suite, with the dist rebuilt first
-// (pluginVitestConfig({ dist: true })). Exporter dists are loaded, so run it under jsdom.
-export function registrationContract(pluginDir) {
+// Loads the built dist of the plugin at `pluginDir` against the stub `MU` and returns its
+// registrationProblems. The dist must be rebuilt first (pluginVitestConfig({ dist: true })).
+// Exporter dists are loaded, so call this under jsdom.
+export async function checkPlugin(pluginDir) {
     const packageJson = JSON.parse(readFileSync(path.join(pluginDir, 'package.json'), 'utf8'))
     const block = packageJson.markupeditor
     const distPath = path.resolve(pluginDir, packageJson.main)
+    const registrations = []
+    const registersAtLoad = block.type === 'exporter'
+    if (registersAtLoad) {
+        MU.registerPlugin = (...args) => registrations.push(args)
+        await import(distPath)
+    }
+    const source = readFileSync(distPath, 'utf8')
+    return registrationProblems({ block, packageJson, source, registrations, registersAtLoad })
+}
 
+// Defines the contract test for the plugin at `pluginDir`: its built dist must carry a banner
+// and no untrimmed package.json content, register only through the kit, and (exporters) register
+// exactly what package.json says. Call from a test file in the plugin's suite.
+export function registrationContract(pluginDir) {
     describe(`${path.basename(pluginDir)}: built dist against package.json`, () => {
         it('has a matching banner and registration and no untrimmed package.json content', async () => {
-            const registrations = []
-            const registersAtLoad = block.type === 'exporter'
-            if (registersAtLoad) {
-                MU.registerPlugin = (...args) => registrations.push(args)
-                await import(distPath)
-            }
-            const source = readFileSync(distPath, 'utf8')
-            expect(registrationProblems({ block, packageJson, source, registrations, registersAtLoad })).toEqual([])
+            expect(await checkPlugin(pluginDir)).toEqual([])
         })
     })
 }

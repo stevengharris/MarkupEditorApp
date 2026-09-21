@@ -10,7 +10,7 @@ function ok(overrides = {}) {
     return {
         block: EXPORTER,
         packageJson: PACKAGE,
-        source: `${pluginBanner(EXPORTER)}\nconsole.log('built')\n`,
+        source: `${pluginBanner(EXPORTER)}\nMU.registerPlugin(plugin)\n`,
         registrations: [[{ name: 'EPUB', type: 'exporter', ext: 'epub', run() {} }]],
         registersAtLoad: true,
         ...overrides,
@@ -23,16 +23,16 @@ describe('registrationProblems', () => {
     })
 
     it('reports nothing for a codeview, which registers only from install() against a live view', () => {
-        const codeview = ok({ block: CODEVIEW, source: `${pluginBanner(CODEVIEW)}\n`, registrations: [], registersAtLoad: false })
+        const codeview = ok({ block: CODEVIEW, source: `${pluginBanner(CODEVIEW)}\nMU.registerPlugin(plugin)\n`, registrations: [], registersAtLoad: false })
         expect(registrationProblems(codeview)).toEqual([])
     })
 
     it('reports a missing banner', () => {
-        expect(registrationProblems(ok({ source: 'console.log(1)\n' }))).toEqual(['the dist does not start with a plugin banner'])
+        expect(registrationProblems(ok({ source: 'MU.registerPlugin(plugin)\n' }))).toEqual(['the dist does not start with a plugin banner'])
     })
 
     it('reports a banner that disagrees with package.json', () => {
-        const source = `${pluginBanner({ ...EXPORTER, name: 'epub' })}\n`
+        const source = `${pluginBanner({ ...EXPORTER, name: 'epub' })}\nMU.registerPlugin(plugin)\n`
         expect(registrationProblems(ok({ source }))).toEqual(['banner {"name":"epub","type":"exporter","ext":"epub"} does not match package.json {"name":"EPUB","type":"exporter","ext":"epub"}'])
     })
 
@@ -68,10 +68,28 @@ describe('registrationProblems', () => {
     })
 
     it('reports package.json fields that leaked into the dist', () => {
-        const source = `${pluginBanner(EXPORTER)}\nconst a = "Some Author <some@author.example>"\nconst d = "A fixture plugin for contract tests."\n`
+        const source = `${pluginBanner(EXPORTER)}\nMU.registerPlugin(plugin)\nconst a = "Some Author <some@author.example>"\nconst d = "A fixture plugin for contract tests."\n`
         expect(registrationProblems(ok({ source }))).toEqual([
             'the dist contains the package.json author',
             'the dist contains the package.json description',
+        ])
+    })
+
+    it('reports a second, hand-typed MU.registerPlugin call site, even for a codeview whose registration cannot be captured', () => {
+        const source = `${pluginBanner(CODEVIEW)}\nMU.registerPlugin(plugin)\nMU.registerPlugin({ name: 'x', type: 'codeview' })\n`
+        expect(registrationProblems(ok({ block: CODEVIEW, source, registrations: [], registersAtLoad: false }))).toEqual([
+            "expected 1 MU.registerPlugin call site in the dist, found 2; register through the kit's register functions",
+        ])
+    })
+
+    it('reports a dist with no registration call site, and an internal plugin that has one', () => {
+        expect(registrationProblems(ok({ source: `${pluginBanner(EXPORTER)}\n` }))).toEqual([
+            "expected 1 MU.registerPlugin call site in the dist, found 0; register through the kit's register functions",
+        ])
+        const internal = { ...CODEVIEW, internal: true }
+        const source = `${pluginBanner(internal)}\nMU.registerPlugin(plugin)\n`
+        expect(registrationProblems(ok({ block: internal, source, registrations: [], registersAtLoad: false }))).toEqual([
+            "expected 0 MU.registerPlugin call sites in the dist, found 1; register through the kit's register functions",
         ])
     })
 })

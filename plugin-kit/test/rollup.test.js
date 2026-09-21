@@ -94,11 +94,17 @@ describe('pluginConfig', () => {
         expect(code.split('\n')[0]).not.toContain('internal')
     })
 
-    it('appends a plugin\'s own rollup plugins after the shared ones', async () => {
+    it('appends the rollup plugins a plugin passes after the shared ones', async () => {
         const extra = { name: 'extra' }
         const dir = await fixture(EXPORTER_PKG)
         const plugins = pluginConfig(dir, { input: 'src/index.js', plugins: [extra] }).plugins
         expect(plugins.at(-1)).toBe(extra)
+    })
+
+    it('fails fast when package.json has no main', async () => {
+        const { main, ...withoutMain } = EXPORTER_PKG
+        const dir = await fixture(withoutMain)
+        expect(() => pluginConfig(dir, { input: 'src/index.js' })).toThrow('package.json is missing "main"')
     })
 
     it('fails fast, naming the plugin directory, when the markupeditor block is invalid', async () => {

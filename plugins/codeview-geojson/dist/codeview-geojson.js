@@ -14985,6 +14985,7 @@ class GeoJSONView extends MU.CodeView {
 var pkg = {"markupeditor":{"name":"GeoJSON","type":"codeview"}};
 
 const TYPES = new Set(['exporter', 'codeview']);
+const COMMENT_END = '*/';
 
 // Validates a package.json `markupeditor` block and returns it. `label` prefixes every message
 // (for example `Plugin "exporter-epub"`) so a failure names the offending plugin.
@@ -14996,6 +14997,8 @@ function validateMarkupEditorBlock(md, label) {
     if (typeof md.name !== 'string') {
         throw new Error(`${label}: markupeditor.name must be a string, got ${typeof md.name}`)
     }
+    // Both end up inside the banner comment.
+    if (md.name.includes(COMMENT_END)) throw new Error(`${label}: markupeditor.name must not contain "${COMMENT_END}"`)
     if (!md.type) throw new Error(`${label}: markupeditor.type is missing`)
     if (!TYPES.has(md.type)) {
         throw new Error(`${label}: markupeditor.type must be "exporter" or "codeview", got "${md.type}"`)
@@ -15008,6 +15011,7 @@ function validateMarkupEditorBlock(md, label) {
         if (md.ext.startsWith('.')) {
             throw new Error(`${label}: markupeditor.ext must not have a leading dot, got "${md.ext}"`)
         }
+        if (md.ext.includes(COMMENT_END)) throw new Error(`${label}: markupeditor.ext must not contain "${COMMENT_END}"`)
     }
     return md
 }
