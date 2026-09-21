@@ -2,7 +2,7 @@
   "name": "markupeditorapp-workspace",
   "private": true,
   "engines": {
-    "node": ">=22"
+    "node": "^24.15.0"
   },
   "workspaces": [
     "markupeditor-app",

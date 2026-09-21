@@ -53,7 +53,7 @@ Every plugin's test files live inside its own directory and run via `npm test` (
 
 If your plugin imports anything from a DIFFERENT workspace member directly (not just `markupeditor` itself) -- e.g. the DocX exporter's fidelity test imports `markupeditor-app/src/markdown.js` -- that only resolves to a single, consistent module instance because both sides are hoisted to the one shared root `node_modules/` by the workspace. A plugin with its own separate `node_modules` (outside this workspace) would load two different copies of anything it shares with another member, which breaks in exactly the way you'd expect for stateful modules (double-registration errors, mismatched class identity).
 
-Any test that constructs a real `EditorView` needs `jsdom` -- the real bundle's module-load-time CSS side effects use CSSOM APIs a lighter DOM implementation won't have. Also require Node >=22 (root `.nvmrc`/`engines`, mirrored in your plugin's `engines.node`) -- older Node versions produce spurious test failures in this workspace.
+Any test that constructs a real `EditorView` needs `jsdom` -- the real bundle's module-load-time CSS side effects use CSSOM APIs a lighter DOM implementation won't have. Also require Node 24 LTS (`^24.15.0`; root `.nvmrc`/`engines`, mirrored in your plugin's `engines.node`) -- older Node versions produce spurious test failures in this workspace.
 
 ```js
 test: { environment: 'jsdom', setupFiles: './test/vitest.setup.js' },

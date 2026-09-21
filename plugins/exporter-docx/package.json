@@ -7,7 +7,7 @@
   "license": "MIT",
   "author": "Steven G. Harris <steven.g.harris@gmail.com>",
   "engines": {
-    "node": ">=22"
+    "node": "^24.15.0"
   },
   "markupeditor": {
     "name": "DocX",
