@@ -46,9 +46,17 @@ public enum MarkupConverter {
     }
 
     public static func runExporterDecoded(_ webView: MarkupWKWebView, name: String) async throws(MarkupConversionError) -> (data: Data, warnings: [String]) {
-        guard let raw = await webView.runExporter(name: name) else {
+        try decode(await webView.runExporter(name: name), name: name)
+    }
+
+    nonisolated static func decode(_ run: ExporterRun, name: String) throws(MarkupConversionError) -> (data: Data, warnings: [String]) {
+        switch run {
+        case .result(let raw):
+            return try ImportExportValue.decodeExportOutput(from: raw, pluginName: name)
+        case .notRegistered(let registered):
+            throw .pluginNotRegistered(name: name, registered: registered)
+        case .noResult:
             throw .pluginReturnedNoResult(name)
         }
-        return try ImportExportValue.decodeExportOutput(from: raw, pluginName: name)
     }
 }

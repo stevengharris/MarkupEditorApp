@@ -98,9 +98,13 @@ extension MarkupWKWebView {
         return nil
     }
 
-    /// Invoke the plugin registered under `name` (via `MU.runPlugin(name)`) and return its raw,
-    /// undecoded result. Uses `callAsyncJavaScript` rather than the package's `executeJavaScript`
-    /// wrapper, since only `callAsyncJavaScript` awaits a returned `Promise` —
+    /// Invoke the exporter registered under `name` (via `MU.runPlugin(name)`) and return its raw,
+    /// undecoded result, or the names of the exporters that are registered when none is under
+    /// `name` (`runPlugin` alone returns null for an unknown name, which can't be told apart from
+    /// a plugin that returned nothing).
+    ///
+    /// Uses `callAsyncJavaScript` rather than the package's `executeJavaScript` wrapper, since
+    /// only `callAsyncJavaScript` awaits a returned `Promise` —
     /// `executeJavaScript`/`evaluateJavaScript` hands back the live Promise object unbridged. The
     /// plugin name is passed via `arguments` rather than string interpolation, avoiding manual
     /// escaping. The `document.getElementById('markupeditor')` lookup mirrors what the package's
@@ -108,20 +112,23 @@ extension MarkupWKWebView {
     /// reproduced here since that wrapper can't be used for a Promise-returning call.
     ///
     /// Decoding the JSON envelope, surfacing warnings, and converting to `Data` are the caller's job.
-    public func runExporter(name: String) async -> String? {
+    public func runExporter(name: String) async -> ExporterRun {
         do {
             let result = try await callAsyncJavaScript(
                 """
-                const element = document.getElementById('markupeditor')
-                return await element?.MU.runPlugin(name)
+                const MU = document.getElementById('markupeditor')?.MU
+                if (!MU) return null
+                const registered = MU.getPlugins('exporter').map((plugin) => plugin.name).filter((n) => typeof n === 'string')
+                if (!registered.includes(name)) return { notRegistered: registered }
+                return { result: await MU.runPlugin(name) }
                 """,
                 arguments: ["name": name],
                 contentWorld: .page
             )
-            return result as? String
+            return ExporterRun(script: result)
         } catch {
             Logger.webview.error("Error running exporter '\(name)': \(error)")
-            return nil
+            return .noResult
         }
     }
 

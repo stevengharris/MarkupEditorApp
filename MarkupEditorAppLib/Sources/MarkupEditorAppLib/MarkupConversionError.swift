@@ -17,6 +17,7 @@ public enum MarkupConversionError: Error, Equatable, Sendable {
     case unexpectedExport
     case unableToExport(String)
     case pluginReturnedNoResult(String)
+    case pluginNotRegistered(name: String, registered: [String])
     case pluginProducedEmptyResult(name: String, reason: String)
     case pluginReturnedInvalidResult(String)
     case pluginReturnedUndecodableResult(name: String, raw: String)
@@ -37,6 +38,9 @@ extension MarkupConversionError: LocalizedError {
             return reason.isEmpty ? "Could not convert to Markdown." : "Could not convert to Markdown: \(reason)"
         case .pluginReturnedNoResult(let name):
             return "Plugin '\(name)' returned no result."
+        case .pluginNotRegistered(let name, let registered):
+            let known = registered.isEmpty ? "No exporters are registered." : "Registered exporters: \(registered.joined(separator: ", "))."
+            return "Plugin '\(name)' is not registered with the editor. \(known)"
         case .pluginProducedEmptyResult(let name, let reason):
             return reason.isEmpty
                 ? "Plugin '\(name)' did not produce any output."
