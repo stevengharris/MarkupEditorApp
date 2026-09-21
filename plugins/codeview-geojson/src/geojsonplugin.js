@@ -2,6 +2,8 @@ import { MU, Plugin, Selection, TextSelection, NodeSelection, __parseFromClipboa
 import geojsonStyle from "../styles/geojson.css" with { type: "css" }
 import leafletStyle from "leaflet/dist/leaflet.css" with { type: "css" }
 import { GeoJSONView, isGeojsonLanguage } from "./geojsonview.js"
+import pkg from "../package.json" with { type: "json" }
+import { registerCodeView } from "markupeditor-plugin-kit/register"
 
 export { isGeojsonLanguage }
 
@@ -253,7 +255,7 @@ export class GeoJSONPlugin {
 
         // We need to register the codeview plugin so that isRecognizedLanguage returns
         // true when used in the LanguageDialogItem of markupeditor-base
-        MU.registerPlugin({ name: 'GeoJSON', type: 'codeview' })
+        registerCodeView(pkg.markupeditor)
 
         const plugin = this.createPlugin()
         view.updateState(view.state.reconfigure({ plugins: [plugin, ...view.state.plugins] }))

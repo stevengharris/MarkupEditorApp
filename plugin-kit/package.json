@@ -15,8 +15,10 @@
     "./images": "./src/images.js",
     "./manifest": "./src/manifest.js",
     "./metadata": "./src/metadata.js",
+    "./register": "./src/register.js",
     "./rollup": "./src/rollup.js",
     "./testing": "./src/testing/vitestConfig.js",
+    "./testing/contract": "./src/testing/contract.js",
     "./testing/stub": "./src/testing/markup-editor-stub.js"
   },
   "dependencies": {

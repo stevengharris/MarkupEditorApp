@@ -14982,6 +14982,67 @@ class GeoJSONView extends MU.CodeView {
     }
 }
 
+var pkg = {"markupeditor":{"name":"GeoJSON","type":"codeview"}};
+
+const TYPES = new Set(['exporter', 'codeview']);
+
+// Validates a package.json `markupeditor` block and returns it. `label` prefixes every message
+// (for example `Plugin "exporter-epub"`) so a failure names the offending plugin.
+function validateMarkupEditorBlock(md, label) {
+    if (!md || typeof md !== 'object') {
+        throw new Error(`${label}: package.json is missing the "markupeditor" object`)
+    }
+    if (!md.name) throw new Error(`${label}: markupeditor.name is missing`)
+    if (typeof md.name !== 'string') {
+        throw new Error(`${label}: markupeditor.name must be a string, got ${typeof md.name}`)
+    }
+    if (!md.type) throw new Error(`${label}: markupeditor.type is missing`)
+    if (!TYPES.has(md.type)) {
+        throw new Error(`${label}: markupeditor.type must be "exporter" or "codeview", got "${md.type}"`)
+    }
+    if (md.type === 'exporter') {
+        if (!md.ext) throw new Error(`${label}: markupeditor.ext is required when type is "exporter"`)
+        if (typeof md.ext !== 'string') {
+            throw new Error(`${label}: markupeditor.ext must be a string, got ${typeof md.ext}`)
+        }
+        if (md.ext.startsWith('.')) {
+            throw new Error(`${label}: markupeditor.ext must not have a leading dot, got "${md.ext}"`)
+        }
+    }
+    return md
+}
+
+// Identity comes from package.json's `markupeditor` block, so plugin source never types it:
+//
+//   import pkg from '../package.json' with { type: 'json' }
+//   registerExporter(pkg.markupeditor, { run })
+//
+// `MU.runPlugin(name)` looks a plugin up by exact name and returns null on a miss, so the
+// registered name has to be the one the host recorded from that same block.
+const FROM_PACKAGE_JSON = ['name', 'type', 'ext', 'filename'];
+
+function register(block, type, members, caller) {
+    validateMarkupEditorBlock(block, caller);
+    if (block.type !== type) {
+        throw new Error(`${caller}: markupeditor.type is "${block.type}", expected "${type}"`)
+    }
+    for (const [key, value] of Object.entries(members)) {
+        if (FROM_PACKAGE_JSON.includes(key)) throw new Error(`${caller}: ${key} comes from package.json`)
+        // The host reads the registrations it is sent as string maps (functions are dropped in
+        // transit); any other value type makes it discard the whole list.
+        if (typeof value !== 'string' && typeof value !== 'function') {
+            throw new Error(`${caller}: ${key} must be a string or a function`)
+        }
+    }
+    const plugin = { name: block.name, type: block.type, ...(block.type === 'exporter' && { ext: block.ext }), ...members };
+    MU.registerPlugin(plugin);
+    return plugin
+}
+
+function registerCodeView(block, members = {}) {
+    return register(block, 'codeview', members, 'registerCodeView')
+}
+
 const HIDE_CARET_CLASS = 'geojson-hide-caret';
 
 class GeoJSONPlugin {
@@ -15230,7 +15291,7 @@ class GeoJSONPlugin {
 
         // We need to register the codeview plugin so that isRecognizedLanguage returns
         // true when used in the LanguageDialogItem of markupeditor-base
-        MU.registerPlugin({ name: 'GeoJSON', type: 'codeview' });
+        registerCodeView(pkg.markupeditor);
 
         const plugin = this.createPlugin();
         view.updateState(view.state.reconfigure({ plugins: [plugin, ...view.state.plugins] }));

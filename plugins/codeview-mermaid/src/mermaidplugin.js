@@ -2,6 +2,8 @@ import { MU, Plugin, Selection, TextSelection, NodeSelection, __parseFromClipboa
 import mermaid from "mermaid"
 import mermaidStyle from "../styles/mermaid.css" with { type: "css" }
 import { MermaidView, isMermaidLanguage } from "./mermaidview.js"
+import pkg from "../package.json" with { type: "json" }
+import { registerCodeView } from "markupeditor-plugin-kit/register"
 
 export { isMermaidLanguage }
 
@@ -299,7 +301,7 @@ export class MermaidPlugin {
 
         // We need to register the codeview plugin so that isRecognizedLanguage returns
         // true when used in the LanguageDialogItem of markupeditor-base
-        MU.registerPlugin({ name: 'Mermaid', type: 'codeview' })
+        registerCodeView(pkg.markupeditor)
 
         const plugin = this.createPlugin()
         view.updateState(view.state.reconfigure({ plugins: [plugin, ...view.state.plugins] }))

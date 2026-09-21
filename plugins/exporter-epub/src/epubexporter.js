@@ -1,7 +1,9 @@
 import { MU } from "markupeditor"
+import pkg from "../package.json" with { type: "json" }
 import { zipSync } from "fflate"
 import { resolveImages } from "markupeditor-plugin-kit/images"
 import { failureEnvelope, successEnvelope } from "markupeditor-plugin-kit/export"
+import { registerExporter } from "markupeditor-plugin-kit/register"
 import { extractImages } from "./extractImages.js"
 import { htmlToXhtmlBody, extractDocumentTitle, extractHeadings } from "./htmlToXhtml.js"
 import { buildOpf } from "./opf.js"
@@ -60,4 +62,4 @@ export class EpubExporter {
 
 export const epubExporter = new EpubExporter()
 
-MU.registerPlugin({ name: 'EPUB', type: 'exporter', filename: 'exporter-epub.js', run: epubExporter.run.bind(epubExporter) }, 'EPUB')
+registerExporter(pkg.markupeditor, { run: epubExporter.run.bind(epubExporter) })

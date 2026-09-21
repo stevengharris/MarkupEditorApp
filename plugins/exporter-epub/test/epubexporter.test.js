@@ -39,12 +39,12 @@ beforeEach(() => {
 
 describe('plugin registration', () => {
     it('registers an EPUB exporter plugin whose run callback is bound to the exporter instance', () => {
-        const [plugin, name] = registerPluginCallArgs
+        const [plugin, ...rest] = registerPluginCallArgs
         expect(plugin.name).toBe('EPUB')
         expect(plugin.type).toBe('exporter')
-        expect(plugin.filename).toBe('exporter-epub.js')
+        expect(plugin.ext).toBe('epub')
         expect(typeof plugin.run).toBe('function')
-        expect(name).toBe('EPUB')
+        expect(rest).toEqual([])
     })
 })
 

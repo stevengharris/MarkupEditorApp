@@ -36,12 +36,12 @@ beforeEach(() => {
 
 describe('plugin registration', () => {
     it('registers a DocX exporter plugin whose run callback is bound to the exporter instance', () => {
-        const [plugin, name] = registerPluginCallArgs
+        const [plugin, ...rest] = registerPluginCallArgs
         expect(plugin.name).toBe('DocX')
         expect(plugin.type).toBe('exporter')
-        expect(plugin.filename).toBe('exporter-docx.js')
+        expect(plugin.ext).toBe('docx')
         expect(typeof plugin.run).toBe('function')
-        expect(name).toBe('DocX')
+        expect(rest).toEqual([])
     })
 })
 

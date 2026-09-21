@@ -1,6 +1,8 @@
 /*! markupeditor-plugin {"name":"EPUB","type":"exporter","ext":"epub"} */
 import { MU } from './markup-editor.js';
 
+var pkg = {"markupeditor":{"name":"EPUB","type":"exporter","ext":"epub"}};
+
 // DEFLATE is a complex format; to read this code, you should probably check the RFC first:
 // https://tools.ietf.org/html/rfc1951
 // You may also wish to take a look at the guide I made about this program:
@@ -925,6 +927,66 @@ function failureEnvelope(warnings, format, error) {
     return envelope(null, warnings)
 }
 
+const TYPES = new Set(['exporter', 'codeview']);
+
+// Validates a package.json `markupeditor` block and returns it. `label` prefixes every message
+// (for example `Plugin "exporter-epub"`) so a failure names the offending plugin.
+function validateMarkupEditorBlock(md, label) {
+    if (!md || typeof md !== 'object') {
+        throw new Error(`${label}: package.json is missing the "markupeditor" object`)
+    }
+    if (!md.name) throw new Error(`${label}: markupeditor.name is missing`)
+    if (typeof md.name !== 'string') {
+        throw new Error(`${label}: markupeditor.name must be a string, got ${typeof md.name}`)
+    }
+    if (!md.type) throw new Error(`${label}: markupeditor.type is missing`)
+    if (!TYPES.has(md.type)) {
+        throw new Error(`${label}: markupeditor.type must be "exporter" or "codeview", got "${md.type}"`)
+    }
+    if (md.type === 'exporter') {
+        if (!md.ext) throw new Error(`${label}: markupeditor.ext is required when type is "exporter"`)
+        if (typeof md.ext !== 'string') {
+            throw new Error(`${label}: markupeditor.ext must be a string, got ${typeof md.ext}`)
+        }
+        if (md.ext.startsWith('.')) {
+            throw new Error(`${label}: markupeditor.ext must not have a leading dot, got "${md.ext}"`)
+        }
+    }
+    return md
+}
+
+// Identity comes from package.json's `markupeditor` block, so plugin source never types it:
+//
+//   import pkg from '../package.json' with { type: 'json' }
+//   registerExporter(pkg.markupeditor, { run })
+//
+// `MU.runPlugin(name)` looks a plugin up by exact name and returns null on a miss, so the
+// registered name has to be the one the host recorded from that same block.
+const FROM_PACKAGE_JSON = ['name', 'type', 'ext', 'filename'];
+
+function register(block, type, members, caller) {
+    validateMarkupEditorBlock(block, caller);
+    if (block.type !== type) {
+        throw new Error(`${caller}: markupeditor.type is "${block.type}", expected "${type}"`)
+    }
+    for (const [key, value] of Object.entries(members)) {
+        if (FROM_PACKAGE_JSON.includes(key)) throw new Error(`${caller}: ${key} comes from package.json`)
+        // The host reads the registrations it is sent as string maps (functions are dropped in
+        // transit); any other value type makes it discard the whole list.
+        if (typeof value !== 'string' && typeof value !== 'function') {
+            throw new Error(`${caller}: ${key} must be a string or a function`)
+        }
+    }
+    const plugin = { name: block.name, type: block.type, ...(block.type === 'exporter' && { ext: block.ext }), ...members };
+    MU.registerPlugin(plugin);
+    return plugin
+}
+
+function registerExporter(block, members) {
+    if (typeof members?.run !== 'function') throw new Error('registerExporter: run must be a function')
+    return register(block, 'exporter', members, 'registerExporter')
+}
+
 // Runs AFTER resolveImages: every embeddable <img src> is by then already a data: URI (either
 // one resolveImages produced from a local/remote source, or one the source document already
 // carried directly -- resolveImages leaves an existing data: URI untouched). An unresolvable
@@ -1609,6 +1671,6 @@ class EpubExporter {
 
 const epubExporter = new EpubExporter();
 
-MU.registerPlugin({ name: 'EPUB', type: 'exporter', filename: 'exporter-epub.js', run: epubExporter.run.bind(epubExporter) }, 'EPUB');
+registerExporter(pkg.markupeditor, { run: epubExporter.run.bind(epubExporter) });
 
 export { EpubExporter, epubExporter };

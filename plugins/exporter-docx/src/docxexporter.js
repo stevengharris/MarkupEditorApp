@@ -1,7 +1,9 @@
 import { MU } from "markupeditor"
+import pkg from "../package.json" with { type: "json" }
 import { Document, Packer } from "docx"
 import { resolveImages } from "markupeditor-plugin-kit/images"
 import { failureEnvelope, successEnvelope } from "markupeditor-plugin-kit/export"
+import { registerExporter } from "markupeditor-plugin-kit/register"
 import { htmlToDocxChildren, PAGE_WIDTH_TWIPS, PAGE_HEIGHT_TWIPS, PAGE_MARGIN_TWIPS } from "./htmlToDocx.js"
 import { documentStyles } from "./styles.js"
 import { numberingConfig } from "./numbering.js"
@@ -51,4 +53,4 @@ export class DocXExporter {
 
 export const docXExporter = new DocXExporter()
 
-MU.registerPlugin({ name: 'DocX', type: 'exporter', filename: 'exporter-docx.js', run: docXExporter.run.bind(docXExporter) }, 'DocX')
+registerExporter(pkg.markupeditor, { run: docXExporter.run.bind(docXExporter) })
