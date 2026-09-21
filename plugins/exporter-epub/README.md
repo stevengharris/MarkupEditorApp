@@ -29,3 +29,6 @@ Common fields:
 | `date` | `dc:date` |
 | `subject` | `dc:subject` (one per item, for a list) |
 
+## Development
+
+The plugin's name, type and extension come from the `markupeditor` block in `package.json`; `npm run build` writes `dist/exporter-epub.js` with that identity as its first line, and `npm test` rebuilds it and runs the suite, including the registration contract. See `skills/writing-markupeditor-plugins`.
