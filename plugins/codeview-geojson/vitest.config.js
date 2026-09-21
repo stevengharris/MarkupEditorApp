@@ -1,9 +1,3 @@
-/** We need to import defineConfig because we're not using vite. */
-import { defineConfig } from 'vitest/config'
+import { pluginVitestConfig } from 'markupeditor-plugin-kit/testing'
 
-export default defineConfig({
-  test: {
-    environment: 'jsdom',
-    setupFiles: './test/vitest.setup.js'
-  },
-})
+export default pluginVitestConfig({ environment: 'jsdom' })

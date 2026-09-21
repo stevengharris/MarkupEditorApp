@@ -137,7 +137,7 @@ describe('diagram widget as a DOM sibling of contentDOM, never a descendant coll
   // sibling of contentDOM rather than a descendant, is structurally
   // independent of whatever class contentDOM carries. This is a DOM-shape
   // assertion, not a real-layout one: jsdom's mocked adoptedStyleSheets
-  // (vitest.setup.js) never actually parses/applies CSS rules, matching this
+  // (plugin-kit's jsdomShims.js) never actually parses/applies CSS rules, matching this
   // codebase's existing precedent of asserting classList membership rather
   // than computed visual layout (e.g. the "-below" positioning tests).
   it('toggling a collapsing class on contentDOM alone never touches dom\'s own class list or removes/hides the diagram sibling', () => {

@@ -12,9 +12,12 @@
   "exports": {
     "./export": "./src/export.js",
     "./images": "./src/images.js",
-    "./metadata": "./src/metadata.js"
+    "./metadata": "./src/metadata.js",
+    "./testing": "./src/testing/vitestConfig.js",
+    "./testing/stub": "./src/testing/markup-editor-stub.js"
   },
   "devDependencies": {
+    "jsdom": "^27.0.1",
     "vitest": "^3.2.4"
   },
   "scripts": {

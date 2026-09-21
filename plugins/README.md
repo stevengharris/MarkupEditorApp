@@ -30,26 +30,26 @@ A plugin's test suite lives entirely inside its own directory and runs via `npm 
 
 **1. Converter unit tests.** Hand-crafted HTML snippets fed directly into your own HTML-to-format conversion function, decoded with your own format's decode helper, asserted structurally. No mocking needed. See `exporter-docx/test/htmlToDocx.test.js`.
 
-**2. Full-pipeline test.** Import the real built `dist/*.js`, not `src/`, so the test exercises the artifact the app actually loads. The bundle imports `MU` from a relative `./markup-editor.js` (rollup's `paths` rewrite of the `markupeditor` specifier) that doesn't exist in the repo, so alias that literal specifier in `vitest.config.js` to a stub exporting `MU.getHTML`/`registerPlugin`/`activeView` (`test/helpers/markup-editor-stub.js`), then set those properties on the stub before importing the dist:
+**2. Full-pipeline test.** Import the real built `dist/*.js`, not `src/`, so the test exercises the artifact the app actually loads. The bundle imports `MU` from a relative `./markup-editor.js` (rollup's `paths` rewrite of the `markupeditor` specifier) that doesn't exist in the repo, so the tests alias that literal specifier to a stub exporting `MU.getHTML`/`registerPlugin`/`activeView`, and rebuild `dist/` first so a stale bundle is never tested. plugin-kit's `pluginVitestConfig({ dist: true })` (`markupeditor-plugin-kit/testing`) sets up both; a plugin's `vitest.config.js` is just that call. Set the stub's members before importing the dist:
 
 ```js
-import { MU } from './helpers/markup-editor-stub.js'
+import { MU } from 'markupeditor-plugin-kit/testing/stub'
 MU.getHTML = vi.fn(() => '<p>hello</p>')
 MU.registerPlugin = vi.fn()
 const { myExporter } = await import('../dist/my-exporter.js')
 ```
 
-Call your plugin's exported `run()`, decode the result, assert. Rebuild `dist/` in vitest's `globalSetup` so the test never runs against a stale bundle. See `exporter-docx/test/docxexporter.test.js`, `exporter-docx/vitest.config.js`, and `exporter-docx/test/globalSetup.js`.
+Call your plugin's exported `run()`, decode the result, assert. See `exporter-docx/test/docxexporter.test.js` and `exporter-docx/vitest.config.js`.
 
 **3. Real-document fidelity test (optional).** Drives `run()` from HTML produced by the real markdown-import pipeline (`markupeditor-app`'s `importMarkdown`) instead of a hand-authored snippet, so the test proves your exporter matches what the real app actually produces. See `exporter-docx/test/test-exporter-fidelity.test.js` and its `test/helpers/renderTestDocument.js` harness.
 
 For tier 3:
 
-* Alias the `markupeditor` specifier (`resolve.alias` in `vitest.config.js`) to `MarkupEditor/Resources/markup-editor.js` — the exact bundle the real app loads at runtime — rather than letting it resolve to whichever package's own `node_modules/markupeditor` copy happens to be installed nearby, which can drift out of sync with what's actually shipped. The alias applies across the whole module graph, so your `import { MU } from 'markupeditor'` and `markupeditor-app/src/markdown.js`'s own `import { MU } from "markupeditor"` resolve to the SAME module instance — stubbing `MU.activeView()` (so `importMarkdown` can run without a live editor view) actually takes effect on the copy `importMarkdown` reads from. See `exporter-docx/vitest.config.js`.
+* Alias the `markupeditor` specifier (`pluginVitestConfig({ shippedBundle: true })` does this) to `MarkupEditor/Resources/markup-editor.js` — the exact bundle the real app loads at runtime — rather than letting it resolve to whichever package's own `node_modules/markupeditor` copy happens to be installed nearby, which can drift out of sync with what's actually shipped. The alias applies across the whole module graph, so your `import { MU } from 'markupeditor'` and `markupeditor-app/src/markdown.js`'s own `import { MU } from "markupeditor"` resolve to the SAME module instance — stubbing `MU.activeView()` (so `importMarkdown` can run without a live editor view) actually takes effect on the copy `importMarkdown` reads from. See `exporter-docx/vitest.config.js`.
 
 * Don't `vi.mock('markupeditor', ...)` in a test file that also uses this alias-backed `MU` — Vitest mocks by resolved path, so a mock would replace the module for the whole graph reachable from that test file, including `markdown.js`'s own import, losing `MU.schema`. If your plugin's own `run()` also needs `MU` (e.g. `MU.getHTML()`), monkey-patch that property directly on the same real `MU` object instead — see `exporter-docx/test/test-exporter-fidelity.test.js`.
 
-* Loading the real `markupeditor` bundle needs a real DOM (`jsdom`) plus two small shims for gaps in `jsdom`'s own CSSOM support (`CSSStyleSheet.replaceSync`, `CSSStyleSheet.media`). See `exporter-docx/test/vitest.setup.js`.
+* Loading the real `markupeditor` bundle needs a real DOM (`jsdom`) plus small shims for gaps in `jsdom`'s CSSOM and DOM support (`CSSStyleSheet.replaceSync`, `CSSStyleSheet.media`, `document.execCommand`, `document.adoptedStyleSheets`). `pluginVitestConfig` installs them from `plugin-kit/src/testing/jsdomShims.js`.
 
 * Real image loading (`Image`/`canvas`) hangs indefinitely in this environment — mock `resolveImages` (or your format's equivalent) wholesale rather than trying to make it work; image-loading fidelity itself is out of scope for this kind of test and is verified manually.
 

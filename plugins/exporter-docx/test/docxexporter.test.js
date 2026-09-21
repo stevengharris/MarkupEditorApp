@@ -10,7 +10,7 @@
 // runtime).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import JSZip from 'jszip'
-import { MU } from './helpers/markup-editor-stub.js'
+import { MU } from 'markupeditor-plugin-kit/testing/stub'
 
 const getHTML = vi.fn(() => '<p>hello</p>')
 const registerPlugin = vi.fn()

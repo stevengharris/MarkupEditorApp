@@ -10,7 +10,7 @@
 // (the app copies one in at runtime).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { decodeEpubBuffer, firstLocalFileHeader } from './helpers/decodeEpub.js'
-import { MU } from './helpers/markup-editor-stub.js'
+import { MU } from 'markupeditor-plugin-kit/testing/stub'
 
 const getHTML = vi.fn(() => '<h1>Test</h1><p>hello</p>')
 const registerPlugin = vi.fn()

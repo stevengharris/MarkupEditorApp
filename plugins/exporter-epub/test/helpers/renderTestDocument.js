@@ -14,7 +14,7 @@ import { importMarkdown } from '../../../../markupeditor-app/src/markdown.js'
  * Render markdown through the app's real importMarkdown() conversion path
  * (frontmatter/leading-HTML-block extraction, parse, DOM serialization),
  * without a live editor view. Requires a DOM global (jsdom, installed by
- * test/vitest.setup.js) since importMarkdown() creates a detached div.
+ * plugin-kit's jsdomShims.js) since importMarkdown() creates a detached div.
  *
  * @param {string} markdown - Raw markdown text.
  * @returns {{ html: string|null, warnings: string[], metadata: string|null }}
