@@ -104,11 +104,9 @@ struct MarkupDocumentView: View {
             markupConfiguration.toolbarConfig = ToolbarConfig.fromDefaults()
             reloadEditorForConfigChange()
         }
-        .onChange(of: AppConfig.shared.codeViews) { _, _ in
-            markupConfiguration.pluginFiles = AppConfig.shared.pluginFilenames()
-            reloadEditorForConfigChange()
-        }
-        .onChange(of: AppConfig.shared.exporters) { _, _ in
+        // Keyed on pluginsRevision, not the exporters/codeViews arrays directly -- see
+        // AppConfig.pluginsRevision for why watching the arrays isn't enough.
+        .onChange(of: AppConfig.shared.pluginsRevision) { _, _ in
             markupConfiguration.pluginFiles = AppConfig.shared.pluginFilenames()
             reloadEditorForConfigChange()
         }

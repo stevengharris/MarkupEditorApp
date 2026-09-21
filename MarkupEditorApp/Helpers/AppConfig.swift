@@ -37,6 +37,12 @@ public final class AppConfig: JSONConfigurable {
     public var spellcheck: Bool
     public var inlinePredictions: Bool
     public var autocorrect: Bool
+    // Bumped on every plugin install/delete (PluginSettingsView/PluginDiscoveryView) so
+    // MarkupDocumentView's .onChange always sees a change. Plugin equality only compares
+    // name/type/filename, so reinstalling with the same name but different bytes leaves the
+    // exporters/codeViews array Equatable-equal -- onChange would otherwise skip the reload,
+    // leaving a stale copy running. Not persisted: a fresh launch rebuilds from scratch anyway.
+    public var pluginsRevision: Int = 0
 
     public init(
         toolbarVisibility: String,

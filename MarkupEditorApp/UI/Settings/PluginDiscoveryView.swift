@@ -217,6 +217,7 @@ private struct PluginDiscoveryRow: View {
                 AppConfig.update { config in
                     config.exporters = exporters
                     config.codeViews = codeViews
+                    config.pluginsRevision += 1
                 }
             } catch {
                 installErrorMessage = error.localizedDescription

@@ -195,6 +195,7 @@ struct PluginSettingsView: View {
         if addPluginType == .CodeView {
             AppConfig.update { config in
                 config.codeViews = CodeViewManager.add(name: newPluginName, url: newPluginURL, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                config.pluginsRevision += 1
                 addPluginType = .None
                 newPluginFocusedField = .name
                 newPluginURL = nil
@@ -202,6 +203,7 @@ struct PluginSettingsView: View {
         } else if addPluginType == .Exporter {
             AppConfig.update { config in
                 config.exporters = ExporterManager.add(name: newPluginName, url: newPluginURL, ext: newPluginExt, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                config.pluginsRevision += 1
                 addPluginType = .None
                 newPluginFocusedField = .name
                 newPluginURL = nil
@@ -214,10 +216,12 @@ struct PluginSettingsView: View {
         if focusedPluginType() == .CodeView {
             AppConfig.update { config in
                 config.codeViews = CodeViewManager.delete(focusedPlugin, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+                config.pluginsRevision += 1
             }
         } else if focusedPluginType() == .Exporter {
             AppConfig.update { config in
                 config.exporters = ExporterManager.delete(focusedPlugin, exporters: config.exporters, cacheDir: AppDelegate.webViewCacheDir)
+                config.pluginsRevision += 1
             }
         }
     }
