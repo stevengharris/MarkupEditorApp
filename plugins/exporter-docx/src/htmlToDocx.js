@@ -422,7 +422,7 @@ function runPropsFromMarks(marks) {
     return props
 }
 
-// resolveImages.js runs first as an async HTML-string pre-pass and rewrites every embeddable
+// resolveImages runs first as an async HTML-string pre-pass and rewrites every embeddable
 // image to a data: URI with corrected width/height attributes. This function only decodes an
 // already-resolved data: URI to bytes. An unresolvable image never reaches here -- it's
 // already rewritten to a plain <a> link placeholder.

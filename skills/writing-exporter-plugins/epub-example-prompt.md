@@ -24,9 +24,9 @@ Requirements:
   well-formed XHTML content documents converted from MU.getHTML()'s output.
 - Images referenced in the document become real files inside the zip (correct relative href
   and media-type in both the XHTML and the OPF manifest), not inline data: URIs. You'll need
-  the same Image/<canvas> local-image-loading workaround exporter-docx's resolveImages.js
-  uses (WKWebView blocks fetch() of file:// images) -- reuse or adapt that file rather than
-  reinventing it, but decode the result back to raw bytes for a zip entry instead of handing
+  the same Image/<canvas> local-image-loading workaround plugin-kit's resolveImages
+  (plugin-kit/src/images.js) uses (WKWebView blocks fetch() of file:// images) -- reuse it
+  rather than reinventing it, but decode the result back to raw bytes for a zip entry instead of handing
   it to a DOCX-style embed.
 - run() returns the same JSON-stringified {result, warnings, metadata} envelope exporter-docx
   uses (result is base64, chunked to avoid call-stack overflow on encode). Non-fatal problems

@@ -1,30 +1,14 @@
 import { MU } from "markupeditor"
 import { Document, Packer } from "docx"
-import { resolveImages } from "./resolveImages.js"
+import { resolveImages } from "markupeditor-plugin-kit/images"
+import { failureEnvelope, successEnvelope } from "markupeditor-plugin-kit/export"
 import { htmlToDocxChildren, PAGE_WIDTH_TWIPS, PAGE_HEIGHT_TWIPS, PAGE_MARGIN_TWIPS } from "./htmlToDocx.js"
 import { documentStyles } from "./styles.js"
 import { numberingConfig } from "./numbering.js"
 import { extractMetadata, metadataScalar, parseMetadataList, stripMetadataBlock } from "markupeditor-plugin-kit/metadata"
 
-// btoa expects a binary string, not raw bytes -- chunk to stay well under any engine's
-// call-stack argument-count limit (a single String.fromCharCode(...spread) over a real
-// document-sized buffer overflows it).
-const CHUNK_SIZE = 0x8000
-
 export class DocXExporter {
 
-    arrayBufferToBase64(buffer) {
-        const bytes = new Uint8Array(buffer)
-        let binary = ''
-        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE))
-        }
-        return btoa(binary)
-    }
-
-    // The plugin envelope shape ({result, warnings, metadata}) is a contract with the Swift side
-    // (MarkupWKWebView+Extension.swift's runExporter) -- any exporter plugin must return exactly
-    // this shape, regardless of which library produced the bytes.
     async run() {
         const warnings = []
         try {
@@ -58,10 +42,9 @@ export class DocXExporter {
                 }],
             })
             const buffer = await Packer.toBuffer(doc)
-            return JSON.stringify({ result: this.arrayBufferToBase64(buffer), warnings, metadata: null })
+            return successEnvelope(buffer, warnings)
         } catch (error) {
-            warnings.push(`DOCX conversion failed: ${error.message}`)
-            return JSON.stringify({ result: null, warnings, metadata: null })
+            return failureEnvelope(warnings, 'DOCX', error)
         }
     }
 }

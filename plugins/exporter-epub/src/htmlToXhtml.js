@@ -93,7 +93,7 @@ function convertHr() {
     return '<hr/>'
 }
 
-// resolveImages.js + extractImages.js run as pre-passes before this converter: every
+// resolveImages + extractImages run as pre-passes before this converter: every
 // embeddable <img> arrives here with `src` already rewritten to a relative "images/imageN.ext"
 // zip href. An <img> whose src is still a raw data:/http(s):/file: URI means something upstream
 // didn't run -- warn rather than ship an EPUB with an unreachable reference. alt is REQUIRED

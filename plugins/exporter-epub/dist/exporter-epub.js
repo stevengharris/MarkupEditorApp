@@ -742,17 +742,17 @@ function zipSync(data, opts) {
     return out;
 }
 
-const IMG_SRC_PATTERN$1 = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
-
 // btoa/atob operate on binary strings, not bytes directly -- chunk the encode to stay well
 // under any engine's call-stack argument-count limit (a single String.fromCharCode(...spread)
-// over a real image-sized buffer can overflow it).
-const BASE64_CHUNK_SIZE = 0x8000;
+// over a real document-sized buffer overflows it).
+const CHUNK_SIZE = 0x8000;
 
-function bytesToBase64(bytes) {
+// Accepts a Uint8Array (including a Node Buffer) or an ArrayBuffer.
+function bytesToBase64(input) {
+    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
     let binary = '';
-    for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + BASE64_CHUNK_SIZE));
+    for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE));
     }
     return btoa(binary)
 }
@@ -763,6 +763,8 @@ function base64ToBytes$1(base64) {
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return bytes
 }
+
+const IMG_SRC_PATTERN$1 = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_CHUNKS_TO_KEEP = new Set(['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND']);
@@ -801,10 +803,8 @@ function stripPngMetadata(dataUri) {
     return `data:image/png;base64,${bytesToBase64(stripped)}`
 }
 
-// The EPUB converter's object model needs real embeddable bytes, not a local path or remote
-// URL -- this resolves every non-data: <img> to a data: URI before conversion. The zip-entry
-// step (extractImages.js) decodes this back to raw bytes; the DOCX exporter instead hands a
-// data: URI straight to ImageRun.
+// A format that embeds images needs real bytes, not a local path or remote URL -- this
+// resolves every non-data: <img> to a data: URI before conversion.
 //
 // Not fetch()/XMLHttpRequest: fetch() of a local image resolves with an opaque {ok: false,
 // status: 0} even for a file that displays correctly via a plain <img> tag -- WKWebView
@@ -812,12 +812,11 @@ function stripPngMetadata(dataUri) {
 // Image element reuses the resource-loading path already proven for on-screen display, then
 // extracts pixels via <canvas>.
 //
-// width, when given, is the DISPLAY size for the XHTML <img> (the tag's HTML width
-// attribute), not a resample target -- the canvas is always drawn at native pixel dimensions,
-// so the embedded raster keeps full source resolution regardless of display size. Returns the
-// display {width, height} alongside the data: URI -- resolveImages rewrites those attributes
-// to the returned values so the exported XHTML sizes the image the same way the live editor
-// did.
+// width, when given, is the DISPLAY size (the tag's HTML width attribute), not a resample
+// target -- the canvas is always drawn at native pixel dimensions, so the embedded raster keeps
+// full source resolution regardless of display size. Returns the display {width, height}
+// alongside the data: URI; resolveImages rewrites the tag's width/height attributes to those
+// values, since exporters size the image from them, not from the embedded pixel data.
 //
 // Height is not taken from the tag's height attribute, even when present -- markup.css's
 // `img { height: auto }` means the live editor never uses that attribute for layout; only
@@ -847,10 +846,10 @@ async function loadImageAsDataUri(src, width) {
     const displayHeight = hasDisplayWidth
         ? Math.round(width * (image.naturalHeight / image.naturalWidth))
         : image.naturalHeight;
-    // toDataURL() always rasterizes to PNG, not the original format -- accepted, since the
-    // zip-entry step only needs valid image bytes. Throws a SecurityError for a tainted canvas
-    // (a cross-origin image without CORS access), with no client-side way to recover the
-    // bytes; this rejects like any other load failure and resolveImages falls back to a link.
+    // toDataURL() always rasterizes to PNG, not the original format -- accepted, since embedding
+    // only needs a valid image. Throws a SecurityError for a tainted canvas (a
+    // cross-origin image without CORS access), with no client-side way to recover the bytes;
+    // this rejects like any other load failure and resolveImages falls back to a link.
     return { dataUri: stripPngMetadata(canvas.toDataURL()), width: displayWidth, height: displayHeight }
 }
 
@@ -863,9 +862,9 @@ function imageWidth(tag) {
 
 // Link placeholder text for an image that couldn't embed: alt text plus url when alt is
 // present, just the url otherwise. `alt`/`src` come from `MU.getHTML()`'s output, serialized
-// via a real ProseMirror DOMSerializer/DOM innerHTML (markupeditor-base's getHTML()) --
-// already correctly HTML-entity-escaped by construction, so the fallback `<a href="...">`
-// below concatenates them raw. Escaping again would double-escape legitimate content.
+// via a real ProseMirror DOMSerializer/DOM innerHTML (markup.js's getHTML()) -- already
+// correctly HTML-entity-escaped by construction, so the fallback `<a href="...">` below
+// concatenates them raw. Escaping again would double-escape legitimate content.
 function imageLinkLabel(tag, src) {
     const match = tag.match(/\balt\s*=\s*["']([^"']*)["']/i);
     const alt = match && match[1].trim();
@@ -873,8 +872,8 @@ function imageLinkLabel(tag, src) {
 }
 
 // Replaces an existing attribute's value in an HTML tag, or appends it if absent -- keeps
-// width/height in sync with the returned display size, since the exported XHTML sizes the
-// image from these attributes, not from the embedded pixel data.
+// width/height in sync with the returned display size, since exporters size the image from
+// these attributes, not the embedded image data.
 function setTagAttr(tag, name, value) {
     const existing = new RegExp(`(\\s${name}\\s*=\\s*)["'][^"']*["']`, 'i');
     if (existing.test(tag)) return tag.replace(existing, `$1"${value}"`)
@@ -903,6 +902,26 @@ async function resolveImages(html, warnings, loadImage = loadImageAsDataUri) {
         }
     }
     return result + html.slice(lastIndex)
+}
+
+// The plugin envelope shape ({result, warnings, metadata}) is a contract with the Swift side
+// (MarkupWKWebView+Extension.swift's runExporter): any exporter plugin returns exactly this
+// JSON string, regardless of which library produced the bytes. `result` is the exported file,
+// base64-encoded, or null on failure; `metadata` is reserved and always null.
+function envelope(result, warnings) {
+    return JSON.stringify({ result, warnings, metadata: null })
+}
+
+// `bytes` is a Uint8Array or ArrayBuffer holding the exported file.
+function successEnvelope(bytes, warnings) {
+    return envelope(bytesToBase64(bytes), warnings)
+}
+
+// Appends "<format> conversion failed: <message>" to `warnings` and returns a null-result
+// envelope. A thrown exception would otherwise reach the host as an opaque missing result.
+function failureEnvelope(warnings, format, error) {
+    warnings.push(`${format} conversion failed: ${error.message}`);
+    return envelope(null, warnings)
 }
 
 // Runs AFTER resolveImages: every embeddable <img src> is by then already a data: URI (either
@@ -1095,7 +1114,7 @@ function convertHr() {
     return '<hr/>'
 }
 
-// resolveImages.js + extractImages.js run as pre-passes before this converter: every
+// resolveImages + extractImages run as pre-passes before this converter: every
 // embeddable <img> arrives here with `src` already rewritten to a relative "images/imageN.ext"
 // zip href. An <img> whose src is still a raw data:/http(s):/file: URI means something upstream
 // didn't run -- warn rather than ship an EPUB with an unreachable reference. alt is REQUIRED
@@ -1547,26 +1566,8 @@ hr {
 }
 `;
 
-// btoa expects a binary string, not raw bytes -- chunk to stay well under any engine's
-// call-stack argument-count limit (a single String.fromCharCode(...spread) over a real
-// document-sized buffer overflows it). Same contract as docxexporter.js's
-// arrayBufferToBase64, operating on a Uint8Array directly since zipSync already returns one
-// (no ArrayBuffer-wrapping step needed).
-const CHUNK_SIZE = 0x8000;
-
 class EpubExporter {
 
-    bytesToBase64(bytes) {
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE));
-        }
-        return btoa(binary)
-    }
-
-    // The plugin envelope shape ({result, warnings, metadata}) is a contract with the Swift side
-    // (MarkupWKWebView+Extension.swift's runExporter) -- any exporter plugin must return exactly
-    // this shape, regardless of which library produced the bytes.
     async run() {
         const warnings = [];
         try {
@@ -1604,10 +1605,9 @@ class EpubExporter {
             }
 
             const zipBytes = zipSync(zipEntries);
-            return JSON.stringify({ result: this.bytesToBase64(zipBytes), warnings, metadata: null })
+            return successEnvelope(zipBytes, warnings)
         } catch (error) {
-            warnings.push(`EPUB conversion failed: ${error.message}`);
-            return JSON.stringify({ result: null, warnings, metadata: null })
+            return failureEnvelope(warnings, 'EPUB', error)
         }
     }
 }

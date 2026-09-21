@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { resolveImages, imageWidth, imageLinkLabel, setTagAttr, loadImageAsDataUri, stripPngAncillaryChunks, stripPngMetadata } from '../src/resolveImages.js'
+import { resolveImages, imageWidth, imageLinkLabel, setTagAttr, loadImageAsDataUri, stripPngAncillaryChunks, stripPngMetadata } from '../src/images.js'
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 

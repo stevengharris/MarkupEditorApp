@@ -28920,17 +28920,17 @@ var Packer = class Packer {
 };
 _defineProperty(Packer, "compiler", new Compiler());
 
-const IMG_SRC_PATTERN = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
-
 // btoa/atob operate on binary strings, not bytes directly -- chunk the encode to stay well
 // under any engine's call-stack argument-count limit (a single String.fromCharCode(...spread)
-// over a real image-sized buffer can overflow it).
-const BASE64_CHUNK_SIZE = 0x8000;
+// over a real document-sized buffer overflows it).
+const CHUNK_SIZE = 0x8000;
 
-function bytesToBase64(bytes) {
+// Accepts a Uint8Array (including a Node Buffer) or an ArrayBuffer.
+function bytesToBase64(input) {
+    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
     let binary = '';
-    for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + BASE64_CHUNK_SIZE));
+    for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE));
     }
     return btoa(binary)
 }
@@ -28942,15 +28942,17 @@ function base64ToBytes(base64) {
     return bytes
 }
 
+const IMG_SRC_PATTERN = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
+
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_CHUNKS_TO_KEEP = new Set(['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND']);
 
 // Strips every PNG chunk except the ones that actually matter for decoding the pixels
 // (IHDR/PLTE/tRNS/IDAT/IEND). WKWebView's canvas.toDataURL() embeds an eXIf chunk (PNG's 2017
 // spec addition) even for a synthetic canvas with no real camera provenance -- decoding a real
-// one showed it carries only the image's own width/height and an sRGB colorspace flag, both
+// one showed it carries only the image's width/height and an sRGB colorspace flag, both
 // already present in IHDR/sRGB. A consumer that doesn't recognize eXIf is supposed to skip it
-// per the PNG spec's own ancillary-chunk convention, but not every real-world parser does --
+// per the PNG spec's ancillary-chunk convention, but not every real-world parser does --
 // dropping it outright costs nothing, since none of the stripped chunks carry information
 // IHDR/IDAT don't already.
 function stripPngAncillaryChunks(bytes) {
@@ -28979,7 +28981,7 @@ function stripPngMetadata(dataUri) {
     return `data:image/png;base64,${bytesToBase64(stripped)}`
 }
 
-// docx's object model needs real embeddable bytes, not a local path or remote URL -- this
+// A format that embeds images needs real bytes, not a local path or remote URL -- this
 // resolves every non-data: <img> to a data: URI before conversion.
 //
 // Not fetch()/XMLHttpRequest: fetch() of a local image resolves with an opaque {ok: false,
@@ -28988,12 +28990,11 @@ function stripPngMetadata(dataUri) {
 // Image element reuses the resource-loading path already proven for on-screen display, then
 // extracts pixels via <canvas>.
 //
-// width, when given, is the DISPLAY size for the DOCX drawing (the tag's HTML width
-// attribute), not a resample target -- the canvas is always drawn at native pixel dimensions,
-// so the embedded raster keeps full source resolution regardless of display size. Returns the
-// display {width, height} alongside the data: URI -- DOCX sizes from the <img> tag's
-// width/height attributes (EMU = attribute-pixels * 9525), not from the embedded pixel data,
-// so resolveImages must rewrite those attributes to the returned values.
+// width, when given, is the DISPLAY size (the tag's HTML width attribute), not a resample
+// target -- the canvas is always drawn at native pixel dimensions, so the embedded raster keeps
+// full source resolution regardless of display size. Returns the display {width, height}
+// alongside the data: URI; resolveImages rewrites the tag's width/height attributes to those
+// values, since exporters size the image from them, not from the embedded pixel data.
 //
 // Height is not taken from the tag's height attribute, even when present -- markup.css's
 // `img { height: auto }` means the live editor never uses that attribute for layout; only
@@ -29023,8 +29024,8 @@ async function loadImageAsDataUri(src, width) {
     const displayHeight = hasDisplayWidth
         ? Math.round(width * (image.naturalHeight / image.naturalWidth))
         : image.naturalHeight;
-    // toDataURL() always rasterizes to PNG, not the original format -- accepted, since DOCX
-    // embedding only needs a valid image. Throws a SecurityError for a tainted canvas (a
+    // toDataURL() always rasterizes to PNG, not the original format -- accepted, since embedding
+    // only needs a valid image. Throws a SecurityError for a tainted canvas (a
     // cross-origin image without CORS access), with no client-side way to recover the bytes;
     // this rejects like any other load failure and resolveImages falls back to a link.
     return { dataUri: stripPngMetadata(canvas.toDataURL()), width: displayWidth, height: displayHeight }
@@ -29049,7 +29050,7 @@ function imageLinkLabel(tag, src) {
 }
 
 // Replaces an existing attribute's value in an HTML tag, or appends it if absent -- keeps
-// width/height in sync with the returned display size, since docx sizes the drawing from
+// width/height in sync with the returned display size, since exporters size the image from
 // these attributes, not the embedded image data.
 function setTagAttr(tag, name, value) {
     const existing = new RegExp(`(\\s${name}\\s*=\\s*)["'][^"']*["']`, 'i');
@@ -29079,6 +29080,26 @@ async function resolveImages(html, warnings, loadImage = loadImageAsDataUri) {
         }
     }
     return result + html.slice(lastIndex)
+}
+
+// The plugin envelope shape ({result, warnings, metadata}) is a contract with the Swift side
+// (MarkupWKWebView+Extension.swift's runExporter): any exporter plugin returns exactly this
+// JSON string, regardless of which library produced the bytes. `result` is the exported file,
+// base64-encoded, or null on failure; `metadata` is reserved and always null.
+function envelope(result, warnings) {
+    return JSON.stringify({ result, warnings, metadata: null })
+}
+
+// `bytes` is a Uint8Array or ArrayBuffer holding the exported file.
+function successEnvelope(bytes, warnings) {
+    return envelope(bytesToBase64(bytes), warnings)
+}
+
+// Appends "<format> conversion failed: <message>" to `warnings` and returns a null-result
+// envelope. A thrown exception would otherwise reach the host as an opaque missing result.
+function failureEnvelope(warnings, format, error) {
+    warnings.push(`${format} conversion failed: ${error.message}`);
+    return envelope(null, warnings)
 }
 
 const BODY_FONT = 'SF Pro Text';
@@ -29662,7 +29683,7 @@ function runPropsFromMarks(marks) {
     return props
 }
 
-// resolveImages.js runs first as an async HTML-string pre-pass and rewrites every embeddable
+// resolveImages runs first as an async HTML-string pre-pass and rewrites every embeddable
 // image to a data: URI with corrected width/height attributes. This function only decodes an
 // already-resolved data: URI to bytes. An unresolvable image never reaches here -- it's
 // already rewritten to a plain <a> link placeholder.
@@ -29900,25 +29921,8 @@ function stripMetadataBlock(html) {
     return (html ?? '').replace(METADATA_BLOCK, '')
 }
 
-// btoa expects a binary string, not raw bytes -- chunk to stay well under any engine's
-// call-stack argument-count limit (a single String.fromCharCode(...spread) over a real
-// document-sized buffer overflows it).
-const CHUNK_SIZE = 0x8000;
-
 class DocXExporter {
 
-    arrayBufferToBase64(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE));
-        }
-        return btoa(binary)
-    }
-
-    // The plugin envelope shape ({result, warnings, metadata}) is a contract with the Swift side
-    // (MarkupWKWebView+Extension.swift's runExporter) -- any exporter plugin must return exactly
-    // this shape, regardless of which library produced the bytes.
     async run() {
         const warnings = [];
         try {
@@ -29952,10 +29956,9 @@ class DocXExporter {
                 }],
             });
             const buffer = await Packer.toBuffer(doc);
-            return JSON.stringify({ result: this.arrayBufferToBase64(buffer), warnings, metadata: null })
+            return successEnvelope(buffer, warnings)
         } catch (error) {
-            warnings.push(`DOCX conversion failed: ${error.message}`);
-            return JSON.stringify({ result: null, warnings, metadata: null })
+            return failureEnvelope(warnings, 'DOCX', error)
         }
     }
 }

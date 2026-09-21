@@ -29,7 +29,7 @@ import { BODY_FONT, DISPLAY_FONT } from '../src/styles.js'
 const FIXTURE_IMAGE_BASE64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 
-vi.mock('../src/resolveImages.js', () => ({
+vi.mock('markupeditor-plugin-kit/images', () => ({
     resolveImages: async (html) =>
         html.replace(/(<img\b[^>]*\bsrc\s*=\s*)["'][^"']+["']/gi, `$1"data:image/png;base64,${FIXTURE_IMAGE_BASE64}"`),
 }))

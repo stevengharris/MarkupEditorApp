@@ -1,6 +1,7 @@
 import { MU } from "markupeditor"
 import { zipSync } from "fflate"
-import { resolveImages } from "./resolveImages.js"
+import { resolveImages } from "markupeditor-plugin-kit/images"
+import { failureEnvelope, successEnvelope } from "markupeditor-plugin-kit/export"
 import { extractImages } from "./extractImages.js"
 import { htmlToXhtmlBody, extractDocumentTitle, extractHeadings } from "./htmlToXhtml.js"
 import { buildOpf } from "./opf.js"
@@ -11,26 +12,8 @@ import { CONTAINER_XML } from "./container.js"
 import { MIMETYPE } from "./mimetype.js"
 import { STYLESHEET } from "./styles.js"
 
-// btoa expects a binary string, not raw bytes -- chunk to stay well under any engine's
-// call-stack argument-count limit (a single String.fromCharCode(...spread) over a real
-// document-sized buffer overflows it). Same contract as docxexporter.js's
-// arrayBufferToBase64, operating on a Uint8Array directly since zipSync already returns one
-// (no ArrayBuffer-wrapping step needed).
-const CHUNK_SIZE = 0x8000
-
 export class EpubExporter {
 
-    bytesToBase64(bytes) {
-        let binary = ''
-        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE))
-        }
-        return btoa(binary)
-    }
-
-    // The plugin envelope shape ({result, warnings, metadata}) is a contract with the Swift side
-    // (MarkupWKWebView+Extension.swift's runExporter) -- any exporter plugin must return exactly
-    // this shape, regardless of which library produced the bytes.
     async run() {
         const warnings = []
         try {
@@ -68,10 +51,9 @@ export class EpubExporter {
             }
 
             const zipBytes = zipSync(zipEntries)
-            return JSON.stringify({ result: this.bytesToBase64(zipBytes), warnings, metadata: null })
+            return successEnvelope(zipBytes, warnings)
         } catch (error) {
-            warnings.push(`EPUB conversion failed: ${error.message}`)
-            return JSON.stringify({ result: null, warnings, metadata: null })
+            return failureEnvelope(warnings, 'EPUB', error)
         }
     }
 }

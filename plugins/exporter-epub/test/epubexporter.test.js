@@ -37,26 +37,6 @@ beforeEach(() => {
     activeView.mockReturnValue(null)
 })
 
-describe('EpubExporter.bytesToBase64', () => {
-    it('encodes an empty byte array to an empty string', () => {
-        expect(epubExporter.bytesToBase64(new Uint8Array(0))).toBe('')
-    })
-
-    it('encodes known bytes to the expected base64', () => {
-        const bytes = new Uint8Array([72, 101, 108, 108, 111]) // "Hello"
-        expect(epubExporter.bytesToBase64(bytes)).toBe(Buffer.from(bytes).toString('base64'))
-    })
-
-    it('does not stack overflow on a large buffer and round-trips byte-exact', () => {
-        const size = 300_000 // well past a naive String.fromCharCode(...spread) argument-count limit
-        const bytes = new Uint8Array(size)
-        for (let i = 0; i < size; i++) bytes[i] = i % 256
-        expect(() => epubExporter.bytesToBase64(bytes)).not.toThrow()
-        const encoded = epubExporter.bytesToBase64(bytes)
-        expect(Buffer.from(encoded, 'base64').equals(Buffer.from(bytes))).toBe(true)
-    })
-})
-
 describe('plugin registration', () => {
     it('registers an EPUB exporter plugin whose run callback is bound to the exporter instance', () => {
         const [plugin, name] = registerPluginCallArgs

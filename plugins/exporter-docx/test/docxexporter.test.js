@@ -35,26 +35,6 @@ beforeEach(() => {
     activeView.mockReturnValue(null)
 })
 
-describe('DocXExporter.arrayBufferToBase64', () => {
-    it('encodes an empty buffer to an empty string', () => {
-        expect(docXExporter.arrayBufferToBase64(new ArrayBuffer(0))).toBe('')
-    })
-
-    it('encodes known bytes to the expected base64', () => {
-        const bytes = new Uint8Array([72, 101, 108, 108, 111]) // "Hello"
-        expect(docXExporter.arrayBufferToBase64(bytes.buffer)).toBe(Buffer.from(bytes).toString('base64'))
-    })
-
-    it('does not stack overflow on a large buffer and round-trips byte-exact', () => {
-        const size = 300_000 // well past a naive String.fromCharCode(...spread) argument-count limit
-        const bytes = new Uint8Array(size)
-        for (let i = 0; i < size; i++) bytes[i] = i % 256
-        expect(() => docXExporter.arrayBufferToBase64(bytes.buffer)).not.toThrow()
-        const encoded = docXExporter.arrayBufferToBase64(bytes.buffer)
-        expect(Buffer.from(encoded, 'base64').equals(Buffer.from(bytes))).toBe(true)
-    })
-})
-
 describe('plugin registration', () => {
     it('registers a DocX exporter plugin whose run callback is bound to the exporter instance', () => {
         const [plugin, name] = registerPluginCallArgs

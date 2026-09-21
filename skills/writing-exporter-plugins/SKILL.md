@@ -93,7 +93,7 @@ Non-obvious mechanisms, verified empirically against `exporter-docx`:
 | Topic | One-line summary |
 |---|---|
 | Base64 encoding | `btoa`/`String.fromCharCode` over a real document-sized buffer overflows the call-stack argument limit -- chunk in `0x8000`-byte pieces, both encoding and decoding. |
-| Embedding local images | WKWebView's `fetch()`/`XMLHttpRequest` of a `file://` image resolves `{ok: false, status: 0}` even though a plain `<img>` displays it fine -- load via a real `Image`/`<canvas>` element instead (`resolveImages.js`'s pattern), not a network call. |
+| Embedding local images | WKWebView's `fetch()`/`XMLHttpRequest` of a `file://` image resolves `{ok: false, status: 0}` even though a plain `<img>` displays it fine -- load via a real `Image`/`<canvas>` element instead (`plugin-kit/src/images.js`'s `resolveImages` pattern), not a network call. |
 | Remote images | Set `image.crossOrigin = 'anonymous'` for `http(s)://` sources so `canvas.toDataURL()` can read the pixels without a tainted-canvas `SecurityError`. |
 | Canvas re-encoding | `canvas.toDataURL()` always rasterizes to PNG, never the source format -- fine for DOCX (embeds arbitrary raster), but means you cannot preserve an original JPEG/GIF this way. |
 | HTML traversal | Parse with `DOMParser`, dispatch on `element.tagName` against a table covering every tag markupeditor-base's schema can produce (`schema/index.js` in markupeditor-base is the authority) -- warn on an unrecognized tag rather than silently dropping it. |
