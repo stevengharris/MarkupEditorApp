@@ -757,7 +757,7 @@ function bytesToBase64(input) {
     return btoa(binary)
 }
 
-function base64ToBytes$1(base64) {
+function base64ToBytes(base64) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -799,7 +799,7 @@ function stripPngAncillaryChunks(bytes) {
 // Re-encodes a `data:image/png;base64,...` URI with stripPngAncillaryChunks applied.
 function stripPngMetadata(dataUri) {
     const base64 = dataUri.slice(dataUri.indexOf(',') + 1);
-    const stripped = stripPngAncillaryChunks(base64ToBytes$1(base64));
+    const stripped = stripPngAncillaryChunks(base64ToBytes(base64));
     return `data:image/png;base64,${bytesToBase64(stripped)}`
 }
 
@@ -936,6 +936,7 @@ function failureEnvelope(warnings, format, error) {
 // hands out a stable images/imageN.ext href, one entry per <img> occurrence in the document (no
 // content-addressed de-duplication -- simpler, and correct even if two different images happen
 // to hash-collide, at the cost of one zip entry per occurrence rather than per distinct image).
+
 const IMG_SRC_PATTERN = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const DATA_URI_PATTERN = /^data:image\/([\w+.-]+);base64,(.+)$/s;
 
@@ -953,13 +954,6 @@ const MIME_TO_EXT = {
     webp: 'webp',
 };
 const CORE_MEDIA_SUBTYPES = new Set(['png', 'jpeg', 'gif', 'svg+xml']);
-
-function base64ToBytes(base64) {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes
-}
 
 // Entry point: rewrites every embedded data: URI <img> in `html` to a relative
 // "images/imageN.ext" href and returns the decoded bytes for each as a zip-ready manifest

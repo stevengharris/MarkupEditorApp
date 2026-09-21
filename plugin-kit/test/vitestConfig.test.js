@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import fs from 'node:fs'
 import { pluginVitestConfig } from '../src/testing/vitestConfig.js'
 import { BUILD_DIST, JSDOM_SHIMS, SHIPPED_BUNDLE, STUB } from '../src/testing/paths.js'
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('pluginVitestConfig', () => {
     it('defaults to the shared jsdom shims as the only setup file, with no environment, global setup or alias', () => {
@@ -22,10 +24,14 @@ describe('pluginVitestConfig', () => {
         expect(config.resolve.alias['./markup-editor.js']).toBe(STUB)
     })
 
-    it('shippedBundle: true aliases markupeditor to the app\'s bundle only when that file exists', () => {
-        const alias = pluginVitestConfig({ shippedBundle: true }).resolve.alias
-        if (fs.existsSync(SHIPPED_BUNDLE)) expect(alias.markupeditor).toBe(SHIPPED_BUNDLE)
-        else expect(alias.markupeditor).toBeUndefined()
+    it('shippedBundle: true aliases markupeditor to the app\'s bundle when that file exists', () => {
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true)
+        expect(pluginVitestConfig({ shippedBundle: true }).resolve.alias.markupeditor).toBe(SHIPPED_BUNDLE)
+    })
+
+    it('shippedBundle: true leaves markupeditor unaliased when the sibling MarkupEditor checkout is absent', () => {
+        vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+        expect(pluginVitestConfig({ shippedBundle: true }).resolve.alias.markupeditor).toBeUndefined()
     })
 
     it('leaves markupeditor unaliased unless asked', () => {

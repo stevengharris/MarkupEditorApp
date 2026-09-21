@@ -2,8 +2,8 @@
 // 'markupeditor' specifier resolves to the SAME hoisted copy in the shared root
 // node_modules/ for both this import and importMarkdown()'s own `import { MU } from
 // "markupeditor"` (in markupeditor-app/src/markdown.js) -- a single module instance, not
-// two separate installs. (markupeditor-sync.test.js separately guards that hoisted copy
-// against drifting out of sync with the app's actual bundled build.) Consumers of this
+// two separate installs. (plugin-kit's markupeditor-sync.test.js separately guards that hoisted
+// copy against drifting out of sync with the app's actual bundled build.) Consumers of this
 // harness must not vi.mock('markupeditor', ...) -- that would replace this same module
 // for their whole reachable graph, including markdown.js's import.
 import { MU } from 'markupeditor'

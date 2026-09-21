@@ -221,6 +221,10 @@ describe('parseFrontmatterEntries', () => {
         expect(parseFrontmatterEntries('just some prose, no colons here at all if trimmed oddly')).toEqual([])
     })
 
+    it('skips a `|` or `>` multi-line scalar indicator, as the Swift parser does', () => {
+        expect(parseFrontmatterEntries('a: |\nb: >\nc: x')).toEqual([{ key: 'c', value: 'x' }])
+    })
+
     it('reads a block sequence as one entry with its items', () => {
         expect(parseFrontmatterEntries('subject:\n  - a\n  - b\ntitle: T')).toEqual([
             { key: 'subject', value: ['a', 'b'] },

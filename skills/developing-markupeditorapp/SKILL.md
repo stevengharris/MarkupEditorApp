@@ -23,7 +23,7 @@ This repo is an npm workspace: a root `package.json` lists `markupeditor-app/` a
 
 `markupeditor-base`'s own source is not needed as a local checkout to build or test this repo -- the published `markupeditor` npm package already carries its built output. Only clone `markupeditor-base` separately if you need to trace exact editor/ProseMirror behavior at the source level.
 
-Every plugin has its own `markupeditor-sync.test.js`, which checks that the npm-installed `markupeditor` package matches the bundle `MarkupEditorApp` actually ships (`MarkupEditor/Resources/markup-editor.js`, read from a sibling `MarkupEditor` checkout if one is present -- the check skips itself if it isn't). If that test fails, run `npm update markupeditor` from the repo root first -- it usually means a newer version has already been published and this repo's install just hasn't picked it up yet.
+The workspace has one `markupeditor-sync.test.js`, in `plugin-kit/test/`, which checks that the npm-installed `markupeditor` package matches the bundle `MarkupEditorApp` actually ships (`MarkupEditor/Resources/markup-editor.js`, read from a sibling `MarkupEditor` checkout if one is present -- the check skips itself if it isn't). If that test fails, run `npm update markupeditor` from the repo root first -- it usually means a newer version has already been published and this repo's install just hasn't picked it up yet.
 
 ## What to Read Next
 

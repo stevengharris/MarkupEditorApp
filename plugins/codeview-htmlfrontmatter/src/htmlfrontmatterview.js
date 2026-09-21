@@ -1,5 +1,6 @@
 import { MU, Selection } from 'markupeditor'
 import DOMPurify from 'dompurify'
+import { METADATA_LANGUAGE } from 'markupeditor-plugin-kit/metadata'
 
 const TAB_CLASS = 'htmlfrontmatter-mode-toggle'
 const TAB_ACTIVE_CLASS = 'htmlfrontmatter-mode-toggle-active'
@@ -23,7 +24,7 @@ export function isHTMLFrontMatterLanguage(language) {
 // metadata is at position `first.nodeSize`, not position 1.
 export function expectedPreamblePosition(doc) {
     const first = doc.firstChild
-    return (first?.type.name === 'code_block' && first.attrs.language === 'metadata') ? first.nodeSize : 0
+    return (first?.type.name === 'code_block' && first.attrs.language === METADATA_LANGUAGE) ? first.nodeSize : 0
 }
 
 // Instances add themselves in the constructor, remove themselves in

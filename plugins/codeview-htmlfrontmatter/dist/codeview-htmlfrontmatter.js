@@ -2663,6 +2663,8 @@ function createDOMPurify() {
 }
 var purify = createDOMPurify();
 
+const METADATA_LANGUAGE = 'metadata';
+
 const TAB_CLASS = 'htmlfrontmatter-mode-toggle';
 const TAB_ACTIVE_CLASS = 'htmlfrontmatter-mode-toggle-active';
 const TAB_BELOW_CLASS = 'htmlfrontmatter-mode-toggle-below';
@@ -2685,7 +2687,7 @@ function isHTMLFrontMatterLanguage(language) {
 // metadata is at position `first.nodeSize`, not position 1.
 function expectedPreamblePosition(doc) {
     const first = doc.firstChild;
-    return (first?.type.name === 'code_block' && first.attrs.language === 'metadata') ? first.nodeSize : 0
+    return (first?.type.name === 'code_block' && first.attrs.language === METADATA_LANGUAGE) ? first.nodeSize : 0
 }
 
 // Instances add themselves in the constructor, remove themselves in

@@ -2,12 +2,11 @@
 //
 // Imports the real BUILT dist/exporter-docx.js, not src/ -- proving the actual bundled
 // artifact the app loads (the "markupeditor" specifier rewritten to a relative
-// "./markup-editor.js") behaves correctly, not just its pre-bundled sources. globalSetup
-// (vitest.config.js) rebuilds dist/ before this file (or any test file) runs, so it's always
-// current. The relative "./markup-editor.js" import dist carries is redirected, via
-// vitest.config.js's resolve.alias keyed to that exact resolved path, to the stub below --
-// there's no real markup-editor.js file in this repo at that path (the app copies one in at
-// runtime).
+// "./markup-editor.js") behaves correctly, not just its pre-bundled sources. The shared
+// vitest config (plugin-kit's pluginVitestConfig, dist: true) rebuilds dist/ before this file
+// (or any test file) runs, so it's always current, and redirects the relative
+// "./markup-editor.js" import dist carries to the stub imported below -- there's no real
+// markup-editor.js file in this repo at that path (the app copies one in at runtime).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import JSZip from 'jszip'
 import { MU } from 'markupeditor-plugin-kit/testing/stub'

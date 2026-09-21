@@ -10,6 +10,7 @@
     "node": "^24.15.0"
   },
   "exports": {
+    "./base64": "./src/base64.js",
     "./export": "./src/export.js",
     "./images": "./src/images.js",
     "./metadata": "./src/metadata.js",
