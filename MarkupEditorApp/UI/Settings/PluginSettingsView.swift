@@ -20,16 +20,19 @@ struct PluginSettingsView: View {
     @State private var addPluginType: PluginType = .None
     @State private var showAddPlugin: Bool = false
     @State private var showDeletePlugin: Bool = false
-    @State private var showPluginNameDialog: Bool = false
-    @State private var newPluginURL: URL?
-    @State private var newPluginName: String = ""
-    @State private var newPluginExt: String = ""
-    @FocusState private var newPluginFocusedField: FocusedField?
+    @State private var addDialog: AddDialog?
+    @State private var showAddDialog = false
     @Environment(\.openWindow) private var openWindow
-    
-    private enum FocusedField {
-        case name
-        case ext
+
+    /// A plugin file whose banner has been read and checked, waiting for the user's confirmation.
+    private struct PendingPlugin {
+        let url: URL
+        let banner: PluginBanner
+    }
+
+    private enum AddDialog {
+        case confirm(PendingPlugin)
+        case failure(String)
     }
 
     private enum PluginType: String {
@@ -117,16 +120,24 @@ struct PluginSettingsView: View {
             loaded = true
         }
         .fileImporter(isPresented: $showAddPlugin, allowedContentTypes: [.javaScript], allowsMultipleSelection: false) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                // Must start the security scope synchronously here, in the fileImporter completion
-                // handler, not later inside addPlugin. The copy itself doesn't happen until the
-                // user confirms the name in the alert, so the access grant has to be held open across
-                // that whole interaction — CodeViewManager.add(name:url:) stops it once the copy is done,
-                // and the alert's Cancel button stops it if the user backs out instead.
-                guard url.startAccessingSecurityScopedResource() else { return }
-                newPluginURL = url
-                showPluginNameDialog = true
+            guard case .success(let urls) = result, let url = urls.first else {
+                if case .failure(let error) = result, (error as? CocoaError)?.code != .userCancelled {
+                    present(.failure(error.localizedDescription))
+                }
+                addPluginType = .None
+                return
             }
+            // Must start the security scope synchronously here, in the fileImporter completion
+            // handler. The copy itself doesn't happen until the user confirms in the alert, so the
+            // access grant has to be held open across that whole interaction -- the managers' add
+            // stops it once the copy is done, and the alert's Cancel button (or a failed check)
+            // stops it if the user backs out instead.
+            guard url.startAccessingSecurityScopedResource() else {
+                present(.failure("MarkupEditor was not given access to that file."))
+                addPluginType = .None
+                return
+            }
+            prepareToAdd(url)
         }
         .confirmationDialog(
             "Delete \"\(focusedPlugin?.name ?? "")\"? The original source location for \"\(focusedPlugin?.name ?? "")\" will not be affected. You cannot undo this action.",
@@ -138,49 +149,43 @@ struct PluginSettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .alert("Add New \(addPluginType.rawValue)", isPresented: $showPluginNameDialog) {
-            TextField(text: $newPluginName, prompt: Text("Identify the \(addPluginType.rawValue.lowercased())")) {
-                Text("Name")
+        .alert(addDialogTitle, isPresented: $showAddDialog, presenting: addDialog) { dialog in
+            switch dialog {
+            case .confirm(let pending):
+                Button("Add") { addPlugin(pending) }
+                Button("Cancel", role: .cancel) { cancelAdd(pending) }
+            case .failure:
+                Button("OK", role: .cancel) {}
             }
-            .focused($newPluginFocusedField, equals: .name)
-            .onSubmit {
-                Task {
-                    if addPluginType == .CodeView {
-                        await addPlugin()
-                    } else {
-                        newPluginFocusedField = .ext
-                    }
-                }
-            }
-            if addPluginType == .CodeView {
-                Button("OK") {
-                    Task { await addPlugin() }
-                }
-                .disabled(newPluginName.isEmpty)
-                Button("Cancel", role: .cancel) {
-                    newPluginURL?.stopAccessingSecurityScopedResource()
-                    newPluginURL = nil
-                }
-            } else {
-                TextField(text: $newPluginExt, prompt: Text("Default export file extension")) {
-                    Text("Extension")
-                }
-                .focused($newPluginFocusedField, equals: .ext)
-                .onSubmit {
-                    Task { await addPlugin() }
-                }
-                Button("OK") {
-                    Task { await addPlugin() }
-                }
-                .disabled(newPluginName.isEmpty || newPluginExt.isEmpty)
-                Button("Cancel", role: .cancel) {
-                    newPluginURL?.stopAccessingSecurityScopedResource()
-                    newPluginURL = nil
-                }
-            }
+        } message: { dialog in
+            Text(addDialogMessage(dialog))
         }
     }
-    
+
+    private var addDialogTitle: String {
+        switch addDialog {
+        case .confirm(let pending): "Add \(pending.banner.kind.displayName.capitalized)?"
+        case .failure: "Could Not Add Plugin"
+        case nil: ""
+        }
+    }
+
+    private func present(_ dialog: AddDialog) {
+        addDialog = dialog
+        showAddDialog = true
+    }
+
+    private func addDialogMessage(_ dialog: AddDialog) -> String {
+        switch dialog {
+        case .confirm(let pending):
+            let banner = pending.banner
+            let extra = banner.ext.map { " (.\($0))" } ?? ""
+            return "Add the \(banner.kind.displayName) “\(banner.name)”\(extra)?"
+        case .failure(let message):
+            return message
+        }
+    }
+
     private func focusedPluginType() -> PluginType {
         if CodeViewManager.exists(focusedPlugin, in: AppConfig.shared.codeViews) {
             return .CodeView
@@ -191,23 +196,45 @@ struct PluginSettingsView: View {
         }
     }
 
-    private func addPlugin() async {
-        if addPluginType == .CodeView {
-            AppConfig.update { config in
-                config.codeViews = CodeViewManager.add(name: newPluginName, url: newPluginURL, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
-                config.pluginsRevision += 1
-                addPluginType = .None
-                newPluginFocusedField = .name
-                newPluginURL = nil
+    /// Reads and checks the banner of the picked file. The name and extension come from the
+    /// plugin itself, so there is nothing for the user to type.
+    private func prepareToAdd(_ url: URL) {
+        let expected: PluginBanner.Kind = addPluginType == .Exporter ? .exporter : .codeview
+        do {
+            let banner = try PluginBanner.read(from: url)
+            try PluginAddCheck.validate(banner, filename: url.lastPathComponent, expected: expected, exporters: AppConfig.shared.exporters, codeViews: AppConfig.shared.codeViews)
+            present(.confirm(PendingPlugin(url: url, banner: banner)))
+        } catch {
+            url.stopAccessingSecurityScopedResource()
+            present(.failure(error.localizedDescription))
+            addPluginType = .None
+        }
+    }
+
+    private func cancelAdd(_ pending: PendingPlugin) {
+        pending.url.stopAccessingSecurityScopedResource()
+        addPluginType = .None
+    }
+
+    private func addPlugin(_ pending: PendingPlugin) {
+        let banner = pending.banner
+        let filename = pending.url.lastPathComponent
+        AppConfig.update { config in
+            switch banner.kind {
+            case .codeview:
+                config.codeViews = CodeViewManager.add(name: banner.name, url: pending.url, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
+            case .exporter:
+                config.exporters = ExporterManager.add(name: banner.name, url: pending.url, ext: banner.ext ?? "", exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
             }
-        } else if addPluginType == .Exporter {
-            AppConfig.update { config in
-                config.exporters = ExporterManager.add(name: newPluginName, url: newPluginURL, ext: newPluginExt, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
-                config.pluginsRevision += 1
-                addPluginType = .None
-                newPluginFocusedField = .name
-                newPluginURL = nil
-            }
+            config.pluginsRevision += 1
+        }
+        addPluginType = .None
+        // The managers return the list unchanged when the copy fails, so check the result. Set
+        // after this alert's own dismissal, which would otherwise clear the message.
+        let installed = (banner.kind == .exporter ? AppConfig.shared.exporters : AppConfig.shared.codeViews)
+            .contains { $0.name == banner.name && $0.filename == filename }
+        if !installed {
+            Task { present(.failure("“\(banner.name)” could not be installed.")) }
         }
     }
 
