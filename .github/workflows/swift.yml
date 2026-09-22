@@ -15,24 +15,26 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    # A suite that constructs a real MarkupWKWebView hangs rather than fails
-    # on this runner (see the comment on the skip-testing flags below) --
-    # this catches a NEW one in seconds, before the slow, hang-prone test
-    # step below ever runs it. KNOWN_HAZARDS must match the
-    # -skip-testing: entries there exactly (by file, not suite name).
-    - name: Check for a new, un-skipped MarkupWKWebView construction
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+
+    # markupeditor-app/dist/markupeditor-app.js is gitignored and has no
+    # checked-in fallback (unlike the plugins' dist/*.js, which ARE
+    # committed) -- Xcode's own "Build npm projects" script phase would
+    # normally produce it, but that phase is
+    # runOnlyForDeploymentPostprocessing = 1, so it never runs for
+    # `xcodebuild build`/`test`, only `archive`. Without this step the file
+    # is silently absent from the test build (no build error), and a real
+    # MarkupWKWebView loaded against the missing userScript hangs rather
+    # than failing -- confirmed by reproducing the exact same App Sandbox
+    # restriction cascade seen in CI logs (pasteboard/RunningBoard/
+    # AudioComponentRegistrar denials) in an isolated local worktree with
+    # this file missing, and the hang disappearing once it's present.
+    - name: Build markupeditor-app.js
       run: |
-        KNOWN_HAZARDS="MarkupEditorAppTests/MarkupWKWebViewHeadlessTests.swift
-        MarkupEditorAppTests/SourceToggleIntegrationTests.swift"
-        FOUND=$(grep -rl "MarkupWKWebView(" MarkupEditorAppTests MarkupEditorAppLib/Tests 2>/dev/null || true)
-        STATUS=0
-        for f in $FOUND; do
-          if ! grep -qxF "$f" <<< "$KNOWN_HAZARDS"; then
-            echo "::error file=$f::Constructs a real MarkupWKWebView, which hangs (App Sandbox restrictions) rather than fails on this runner's WebContent process. Add its suite to -skip-testing: in the 'Test MarkupEditorApp' step and to KNOWN_HAZARDS here, or -- if you've confirmed it actually passes -- leave it out of both."
-            STATUS=1
-          fi
-        done
-        exit $STATUS
+        npm ci
+        cd markupeditor-app && npm run build
 
     - name: Install certificate
       env:
@@ -63,26 +65,12 @@ jobs:
         # Make it available to the build tools
         security list-keychain -d user -s $KEYCHAIN_PATH
 
-    # A suite that constructs a real MarkupWKWebView hangs rather than fails
-    # on this runner: its WebContent process can't reach the pasteboard
-    # server, RunningBoard, or AudioComponentRegistrar (App Sandbox
-    # restrictions), and whatever "ready" callback the test awaits never
-    # fires. Confirmed twice -- MarkupWKWebViewHeadlessTests, then
-    # SourceToggleIntegrationTests -- each sitting for ~15 minutes with
-    # nothing but sandbox-restriction log lines. `grep -rn "MarkupWKWebView("
-    # MarkupEditorAppTests MarkupEditorAppLib/Tests` finds these two and only
-    # these two across the whole test surface -- a real NSWindow/NSApp alone
-    # (no webview) is NOT the hazard: HostedTextEditorSelectionTests
-    # (SourceSelectionSpikeTests.swift) does exactly that and passes.
-    # timeout-minutes above is the backstop if this ever misses one.
     - name: Test MarkupEditorApp
       run: |
         xcodebuild clean test \
           -scheme MarkupEditorApp \
           -destination 'platform=macOS,arch=arm64' \
           -parallel-testing-enabled NO \
-          -skip-testing:MarkupEditorAppTests/MarkupWKWebViewHeadlessTests \
-          -skip-testing:MarkupEditorAppTests/SourceToggleIntegrationTests \
           OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/build.keychain"
 
     - name: Clean up keychain
