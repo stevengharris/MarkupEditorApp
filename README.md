@@ -1,5 +1,5 @@
 <p align="center">
-    <img alt="The MarkupEditor logo" src="https://markupeditor.app/content/images/2026/08/markupeditor-doc-1.svg" width="96px" height="96px" >
+    <img alt="The MarkupEditor logo" src="https://markupeditor.app/content/images/2026/09/markupeditor-icon-navy-1-2.svg" width="96px" height="96px" >
 </p>
 
 # MarkupEditor
