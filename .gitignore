@@ -35,3 +35,8 @@ MarkupEditorApp/Resources/markupeditor-app.js
 
 # Per-developer local build settings (Apple Developer Team, etc.)
 Config/Local.xcconfig
+
+# MarkupEditorAppLib tracks MarkupEditor's main branch (Package.swift), not a
+# pinned version -- committing this would freeze it at whatever commit last
+# resolved, defeating that.
+MarkupEditorAppLib/Package.resolved

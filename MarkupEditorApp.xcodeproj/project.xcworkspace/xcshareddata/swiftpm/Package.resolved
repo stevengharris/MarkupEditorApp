@@ -1,6 +1,15 @@
 {
-  "originHash" : "1fb4a35b4ff34acf28204fd3a651b233c85d558f2bd24facb32fa4bb18fcd923",
+  "originHash" : "eb18c8b045c8179348059733d0d81dcaec6b556c7c1cee3605de5f3169521e94",
   "pins" : [
+    {
+      "identity" : "markupeditor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/stevengharris/MarkupEditor.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "704873558b69400cf4f257a6406ef0a813fb7d17"
+      }
+    },
     {
       "identity" : "splitview",
       "kind" : "remoteSourceControl",

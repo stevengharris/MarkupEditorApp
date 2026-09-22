@@ -12,7 +12,7 @@ let package = Package(
             targets: ["MarkupEditorAppLib"]),
     ],
     dependencies: [
-        .package(path: "../../MarkupEditor"),
+        .package(url: "https://github.com/stevengharris/MarkupEditor.git", branch: "main"),
     ],
     targets: [
         .target(
