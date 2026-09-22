@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     runs-on: macos-26
+    timeout-minutes: 30
 
     steps:
     - uses: actions/checkout@v6
@@ -43,12 +44,23 @@ jobs:
         # Make it available to the build tools
         security list-keychain -d user -s $KEYCHAIN_PATH
 
+    # MarkupWKWebViewHeadlessTests and SourceSelectionSpikeTests need a real
+    # interactive macOS session (a WKWebView content process reaching the
+    # pasteboard server, RunningBoard, AudioComponentRegistrar; a real NSApp
+    # for window/first-responder state) that this runner's App Sandbox
+    # doesn't provide -- confirmed by a run that hung ~15 minutes with
+    # nothing but sandbox-restriction log lines once MarkupWKWebViewHeadlessTests
+    # started, never reaching the webview's "ready" callback. Skipped here
+    # rather than chased further; timeout-minutes above is the backstop for
+    # any other future hang.
     - name: Test MarkupEditorApp
       run: |
         xcodebuild clean test \
           -scheme MarkupEditorApp \
           -destination 'platform=macOS,arch=arm64' \
           -parallel-testing-enabled NO \
+          -skip-testing:MarkupEditorAppTests/MarkupWKWebViewHeadlessTests \
+          -skip-testing:MarkupEditorAppTests/SourceSelectionSpikeTests \
           OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/build.keychain"
 
     - name: Clean up keychain
