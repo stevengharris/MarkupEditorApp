@@ -15,7 +15,15 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - uses: actions/setup-node@v4
+    # A separate local Swift package (its own Package.swift, own test
+    # target) that MarkupEditorApp depends on -- runs first, and needs
+    # none of the Node/npm or code-signing setup below, so a broken
+    # dependency fails fast before the slower app build/test even starts.
+    - name: Test MarkupEditorAppLib
+      working-directory: MarkupEditorAppLib
+      run: swift test
+
+    - uses: actions/setup-node@v7
       with:
         node-version-file: '.nvmrc'
 
@@ -77,13 +85,3 @@ jobs:
       if: always()
       run: |
         security delete-keychain $RUNNER_TEMP/build.keychain
-
-    # A separate local Swift package (its own Package.swift, own test
-    # target) -- xcodebuild's MarkupEditorApp scheme above only runs
-    # MarkupEditorAppTests, never MarkupEditorAppLibTests. Plain `swift
-    # test`, no code-signing setup: unlike the App Sandbox-entitled app
-    # target above, this package carries no entitlements for Gatekeeper to
-    # enforce against an unsigned test binary.
-    - name: Test MarkupEditorAppLib
-      working-directory: MarkupEditorAppLib
-      run: swift test
