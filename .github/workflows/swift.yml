@@ -1,5 +1,7 @@
 name: MarkupEditorApp
 
+# workflow_dispatch lets this be re-run by hand from the Actions tab without
+# needing a new commit -- useful while iterating on the workflow itself.
 on:
   push:
     branches: [ "main" ]
