@@ -69,8 +69,9 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(doc.hasChanges == true)
     }
 
-    @Test func settingEmptyArrayAlsoSetsHasChanges() {
+    @Test func clearingExistingMetadataAlsoSetsHasChanges() {
         let doc = MarkupDocument()
+        doc.metadata = [makeMetadata()]
         doc.hasChanges = false
         doc.metadata = []
         #expect(doc.hasChanges == true)
