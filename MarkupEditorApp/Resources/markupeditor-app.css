@@ -134,14 +134,8 @@ table tr:nth-child(odd):not(:first-child) {
 
 /* A code_block renders as <pre>. markup.css sets no minimum height, padding,
    or background, so an empty or near-empty one collapses to bare text flush
-   against the editor background -- hard to see, hard to click into, and the
-   language tab's bottom-edge anchor (markup.css) ends up floating in blank
-   space below the text rather than against a visible box. Padding here is
-   tighter than GitHub's own rendering, to match this app's shorter
-   min-height. Square corners, not GitHub's rounded ones: the codeview-mermaid
-   and codeview-htmlfrontmatter tabs (styles in those plugins) are square and
-   anchor flush to this element's own edges -- a rounded pre corner would
-   leave a visible sliver of background between the tab and the curve. */
+   against the editor background
+ */
 pre {
   min-height: 1.5em;
   padding: 0.25em 0.75em;
