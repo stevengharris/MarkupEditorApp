@@ -4,7 +4,7 @@
 #editor.Markup-exporting .mermaid-mode-toggle {
   display: none;
 }
-#editor.Markup-exporting .mermaid-diagram-selected {
+#editor.Markup-exporting pre:has(.mermaid-diagram-selected) {
   outline: none;
 }
 
@@ -71,22 +71,28 @@ pre > code.language-mermaid:not(.mermaid-hidden-code) {
   }
 }
 
-/* Dashed outline for diagrams when selected */
-.mermaid-diagram-selected {
+/* Dashed outline for diagrams when selected, on pre itself (the visible box,
+   padded by the app's own markupeditor-app.css) rather than on
+   diagramContainer directly -- diagramContainer sits inside that padding, so
+   an outline on it draws inset from pre's edge instead of flush with it.
+   pre:has(...) mirrors markup.css's own pre:has(.Markup-code-language-tab)
+   convention for reaching the box from a state tracked on a child. */
+pre:has(.mermaid-diagram-selected) {
   outline: 1px var(--Markup-accent-color, blue) dashed;
   outline-offset: 0;
 }
 
 @media (prefers-color-scheme: dark) {
-  .mermaid-diagram-selected {
+  pre:has(.mermaid-diagram-selected) {
     outline: 1px var(--Markup-accent-color, lightblue) dashed;
   }
 }
 
-.mermaid-diagram, .mermaid-placeholder {
-  margin-bottom: 15px;
-}
-
+/* No margin-bottom here: pre's own margin (markup.css, margin: 0 0 15px)
+   already spaces this code_block from the next one. A margin on this child
+   would land inside pre's own content box instead, showing as dead space
+   at the bottom of its visible background/outline rather than real spacing
+   after it. */
 .mermaid-placeholder {
   border: 1px dashed #888;
   padding: 8px;

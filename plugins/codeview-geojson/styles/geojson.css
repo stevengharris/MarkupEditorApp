@@ -4,7 +4,7 @@
 #editor.Markup-exporting .geojson-mode-toggle {
   display: none;
 }
-#editor.Markup-exporting .geojson-map-selected {
+#editor.Markup-exporting pre:has(.geojson-map-selected) {
   outline: none;
 }
 
@@ -70,14 +70,19 @@ pre > code.language-geojson:not(.geojson-hidden-code) {
   }
 }
 
-/* Dashed outline for the map when selected */
-.geojson-map-selected {
+/* Dashed outline for the map when selected, on pre itself (the visible box,
+   padded by the app's own markupeditor-app.css) rather than on mapContainer
+   directly -- mapContainer sits inside that padding, so an outline on it
+   draws inset from pre's edge instead of flush with it. pre:has(...) mirrors
+   markup.css's own pre:has(.Markup-code-language-tab) convention for
+   reaching the box from a state tracked on a child. */
+pre:has(.geojson-map-selected) {
   outline: 1px var(--Markup-accent-color, blue) dashed;
   outline-offset: 0;
 }
 
 @media (prefers-color-scheme: dark) {
-  .geojson-map-selected {
+  pre:has(.geojson-map-selected) {
     outline: 1px var(--Markup-accent-color, lightblue) dashed;
   }
 }
@@ -85,8 +90,12 @@ pre > code.language-geojson:not(.geojson-hidden-code) {
 /* Leaflet's own panes are all position: absolute (leaflet.css), so they
    contribute nothing to this container's height in normal flow -- without an
    explicit height, .geojson-map collapses to 0px and everything inside it
-   (tiles, vector layers, controls) renders correctly but invisibly. */
+   (tiles, vector layers, controls) renders correctly but invisibly. No
+   margin-bottom: pre's own margin (markup.css, margin: 0 0 15px) already
+   spaces this code_block from the next one; a margin on this child would
+   land inside pre's own content box instead, showing as dead space at the
+   bottom of its visible background/outline rather than real spacing after
+   it. */
 .geojson-map {
   height: 320px;
-  margin-bottom: 15px;
 }
