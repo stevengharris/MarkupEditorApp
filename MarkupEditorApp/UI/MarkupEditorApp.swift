@@ -19,17 +19,7 @@ struct MarkupEditorApp: App {
     static let hasSetupPluginsKey = "hasSetupPluginsKey"
     static let hasSeenTourKey = "hasSeenTourKey"
     
-    static var versionString: String {
-        "\(version) (\(build)) — \(BuildVariant.current.label)"
-    }
-    
-    static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-    }
-    
-    static var build: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
-    }
+    static var versionString: String { BuildVariant.versionString }
     
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var editLog = EditLog()

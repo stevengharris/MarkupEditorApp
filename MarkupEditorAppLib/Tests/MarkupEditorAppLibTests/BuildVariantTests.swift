@@ -1,12 +1,11 @@
 //
 //  BuildVariantTests.swift
-//  MarkupEditorAppTests
+//  MarkupEditorAppLibTests
 //
 
 import Testing
-@testable import MarkupEditorApp
+@testable import MarkupEditorAppLib
 
-@MainActor
 struct BuildVariantTests {
 
     @Test func noMarkersIsDevelopment() {
