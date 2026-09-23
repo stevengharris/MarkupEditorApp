@@ -25,9 +25,12 @@ jobs:
       with:
         node-version-file: '.nvmrc'
 
-    # Xcode's "Build npm projects" phase runs `npm run build` for each
-    # plugin during `xcodebuild`, but never installs dependencies itself.
-    - run: npm ci
+    # Workaround for a timing issue building markupeditor-app.js as part of
+    # Xcode's npm build phase during this same xcodebuild invocation.
+    - name: Build markupeditor-app.js
+      run: |
+        npm ci
+        cd markupeditor-app && npm run build
 
     - name: Install certificate
       env:
