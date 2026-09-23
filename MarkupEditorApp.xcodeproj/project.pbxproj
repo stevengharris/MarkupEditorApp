@@ -564,7 +564,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.5;
 				MARKUPEDITOR_EVAL_VERSION = "";
 				MARKUPEDITOR_UNLIMITED_VERSION = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
@@ -785,7 +784,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.5;
 				MARKUPEDITOR_EVAL_VERSION = "";
 				MARKUPEDITOR_UNLIMITED_VERSION = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
@@ -834,7 +832,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.5;
 				MARKUPEDITOR_EVAL_VERSION = "";
 				MARKUPEDITOR_UNLIMITED_VERSION = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
@@ -983,7 +980,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.5;
 				MARKUPEDITOR_EVAL_VERSION = "";
 				MARKUPEDITOR_UNLIMITED_VERSION = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
@@ -1133,7 +1129,6 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 0.9.5;
 				MARKUPEDITOR_EVAL_VERSION = YES;
 				MARKUPEDITOR_UNLIMITED_VERSION = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevengharris.MarkupEditorApp;
