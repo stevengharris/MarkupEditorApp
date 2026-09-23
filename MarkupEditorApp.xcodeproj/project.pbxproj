@@ -375,7 +375,7 @@
 		AA832774302E3FE70034CD46 /* Build npm projects */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 8;
+			buildActionMask = 12;
 			files = (
 			);
 			inputFileListPaths = (
@@ -387,7 +387,7 @@
 			);
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the internal pre-installed codeview plugins for markdown front matter\ncd \"$SRCROOT/plugins/codeview-metadata\" && npm run build\ncd \"$SRCROOT/plugins/codeview-htmlfrontmatter\" && npm run build\n\n# These are the pre-installed plugins that can be deleted and/or replaced\ncd \"$SRCROOT/plugins/exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/codeview-geojson\" && npm run build\n";
 		};

@@ -15,10 +15,8 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    # A separate local Swift package (its own Package.swift, own test
-    # target) that MarkupEditorApp depends on -- runs first, and needs
-    # none of the Node/npm or code-signing setup below, so a broken
-    # dependency fails fast before the slower app build/test even starts.
+    # No Node/npm needed for this one -- runs first so a broken dependency
+    # fails fast.
     - name: Test MarkupEditorAppLib
       working-directory: MarkupEditorAppLib
       run: swift test
@@ -27,18 +25,8 @@ jobs:
       with:
         node-version-file: '.nvmrc'
 
-    # markupeditor-app/dist/markupeditor-app.js is gitignored and has no
-    # checked-in fallback (unlike the plugins' dist/*.js, which ARE
-    # committed) -- Xcode's own "Build npm projects" script phase would
-    # normally produce it, but that phase is
-    # runOnlyForDeploymentPostprocessing = 1, so it never runs for
-    # `xcodebuild build`/`test`, only `archive`. Without this step the file
-    # is silently absent from the test build (no build error), and a real
-    # MarkupWKWebView loaded against the missing userScript hangs rather
-    # than failing -- confirmed by reproducing the exact same App Sandbox
-    # restriction cascade seen in CI logs (pasteboard/RunningBoard/
-    # AudioComponentRegistrar denials) in an isolated local worktree with
-    # this file missing, and the hang disappearing once it's present.
+    # Workaround for a timing issue building markupeditor-app.js as part of
+    # Xcode's npm build phase during this same xcodebuild invocation.
     - name: Build markupeditor-app.js
       run: |
         npm ci
