@@ -170,6 +170,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NotificationCenter.default.post(name: .menuShowSettings, object: nil)
     }
 
+    @objc private func showAboutPanel(_ sender: Any?) {
+        // .version defaults to CFBundleVersion and would otherwise append its own
+        // "(1)" after versionString's already-included build number.
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationVersion: MarkupEditorApp.versionString,
+            .version: ""
+        ])
+    }
+
     @objc private func openRecentDocument(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         NotificationCenter.default.post(name: .menuOpenRecentDocument, object: url)
@@ -243,7 +252,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
         let appName = ProcessInfo.processInfo.processName
-        appMenu.addItem(NSMenuItem(title: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(NSMenuItem(title: "About \(appName)", action: #selector(showAboutPanel(_:)), keyEquivalent: ""))
         appMenu.addItem(.separator())
         let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         servicesItem.submenu = NSMenu(title: "Services")

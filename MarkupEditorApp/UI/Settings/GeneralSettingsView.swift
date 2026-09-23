@@ -13,9 +13,16 @@ struct GeneralSettingsView: View {
     var body: some View {
         Spacer()
         Form {
-            Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
-            Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
-            Spacer()
+            Section {
+                LabeledContent("Version") {
+                    Text(MarkupEditorApp.versionString)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Section {
+                Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
+                Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         Spacer()

@@ -20,7 +20,7 @@ struct MarkupEditorApp: App {
     static let hasSeenTourKey = "hasSeenTourKey"
     
     static var versionString: String {
-        version + "(\(build))"
+        "\(version) (\(build)) — \(BuildVariant.current.label)"
     }
     
     static var version: String {

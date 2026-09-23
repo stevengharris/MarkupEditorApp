@@ -3,6 +3,7 @@ node_modules/
 xcuserdata/
 .swiftpm/
 .build/
+build/
 *.xccheckout
 *.moved-aside
 DerivedData/
