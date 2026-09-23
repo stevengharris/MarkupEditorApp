@@ -2,15 +2,20 @@
     <img alt="The MarkupEditor logo" src="https://markupeditor.app/content/images/2026/09/markupeditor-icon-navy-1-2.svg" width="96px" height="96px" >
 </p>
 
+<p align="center">
+    <img src="https://github.com/stevengharris/MarkupEditorApp/actions/workflows/swift.yml/badge.svg">
+    <img src="https://img.shields.io/badge/Swift-6.0+-blue.svg">
+    <img src="https://img.shields.io/badge/MacOS-26+-blue" alt="MacOS 26+">
+    <a href="https://mastodon.social/@stevengharris">
+        <img src="https://img.shields.io/badge/Contact-@stevengharris-lightgrey.svg?style=flat" alt="Mastodon: @stevengharris">
+    </a>
+</p>
+
 # MarkupEditor
 
 A native MacOS Markdown viewer and WYSIWYG editor.
 
 Markdown was designed as a plain text formatting syntax that is as readable as possible while being easily converted to HTML. You still need a tool to render the HTML, often leading to an edit-preview cycle that seems ridiculous when we've had WYSIWYG editors for 40 years. The MarkupEditor presents the HTML as you write, providing immediate feedback while letting you continue to use the Markdown muscle memory you already have. It is customizable and extensible. Built-in extensions let you export to different formats and view/edit diagrams and Markdown front-matter right in your document.
-
-## Demo
-
-\< a tbd video >
 
 ## Features
 
@@ -42,6 +47,14 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 You have three installation options. You also might qualify for a complimentary subscription providing free access to the Unlimited Version.
 
+### Evaluation Version Package
+
+Download the latest [release](https://github.com/stevengharris/MarkupEditorApp/releases) of `MarkupEditor-Eval-<version>.pkg` and run it. This package installs `MarkupEditor.app` in your `Applications` directory along with the `markup` command line utility. The installed app triggers a two-week evaluation time limit from the time you open it. The Evaluation Version makes it easy to try out the MarkupEditor. If you like it and want to avoid the time limitation, you need to either build it yourself from source or subscribe to get access to the Unlimited Version.
+
+### Unlimited Version Package
+
+To support ongoing MarkupEditor app development and to gain access to the pre-built non-time-limited package, go to [https://markupeditor.app](https://markupeditor.app/) and subscribe for $12/year. Once you have subscribed, you will have access to the [downloads page](https://markupeditor.app/downloads) for the Unlimited Version. The Unlimited Version has no license key and does not check if your subscription is valid, so you can use it for as long as it works without renewing your subscription.
+
 ### Open Source Build/Install
 
 Developers can clone this repository, open the MarkupEditorApp project in Xcode, and build the `MarkupEditorApp` target. Building the project requires node/npm to be installed.
@@ -66,15 +79,7 @@ Note that both the Evaluation Version and Unlimited Version packages install the
 
 As a developer, probably only the `MarkupEditorApp` and `MarkupEditorCLI` schemes will be of use. `MarkupEditorApp-Unlimited` and `MarkupEditorApp-Eval` build the same `MarkupEditorApp` target under different configurations and are only used as part of the package publishing process.
 
-### Evaluation Version Package
-
-Download the latest [release](https://github.com/stevengharris/MarkupEditorApp/releases) of `MarkupEditor-Eval-<version>.pkg` and run it. This package installs `MarkupEditor.app` in your `Applications` directory along with the `markup` command line utility. The installed app triggers a two-week evaluation time limit from the time you open it. The Evaluation Version makes it easy to try out the MarkupEditor. If you like it and want to avoid the time limitation, you need to either build it yourself from source or subscribe to get access to the Unlimited Version.
-
-### Unlimited Version Package
-
-To support ongoing MarkupEditor app development and to gain access to the pre-built non-time-limited package, go to <https://markupeditor.app> and subscribe. Once you have subscribed, you will have access to the [downloads page](https://markupeditor.app/downloads) for the Unlimited Version. The Unlimited Version has no license key and does not check if your subscription is valid, so you can use it for as long as it works without renewing your subscription.
-
-#### Complimentary Subscription
+### Complimentary Subscription
 
 If you fall in any of the following categories, you qualify for a complimentary subscription that provides access to the Unlimited Version:
 
@@ -127,13 +132,14 @@ MarkupEditorApp/
 MarkupEditorAppLib/            - Local Swift package dependency used by both MarkupEditorApp and MarkupEditorAppTests.
 MarkupEditorCLI/               - `markup` CLI tool target; embedded in the app bundle, shipped via signed .pkg
 markupeditor-app/              - JavaScript project loaded as a userScript to support Markdown and more
-plugins/                       - JavaScript plugin projects for codeviews and exporters + plugins.json for discovery
+plugin-kit/                    - Shared JavaScript workspace package every plugin builds and tests with (rollup/vitest config, frontmatter, images, export, register helpers)
+plugins/                       - JavaScript plugin projects for codeviews and exporters (Mermaid, GeoJSON, HTML front matter, metadata, DocX, EPUB) + plugins.json for discovery
 skills/                        - Claude Code skills to help developers understand and contribute to the app
 ```
 
 The part of this repository related to the Swift app proper probably has a familiar structure for Swift developers. It is built using SwiftUI in Xcode with very few deviations into AppKit because of SwiftUI deficiencies. The UI and model/utility classes and structs are organized in their own directories as you might expect. The MarkupEditorAppLib is a small Swift Package embedded within the project that enables headless testing of the exporters and plugins without having to place a test dependency on the app itself. In Xcode, it shows up as a local package dependency.
 
-The part that will seem unusual for many Swift developers is the mixture of Swift and JavaScript. This is in large part because the MarkupEditorApp is built on top of the MarkupEditor, a Swift package that wraps calls to an API exposed in the markupeditor-base JavaScript package. The markupeditor-base package in turn depends on ProseMirror to help with the WYSIWYG editing. Here, let's use a Mermaid diagram to show how it fits together:
+The part that will seem unusual for many Swift developers is the mixture of Swift and JavaScript. This is in large part because the MarkupEditorApp is built on top of the MarkupEditor, a Swift package that wraps calls to an API exposed in the markupeditor-base JavaScript package. The markupeditor-base package in turn depends on ProseMirror to help with the WYSIWYG editing. Here, let's use a Mermaid diagram to show how it fits together. (This diagram displays on GitHub and inside of the MarkupEditor, although it seems the GitHub iOS app only shows the code.)
 
 ```mermaid
 flowchart TD
@@ -149,7 +155,8 @@ flowchart TD
     subgraph JS["JavaScript, loaded as ES modules into a WKWebView"]
         Base[markupeditor-base]
         AppJS[markupeditor-app userScript]
-        Plugins["plugins/* — Mermaid, GeoJSON, DocX, ..."]
+        Plugins["plugins/* — Mermaid, GeoJSON, HTML front matter, metadata, DocX, EPUB, ..."]
+        Kit[plugin-kit]
         PM[ProseMirror]
     end
 
@@ -166,6 +173,7 @@ flowchart TD
     Base --> PM
     AppJS --> Base
     Plugins --> Base
+    Plugins -->|built and tested with| Kit
 ```
 
 The plugins to support exporters and codeviews (e.g., Mermaid and GeoJSON) are also written in JavaScript, and these dependencies have to be brought in to the MarkupEditorApp package. The document you are editing when using the app is, ultimately, a `contentEditable` div inside of a WKWebView, and all of the JavaScript is loaded as ES modules into that view.
@@ -206,7 +214,7 @@ npx skills add stevengharris/MarkupEditorApp --skill writing-codeview-plugins
 npx skills add stevengharris/MarkupEditorApp --skill writing-exporter-plugins
 ```
 
-The `writing-markupeditor-plugins` skill covers the contract shared by every plugin type. The `writing-codeview-plugins` skill is specific to codeview plugins, such as the bundled Mermaid diagram support. \<TBD> Similarly, the writing-exporter-plugins skill covers exporters. After writing these skills, I tested them from a cloned repository by creating a simpler version of the geoJSON codeview plugin and and a \<TBD> exporter, using Claude Code.
+The `writing-markupeditor-plugins` skill covers the contract shared by every plugin type. The `writing-codeview-plugins` skill is specific to codeview plugins, such as the bundled Mermaid diagram support. Similarly, the writing-exporter-plugins skill covers exporters. After writing these skills, I tested them from a cloned repository by creating a simpler version of the geoJSON codeview plugin and and the EPUB exporter, using Claude Code.
 
 Once installed, just describe what you're trying to do -- Claude Code loads the relevant skill automatically. File an [issue](https://github.com/stevengharris/MarkupEditorApp/issues) if you encounter a markupeditor-base, MarkupEditor, or MarkupEditorApp bug. Send a pull request when you're done.
 
@@ -214,7 +222,7 @@ Once installed, just describe what you're trying to do -- Claude Code loads the 
 
 Contributions, including bug fixes, enhancements, and plugins, are welcome. Clone this repository, run and extend tests as needed, and submit a pull request.
 
-After the discussion above about using AI, it should be easy, eh? Sure, but don't throw an AI-generated pull request at me that only AI has the patience to read. You *know* what I'm talking about. Read and write your pull request yourself, with help from AI if you need to. Be prepared to answer questions about it yourself. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it. If I feel like AI contributions are a burden on the project and not a benefit, then I might reconsider the policy.
+After the discussion above about using AI, it should be easy, eh? Sure, but don't throw an AI-generated pull request at me that only AI has the patience to read. You *know* what I'm talking about. Read and write your pull request yourself, with help from AI if you need. Be prepared to answer questions about it yourself. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it. If I feel like AI contributions are a burden on the project and not a benefit, then I might reconsider the policy.
 
 ## Privacy
 
@@ -230,4 +238,4 @@ The source licensing covers the *code*, not the MarkupEditor *name or logo*. "
 
 ## Acknowledgements
 
-The MarkupEditor depends on the amazing [ProseMirror](https://prosemirror.net) as a foundational part of WYSIWYG editing. A portion of the MarkupEditor app subscription revenue, once and if it exceeds expenses to host it, will go to support ProseMirror. If you find the MarkupEditor to be useful and are not using the supported version, please [support ProseMirror directly.](https://marijnhaverbeke.nl/fund/)
+The MarkupEditor depends on the amazing [ProseMirror](https://prosemirror.net) as a foundational part of WYSIWYG editing. A portion of the MarkupEditor app subscription revenue, once and if it exceeds expenses to host it, will go to support ProseMirror. If you find the MarkupEditor to be useful and/or are not using the supported version, please [support ProseMirror directly.](https://marijnhaverbeke.nl/fund/)
