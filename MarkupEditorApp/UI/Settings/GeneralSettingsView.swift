@@ -7,10 +7,11 @@
 
 import SwiftUI
 import MarkupEditor
+import MarkupEditorAppLib
 
 struct GeneralSettingsView: View {
 
-    @Bindable private var updateManager = UpdateManager.shared
+    private let subscription = SubscriptionModel.shared
 
     var body: some View {
         Spacer()
@@ -25,10 +26,9 @@ struct GeneralSettingsView: View {
                 Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
                 Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
             }
-            Section("Updates") {
-                Toggle("Automatically check for updates", isOn: $updateManager.automaticallyChecks)
-                Toggle("Automatically install updates", isOn: $updateManager.automaticallyDownloads)
-                Button("Check for Updates Now") { updateManager.checkNow() }
+            SubscriptionSettingsSection()
+            if subscription.isPaidConnected, BuildVariant.current != .evaluation {
+                UpdateSettingsSection()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

@@ -74,6 +74,7 @@ struct MarkupEditorApp: App {
         _evaluationNotice = State(initialValue: Self.evaluationCheck())
 #endif
         _ = UpdateManager.shared
+        Task { await SubscriptionModel.shared.refresh() }
         MarkupEditor.allowLocalImages = true
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
