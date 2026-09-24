@@ -10,6 +10,8 @@ import MarkupEditor
 
 struct GeneralSettingsView: View {
 
+    @Bindable private var updateManager = UpdateManager.shared
+
     var body: some View {
         Spacer()
         Form {
@@ -22,6 +24,11 @@ struct GeneralSettingsView: View {
             Section {
                 Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
                 Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
+            }
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: $updateManager.automaticallyChecks)
+                Toggle("Automatically install updates", isOn: $updateManager.automaticallyDownloads)
+                Button("Check for Updates Now") { updateManager.checkNow() }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
