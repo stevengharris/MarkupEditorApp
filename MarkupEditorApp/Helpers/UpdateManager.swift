@@ -21,14 +21,16 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 #endif
 
     @ObservationIgnored private var controller: SPUStandardUpdaterController?
+    /// Set when a scheduled check was refused because no paid member was connected yet.
+    @ObservationIgnored private var refusedScheduledCheck = false
 
     /// True while a paid member is connected.
     var canCheck = false {
         didSet {
             refreshSession()
-            // A scheduled check refused before the connection was confirmed still counts
-            // as a check, so run the one it replaced.
-            if canCheck, !oldValue, automaticallyChecks {
+            // A refused scheduled check still counts as a check, so run the one it replaced.
+            if canCheck, !oldValue, refusedScheduledCheck {
+                refusedScheduledCheck = false
                 updater?.checkForUpdatesInBackground()
             }
         }
@@ -86,6 +88,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     /// Also covers Sparkle's scheduled checks, which run whether or not anyone is connected.
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         guard canCheck else {
+            if updateCheck == .updatesInBackground { refusedScheduledCheck = true }
             throw NSError(domain: "com.stevengharris.MarkupEditorApp.updates", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Updates require a connected markupeditor.app subscription."
             ])

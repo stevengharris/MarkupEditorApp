@@ -238,7 +238,7 @@ struct MemberClientTests {
 
     // MARK: currentMember
 
-    @Test(arguments: [("paid", Member.Status.paid, true), ("comped", .comped, true), ("free", .free, false)])
+    @Test(arguments: [("paid", Member.Status.paid, true), ("comped", .comped, true), ("gift", .gift, true), ("free", .free, false)])
     func currentMemberParsesStatus(raw: String, status: Member.Status, isPaid: Bool) async throws {
         StubURLProtocol.reset { _ in
             .init(status: 200, body: Self.json(["email": "a@example.test", "status": raw, "paid": raw != "free", "uuid": "u"]))
@@ -268,7 +268,7 @@ struct MemberClientTests {
     }
 
     @Test func currentMemberUnknownStatusIsUndecodable() async {
-        StubURLProtocol.reset { _ in .init(status: 200, body: Self.json(["email": "a@example.test", "status": "gift"])) }
+        StubURLProtocol.reset { _ in .init(status: 200, body: Self.json(["email": "a@example.test", "status": "lifetime"])) }
 
         do {
             _ = try await client.currentMember()

@@ -20,6 +20,8 @@ public struct Member: Equatable, Sendable, Decodable {
     public enum Status: String, Equatable, Sendable, Decodable {
         case paid
         case comped
+        /// A redeemed gift subscription.
+        case gift
         case free
     }
 
@@ -31,8 +33,13 @@ public struct Member: Equatable, Sendable, Decodable {
         self.status = status
     }
 
-    /// Comped members get everything paid members get.
-    public var isPaid: Bool { status == .paid || status == .comped }
+    /// Comped and gift members get everything paid members get.
+    public var isPaid: Bool {
+        switch status {
+        case .paid, .comped, .gift: true
+        case .free: false
+        }
+    }
 }
 
 public enum MemberError: Error, Equatable, Sendable {
