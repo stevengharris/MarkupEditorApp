@@ -21,6 +21,7 @@ final class StubURLProtocol: URLProtocol {
         var method: String
         var url: URL
         var body: Data?
+        var cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy
     }
 
     private static let state = Mutex<(handler: (@Sendable (URLRequest) throws -> Reply)?, requests: [Recorded])>((nil, []))
@@ -38,7 +39,7 @@ final class StubURLProtocol: URLProtocol {
         guard let url = request.url else { return }
         let body = request.httpBody ?? request.httpBodyStream.map(Self.readAll)
         let handler = Self.state.withLock { state -> (@Sendable (URLRequest) throws -> Reply)? in
-            state.requests.append(Recorded(method: request.httpMethod ?? "GET", url: url, body: body))
+            state.requests.append(Recorded(method: request.httpMethod ?? "GET", url: url, body: body, cachePolicy: request.cachePolicy))
             return state.handler
         }
         do {
@@ -203,6 +204,19 @@ struct MemberClientTests {
         }
     }
 
+    @Test func verifyRefusesRedirectToAnotherPort() async {
+        StubURLProtocol.reset(Self.withIntegrityToken { request in
+            request.url?.path(percentEncoded: false) == "/members/api/verify-otc"
+                ? .init(status: 200, body: Self.json(["redirectUrl": "https://example.test:8443/members/?token=abc"]))
+                : .init(status: 200)
+        })
+
+        await #expect(throws: MemberError.self) {
+            try await client.verify(code: "123456", ref: OTCRef("ref-1"))
+        }
+        #expect(!StubURLProtocol.requests.contains { $0.url.port == 8443 })
+    }
+
     @Test func verifyRefusesRedirectToAnotherHost() async {
         StubURLProtocol.reset(Self.withIntegrityToken { request in
             request.url?.path(percentEncoded: false) == "/members/api/verify-otc"
@@ -240,6 +254,12 @@ struct MemberClientTests {
     @Test func currentMemberNoContentIsSignedOut() async throws {
         StubURLProtocol.reset { _ in .init(status: 204) }
         #expect(try await client.currentMember() == nil)
+    }
+
+    @Test func currentMemberBypassesCache() async throws {
+        StubURLProtocol.reset { _ in .init(status: 204) }
+        _ = try await client.currentMember()
+        #expect(StubURLProtocol.requests.map(\.cachePolicy) == [.reloadIgnoringLocalCacheData])
     }
 
     @Test func currentMemberJSONNullIsSignedOut() async throws {

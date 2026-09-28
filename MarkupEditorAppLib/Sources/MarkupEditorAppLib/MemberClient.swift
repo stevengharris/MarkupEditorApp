@@ -32,7 +32,7 @@ public struct Member: Equatable, Sendable, Decodable {
     }
 
     /// Comped members get everything paid members get.
-    public var isPaid: Bool { status != .free }
+    public var isPaid: Bool { status == .paid || status == .comped }
 }
 
 public enum MemberError: Error, Equatable, Sendable {
@@ -97,7 +97,7 @@ public struct MemberClient: Sendable {
             throw .undecodableResponse("missing redirectUrl")
         }
         // The sign-in URL carries a session token; never send it anywhere but the site.
-        guard url.host == baseURL.host, url.scheme == baseURL.scheme else {
+        guard url.host == baseURL.host, url.scheme == baseURL.scheme, url.port == baseURL.port else {
             throw .undecodableResponse("redirectUrl is not on \(baseURL.host ?? "the site")")
         }
         let (_, signInStatus) = try await send("GET", url)
@@ -144,7 +144,8 @@ public struct MemberClient: Sendable {
     }
 
     private func send(_ method: String, _ url: URL, json: [String: Any]? = nil) async throws(MemberError) -> (Data, Int) {
-        var request = URLRequest(url: url)
+        // A cached member response could outlive the session it describes.
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.httpMethod = method
         if let json {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

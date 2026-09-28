@@ -55,6 +55,8 @@ public final class SubscriptionModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let paidDidChange: @MainActor (Bool) -> Void
     @ObservationIgnored private let applyFirstPaidDefaults: @MainActor () -> Void
+    /// Bumped by cancel() so a sign-in call that finishes afterward is ignored.
+    @ObservationIgnored private var signInAttempt = 0
 
     /// - Parameters:
     ///   - paidDidChange: Called with the new paid-connected value after every state change.
@@ -91,11 +93,14 @@ public final class SubscriptionModel {
 
     public func requestCode(email: String) async {
         let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let attempt = signInAttempt
         await work {
             do throws(MemberError) {
                 let ref = try await service.requestCode(email: email)
+                guard attempt == signInAttempt else { return }
                 setState(.awaitingCode(email: email, ref: ref))
             } catch {
+                guard attempt == signInAttempt else { return }
                 self.error = error
             }
         }
@@ -104,15 +109,20 @@ public final class SubscriptionModel {
     public func verify(code: String) async {
         guard case .awaitingCode(_, let ref) = state else { return }
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        let attempt = signInAttempt
         await work {
             do throws(MemberError) {
                 try await service.verify(code: code, ref: ref)
-                if let member = try await service.currentMember() {
+                guard attempt == signInAttempt else { return }
+                let member = try await service.currentMember()
+                guard attempt == signInAttempt else { return }
+                if let member {
                     connect(member)
                 } else {
                     self.error = .invalidCode
                 }
             } catch {
+                guard attempt == signInAttempt else { return }
                 self.error = error
             }
         }
@@ -120,6 +130,7 @@ public final class SubscriptionModel {
 
     /// Abandons a sign-in in progress.
     public func cancel() {
+        signInAttempt += 1
         error = nil
         if case .awaitingCode = state {
             setState(.disconnected)

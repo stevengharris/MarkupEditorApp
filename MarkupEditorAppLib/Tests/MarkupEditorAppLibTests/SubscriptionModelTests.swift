@@ -20,12 +20,23 @@ final class FakeMemberService: MemberService {
     }
 
     let script: Mutex<Script>
+    /// Runs while the named call is in flight, keyed by call name without arguments.
+    let hooks = Mutex<[String: @Sendable () async -> Void]>([:])
 
     init(_ script: Script = Script()) {
         self.script = Mutex(script)
     }
 
     var calls: [String] { script.withLock { $0.calls } }
+
+    func during(_ name: String, _ hook: @escaping @Sendable () async -> Void) {
+        hooks.withLock { $0[name] = hook }
+    }
+
+    private func runHook(_ name: String) async {
+        let hook = hooks.withLock { $0[name] }
+        await hook?()
+    }
 
     private func next<T: Sendable>(_ name: String, _ path: WritableKeyPath<Script, [Result<T, MemberError>]>) throws(MemberError) -> T {
         let result = script.withLock { script -> Result<T, MemberError>? in
@@ -36,8 +47,14 @@ final class FakeMemberService: MemberService {
         return try result.get()
     }
 
-    func requestCode(email: String) async throws(MemberError) -> OTCRef { try next("requestCode:\(email)", \.requestCode) }
-    func verify(code: String, ref: OTCRef) async throws(MemberError) { try next("verify:\(code):\(ref.value)", \.verify) }
+    func requestCode(email: String) async throws(MemberError) -> OTCRef {
+        await runHook("requestCode")
+        return try next("requestCode:\(email)", \.requestCode)
+    }
+    func verify(code: String, ref: OTCRef) async throws(MemberError) {
+        await runHook("verify")
+        try next("verify:\(code):\(ref.value)", \.verify)
+    }
     func currentMember() async throws(MemberError) -> Member? { try next("currentMember", \.currentMember) }
     func signOut() async throws(MemberError) { try next("signOut", \.signOut) }
 }
@@ -174,6 +191,31 @@ struct SubscriptionModelTests {
         model.cancel()
 
         #expect(model.state == .disconnected)
+    }
+
+    @Test func cancelDuringVerifyDoesNotConnect() async {
+        let service = FakeMemberService(.init(requestCode: [.success(OTCRef("ref-1"))], verify: [.success(())], currentMember: [.success(Self.paid)]))
+        let model = model(service)
+        await model.requestCode(email: "a@example.test")
+        service.during("verify") { await model.cancel() }
+
+        await model.verify(code: "123456")
+
+        #expect(model.state == .disconnected)
+        #expect(model.error == nil)
+        #expect(defaults.string(forKey: SubscriptionModel.lastEmailKey) == nil)
+        #expect(!paidChanges.contains(true))
+        #expect(defaultsApplied == 0)
+    }
+
+    @Test func cancelDuringRequestCodeDoesNotAwaitCode() async {
+        let service = FakeMemberService(.init(requestCode: [.success(OTCRef("ref-1"))]))
+        let model = model(service)
+        service.during("requestCode") { await model.cancel() }
+
+        await model.requestCode(email: "a@example.test")
+
+        #expect(model.state == .unknown)
     }
 
     @Test func freeMemberConnectsWithoutUpdates() async {
