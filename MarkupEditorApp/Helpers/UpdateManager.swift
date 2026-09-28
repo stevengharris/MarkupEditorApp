@@ -24,7 +24,14 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
     /// True while a paid member is connected.
     var canCheck = false {
-        didSet { refreshSession() }
+        didSet {
+            refreshSession()
+            // A scheduled check refused before the connection was confirmed still counts
+            // as a check, so run the one it replaced.
+            if canCheck, !oldValue, automaticallyChecks {
+                updater?.checkForUpdatesInBackground()
+            }
+        }
     }
 
     var automaticallyChecks: Bool {

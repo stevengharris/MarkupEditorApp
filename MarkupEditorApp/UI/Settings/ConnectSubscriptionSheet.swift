@@ -6,7 +6,7 @@
 import SwiftUI
 import MarkupEditorAppLib
 
-/// Email step, then the emailed-code step, for connecting a markupeditor.app membership.
+/// Email step, then the emailed-code step, for connecting a markupeditor.app account.
 struct ConnectSubscriptionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
@@ -22,15 +22,15 @@ struct ConnectSubscriptionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Connect to markupeditor.app")
+            Text("Connect to Your Account")
                 .font(.headline)
             if let sentTo {
-                Text("Enter the sign-in code emailed to \(sentTo). It expires in a few minutes.")
+                Text("Enter the code emailed to \(sentTo). It expires in a few minutes.")
                     .fixedSize(horizontal: false, vertical: true)
                 TextField("Code", text: $code)
                     .textContentType(.oneTimeCode)
             } else {
-                Text("Enter the email address you subscribed with. A sign-in code will be emailed to you.")
+                Text("Enter the email address for your markupeditor.app account. A one-time code will be emailed to you.")
                     .fixedSize(horizontal: false, vertical: true)
                 TextField("Email", text: $email)
                     .textContentType(.emailAddress)

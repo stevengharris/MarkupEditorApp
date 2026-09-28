@@ -11,27 +11,54 @@ import MarkupEditorAppLib
 
 struct GeneralSettingsView: View {
 
+    enum SettingGroup: String, CaseIterable, Identifiable {
+        case updates = "Updates"
+        case behavior = "Behavior"
+        var id: Self { self }
+    }
+
+    @State private var settingGroup: SettingGroup = .updates
+
     private let subscription = SubscriptionModel.shared
 
     var body: some View {
         Spacer()
-        Form {
-            Section {
-                LabeledContent("Version") {
-                    Text(MarkupEditorApp.versionString)
-                        .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            Picker("", selection: $settingGroup) {
+                ForEach(SettingGroup.allCases) { info in
+                    Text(info.rawValue)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .tag(info)
                 }
             }
-            Section {
-                Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
-                Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
-            }
-            SubscriptionSettingsSection()
-            if subscription.isPaidConnected, BuildVariant.current != .evaluation {
-                UpdateSettingsSection()
+            .pickerStyle(.segmented)
+
+            switch settingGroup {
+            case .updates:
+                Form {
+                    Text("")
+                    LabeledContent("Version:") {
+                        Text(MarkupEditorApp.versionString)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.bottom, 8)
+                    SubscriptionSettingsSection()
+                    if subscription.isPaidConnected, BuildVariant.current != .evaluation {
+                        UpdateSettingsSection()
+                    }
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+            case .behavior:
+                Form {
+                    Text("")
+                    Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
+                    Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         Spacer()
     }
 

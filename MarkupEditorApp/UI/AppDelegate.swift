@@ -24,6 +24,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Set by handleQuit after the user confirms quit via the window-close path,
     /// so applicationShouldTerminate skips the second check.
     static var skipTerminateCheck = false
+    /// An expired evaluation is showing only the upgrade window; no document window may open.
+    static var upgradeOnly = false
     /// Set by applicationShouldTerminate when it returns .terminateLater (Cmd+Q path),
     /// so handleQuit knows to call NSApp.reply instead of NSApp.terminate.
     static var isRespondingToTerminateQuery = false
@@ -60,6 +62,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard !AppDelegate.skipTerminateCheck else { return true }
         NotificationCenter.default.post(name: .menuQuitApplication, object: nil)
         return false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        !Self.upgradeOnly
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

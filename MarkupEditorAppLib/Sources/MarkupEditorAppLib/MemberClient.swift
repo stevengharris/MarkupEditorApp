@@ -47,7 +47,7 @@ extension MemberError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .invalidCode:
-            return "That code didn't work. Check the email address, or subscribe at markupeditor.app."
+            return "That code didn't work. Check the email address, or create an account at markupeditor.app."
         case .transportFailure(let reason):
             return "Could not reach markupeditor.app: \(reason)"
         case .unexpectedStatus(let code):

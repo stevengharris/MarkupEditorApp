@@ -8,9 +8,6 @@
 import SwiftUI
 import MarkupEditor
 import MarkupEditorAppLib
-#if EVAL_VERSION
-import AppKit
-#endif
 
 @main
 struct MarkupEditorApp: App {
@@ -29,6 +26,8 @@ struct MarkupEditorApp: App {
     
 #if EVAL_VERSION
     @State private var evaluationNotice: String?
+    /// The evaluation has expired: no document or tour window opens.
+    @State private var upgradeOnly = false
 #endif
     
     var body: some Scene {
@@ -36,6 +35,9 @@ struct MarkupEditorApp: App {
             MarkupDocumentView()
                 .environment(editLog)
         }
+#if EVAL_VERSION
+        .defaultLaunchBehavior(upgradeOnly ? .suppressed : .automatic)
+#endif
         Window("Gallery", id: "plugin-gallery") {
             PluginDiscoveryView()
         }
@@ -63,15 +65,25 @@ struct MarkupEditorApp: App {
         // Forced to present even if the Tour was already seen -- a fresh
         // evaluation notice must still show at least once, and TourView folds
         // it in as a leading page rather than this window skipping it.
-        .defaultLaunchBehavior((!hasSeenTour || evaluationNotice != nil) ? .presented : .automatic)
+        .defaultLaunchBehavior(upgradeOnly ? .suppressed : (!hasSeenTour || evaluationNotice != nil) ? .presented : .automatic)
 #else
         .defaultLaunchBehavior(!hasSeenTour ? .presented : .automatic)
+#endif
+#if EVAL_VERSION
+        Window("Upgrade to Unlimited", id: "upgrade") {
+            UpgradeView()
+        }
+        .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(upgradeOnly ? .presented : .suppressed)
 #endif
     }
     
     init() {
 #if EVAL_VERSION
-        _evaluationNotice = State(initialValue: Self.evaluationCheck())
+        let evaluation = Self.evaluationCheck()
+        _evaluationNotice = State(initialValue: evaluation.notice)
+        _upgradeOnly = State(initialValue: evaluation.upgradeOnly)
 #endif
         _ = UpdateManager.shared
         Task { await SubscriptionModel.shared.refresh() }
@@ -105,35 +117,24 @@ struct MarkupEditorApp: App {
     
 #if EVAL_VERSION
     /// Returns the first-launch notice text for TourView to fold in as a
-    /// leading page (nil if there's nothing to show this launch). The
-    /// expired case is handled synchronously here instead, since it must
-    /// prevent window creation entirely -- only a check that runs before
-    /// body is ever evaluated can do that.
-    private static func evaluationCheck() -> String? {
+    /// leading page (nil if there's nothing to show this launch), and whether
+    /// the evaluation has expired, in which case the upgrade window is the
+    /// only window that opens.
+    private static func evaluationCheck() -> (notice: String?, upgradeOnly: Bool) {
         guard EvaluationManager.firstLaunchDate != nil else {
             let now = Date()
             EvaluationManager.recordFirstLaunch(now)
             let expiration = EvaluationManager.expirationDate()
             let formatted = DateFormatter.localizedString(from: expiration, dateStyle: .long, timeStyle: .none)
-            return "This is an evaluation version of MarkupEditor, usable through \(formatted). Subscribe at markupeditor.app at any time."
+            return ("This is an evaluation version of MarkupEditor, usable through \(formatted). Subscribe at markupeditor.app at any time.", false)
         }
         if EvaluationManager.isExpired() {
-            presentExpirationAlertAndQuit()
+            AppDelegate.upgradeOnly = true
+            // No document view exists to answer the unsaved-changes check a quit normally waits for.
+            AppDelegate.skipTerminateCheck = true
+            return (nil, true)
         }
-        return nil
-    }
-    
-    private static func presentExpirationAlertAndQuit() {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "Evaluation Period Ended"
-        alert.informativeText = "Subscribe to continue using MarkupEditor."
-        alert.addButton(withTitle: "Subscribe…")
-        alert.addButton(withTitle: "Quit")
-        if alert.runModal() == .alertFirstButtonReturn, let url = URL(string: "https://www.markupeditor.app/downloads/") {
-            NSWorkspace.shared.open(url)
-        }
-        NSApplication.shared.terminate(nil)
+        return (nil, false)
     }
 #endif
     
