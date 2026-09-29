@@ -11,7 +11,7 @@ struct UpdateFeedTests {
 
     @Test func noOverrideIsProductionFeed() {
         #expect(UpdateFeed.url(override: nil) == UpdateFeed.productionURL)
-        #expect(UpdateFeed.productionURL.absoluteString == "https://www.markupeditor.app/appcast.xml")
+        #expect(UpdateFeed.productionURL.absoluteString == "https://www.markupeditor.app/appcast/")
     }
 
     @Test func httpOverrideIsUsed() {
