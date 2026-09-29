@@ -48,4 +48,15 @@ struct UpdateFeedTests {
     @Test func noCookiesMeansNoHeaders() {
         #expect(UpdateFeed.headers(for: UpdateFeed.productionURL, cookies: Self.storage([])).isEmpty)
     }
+
+    @Test func downloadRequestDropsTheSessionCookie() {
+        let request = NSMutableURLRequest(url: URL(string: "https://www.markupeditor.app/content/files/2026/10/a.zip")!)
+        request.setValue("ghost-members-ssr=x; ghost-members-ssr.sig=y", forHTTPHeaderField: "Cookie")
+        request.setValue("MarkupEditor/0.9.7", forHTTPHeaderField: "User-Agent")
+
+        UpdateFeed.prepareDownload(request)
+
+        #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+        #expect(request.value(forHTTPHeaderField: "User-Agent") == "MarkupEditor/0.9.7")
+    }
 }

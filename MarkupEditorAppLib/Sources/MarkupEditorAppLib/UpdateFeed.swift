@@ -25,4 +25,11 @@ public enum UpdateFeed {
     public static func headers(for url: URL, cookies storage: HTTPCookieStorage) -> [String: String] {
         HTTPCookie.requestHeaderFields(with: storage.cookies(for: url) ?? [])
     }
+
+    /// Removes the member session from an update download. Only the feed is gated,
+    /// and the site redirects downloads to its file storage host, which would
+    /// otherwise receive the cookie.
+    public static func prepareDownload(_ request: NSMutableURLRequest) {
+        request.setValue(nil, forHTTPHeaderField: "Cookie")
+    }
 }

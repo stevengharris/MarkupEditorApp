@@ -228,7 +228,7 @@ After the discussion above about using AI, it should be easy, eh? Sure, but don'
 
 The MarkupEditor does not require network access to run at any time. You own your documents locally, and the app doesn't track anything about you. You can build it, use it, and extend it yourself.
 
-The app uses the network only for things you ask it to do: images you insert by URL, the plugin catalog when you open it, and, if you connect your markupeditor.app account in Settings, confirming your subscription and checking for and downloading updates. Account and update requests go only to markupeditor.app, and they stop when you disconnect.
+The app uses the network only for things you ask it to do: images you insert by URL, map tiles for GeoJSON maps, the plugin catalog when you open it and plugins you install from it, and, if you connect your markupeditor.app account in Settings, confirming your subscription and checking for and downloading updates. Account requests and update checks go only to markupeditor.app. The site redirects update downloads to its file storage (storage.ghost.io), which receives no account information. Account and update requests stop when you disconnect.
 
 When you subscribe to get access to the Unlimited Version, you need to identify yourself with an email address. See the [Privacy Policy](https://markupeditor.app/privacy) and [Terms of Use](https://markupeditor.app/terms) on the [web site](https://markupeditor.app).
 

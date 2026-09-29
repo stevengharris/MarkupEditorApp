@@ -85,6 +85,10 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
         feedURL.absoluteString
     }
 
+    func updater(_ updater: SPUUpdater, willDownloadUpdate item: SUAppcastItem, with request: NSMutableURLRequest) {
+        UpdateFeed.prepareDownload(request)
+    }
+
     /// Also covers Sparkle's scheduled checks, which run whether or not anyone is connected.
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         guard canCheck else {
