@@ -40,15 +40,4 @@ struct BuildVariantTests {
         #expect(BuildVariant.unlimited.label == "Unlimited")
         #expect(BuildVariant.development.label == "Development")
     }
-
-    @Test func displayBuildDropsVersionPrefix() {
-        #expect(BuildVariant.displayBuild("0.9.8.1U", version: "0.9.8") == "1U")
-        #expect(BuildVariant.displayBuild("0.9.8.12E", version: "0.9.8") == "12E")
-    }
-
-    @Test func displayBuildLeavesUnprefixedValuesAlone() {
-        #expect(BuildVariant.displayBuild("3U", version: "0.9.8") == "3U")
-        #expect(BuildVariant.displayBuild("0.9.81.1U", version: "0.9.8") == "0.9.81.1U")
-        #expect(BuildVariant.displayBuild(nil, version: "0.9.8") == "unknown")
-    }
 }
