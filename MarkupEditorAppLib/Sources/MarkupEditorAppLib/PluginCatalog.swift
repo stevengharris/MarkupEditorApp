@@ -8,12 +8,8 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "PluginCatalog")
 
-// TEMPORARY host: MarkupEditorApp is currently a private repo, so
-// raw.githubusercontent.com 404s against it. markupeditor-desktop is a
-// confirmed-public stand-in used until MarkupEditorApp itself goes public.
-// Mirrors the same constant in plugins/generate-plugins-json.js.
 private let pluginsJSONURLString =
-    "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/plugins.json"
+    "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/plugins.json"
 
 /// One plugin entry as published in plugins.json.
 public struct PluginCatalogEntry: Decodable, Equatable, Sendable, Identifiable {

@@ -7,13 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateMarkupEditorBlock } from 'markupeditor-plugin-kit/manifest';
 
-// TEMPORARY host: MarkupEditorApp is currently a private repo, so
-// raw.githubusercontent.com 404s against it. markupeditor-desktop is a
-// confirmed-public stand-in used until MarkupEditorApp itself goes public.
-// GITHUB_OWNER is permanent; GITHUB_REPO must revert to "MarkupEditorApp" once
-// that happens. Both are named constants so the revert is a one-line change.
 const GITHUB_OWNER = 'stevengharris';
-const GITHUB_REPO = 'markupeditor-desktop';
+const GITHUB_REPO = 'MarkupEditorApp';
 
 /**
  * Reads every plugins/<dir>/package.json under pluginsDir and derives the

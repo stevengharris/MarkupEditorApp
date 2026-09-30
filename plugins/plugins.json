@@ -6,8 +6,8 @@
       "description": "MarkupEditor codeview plugin that renders geojson code blocks as a live, interactive Leaflet map.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
       "version": "1.0.0",
-      "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/codeview-geojson",
-      "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/codeview-geojson/dist/codeview-geojson.js"
+      "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-geojson",
+      "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/codeview-geojson/dist/codeview-geojson.js"
     },
     "Mermaid": {
       "name": "Mermaid",
@@ -15,8 +15,8 @@
       "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
       "version": "1.0.0",
-      "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/codeview-mermaid",
-      "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/codeview-mermaid/dist/codeview-mermaid.js"
+      "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-mermaid",
+      "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/codeview-mermaid/dist/codeview-mermaid.js"
     }
   },
   "exporter": {
@@ -27,8 +27,8 @@
       "description": "MarkupEditor exporter plugin for DOCX.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
       "version": "0.1.0",
-      "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/exporter-docx",
-      "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-docx/dist/exporter-docx.js"
+      "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-docx",
+      "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/exporter-docx/dist/exporter-docx.js"
     },
     "EPUB": {
       "name": "EPUB",
@@ -37,8 +37,8 @@
       "description": "MarkupEditor exporter plugin for EPUB3.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
       "version": "0.1.0",
-      "repo": "https://github.com/stevengharris/markupeditor-desktop/tree/main/plugins/exporter-epub",
-      "source": "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-epub/dist/exporter-epub.js"
+      "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-epub",
+      "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/exporter-epub/dist/exporter-epub.js"
     }
   }
 }

@@ -243,7 +243,7 @@ private struct PluginDiscoveryRow: View {
           "name": "Mermaid", "filename": "m.js",
           "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
           "author": "Steven G. Harris", "version": "1.0.0",
-          "repo": "https://github.com/stevengharris/markupeditor-desktop", "source": "https://example.com/s.js"
+          "repo": "https://github.com/stevengharris/MarkupEditorApp", "source": "https://example.com/s.js"
         }
       },
       "exporter": {
@@ -251,7 +251,7 @@ private struct PluginDiscoveryRow: View {
           "name": "DocX", "filename": "d.js", "ext": "docx",
           "description": "MarkupEditor exporter plugin for DOCX.",
           "author": "Steven G. Harris", "version": "0.1.0",
-          "repo": "https://github.com/stevengharris/markupeditor-desktop", "source": "https://example.com/s.js"
+          "repo": "https://github.com/stevengharris/MarkupEditorApp", "source": "https://example.com/s.js"
         }
       }
     }

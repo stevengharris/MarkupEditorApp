@@ -14,8 +14,8 @@ private let validExporterEntry = PluginCatalogEntry(
     description: "MarkupEditor exporter plugin for DOCX.",
     author: "Steven G. Harris",
     version: "0.1.0",
-    repo: "https://github.com/stevengharris/markupeditor-desktop",
-    source: "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-docx/dist/exporter-docx.js",
+    repo: "https://github.com/stevengharris/MarkupEditorApp",
+    source: "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/exporter-docx/dist/exporter-docx.js",
     ext: "docx"
 )
 
@@ -25,8 +25,8 @@ private let entryMissingExt = PluginCatalogEntry(
     description: "MarkupEditor exporter plugin for DOCX.",
     author: "Steven G. Harris",
     version: "0.1.0",
-    repo: "https://github.com/stevengharris/markupeditor-desktop",
-    source: "https://raw.githubusercontent.com/stevengharris/markupeditor-desktop/main/plugins/exporter-docx/dist/exporter-docx.js",
+    repo: "https://github.com/stevengharris/MarkupEditorApp",
+    source: "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/exporter-docx/dist/exporter-docx.js",
     ext: nil
 )
 
