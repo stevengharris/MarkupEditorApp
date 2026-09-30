@@ -46,7 +46,14 @@ public enum BuildVariant: Equatable {
     }
 
     public static var build: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+        displayBuild(Bundle.main.infoDictionary?["CFBundleVersion"] as? String, version: version)
+    }
+
+    /// CFBundleVersion is "<version>.<N><E|U>"; the version prefix is dropped for display.
+    static func displayBuild(_ bundleVersion: String?, version: String) -> String {
+        guard let bundleVersion else { return "unknown" }
+        let prefix = version + "."
+        return bundleVersion.hasPrefix(prefix) ? String(bundleVersion.dropFirst(prefix.count)) : bundleVersion
     }
 
     public static var versionString: String {
