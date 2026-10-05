@@ -32,8 +32,17 @@ struct MarkupEditorApp: App {
     
     var body: some Scene {
         Window("MarkupEditor", id: "main") {
+#if EVAL_VERSION
+            if upgradeOnly {
+                ExpiredDocumentRedirect()
+            } else {
+                MarkupDocumentView()
+                    .environment(editLog)
+            }
+#else
             MarkupDocumentView()
                 .environment(editLog)
+#endif
         }
 #if EVAL_VERSION
         .defaultLaunchBehavior(upgradeOnly ? .suppressed : .automatic)
@@ -140,4 +149,21 @@ struct MarkupEditorApp: App {
     
 }
 
+#if EVAL_VERSION
+/// Stands in for the document window on an expired evaluation. A Finder open still creates
+/// the main window, so this hands off to the upgrade window and closes itself before any
+/// editor view exists.
+private struct ExpiredDocumentRedirect: View {
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
 
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .task {
+                openWindow(id: "upgrade")
+                dismissWindow(id: "main")
+            }
+    }
+}
+#endif
