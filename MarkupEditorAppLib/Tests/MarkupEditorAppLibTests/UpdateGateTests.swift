@@ -65,6 +65,17 @@ struct UpdateGateTests {
         #expect(!r8)
     }
 
+    @Test func refusedBackgroundCheckIsNotReplayedWhileStillDisconnected() {
+        var gate = UpdateGate()
+        _ = gate.refusal(for: .background, feed: Self.feed)
+
+        let stillDisconnected = gate.setCanCheck(false)
+        let connected = gate.setCanCheck(true)
+
+        #expect(!stillDisconnected)
+        #expect(connected)
+    }
+
     @Test func connectingWithNothingRefusedDoesNotReplay() {
         var gate = UpdateGate()
 

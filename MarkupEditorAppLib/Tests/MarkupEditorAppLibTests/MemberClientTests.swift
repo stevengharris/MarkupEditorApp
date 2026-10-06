@@ -390,11 +390,35 @@ struct MemberClientTests {
                       cookie("suffix", domain: "notexample.test", path: "/"),
                       cookie("child", domain: "sub.example.test", path: "/"),
                       cookie("partial", domain: ".ample.test", path: "/")]
-        for c in (site + others).compactMap({ $0 }) { cookies.setCookie(c) }
+        let all = (site + others).compactMap { $0 }
+        #expect(all.count == 7)
+        for c in all { cookies.setCookie(c) }
 
         try await client.signOut()
 
         #expect(Set(cookies.cookies?.map(\.name) ?? []) == ["sibling", "suffix", "child", "partial"])
+    }
+
+    @Test func signOutClearsParentDomainCookiesFromASubdomainSite() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [StubURLProtocol.self]
+        let storage = config.httpCookieStorage ?? HTTPCookieStorage()
+        let subdomainClient = MemberClient(baseURL: URL(string: "https://www.example.test")!, session: URLSession(configuration: config))
+        StubURLProtocol.reset { _ in .init(status: 204) }
+        func cookie(_ name: String, domain: String) -> HTTPCookie? {
+            HTTPCookie(properties: [.name: name, .value: "v", .domain: domain, .path: "/"])
+        }
+        let all = [cookie("parent", domain: ".example.test"),
+                   cookie("exact", domain: "www.example.test"),
+                   cookie("otherParent", domain: ".other.test"),
+                   cookie("partial", domain: ".ample.test"),
+                   cookie("sibling", domain: "api.example.test")].compactMap { $0 }
+        #expect(all.count == 5)
+        for c in all { storage.setCookie(c) }
+
+        try await subdomainClient.signOut()
+
+        #expect(Set(storage.cookies?.map(\.name) ?? []) == ["otherParent", "partial", "sibling"])
     }
 
     @Test func defaultBaseURLIsTheProductionSite() {

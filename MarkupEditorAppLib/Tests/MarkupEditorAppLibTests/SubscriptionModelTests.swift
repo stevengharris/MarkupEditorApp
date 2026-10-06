@@ -62,11 +62,27 @@ final class FakeMemberService: MemberService {
     func signOut() async throws(MemberError) { try next("signOut", \.signOut) }
 }
 
-@MainActor
-final class SubscriptionModelTests {
+/// UserDefaults that keeps its values in memory, so tests write no preference files.
+final class InMemoryDefaults: UserDefaults {
 
-    let suite = "SubscriptionModelTests-\(UUID().uuidString)"
-    let defaults: UserDefaults
+    private var values: [String: Any] = [:]
+
+    init() {
+        super.init(suiteName: nil)!
+    }
+
+    override func object(forKey defaultName: String) -> Any? { values[defaultName] }
+    override func string(forKey defaultName: String) -> String? { values[defaultName] as? String }
+    override func bool(forKey defaultName: String) -> Bool { values[defaultName] as? Bool ?? false }
+    override func set(_ value: Any?, forKey defaultName: String) { values[defaultName] = value }
+    override func set(_ value: Bool, forKey defaultName: String) { values[defaultName] = value }
+    override func removeObject(forKey defaultName: String) { values[defaultName] = nil }
+}
+
+@MainActor
+struct SubscriptionModelTests {
+
+    let defaults = InMemoryDefaults()
     var paidChanges: [Bool] { recorder.paid }
     var defaultsApplied: Int { recorder.defaultsApplied }
 
@@ -75,19 +91,6 @@ final class SubscriptionModelTests {
         var defaultsApplied = 0
     }
     let recorder = Recorder()
-
-    init() {
-        defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
-    }
-
-    /// removePersistentDomain empties the suite but leaves its plist, so delete that too.
-    deinit {
-        UserDefaults.standard.removePersistentDomain(forName: suite)
-        let plist = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appending(path: "Preferences/\(suite).plist")
-        try? FileManager.default.removeItem(at: plist)
-    }
 
     func model(_ service: FakeMemberService) -> SubscriptionModel {
         let recorder = recorder
