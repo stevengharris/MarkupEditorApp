@@ -10,12 +10,15 @@ public enum UpdateFeed {
 
     public static let productionURL = URL(string: "https://www.markupeditor.app/appcast/")!
 
-    /// The feed to use: `override` when it is an http(s) URL, otherwise production.
-    public static func url(override: String?) -> URL {
-        guard let override, let url = URL(string: override),
+    /// The feed to use: production when `override` is nil, `override` when it is an
+    /// http(s) URL, and nil when it is set but unusable, so a mistyped override
+    /// disables checks rather than reaching production.
+    public static func url(override: String?) -> URL? {
+        guard let override else { return productionURL }
+        guard let url = URL(string: override),
               let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
               url.host != nil else {
-            return productionURL
+            return nil
         }
         return url
     }

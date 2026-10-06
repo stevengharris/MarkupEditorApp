@@ -48,7 +48,8 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
     var lastCheckDate: Date? { updater?.lastUpdateCheckDate }
 
-    var feedURL: URL {
+    /// Nil when a debug override is set but unusable; checks are then refused.
+    var feedURL: URL? {
 #if DEBUG
         UpdateFeed.url(override: UserDefaults.standard.string(forKey: Self.feedURLOverrideKey))
 #else
@@ -66,11 +67,15 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     /// Re-reads the member cookies into the updater's request headers. Call after
     /// the member session changes.
     func refreshSession() {
-        updater?.httpHeaders = canCheck ? UpdateFeed.headers(for: feedURL, cookies: .shared) : [:]
+        if canCheck, let feedURL {
+            updater?.httpHeaders = UpdateFeed.headers(for: feedURL, cookies: .shared)
+        } else {
+            updater?.httpHeaders = [:]
+        }
     }
 
     func checkNow() {
-        guard canCheck else { return }
+        guard canCheck, feedURL != nil else { return }
         refreshSession()
         controller?.checkForUpdates(nil)
     }
@@ -82,7 +87,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     }
 
     func feedURLString(for updater: SPUUpdater) -> String? {
-        feedURL.absoluteString
+        feedURL?.absoluteString
     }
 
     func updater(_ updater: SPUUpdater, willDownloadUpdate item: SUAppcastItem, with request: NSMutableURLRequest) {
@@ -91,10 +96,10 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
     /// Also covers Sparkle's scheduled checks, which run whether or not anyone is connected.
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
-        guard canCheck else {
-            if updateCheck == .updatesInBackground { refusedScheduledCheck = true }
+        guard canCheck, feedURL != nil else {
+            if !canCheck, updateCheck == .updatesInBackground { refusedScheduledCheck = true }
             throw NSError(domain: "com.stevengharris.MarkupEditorApp.updates", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Updates require a connected markupeditor.app subscription."
+                NSLocalizedDescriptionKey: canCheck ? "The update feed override is not a valid URL." : "Updates require a connected markupeditor.app subscription."
             ])
         }
         refreshSession()

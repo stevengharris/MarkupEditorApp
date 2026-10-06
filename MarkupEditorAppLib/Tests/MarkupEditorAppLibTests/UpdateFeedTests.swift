@@ -15,12 +15,12 @@ struct UpdateFeedTests {
     }
 
     @Test func httpOverrideIsUsed() {
-        #expect(UpdateFeed.url(override: "http://127.0.0.1:8321/appcast.xml").absoluteString == "http://127.0.0.1:8321/appcast.xml")
+        #expect(UpdateFeed.url(override: "http://127.0.0.1:8321/appcast.xml")?.absoluteString == "http://127.0.0.1:8321/appcast.xml")
     }
 
     @Test(arguments: ["", "not a url", "file:///tmp/appcast.xml", "ftp://example.test/appcast.xml"])
-    func unusableOverrideFallsBackToProduction(override: String) {
-        #expect(UpdateFeed.url(override: override) == UpdateFeed.productionURL)
+    func unusableOverrideDisablesTheFeed(override: String) {
+        #expect(UpdateFeed.url(override: override) == nil)
     }
 
     static func storage(_ cookies: [(name: String, domain: String)]) -> HTTPCookieStorage {
