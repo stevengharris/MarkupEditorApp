@@ -21,17 +21,17 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 #endif
 
     @ObservationIgnored private var controller: SPUStandardUpdaterController?
-    /// Set when a scheduled check was refused because no paid member was connected yet.
-    @ObservationIgnored private var refusedScheduledCheck = false
+    @ObservationIgnored private var gate = UpdateGate()
 
     /// True while a paid member is connected.
-    var canCheck = false {
-        didSet {
-            refreshSession()
-            // A refused scheduled check still counts as a check, so run the one it replaced.
-            if canCheck, !oldValue, refusedScheduledCheck {
-                refusedScheduledCheck = false
-                updater?.checkForUpdatesInBackground()
+    var canCheck: Bool {
+        get { access(keyPath: \.canCheck); return gate.canCheck }
+        set {
+            withMutation(keyPath: \.canCheck) {
+                // A refused scheduled check still counts as a check, so run the one it replaced.
+                let replay = gate.setCanCheck(newValue)
+                refreshSession()
+                if replay { updater?.checkForUpdatesInBackground() }
             }
         }
     }
@@ -75,7 +75,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     }
 
     func checkNow() {
-        guard canCheck, feedURL != nil else { return }
+        guard gate.refusal(for: .manual, feed: feedURL) == nil else { return }
         refreshSession()
         controller?.checkForUpdates(nil)
     }
@@ -96,10 +96,12 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
     /// Also covers Sparkle's scheduled checks, which run whether or not anyone is connected.
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
-        guard canCheck, feedURL != nil else {
-            if !canCheck, updateCheck == .updatesInBackground { refusedScheduledCheck = true }
+        let kind: UpdateGate.Kind = updateCheck == .updatesInBackground ? .background : .manual
+        if let refusal = gate.refusal(for: kind, feed: feedURL) {
             throw NSError(domain: "com.stevengharris.MarkupEditorApp.updates", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: canCheck ? "The update feed override is not a valid URL." : "Updates require a connected markupeditor.app subscription."
+                NSLocalizedDescriptionKey: refusal == .notConnected
+                    ? "Updates require a connected markupeditor.app subscription."
+                    : "The update feed override is not a valid URL."
             ])
         }
         refreshSession()

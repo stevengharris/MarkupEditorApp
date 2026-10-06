@@ -172,6 +172,44 @@ struct SubscriptionModelTests {
         #expect(defaults.string(forKey: SubscriptionModel.lastEmailKey) == nil)
     }
 
+    @Test func verifiedCodeWithNoMemberIsInvalidCode() async {
+        let service = FakeMemberService(.init(requestCode: [.success(OTCRef("r"))], verify: [.success(())], currentMember: [.success(nil)]))
+        let model = model(service)
+        await model.requestCode(email: "a@example.test")
+
+        await model.verify(code: "123456")
+
+        #expect(model.error == .invalidCode)
+        #expect(model.state == .awaitingCode(email: "a@example.test", ref: OTCRef("r")))
+        #expect(defaults.string(forKey: SubscriptionModel.lastEmailKey) == nil)
+    }
+
+    @Test func paidMemberWhoseRefreshFailsStopsUpdates() async {
+        defaults.set("a@example.test", forKey: SubscriptionModel.lastEmailKey)
+        let service = FakeMemberService(.init(currentMember: [.success(Self.paid), .failure(.transportFailure("offline"))]))
+        let model = model(service)
+        await model.refresh()
+
+        await model.refresh()
+
+        #expect(model.state == .unavailable(email: "a@example.test"))
+        #expect(!model.isPaidConnected)
+        #expect(paidChanges == [true, false])
+    }
+
+    @Test func paidMemberDowngradedToFreeStopsUpdates() async {
+        defaults.set("a@example.test", forKey: SubscriptionModel.lastEmailKey)
+        let service = FakeMemberService(.init(currentMember: [.success(Self.paid), .success(Self.free)]))
+        let model = model(service)
+        await model.refresh()
+
+        await model.refresh()
+
+        #expect(model.state == .connected(Self.free))
+        #expect(!model.isPaidConnected)
+        #expect(paidChanges == [true, false])
+    }
+
     @Test func requestCodeFailureStaysDisconnectedWithError() async {
         let service = FakeMemberService(.init(requestCode: [.failure(.unexpectedStatus(429))]))
         let model = model(service)
