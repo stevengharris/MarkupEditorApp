@@ -16,6 +16,22 @@ public protocol MemberService: Sendable {
 
 extension MemberClient: MemberService {}
 
+/// Stands in for the member site when it can't be reached by construction, such
+/// as an unusable debug override. Every call fails without sending a request.
+public struct UnavailableMemberService: MemberService {
+
+    public let reason: String
+
+    public init(reason: String) {
+        self.reason = reason
+    }
+
+    public func requestCode(email: String) async throws(MemberError) -> OTCRef { throw .transportFailure(reason) }
+    public func verify(code: String, ref: OTCRef) async throws(MemberError) { throw .transportFailure(reason) }
+    public func currentMember() async throws(MemberError) -> Member? { throw .transportFailure(reason) }
+    public func signOut() async throws(MemberError) { throw .transportFailure(reason) }
+}
+
 /// The app's connection to a markupeditor.app membership.
 @MainActor
 @Observable

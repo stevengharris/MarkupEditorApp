@@ -14,20 +14,13 @@ public enum UpdateFeed {
     /// http(s) URL, and nil when it is set but unusable, so a mistyped override
     /// disables checks rather than reaching production.
     public static func url(override: String?) -> URL? {
-        guard let override else { return productionURL }
-        guard let url = URL(string: override),
-              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
-              url.host != nil else {
-            return nil
-        }
-        return url
+        URLOverride.resolve(override, default: productionURL)
     }
 
     /// As `url(override:)` for a raw defaults value: any non-nil value is a set
     /// override, and one that isn't a string is unusable.
     public static func url(overrideValue: Any?) -> URL? {
-        guard let overrideValue else { return productionURL }
-        return url(override: overrideValue as? String ?? "")
+        URLOverride.resolve(overrideValue, default: productionURL)
     }
 
     /// Request headers carrying the stored cookies for `url`'s site, or none when
