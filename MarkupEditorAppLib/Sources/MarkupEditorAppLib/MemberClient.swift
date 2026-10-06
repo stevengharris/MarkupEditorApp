@@ -69,7 +69,7 @@ extension MemberError: LocalizedError {
 /// membership status. The session lives in the URLSession's cookie storage.
 public struct MemberClient: Sendable {
 
-    public static let defaultBaseURL = URL(string: "https://www.markupeditor.app")!
+    public static let defaultBaseURL = URL(literal: "https://www.markupeditor.app")
 
     public let baseURL: URL
     private let session: URLSession
@@ -139,11 +139,21 @@ public struct MemberClient: Sendable {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Deletes every cookie that applies to the site's host, whatever its path.
     private func clearCookies() {
-        guard let storage = session.configuration.httpCookieStorage else { return }
-        for cookie in storage.cookies(for: baseURL) ?? [] {
+        guard let storage = session.configuration.httpCookieStorage, let host = baseURL.host?.lowercased() else { return }
+        for cookie in storage.cookies ?? [] where Self.cookie(cookie, appliesTo: host) {
             storage.deleteCookie(cookie)
         }
+    }
+
+    /// A cookie applies to its own host, and a cookie on a parent domain (leading dot) also
+    /// applies to hosts below it.
+    static func cookie(_ cookie: HTTPCookie, appliesTo host: String) -> Bool {
+        let domain = cookie.domain.lowercased()
+        guard domain.hasPrefix(".") else { return domain == host }
+        let parent = String(domain.dropFirst())
+        return host == parent || host.hasSuffix(domain)
     }
 
     private func send(_ method: String, _ path: String, json: [String: Any]? = nil) async throws(MemberError) -> (Data, Int) {

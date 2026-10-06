@@ -378,6 +378,29 @@ struct MemberClientTests {
         #expect(cookies.cookies?.map(\.name) == ["keep"])
     }
 
+    @Test func signOutClearsEverySiteCookieRegardlessOfPathOrDomainForm() async throws {
+        StubURLProtocol.reset { _ in .init(status: 204) }
+        func cookie(_ name: String, domain: String, path: String) -> HTTPCookie? {
+            HTTPCookie(properties: [.name: name, .value: "v", .domain: domain, .path: path])
+        }
+        let site = [cookie("root", domain: "example.test", path: "/"),
+                    cookie("members", domain: "example.test", path: "/members"),
+                    cookie("parent", domain: ".example.test", path: "/")]
+        let others = [cookie("sibling", domain: "other.test", path: "/"),
+                      cookie("suffix", domain: "notexample.test", path: "/"),
+                      cookie("child", domain: "sub.example.test", path: "/"),
+                      cookie("partial", domain: ".ample.test", path: "/")]
+        for c in (site + others).compactMap({ $0 }) { cookies.setCookie(c) }
+
+        try await client.signOut()
+
+        #expect(Set(cookies.cookies?.map(\.name) ?? []) == ["sibling", "suffix", "child", "partial"])
+    }
+
+    @Test func defaultBaseURLIsTheProductionSite() {
+        #expect(MemberClient.defaultBaseURL.absoluteString == "https://www.markupeditor.app")
+    }
+
     @Test func signOutClearsCookiesEvenWhenServerFails() async {
         StubURLProtocol.reset { _ in throw URLError(.timedOut) }
         if let site = HTTPCookie(properties: [.name: "ghost-members-ssr", .value: "x", .domain: "example.test", .path: "/"]) {

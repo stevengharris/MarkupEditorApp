@@ -8,7 +8,7 @@ import Foundation
 /// Where the app looks for updates, and the member cookies that unlock the feed.
 public enum UpdateFeed {
 
-    public static let productionURL = URL(string: "https://www.markupeditor.app/appcast/")!
+    public static let productionURL = URL(literal: "https://www.markupeditor.app/appcast/")
 
     /// The feed to use: production when `override` is nil, `override` when it is an
     /// http(s) URL, and nil when it is set but unusable, so a mistyped override
