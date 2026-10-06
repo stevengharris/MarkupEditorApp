@@ -57,6 +57,16 @@ struct SubscriptionSettingsSection: View {
                     }
                 }
             }
+            // The connect sheet shows its own errors while it is open.
+            if let error = model.error, !isConnecting {
+                LabeledContent("") {
+                    Text(error.localizedDescription)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                        .frame(width: 320, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
             LabeledContent("") {
                 Text("Connecting this app to your markupeditor.app account lets it install the Unlimited version and its updates.")
                     .font(.subheadline)
