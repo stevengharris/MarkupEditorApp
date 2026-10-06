@@ -14,8 +14,6 @@ public protocol MemberService: Sendable {
     func signOut() async throws(MemberError)
 }
 
-extension MemberClient: MemberService {}
-
 /// Stands in for the member site when it can't be reached by construction, such
 /// as an unusable debug override. Every call fails without sending a request.
 public struct UnavailableMemberService: MemberService {
