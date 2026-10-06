@@ -45,6 +45,8 @@ struct ConnectSubscriptionSheet: View {
                 if sentTo != nil {
                     Button("Send a New Code", action: resend)
                         .disabled(model.isWorking)
+                    Button("Use a Different Email", action: changeEmail)
+                        .disabled(model.isWorking)
                 }
                 Spacer()
                 if model.isWorking {
@@ -58,7 +60,7 @@ struct ConnectSubscriptionSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .frame(width: 480)
         .onAppear(perform: prefill)
         .onChange(of: model.state, dismissWhenConnected)
     }
@@ -81,6 +83,14 @@ struct ConnectSubscriptionSheet: View {
         guard let sentTo else { return }
         code = ""
         Task { await model.requestCode(email: sentTo) }
+    }
+
+    /// Back to the email step with the address just used, so a typo can be fixed.
+    private func changeEmail() {
+        guard let sentTo else { return }
+        model.cancel()
+        email = sentTo
+        code = ""
     }
 
     private func cancel() {
