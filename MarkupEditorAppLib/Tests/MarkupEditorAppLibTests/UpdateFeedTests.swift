@@ -24,7 +24,7 @@ struct UpdateFeedTests {
     }
 
     static func storage(_ cookies: [(name: String, domain: String)]) -> HTTPCookieStorage {
-        let storage = HTTPCookieStorage.sharedCookieStorage(forGroupContainerIdentifier: UUID().uuidString)
+        let storage = URLSessionConfiguration.ephemeral.httpCookieStorage ?? HTTPCookieStorage()
         for (name, domain) in cookies {
             if let cookie = HTTPCookie(properties: [.name: name, .value: "\(name)-value", .domain: domain, .path: "/"]) {
                 storage.setCookie(cookie)

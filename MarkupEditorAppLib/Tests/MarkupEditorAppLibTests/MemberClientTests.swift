@@ -21,6 +21,7 @@ final class StubURLProtocol: URLProtocol {
         var method: String
         var url: URL
         var body: Data?
+        var contentType: String?
         var cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy
     }
 
@@ -39,7 +40,7 @@ final class StubURLProtocol: URLProtocol {
         guard let url = request.url else { return }
         let body = request.httpBody ?? request.httpBodyStream.map(Self.readAll)
         let handler = Self.state.withLock { state -> (@Sendable (URLRequest) throws -> Reply)? in
-            state.requests.append(Recorded(method: request.httpMethod ?? "GET", url: url, body: body, cachePolicy: request.cachePolicy))
+            state.requests.append(Recorded(method: request.httpMethod ?? "GET", url: url, body: body, contentType: request.value(forHTTPHeaderField: "Content-Type"), cachePolicy: request.cachePolicy))
             return state.handler
         }
         do {
@@ -83,8 +84,7 @@ struct MemberClientTests {
     init() {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StubURLProtocol.self]
-        cookies = HTTPCookieStorage.sharedCookieStorage(forGroupContainerIdentifier: UUID().uuidString)
-        config.httpCookieStorage = cookies
+        cookies = config.httpCookieStorage ?? HTTPCookieStorage()
         client = MemberClient(baseURL: Self.base, session: URLSession(configuration: config))
     }
 
@@ -151,6 +151,28 @@ struct MemberClientTests {
         } catch {
             #expect(error == .unexpectedStatus(429))
         }
+    }
+
+    @Test func postsDeclareJSON() async throws {
+        StubURLProtocol.reset(Self.withIntegrityToken { _ in .init(status: 201, body: Self.json(["otc_ref": "ref-1"])) })
+
+        _ = try await client.requestCode(email: "a@example.test")
+
+        let sent = StubURLProtocol.requests
+        #expect(sent.map(\.contentType) == [nil, "application/json"])
+    }
+
+    @Test(arguments: [403, 500])
+    func integrityTokenFailureStopsRequestCode(status: Int) async {
+        StubURLProtocol.reset { _ in .init(status: status) }
+
+        do {
+            _ = try await client.requestCode(email: "a@example.test")
+            Issue.record("expected an error")
+        } catch {
+            #expect(error == .unexpectedStatus(status))
+        }
+        #expect(StubURLProtocol.requests.map(\.method) == ["GET"])
     }
 
     @Test func transportFailureIsTyped() async {
@@ -236,6 +258,64 @@ struct MemberClientTests {
         #expect(!StubURLProtocol.requests.contains { $0.url.host == "elsewhere.test" })
     }
 
+    @Test func verifyRefusesHTTPRedirectOnTheSameHost() async {
+        StubURLProtocol.reset(Self.withIntegrityToken { request in
+            request.url?.path(percentEncoded: false) == "/members/api/verify-otc"
+                ? .init(status: 200, body: Self.json(["redirectUrl": "http://example.test/members/?token=abc"]))
+                : .init(status: 200)
+        })
+
+        do {
+            try await client.verify(code: "123456", ref: OTCRef("ref-1"))
+            Issue.record("expected an error")
+        } catch {
+            guard case .undecodableResponse = error else {
+                Issue.record("expected undecodableResponse, got \(error)")
+                return
+            }
+        }
+        #expect(!StubURLProtocol.requests.contains { $0.url.scheme == "http" })
+    }
+
+    @Test(arguments: [429, 500, 503])
+    func verifyServerErrorIsUnexpectedStatus(status: Int) async {
+        StubURLProtocol.reset(Self.withIntegrityToken { _ in .init(status: status) })
+
+        do {
+            try await client.verify(code: "123456", ref: OTCRef("ref-1"))
+            Issue.record("expected an error")
+        } catch {
+            #expect(error == .unexpectedStatus(status))
+        }
+    }
+
+    @Test func verifyIntegrityTokenFailureSendsNothingElse() async {
+        StubURLProtocol.reset { _ in .init(status: 500) }
+
+        do {
+            try await client.verify(code: "123456", ref: OTCRef("ref-1"))
+            Issue.record("expected an error")
+        } catch {
+            #expect(error == .unexpectedStatus(500))
+        }
+        #expect(StubURLProtocol.requests.map(\.method) == ["GET"])
+    }
+
+    @Test func verifySignInFailureIsUnexpectedStatus() async {
+        StubURLProtocol.reset(Self.withIntegrityToken { request in
+            request.url?.path(percentEncoded: false) == "/members/api/verify-otc"
+                ? .init(status: 200, body: Self.json(["redirectUrl": "https://example.test/members/?token=abc"]))
+                : .init(status: 500)
+        })
+
+        do {
+            try await client.verify(code: "123456", ref: OTCRef("ref-1"))
+            Issue.record("expected an error")
+        } catch {
+            #expect(error == .unexpectedStatus(500))
+        }
+    }
+
     // MARK: currentMember
 
     @Test(arguments: [("paid", Member.Status.paid, true), ("comped", .comped, true), ("gift", .gift, true), ("free", .free, false)])
@@ -249,6 +329,7 @@ struct MemberClientTests {
         #expect(member == Member(email: "a@example.test", status: status))
         #expect(member?.isPaid == isPaid)
         #expect(StubURLProtocol.requests.map { $0.url.path(percentEncoded: false) } == ["/members/api/member/"])
+        #expect(StubURLProtocol.requests.map(\.method) == ["GET"])
     }
 
     @Test func currentMemberNoContentIsSignedOut() async throws {
@@ -311,6 +392,21 @@ struct MemberClientTests {
                 Issue.record("expected transportFailure, got \(error)")
                 return
             }
+        }
+        #expect(cookies.cookies(for: Self.base)?.isEmpty ?? true)
+    }
+
+    @Test func signOutServerErrorIsUnexpectedStatusAndClearsCookies() async {
+        StubURLProtocol.reset { _ in .init(status: 500) }
+        if let site = HTTPCookie(properties: [.name: "ghost-members-ssr", .value: "x", .domain: "example.test", .path: "/"]) {
+            cookies.setCookie(site)
+        }
+
+        do {
+            try await client.signOut()
+            Issue.record("expected an error")
+        } catch {
+            #expect(error == .unexpectedStatus(500))
         }
         #expect(cookies.cookies(for: Self.base)?.isEmpty ?? true)
     }

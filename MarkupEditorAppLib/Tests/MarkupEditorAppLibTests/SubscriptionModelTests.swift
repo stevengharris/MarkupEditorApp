@@ -55,7 +55,10 @@ final class FakeMemberService: MemberService {
         await runHook("verify")
         try next("verify:\(code):\(ref.value)", \.verify)
     }
-    func currentMember() async throws(MemberError) -> Member? { try next("currentMember", \.currentMember) }
+    func currentMember() async throws(MemberError) -> Member? {
+        await runHook("currentMember")
+        return try next("currentMember", \.currentMember)
+    }
     func signOut() async throws(MemberError) { try next("signOut", \.signOut) }
 }
 
@@ -74,7 +77,7 @@ struct SubscriptionModelTests {
 
     init() {
         let suite = "SubscriptionModelTests-\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: suite) ?? .standard
+        defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
     }
 
@@ -244,6 +247,32 @@ struct SubscriptionModelTests {
         #expect(defaults.string(forKey: SubscriptionModel.lastEmailKey) == nil)
         #expect(!paidChanges.contains(true))
         #expect(defaultsApplied == 0)
+    }
+
+    @Test func cancelDuringVerifyMemberLookupDoesNotConnect() async {
+        let service = FakeMemberService(.init(requestCode: [.success(OTCRef("ref-1"))], verify: [.success(())], currentMember: [.success(Self.paid)]))
+        let model = model(service)
+        await model.requestCode(email: "a@example.test")
+        service.during("currentMember") { await model.cancel() }
+
+        await model.verify(code: "123456")
+
+        #expect(model.state == .disconnected)
+        #expect(model.error == nil)
+        #expect(defaults.string(forKey: SubscriptionModel.lastEmailKey) == nil)
+        #expect(!paidChanges.contains(true))
+        #expect(defaultsApplied == 0)
+    }
+
+    @Test func cancelDuringRequestCodeThenFailureLeavesNoError() async {
+        let service = FakeMemberService(.init(requestCode: [.failure(.transportFailure("offline"))]))
+        let model = model(service)
+        service.during("requestCode") { await model.cancel() }
+
+        await model.requestCode(email: "a@example.test")
+
+        #expect(model.error == nil)
+        #expect(model.state == .unknown)
     }
 
     @Test func cancelDuringRequestCodeDoesNotAwaitCode() async {

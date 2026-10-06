@@ -3,6 +3,7 @@
 //  MarkupEditorAppTests
 
 import Testing
+import AppKit
 import Foundation
 @testable import MarkupEditorApp
 
@@ -29,5 +30,20 @@ import Foundation
         defer { AppDelegate.pendingFinderURL = nil }
         #expect(AppDelegate.consumePendingURL() == url)
         #expect(AppDelegate.consumePendingURL() == nil)
+    }
+}
+
+// .serialized prevents races on the shared static AppDelegate.upgradeOnly
+@MainActor @Suite(.serialized) struct AppDelegateReopenTests {
+
+    @Test func testReopenIsHandledByDefault() {
+        AppDelegate.upgradeOnly = false
+        #expect(AppDelegate().applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: false))
+    }
+
+    @Test func testReopenIsSuppressedWhenUpgradeOnly() {
+        AppDelegate.upgradeOnly = true
+        defer { AppDelegate.upgradeOnly = false }
+        #expect(!AppDelegate().applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: false))
     }
 }
