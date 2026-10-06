@@ -72,15 +72,6 @@ struct UpdateGateTests {
         #expect(!r9)
     }
 
-    @Test func repeatingTheConnectedStateDoesNotReplay() {
-        var gate = UpdateGate()
-        _ = gate.setCanCheck(true)
-        _ = gate.refusal(for: .background, feed: nil)
-
-        let r10 = gate.setCanCheck(true)
-        #expect(!r10)
-    }
-
     @Test func invalidFeedRefusalIsNotRemembered() {
         var gate = UpdateGate()
         _ = gate.setCanCheck(true)

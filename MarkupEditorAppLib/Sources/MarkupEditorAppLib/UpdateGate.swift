@@ -28,9 +28,8 @@ public struct UpdateGate {
     /// Records the paid-connected state. Returns true when a background check
     /// refused earlier should run now.
     public mutating func setCanCheck(_ newValue: Bool) -> Bool {
-        let wasChecking = canCheck
         canCheck = newValue
-        guard newValue, !wasChecking, refusedBackgroundCheck else { return false }
+        guard newValue, refusedBackgroundCheck else { return false }
         refusedBackgroundCheck = false
         return true
     }
