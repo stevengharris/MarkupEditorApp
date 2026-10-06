@@ -63,8 +63,9 @@ final class FakeMemberService: MemberService {
 }
 
 @MainActor
-struct SubscriptionModelTests {
+final class SubscriptionModelTests {
 
+    let suite = "SubscriptionModelTests-\(UUID().uuidString)"
     let defaults: UserDefaults
     var paidChanges: [Bool] { recorder.paid }
     var defaultsApplied: Int { recorder.defaultsApplied }
@@ -76,9 +77,16 @@ struct SubscriptionModelTests {
     let recorder = Recorder()
 
     init() {
-        let suite = "SubscriptionModelTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
+    }
+
+    /// removePersistentDomain empties the suite but leaves its plist, so delete that too.
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suite)
+        let plist = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appending(path: "Preferences/\(suite).plist")
+        try? FileManager.default.removeItem(at: plist)
     }
 
     func model(_ service: FakeMemberService) -> SubscriptionModel {

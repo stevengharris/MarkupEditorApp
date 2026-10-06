@@ -23,6 +23,16 @@ struct UpdateFeedTests {
         #expect(UpdateFeed.url(override: override) == nil)
     }
 
+    @Test func nonStringOverrideValueDisablesTheFeed() {
+        #expect(UpdateFeed.url(overrideValue: ["https://example.test/appcast.xml"]) == nil)
+        #expect(UpdateFeed.url(overrideValue: 42) == nil)
+    }
+
+    @Test func stringAndAbsentOverrideValuesBehaveAsStrings() {
+        #expect(UpdateFeed.url(overrideValue: nil) == UpdateFeed.productionURL)
+        #expect(UpdateFeed.url(overrideValue: "http://127.0.0.1:8321/appcast.xml")?.absoluteString == "http://127.0.0.1:8321/appcast.xml")
+    }
+
     static func storage(_ cookies: [(name: String, domain: String)]) -> HTTPCookieStorage {
         let storage = URLSessionConfiguration.ephemeral.httpCookieStorage ?? HTTPCookieStorage()
         for (name, domain) in cookies {

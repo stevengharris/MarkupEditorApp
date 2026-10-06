@@ -23,6 +23,13 @@ public enum UpdateFeed {
         return url
     }
 
+    /// As `url(override:)` for a raw defaults value: any non-nil value is a set
+    /// override, and one that isn't a string is unusable.
+    public static func url(overrideValue: Any?) -> URL? {
+        guard let overrideValue else { return productionURL }
+        return url(override: overrideValue as? String ?? "")
+    }
+
     /// Request headers carrying the stored cookies for `url`'s site, or none when
     /// there are no such cookies.
     public static func headers(for url: URL, cookies storage: HTTPCookieStorage) -> [String: String] {

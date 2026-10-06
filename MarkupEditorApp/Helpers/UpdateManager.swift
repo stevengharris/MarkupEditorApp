@@ -51,7 +51,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     /// Nil when a debug override is set but unusable; checks are then refused.
     var feedURL: URL? {
 #if DEBUG
-        UpdateFeed.url(override: UserDefaults.standard.string(forKey: Self.feedURLOverrideKey))
+        UpdateFeed.url(overrideValue: UserDefaults.standard.object(forKey: Self.feedURLOverrideKey))
 #else
         UpdateFeed.productionURL
 #endif
