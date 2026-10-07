@@ -25,6 +25,9 @@ extension SubscriptionModel {
             UpdateManager.shared.automaticallyDownloads = false
         })
 
+    /// Re-confirms the member session when the network returns after the site was unreachable.
+    static let reconnectRefresher = ReconnectRefresher(model: shared, connectivity: NetworkConnectivity.updates())
+
     private static var memberService: MemberService {
 #if DEBUG
         guard let url = URLOverride.resolve(UserDefaults.standard.object(forKey: siteURLOverrideKey), default: MemberClient.defaultBaseURL) else {
