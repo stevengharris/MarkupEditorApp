@@ -363,19 +363,19 @@ struct MarkupDocumentView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        
-        // If we are opening a .md file that has local image sources in it, then we need
-        // explicit permission to open the parent directory to access those images.
+        await openDocument(at: url)
+    }
+
+    /// Ensures a stored parent-directory bookmark exists for `url` when it will be needed to read
+    /// local images. NSOpenPanel's powerbox grant implicitly extends to the parent directory for
+    /// web-content UTIs (public.html), but not for public.plain-text (.md), and a Finder open
+    /// grants only the file. For a .md with local images and no stored bookmark, ask for the
+    /// containing folder explicitly. Must run while access to `url` is active.
+    private func grantParentAccessIfNeeded(for url: URL) {
         if url.pathExtension.lowercased() == "md",
            let content = try? String(contentsOf: url, encoding: .utf8),
            !document.localImageSrcsInMarkdown(content).isEmpty,
            document.resolveParentDirBookmark(for: url) == nil {
-            // NSOpenPanel's powerbox grant implicitly extends to the parent directory for
-            // web-content UTIs (public.html), but NOT for public.plain-text (.md).
-            // Confirmed empirically: FileManager.contentsOfDirectory on the parent succeeds
-            // synchronously after selecting .html but fails with a sandbox denial after .md.
-            // Request explicit directory access via a second panel so images can be cached.
-            // Skipped when a bookmark for this directory is already stored from a prior open.
             let dirPanel = NSOpenPanel()
             dirPanel.canChooseFiles = false
             dirPanel.canChooseDirectories = true
@@ -388,7 +388,6 @@ struct MarkupDocumentView: View {
         } else {
             document.storeParentDirBookmark(for: url)
         }
-        await openDocument(at: url)
     }
     
     /// Toggle the source view. Trigger a content refresh of the new view that opens.
@@ -627,7 +626,8 @@ struct MarkupDocumentView: View {
         
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        
+
+        grantParentAccessIfNeeded(for: url)
         editLog.info("Opening \(url.path())")
         
         // Open the specific kind of document
