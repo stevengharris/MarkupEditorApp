@@ -68,15 +68,19 @@ import Foundation
 
     private final class RecordingDelegate: NSObject, NSWindowDelegate {
         var resizes = 0
+        var closeQueries = 0
         func windowDidResize(_ notification: Notification) { resizes += 1 }
+        func windowShouldClose(_ sender: NSWindow) -> Bool { closeQueries += 1; return true }
     }
 
     @Test func testWindowShouldCloseUsesTheGuardClosure() {
         let window = NSWindow()
+        let wrapped = RecordingDelegate()
         var asked: NSWindow?
-        let closeGuard = WindowCloseGuard(wrapping: RecordingDelegate()) { asked = $0; return false }
+        let closeGuard = WindowCloseGuard(wrapping: wrapped) { asked = $0; return false }
         #expect(closeGuard.windowShouldClose(window) == false)
         #expect(asked === window)
+        #expect(wrapped.closeQueries == 0)
     }
 
     @Test func testOtherDelegateMessagesReachTheWrappedDelegate() {
@@ -87,8 +91,12 @@ import Foundation
         #expect(wrapped.resizes == 1)
     }
 
-    @Test func testNothingIsForwardedWithoutAWrappedDelegate() {
-        let closeGuard = WindowCloseGuard(wrapping: nil) { _ in true }
-        #expect(!closeGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
+    @Test func testAWindowNotifiesTheWrappedDelegateThroughTheGuard() {
+        let window = NSWindow()
+        let wrapped = RecordingDelegate()
+        let closeGuard = WindowCloseGuard(wrapping: wrapped) { _ in true }
+        window.delegate = closeGuard
+        NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
+        #expect(wrapped.resizes == 1)
     }
 }
