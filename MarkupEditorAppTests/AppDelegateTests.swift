@@ -51,7 +51,7 @@ import Foundation
 @MainActor struct SettingsDismissalTests {
 
     @Test func testClosingTheDocumentWindowDismissesSettings() {
-        #expect(MarkupDocumentView.dismissesSettings(whenClosingWindow: "main"))
+        #expect(MarkupDocumentView.dismissesSettings(whenClosingWindow: MarkupEditorApp.mainWindowID))
     }
 
     @Test(arguments: ["SUStatus", "plugin-gallery", "com_apple_SwiftUI_Settings_window", "welcome", "upgrade", ""])

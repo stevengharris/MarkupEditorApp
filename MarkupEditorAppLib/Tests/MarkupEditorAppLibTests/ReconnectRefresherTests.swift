@@ -77,10 +77,60 @@ struct ReconnectRefresherTests {
         let service = FakeMemberService()
         let model = SubscriptionModel(service: service, defaults: defaults, paidDidChange: { _ in }, applyFirstPaidDefaults: {})
         await model.refresh()
+        // A stored email makes a refresh possible, so only the state check keeps it from running.
+        defaults.set("a@example.test", forKey: SubscriptionModel.lastEmailKey)
 
         await deliver([true], to: model)
 
         #expect(service.calls.isEmpty)
         #expect(model.state == .disconnected)
+    }
+
+    @Test func anExpiredModelMakesNoRequest() async {
+        let service = FakeMemberService(.init(currentMember: [.success(nil)]))
+        defaults.set("a@example.test", forKey: SubscriptionModel.lastEmailKey)
+        let model = SubscriptionModel(service: service, defaults: defaults, paidDidChange: { _ in }, applyFirstPaidDefaults: {})
+        await model.refresh()
+        #expect(model.state == .expired(email: "a@example.test"))
+
+        await deliver([true], to: model)
+
+        #expect(service.calls == ["currentMember"])
+    }
+
+    /// Runs a refresh that is still in flight when connectivity returns, then waits for the refresher.
+    func refreshWhileConnectivityReturns(_ model: SubscriptionModel, _ service: FakeMemberService) async {
+        let (stream, continuation) = AsyncStream.makeStream(of: Bool.self)
+        let refresher = ReconnectRefresher(model: model, connectivity: stream)
+        service.during("currentMember") {
+            continuation.yield(true)
+            continuation.finish()
+            // Lets the refresher see the update while the request is still in flight.
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        await model.refresh()
+        await refresher.finished()
+    }
+
+    @Test func aSuccessfulRefreshInFlightIsNotRepeatedWhenConnectivityReturns() async {
+        let offline = Result<Member?, MemberError>.failure(.transportFailure("offline"))
+        let service = FakeMemberService(.init(currentMember: [offline, .success(Self.paid)]))
+        let model = await unavailableModel(service)
+
+        await refreshWhileConnectivityReturns(model, service)
+
+        #expect(service.calls == ["currentMember", "currentMember"])
+        #expect(model.state == .connected(Self.paid))
+    }
+
+    @Test func connectivityReturningDuringAFailingRefreshRetriesOnceItEnds() async {
+        let offline = Result<Member?, MemberError>.failure(.transportFailure("offline"))
+        let service = FakeMemberService(.init(currentMember: [offline, offline, .success(Self.paid)]))
+        let model = await unavailableModel(service)
+
+        await refreshWhileConnectivityReturns(model, service)
+
+        #expect(service.calls == ["currentMember", "currentMember", "currentMember"])
+        #expect(model.state == .connected(Self.paid))
     }
 }

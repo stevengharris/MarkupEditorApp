@@ -100,7 +100,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Task { @MainActor [self] in
             NSApplication.shared.mainMenu = buildMenu()
             populateExportMenu()
-            if let window = NSApplication.shared.mainWindow {
+            let documentWindow = NSApp.windows.first { $0.identifier?.rawValue == MarkupEditorApp.mainWindowID }
+            if let window = documentWindow ?? NSApplication.shared.mainWindow, !(window.delegate is WindowCloseGuard) {
                 let guardDelegate = WindowCloseGuard(wrapping: window.delegate) { [weak self] in
                     self?.windowShouldClose($0) ?? true
                 }
@@ -698,12 +699,13 @@ extension AppDelegate: NSMenuDelegate {
     }
 }
 
-
 /// Routes `windowShouldClose` to `shouldClose` and forwards every other delegate message to the
 /// delegate SwiftUI installed. Replacing that delegate outright makes SwiftUI treat the window as
-/// unmatched and close it when a file is opened from Finder.
+/// unmatched and close it when a file is opened from Finder. SwiftUI's own `windowShouldClose` is
+/// deliberately not consulted. Whether SwiftUI accepts a wrapping delegate was established by running
+/// a warm Finder open, so keep that check when changing this.
 final class WindowCloseGuard: NSObject, NSWindowDelegate {
-    // Immutable after init; read only by AppKit message forwarding, which the nonisolated overrides below require.
+    // Immutable after init and read only by AppKit message forwarding, which the nonisolated overrides require.
     private nonisolated(unsafe) let wrapped: NSWindowDelegate?
     private let shouldClose: (NSWindow) -> Bool
 

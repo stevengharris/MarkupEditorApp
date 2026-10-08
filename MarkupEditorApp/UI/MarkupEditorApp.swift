@@ -15,6 +15,8 @@ struct MarkupEditorApp: App {
     static let firstLaunchDateKey = "firstLaunchDateKey"
     static let hasSetupPluginsKey = "hasSetupPluginsKey"
     static let hasSeenTourKey = "hasSeenTourKey"
+    /// Scene id of the document window, which is also its `NSWindow` identifier.
+    static let mainWindowID = "main"
     
     static var versionString: String { BuildVariant.versionString }
     
@@ -31,7 +33,7 @@ struct MarkupEditorApp: App {
 #endif
     
     var body: some Scene {
-        Window("MarkupEditor", id: "main") {
+        Window("MarkupEditor", id: Self.mainWindowID) {
 #if EVAL_VERSION
             if upgradeOnly {
                 ExpiredDocumentRedirect()
@@ -163,7 +165,7 @@ private struct ExpiredDocumentRedirect: View {
             .frame(width: 1, height: 1)
             .task {
                 openWindow(id: "upgrade")
-                dismissWindow(id: "main")
+                dismissWindow(id: MarkupEditorApp.mainWindowID)
             }
     }
 }

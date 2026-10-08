@@ -301,7 +301,7 @@ struct MarkupDocumentView: View {
     /// Settings closes with the document window. Other windows closing, such as Sparkle's dialogs,
     /// the Gallery, or system text-input windows, must leave it open.
     static func dismissesSettings(whenClosingWindow identifier: String?) -> Bool {
-        identifier == "main"
+        identifier == MarkupEditorApp.mainWindowID
     }
 
     /// Handle the notifications we get when a menu item is picked. This style avoids having lots of
