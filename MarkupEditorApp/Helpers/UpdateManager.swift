@@ -46,7 +46,10 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
         set { withMutation(keyPath: \.automaticallyDownloads) { updater?.automaticallyDownloadsUpdates = newValue } }
     }
 
-    var lastCheckDate: Date? { updater?.lastUpdateCheckDate }
+    var lastCheckDate: Date? {
+        access(keyPath: \.lastCheckDate)
+        return updater?.lastUpdateCheckDate
+    }
 
     /// Nil when a debug override is set but unusable; checks are then refused.
     var feedURL: URL? {
@@ -88,6 +91,11 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
     func feedURLString(for updater: SPUUpdater) -> String? {
         feedURL?.absoluteString
+    }
+
+    /// Sparkle records the check time itself, so observers must be told when a check ends.
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+        withMutation(keyPath: \.lastCheckDate) {}
     }
 
     func updater(_ updater: SPUUpdater, willDownloadUpdate item: SUAppcastItem, with request: NSMutableURLRequest) {
