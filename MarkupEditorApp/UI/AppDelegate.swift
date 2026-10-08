@@ -30,6 +30,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// so handleQuit knows to call NSApp.reply instead of NSApp.terminate.
     static var isRespondingToTerminateQuery = false
 
+    /// Retained here because NSWindow holds its delegate weakly.
+    private var windowCloseGuard: WindowCloseGuard?
+
     /// Submenu under File > Export, populated by populateExportMenu(_:).
     var exportSubmenu = NSMenu(title: "Export")
 
@@ -97,7 +100,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Task { @MainActor [self] in
             NSApplication.shared.mainMenu = buildMenu()
             populateExportMenu()
-            NSApplication.shared.mainWindow?.delegate = self
+            if let window = NSApplication.shared.mainWindow {
+                let guardDelegate = WindowCloseGuard(wrapping: window.delegate) { [weak self] in
+                    self?.windowShouldClose($0) ?? true
+                }
+                windowCloseGuard = guardDelegate
+                window.delegate = guardDelegate
+            }
             // SwiftUI's internal AppDelegate runs makeMainMenu whenever the scene
             // graph changes phase (background ↔ active, environment changes, etc.).
             // It strips every item from NSApplication.shared.mainMenu and replaces
@@ -686,5 +695,33 @@ extension AppDelegate: NSMenuDelegate {
         )
         clearItem.target = self
         menu.addItem(clearItem)
+    }
+}
+
+
+/// Routes `windowShouldClose` to `shouldClose` and forwards every other delegate message to the
+/// delegate SwiftUI installed. Replacing that delegate outright makes SwiftUI treat the window as
+/// unmatched and close it when a file is opened from Finder.
+final class WindowCloseGuard: NSObject, NSWindowDelegate {
+    // Immutable after init; read only by AppKit message forwarding, which the nonisolated overrides below require.
+    private nonisolated(unsafe) let wrapped: NSWindowDelegate?
+    private let shouldClose: (NSWindow) -> Bool
+
+    init(wrapping wrapped: NSWindowDelegate?, shouldClose: @escaping (NSWindow) -> Bool) {
+        self.wrapped = wrapped
+        self.shouldClose = shouldClose
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        shouldClose(sender)
+    }
+
+    override nonisolated func responds(to aSelector: Selector!) -> Bool {
+        super.responds(to: aSelector) || (wrapped as? NSObject)?.responds(to: aSelector) == true
+    }
+
+    override nonisolated func forwardingTarget(for aSelector: Selector!) -> Any? {
+        if let wrapped = wrapped as? NSObject, wrapped.responds(to: aSelector) { return wrapped }
+        return super.forwardingTarget(for: aSelector)
     }
 }

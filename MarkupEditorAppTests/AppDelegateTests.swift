@@ -63,3 +63,32 @@ import Foundation
         #expect(!MarkupDocumentView.dismissesSettings(whenClosingWindow: nil))
     }
 }
+
+@MainActor struct WindowCloseGuardTests {
+
+    private final class RecordingDelegate: NSObject, NSWindowDelegate {
+        var resizes = 0
+        func windowDidResize(_ notification: Notification) { resizes += 1 }
+    }
+
+    @Test func testWindowShouldCloseUsesTheGuardClosure() {
+        let window = NSWindow()
+        var asked: NSWindow?
+        let closeGuard = WindowCloseGuard(wrapping: RecordingDelegate()) { asked = $0; return false }
+        #expect(closeGuard.windowShouldClose(window) == false)
+        #expect(asked === window)
+    }
+
+    @Test func testOtherDelegateMessagesReachTheWrappedDelegate() {
+        let wrapped = RecordingDelegate()
+        let closeGuard = WindowCloseGuard(wrapping: wrapped) { _ in true }
+        #expect(closeGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
+        _ = closeGuard.perform(#selector(NSWindowDelegate.windowDidResize(_:)), with: Notification(name: NSWindow.didResizeNotification))
+        #expect(wrapped.resizes == 1)
+    }
+
+    @Test func testNothingIsForwardedWithoutAWrappedDelegate() {
+        let closeGuard = WindowCloseGuard(wrapping: nil) { _ in true }
+        #expect(!closeGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
+    }
+}
