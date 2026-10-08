@@ -1,7 +1,7 @@
 <p align="center">
     <img src="https://github.com/stevengharris/MarkupEditor/actions/workflows/swift.yml/badge.svg">
     <img src="https://img.shields.io/badge/Swift-5.7+-blue.svg">
-    <img src="https://img.shields.io/badge/MacOS-14+-blue" alt="MacOS 14+">
+    <img src="https://img.shields.io/badge/macOS-14+-blue" alt="macOS 14+">
     <a href="https://mastodon.social/@stevengharris">
         <img src="https://img.shields.io/badge/Contact-@stevengharris-lightgrey.svg?style=flat" alt="Mastodon: @stevengharris">
     </a>

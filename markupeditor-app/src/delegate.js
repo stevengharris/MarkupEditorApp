@@ -8,7 +8,7 @@
 import { MU } from 'markupeditor';
 
 /**
- * A MarkupDelegate that receives callbacks that trigger native MacOS dialogs for insert operations.
+ * A MarkupDelegate that receives callbacks that trigger native macOS dialogs for insert operations.
  */
 export class MarkupEditorDelegate {
     

@@ -84,7 +84,7 @@ struct ToolbarSettingsView: View {
                     }
                     .padding(.top, -8)
                     .scrollDisabled(true)
-                    .frame(minWidth: 180, minHeight: 160, alignment: .top)   // Needed for visibility on MacOS
+                    .frame(minWidth: 180, minHeight: 160, alignment: .top)   // Needed for visibility on macOS
                     .fixedSize()
                 }
                 .frame(maxHeight: .infinity, alignment: .top)

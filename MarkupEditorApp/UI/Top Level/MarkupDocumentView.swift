@@ -920,7 +920,7 @@ extension MarkupDocumentView: MarkupDelegate {
         }
     }
 
-    /// In the MacOS version, which uses the markupeditor-base toolbar, pressing the Select... button in the insert
+    /// In the macOS version, which uses the markupeditor-base toolbar, pressing the Select... button in the insert
     /// image dialog calls back to the messageHandler (i.e., the MarkupCoordinator) with `selectImage`, which
     /// in turn invokes the delegate's `markupSelectImage` method. We trigger the dialog by toggling the
     /// value of   selectImage .

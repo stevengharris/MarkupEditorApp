@@ -8,7 +8,7 @@ The MarkupEditorApp’s core WYSIWYG editing capabilities are provided by markup
 
 * **HTML-Markdown round-tripping**. Import of Markdown into HTML, export of HTML into Markdown.
 
-* **Custom MarkupDelegate**. To support MacOS-native insert dialogs, the project provides a custom delegate and registers it to receive callbacks. The delegate name is then passed to the MarkupEditorView when it is created in the MarkupDocumentView.
+* **Custom MarkupDelegate**. To support macOS-native insert dialogs, the project provides a custom delegate and registers it to receive callbacks. The delegate name is then passed to the MarkupEditorView when it is created in the MarkupDocumentView.
 
 * **ID Injection**. When Markdown includes internal links (e.g., `[Scope](#scope)`), HTML headers get an `id` assigned to them so that links work while editing and can be exported.
 
