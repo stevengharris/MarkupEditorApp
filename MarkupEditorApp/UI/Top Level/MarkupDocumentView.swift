@@ -366,30 +366,34 @@ struct MarkupDocumentView: View {
         await openDocument(at: url)
     }
 
-    /// Ensures a stored parent-directory bookmark exists for `url` when it will be needed to read
-    /// local images. NSOpenPanel's powerbox grant implicitly extends to the parent directory for
-    /// web-content UTIs (public.html), but not for public.plain-text (.md), and a Finder open
-    /// grants only the file. For a .md with local images and no stored bookmark, ask for the
-    /// containing folder explicitly. Must run while access to `url` is active.
+    /// Ensures a stored parent-directory bookmark exists for `url` when it has local images to read.
+    /// A Finder open grants only the file. The NSOpenPanel grant also covers the parent for HTML
+    /// (public.html) but not for Markdown, so HTML first tries a silent bookmark and Markdown always
+    /// asks. When no usable bookmark results, ask for the containing folder. Must run while access
+    /// to `url` is active.
     private func grantParentAccessIfNeeded(for url: URL) {
-        if url.pathExtension.lowercased() == "md",
-           let content = try? String(contentsOf: url, encoding: .utf8),
-           !document.localImageSrcsInMarkdown(content).isEmpty,
-           document.resolveParentDirBookmark(for: url) == nil {
-            let dirPanel = NSOpenPanel()
-            dirPanel.canChooseFiles = false
-            dirPanel.canChooseDirectories = true
-            dirPanel.directoryURL = url.deletingLastPathComponent()
-            dirPanel.prompt = "Grant Access"
-            dirPanel.message = "This document uses local images. Grant read access to the containing folder to display them."
-            if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
-                document.storeParentDirBookmark(for: url, using: dirURL)
-            }
-        } else {
+        guard let docType = DocumentType.for(url: url),
+              let content = try? String(contentsOf: url, encoding: .utf8) else { return }
+        let hasLocalImages = switch docType {
+        case .md: !document.localImageSrcsInMarkdown(content).isEmpty
+        case .html: !document.localImageSrcs(in: content).isEmpty
+        }
+        guard hasLocalImages, document.resolveParentDirBookmark(for: url) == nil else { return }
+        if docType == .html {
             document.storeParentDirBookmark(for: url)
+            if document.resolveParentDirBookmark(for: url) != nil { return }
+        }
+        let dirPanel = NSOpenPanel()
+        dirPanel.canChooseFiles = false
+        dirPanel.canChooseDirectories = true
+        dirPanel.directoryURL = url.deletingLastPathComponent()
+        dirPanel.prompt = "Grant Access"
+        dirPanel.message = "This document uses local images. Grant read access to the containing folder to display them."
+        if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
+            document.storeParentDirBookmark(for: url, using: dirURL)
         }
     }
-    
+
     /// Toggle the source view. Trigger a content refresh of the new view that opens.
     ///
     /// Both directions capture a selection-preservation target BEFORE the toggle and

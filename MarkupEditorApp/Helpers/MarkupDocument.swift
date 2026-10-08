@@ -52,9 +52,7 @@ internal import UniformTypeIdentifiers
 
     /// Reads an .html file: copies referenced local images into the webview sandbox, then updates
     /// model state. Relies on a stored security-scoped bookmark for the parent directory, which
-    /// handleOpen stores using the NSOpenPanel powerbox grant. For .html files this works without a
-    /// second panel because NSOpenPanel's powerbox grant implicitly extends to the parent directory
-    /// for web-content UTIs (public.html). Throws parentSecurityScope if no bookmark is found.
+    /// openDocument(at:) ensures before calling. Throws parentSecurityScope if no bookmark is found.
     func openHtml(at url: URL, baseUrl: URL) throws -> String {
         let html = try String(contentsOf: url, encoding: .utf8)
         let srcs = localImageSrcs(in: html)
@@ -75,10 +73,8 @@ internal import UniformTypeIdentifiers
 
     /// Opens an .md file given its pre-converted `markdown` and parsed `metadata`. Copies referenced
     /// local images into the webview sandbox using a stored security-scoped bookmark for the parent
-    /// directory. Unlike .html, .md files (UTI: public.plain-text) do NOT receive NSOpenPanel's
-    /// implicit parent-directory powerbox grant, so handleOpen must explicitly ask the user to grant
-    /// directory access via a second panel and store the resulting bookmark before calling this.
-    /// Throws parentSecurityScope if no bookmark is found.
+    /// directory, which openDocument(at:) ensures before calling. Throws parentSecurityScope if no
+    /// bookmark is found.
     func openMd(at url: URL, baseUrl: URL, markdown: String, metadata: [MetadataTuple]) throws {
         let srcs = localImageSrcsInMarkdown(markdown)
         if !srcs.isEmpty {
@@ -249,13 +245,9 @@ internal import UniformTypeIdentifiers
     // MARK: - Security-scoped bookmarks
 
     /// Stores a security-scoped bookmark for the parent directory in UserDefaults, keyed by the
-    /// directory path. Must be called while the granting NSOpenPanel is on the call stack.
-    ///
-    /// Pass `dirURL` for .md files: UTI public.plain-text does NOT receive the implicit
-    /// parent-directory powerbox grant that web-content UTIs (public.html) get
-    /// from NSOpenPanel, so a second panel must explicitly grant directory access and its URL is
-    /// passed here. When `dirURL` is nil the parent is derived from `fileURL`, which works for
-    /// .html because its powerbox grant already extends to the parent directory.
+    /// directory path. Pass `dirURL` when the user granted the directory through a panel. When it is
+    /// nil the parent is derived from `fileURL`, which only yields a bookmark if the app already has
+    /// access to that directory.
     ///
     /// Silently does nothing if a bookmark cannot be created.
     func storeParentDirBookmark(for fileURL: URL, using dirURL: URL? = nil) {
