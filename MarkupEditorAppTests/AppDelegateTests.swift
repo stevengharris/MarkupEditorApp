@@ -47,3 +47,19 @@ import Foundation
         #expect(!AppDelegate().applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: false))
     }
 }
+
+@MainActor struct SettingsDismissalTests {
+
+    @Test func testClosingTheDocumentWindowDismissesSettings() {
+        #expect(MarkupDocumentView.dismissesSettings(whenClosingWindow: "main"))
+    }
+
+    @Test(arguments: ["SUStatus", "plugin-gallery", "com_apple_SwiftUI_Settings_window", "welcome", "upgrade", ""])
+    func testClosingAnotherWindowLeavesSettingsOpen(identifier: String) {
+        #expect(!MarkupDocumentView.dismissesSettings(whenClosingWindow: identifier))
+    }
+
+    @Test func testClosingAWindowWithoutAnIdentifierLeavesSettingsOpen() {
+        #expect(!MarkupDocumentView.dismissesSettings(whenClosingWindow: nil))
+    }
+}

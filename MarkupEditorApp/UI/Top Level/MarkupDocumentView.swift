@@ -298,6 +298,12 @@ struct MarkupDocumentView: View {
         }
     }
 
+    /// Settings closes with the document window. Other windows closing, such as Sparkle's dialogs,
+    /// the Gallery, or system text-input windows, must leave it open.
+    static func dismissesSettings(whenClosingWindow identifier: String?) -> Bool {
+        identifier == "main"
+    }
+
     /// Handle the notifications we get when a menu item is picked. This style avoids having lots of
     /// .onChange modifiers and makes it easier to see in one place.
     private func handleMenuNotification(_ notification: Notification) async {
@@ -323,6 +329,8 @@ struct MarkupDocumentView: View {
         case .menuQuitApplication:
             await handleQuit()
         case NSWindow.willCloseNotification:
+            let closing = (notification.object as? NSWindow)?.identifier?.rawValue
+            guard Self.dismissesSettings(whenClosingWindow: closing) else { return }
             NotificationCenter.default.post(name: .dismissSettings, object: nil)
         default:
             break
