@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "MarkupEditorAppLib",
     platforms: [
-        .macOS(.v15)
+        .macOS("26.3")
     ],
     products: [
         .library(
