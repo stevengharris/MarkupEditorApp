@@ -7,7 +7,7 @@ import AppKit
 import MarkupEditorAppLib
 import SwiftUI
 
-/// Turns assistant access on, lists the programs the user has allowed, and shows how to register
+/// Turns assistant access on, lists the programs the user has allowed or blocked, and shows how to register
 /// MarkupEditor with an assistant.
 struct AssistantSettingsSection: View {
 
@@ -36,7 +36,7 @@ struct AssistantSettingsSection: View {
                 }
             }
             if control.isEnabled {
-                LabeledContent("Allowed:") {
+                LabeledContent("Programs:") {
                     allowedPrograms
                 }
                 if let toolPath {
@@ -58,7 +58,7 @@ struct AssistantSettingsSection: View {
                 ForEach(control.approvals, id: \.client) { approval in
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading) {
-                            Text("\(approval.client.name), \(approval.access == .readWrite ? "reading and editing" : "reading only")")
+                            Text("\(approval.client.name), \(description(of: approval.access))")
                             Text(approval.client.path)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -66,10 +66,27 @@ struct AssistantSettingsSection: View {
                                 .truncationMode(.middle)
                         }
                         Spacer()
+                        if approval.access == .denied {
+                            Menu("Allow") {
+                                Button("Reading Only") { control.allow(approval.client, .read) }
+                                Button("Reading and Editing") { control.allow(approval.client, .readWrite) }
+                            }
+                            .fixedSize()
+                        }
                         Button("Remove") { control.forget(approval.client) }
+                            .help(approval.access == .denied ? "Forget the block; you are asked again the next time it connects." : "Forget this program; you are asked again the next time it connects.")
                     }
                 }
             }
+        }
+    }
+
+    private func description(of access: ClientAccess) -> String {
+        switch access {
+        case .readWrite: "reading and editing"
+        case .read: "reading only"
+        case .denied: "blocked"
+        case .undecided: "undecided"
         }
     }
 

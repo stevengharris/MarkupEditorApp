@@ -72,6 +72,11 @@ final class AppControl {
         approvals = store.approvals()
     }
 
+    func allow(_ client: ClientIdentity, _ access: ClientAccess) {
+        store.save(access, for: client)
+        approvals = store.approvals()
+    }
+
     func forget(_ client: ClientIdentity) {
         store.revoke(client)
         approvals = store.approvals()

@@ -54,11 +54,10 @@ struct ClientApprovalStoreTests {
         #expect(store().access(for: node) == .undecided)
     }
 
-    @Test func aRefusalLastsForTheSessionButIsNotPersisted() {
-        let first = store()
-        first.save(.denied, for: claude)
-        #expect(first.access(for: claude) == .denied)
-        #expect(store().access(for: claude) == .undecided)
+    @Test func aBlockSurvivesANewStoreAndIsListed() {
+        store().save(.denied, for: claude)
+        #expect(store().access(for: claude) == .denied)
+        #expect(store().approvals().map(\.access) == [.denied])
     }
 
     @Test func approvingAfterARefusalReplacesIt() {
@@ -144,11 +143,15 @@ struct ControlAuthorizerTests {
         #expect(UserDefaultsApprovalStore(defaults: defaults).access(for: claude) == .read)
     }
 
-    @Test func aRefusalIsRememberedForTheSessionWithoutAskingAgain() async {
-        let authorizer = authorizer(answer: .denied)
-        #expect(await authorizer.access(for: claude, prompting: true) == .denied)
-        #expect(await authorizer.access(for: claude, prompting: true) == .denied)
+    @Test func aBlockIsRememberedAcrossAuthorizersUntilRemoved() async {
+        #expect(await authorizer(answer: .denied).access(for: claude, prompting: true) == .denied)
+        #expect(await authorizer(answer: .readWrite).access(for: claude, prompting: true) == .denied)
         #expect(prompts.all.count == 1)
+
+        UserDefaultsApprovalStore(defaults: defaults).revoke(claude)
+
+        #expect(await authorizer(answer: .read).access(for: claude, prompting: true) == .read)
+        #expect(prompts.all.count == 2)
     }
 
     @Test func requestsThatArriveWhilePromptingShareOnePrompt() async {

@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// A decision the user made about one client.
+/// A decision the user made about one client: allowed (reading, or reading and editing) or blocked.
 public struct ClientApproval: Codable, Sendable, Equatable {
     public var client: ClientIdentity
     public var access: ClientAccess
@@ -18,8 +18,8 @@ public struct ClientApproval: Codable, Sendable, Equatable {
     }
 }
 
-/// Remembers which clients the user allowed. Only allowing is persisted; a refusal lasts for the
-/// session so a mistaken click can be corrected by asking again after a relaunch.
+/// Remembers the user's decision about each client, allowing and blocking alike. A blocked client
+/// is not asked about again until the user removes the entry in Settings.
 public protocol ClientApprovalStore: AnyObject, Sendable {
     func access(for client: ClientIdentity) -> ClientAccess
     func save(_ access: ClientAccess, for client: ClientIdentity)
@@ -27,7 +27,7 @@ public protocol ClientApprovalStore: AnyObject, Sendable {
     func approvals() -> [ClientApproval]
 }
 
-/// Keeps approvals in `UserDefaults`, and refusals in memory.
+/// Keeps decisions in `UserDefaults`.
 public final class UserDefaultsApprovalStore: ClientApprovalStore, @unchecked Sendable {
 
     public static let defaultsKey = "ControlClientApprovals"
@@ -35,7 +35,6 @@ public final class UserDefaultsApprovalStore: ClientApprovalStore, @unchecked Se
     private let defaults: UserDefaults
     private let now: @Sendable () -> Date
     private let lock = NSLock()
-    private var refused: Set<String> = []
 
     public init(defaults: UserDefaults = .standard, now: @escaping @Sendable () -> Date = { Date() }) {
         self.defaults = defaults
@@ -44,30 +43,20 @@ public final class UserDefaultsApprovalStore: ClientApprovalStore, @unchecked Se
 
     public func access(for client: ClientIdentity) -> ClientAccess {
         lock.withLock {
-            if refused.contains(client.key) { return .denied }
-            return load().first { $0.client.key == client.key }?.access ?? .undecided
+            load().first { $0.client.key == client.key }?.access ?? .undecided
         }
     }
 
     public func save(_ access: ClientAccess, for client: ClientIdentity) {
         lock.withLock {
             var all = load().filter { $0.client.key != client.key }
-            switch access {
-            case .read, .readWrite:
-                refused.remove(client.key)
-                all.append(ClientApproval(client: client, access: access, decided: now()))
-            case .denied:
-                refused.insert(client.key)
-            case .undecided:
-                refused.remove(client.key)
-            }
+            if access != .undecided { all.append(ClientApproval(client: client, access: access, decided: now())) }
             store(all)
         }
     }
 
     public func revoke(_ client: ClientIdentity) {
         lock.withLock {
-            refused.remove(client.key)
             store(load().filter { $0.client.key != client.key })
         }
     }
