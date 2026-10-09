@@ -384,7 +384,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# The dist artifacts from each build are identified as part of the target\nset -e\n\n# This is the main app for the markupeditor additions to markupeditor-base\ncd \"$SRCROOT/markupeditor-app\" && npm run build\n\n# These are the internal pre-installed codeview plugins for markdown front matter\ncd \"$SRCROOT/plugins/codeview-metadata\" && npm run build\ncd \"$SRCROOT/plugins/codeview-htmlfrontmatter\" && npm run build\n\n# These are the pre-installed plugins that can be deleted and/or replaced\ncd \"$SRCROOT/plugins/exporter-docx\" && npm run build\ncd \"$SRCROOT/plugins/codeview-mermaid\" && npm run build\ncd \"$SRCROOT/plugins/codeview-geojson\" && npm run build\n";
+			shellScript = "set -e\n\n# We use a single script to drive the npm builds, so we can more \n# easily only build when changes occur than using the Xcode input \n# and output files across every npm build.\n\n\"$SRCROOT/build-npm.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
