@@ -46,14 +46,20 @@ public struct MCPServer: Sendable {
     private let name: String
     private let version: String
     private let tools: ListTools
+    private let knownNames: Set<String>?
     private let call: CallTool
     private let advertised = AdvertisedTools()
 
-    /// - Parameter tools: Asked on every `tools/list` and tool call, so the offer follows what is available.
-    public init(name: String, version: String, tools: @escaping ListTools, call: @escaping CallTool) {
+    /// - Parameters:
+    ///   - tools: Asked on every `tools/list`, so the offer follows what is available.
+    ///   - knownNames: Tool names that may be called whether or not they are offered right now. A
+    ///     client with an older list can then get the app's own explanation, such as "read-only
+    ///     access", instead of a bare unknown-tool error. Nil limits calls to the offered tools.
+    public init(name: String, version: String, tools: @escaping ListTools, knownNames: Set<String>? = nil, call: @escaping CallTool) {
         self.name = name
         self.version = version
         self.tools = tools
+        self.knownNames = knownNames
         self.call = call
     }
 
@@ -92,7 +98,9 @@ public struct MCPServer: Sendable {
             guard let toolName = params["name"]?.stringValue else {
                 return encode(error: -32602, "tools/call requires a tool name", id: id)
             }
-            guard await tools().contains(where: { $0.name == toolName }) else {
+            let callable: Set<String>
+            if let knownNames { callable = knownNames } else { callable = Set(await tools().map(\.name)) }
+            guard callable.contains(toolName) else {
                 return encode(error: -32602, "Unknown tool: \(toolName)", id: id)
             }
             let result = await call(toolName, params["arguments"] ?? [:])
@@ -109,6 +117,8 @@ public struct MCPServer: Sendable {
     /// reports it is initialized, the offered tools are re-checked every `pollInterval` and a
     /// `tools/list_changed` notification is sent when they differ from what was last listed.
     public func run(input: FileHandle, output: FileHandle, pollInterval: Duration = .seconds(3)) async {
+        // If the client closes our output, a write should fail quietly; the loop ends when input closes.
+        UnixSocket.suppressSigPipe(output.fileDescriptor)
         let writer = LineWriter(descriptor: output.fileDescriptor)
         var watcher: Task<Void, Never>?
         defer { watcher?.cancel() }

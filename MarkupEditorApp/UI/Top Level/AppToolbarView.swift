@@ -44,6 +44,11 @@ struct AppToolbarView: ToolbarContent {
         }
         .sharedBackgroundVisibility(.hidden)
         ToolbarSpacer(.flexible)
+        if AppControl.shared.assistantActive {
+            ToolbarItem {
+                AssistantActivityIndicator()
+            }
+        }
         ToolbarItemGroup {
             if let url {
                 ShareLink(item: url)

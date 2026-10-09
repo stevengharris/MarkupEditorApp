@@ -174,6 +174,26 @@ final class MCPServerTests: Sendable {
         #expect(try JSONDecoder().decode(JSONValue.self, from: reply)["error"]?["code"] == -32602)
     }
 
+    @Test func aKnownToolThatIsNotOfferedIsStillForwardedSoTheAppCanExplain() async throws {
+        let offered = OfferedTools([ControlTools.all[0]])
+        let server = MCPServer(name: "markup", version: "1", tools: { offered.current }, knownNames: Set(ControlTools.all.map(\.name))) { name, _ in
+            .error("\(name) is read-only here")
+        }
+        let call = #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"replace_selection"}}"#
+        let reply = try #require(await server.handle(Data(call.utf8)))
+        let parsed = try JSONDecoder().decode(JSONValue.self, from: reply)
+        #expect(parsed["error"] == nil)
+        #expect(parsed["result"]?["isError"] == true)
+        #expect(parsed["result"]?["content"] == [["type": "text", "text": "replace_selection is read-only here"]])
+    }
+
+    @Test func aNameNobodyKnowsIsStillAProtocolErrorEvenWithKnownNamesSet() async throws {
+        let server = MCPServer(name: "markup", version: "1", tools: { [] }, knownNames: ["get_html"]) { _, _ in MCPToolResult([.text("ok")]) }
+        let call = #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"rm_rf"}}"#
+        let reply = try #require(await server.handle(Data(call.utf8)))
+        #expect(try JSONDecoder().decode(JSONValue.self, from: reply)["error"]?["code"] == -32602)
+    }
+
     @Test func aChangeInTheOfferedToolsIsAnnouncedAfterInitialization() async {
         let offered = OfferedTools([ControlTools.all[0]])
         let out = await run(switchableServer(offered), script: [Self.initialize, Self.initialized, Self.listTools], delay: .milliseconds(300)) {

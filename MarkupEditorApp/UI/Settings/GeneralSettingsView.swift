@@ -14,6 +14,7 @@ struct GeneralSettingsView: View {
     enum SettingGroup: String, CaseIterable, Identifiable {
         case updates = "Updates"
         case behavior = "Behavior"
+        case assistants = "Assistants"
         var id: Self { self }
     }
 
@@ -54,6 +55,12 @@ struct GeneralSettingsView: View {
                     Text("")
                     Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
                     Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+            case .assistants:
+                Form {
+                    Text("")
+                    AssistantSettingsSection()
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
             }

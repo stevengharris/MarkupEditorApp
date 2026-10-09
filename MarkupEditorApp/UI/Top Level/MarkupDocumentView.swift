@@ -161,9 +161,9 @@ struct MarkupDocumentView: View {
                 await handleExternalFileChange(at: changedURL)
             }
         }
-#if DEBUG
         .onAppear { AppControl.shared.document = document }
         .onChange(of: sourceShowing) { _, showing in AppControl.shared.sourceShowing = showing }
+#if DEBUG
         .task {
             for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {
                 let ud = UserDefaults.standard

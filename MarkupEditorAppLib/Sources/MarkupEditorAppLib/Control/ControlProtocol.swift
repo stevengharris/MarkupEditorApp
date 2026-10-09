@@ -10,11 +10,14 @@ public struct ControlRequest: Codable, Sendable, Equatable {
     public var id: Int
     public var tool: String
     public var args: JSONValue
+    /// Who is asking, as `markup mcp` reports from its parent process. The app decides access from it.
+    public var client: ClientIdentity?
 
-    public init(id: Int, tool: String, args: JSONValue = [:]) {
+    public init(id: Int, tool: String, args: JSONValue = [:], client: ClientIdentity? = nil) {
         self.id = id
         self.tool = tool
         self.args = args
+        self.client = client
     }
 }
 

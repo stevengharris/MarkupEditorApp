@@ -11,11 +11,15 @@ public struct ControlDispatcher {
 
     private let facade: ControlFacade
     private let tools: [ControlTool]
+    private let authorizer: ControlAuthorizing?
 
-    /// - Parameter tools: The tools this app answers; reported by `list_tools` so clients advertise only those.
-    public init(facade: ControlFacade, tools: [ControlTool] = ControlTools.all) {
+    /// - Parameters:
+    ///   - tools: The tools this app answers; anything else is unknown, and `list_tools` reports only these.
+    ///   - authorizer: Decides what the requesting client may do. Nil allows everything.
+    public init(facade: ControlFacade, tools: [ControlTool] = ControlTools.all, authorizer: ControlAuthorizing? = nil) {
         self.facade = facade
         self.tools = tools
+        self.authorizer = authorizer
     }
 
     /// Handles one JSON request and returns the JSON reply. A line that can't be decoded gets a
@@ -38,28 +42,89 @@ public struct ControlDispatcher {
     private func run(_ request: ControlRequest) async throws -> JSONValue {
         switch request.tool {
         case ControlTools.listTools:
-            return ["tools": .array(tools.map { .string($0.name) })]
+            return await listTools(for: request.client)
+        case ControlTools.authorizeOpen:
+            try await authorize(requiring: .read, for: request.client)
+            return ["allowed": true, "bundlePath": .string(facade.bundlePath())]
+        default:
+            break
+        }
+        guard let tool = tools.first(where: { $0.name == request.tool }) else {
+            throw ControlError("Unknown tool: \(request.tool)")
+        }
+        try await authorize(requiring: tool.access, for: request.client)
+        switch tool.name {
+        case ControlTools.getDocument:
+            let state = try await facade.appState()
+            return [
+                "url": state["url"] ?? .null,
+                "hasChanges": state["hasChanges"] ?? false,
+                "documentType": state["documentType"] ?? .null,
+                "markdown": .string(try await facade.markdown()),
+            ]
+        case ControlTools.getSelection:
+            let text = try await facade.selectionText()
+            return ["text": .string(text), "isEmpty": .bool(text.isEmpty)]
+        case ControlTools.replaceSelection:
+            try await facade.typeText(try argument("text", in: request))
+            return ["replaced": true]
         case ControlTools.appState:
             return try await facade.appState()
+        default:
+            return try await runDeveloperTool(tool.name, request)
+        }
+    }
+
+    /// Debug builds only: these need the developer facade, which a release build does not have.
+    private func runDeveloperTool(_ name: String, _ request: ControlRequest) async throws -> JSONValue {
+        guard let developer = facade as? DeveloperControlFacade else {
+            throw ControlError("\(name) is not available in this build")
+        }
+        switch name {
         case ControlTools.saveDocument:
-            try await facade.saveDocument()
+            try await developer.saveDocument()
             return ["saved": true]
         case ControlTools.runMenuCommand:
-            try await facade.runMenuCommand(try argument("name", in: request))
+            try await developer.runMenuCommand(try argument("name", in: request))
             return ["ran": true]
         case ControlTools.evalJS:
-            return try await facade.evalJS(try argument("script", in: request))
+            return try await developer.evalJS(try argument("script", in: request))
         case ControlTools.getMarkdown:
-            return .string(try await facade.markdown())
+            return .string(try await developer.markdown())
         case ControlTools.getHTML:
-            return .string(try await facade.html())
+            return .string(try await developer.html())
         case ControlTools.typeText:
-            try await facade.typeText(try argument("text", in: request))
+            try await developer.typeText(try argument("text", in: request))
             return ["typed": true]
         case ControlTools.screenshotEditor:
-            return ["png_base64": .string(try await facade.screenshotEditor().base64EncodedString())]
+            return ["png_base64": .string(try await developer.screenshotEditor().base64EncodedString())]
         default:
             throw ControlError("Unknown tool: \(request.tool)")
+        }
+    }
+
+    /// The tools to offer this client. Asking never prompts: an undecided client sees every tool,
+    /// and the prompt comes with its first call.
+    private func listTools(for client: ClientIdentity?) async -> JSONValue {
+        let access = await authorizer?.access(for: client, prompting: false) ?? .readWrite
+        let offered: [ControlTool]
+        switch access {
+        case .denied: offered = []
+        case .undecided: offered = tools
+        case .read, .readWrite: offered = tools.filter { access.permits($0.access) }
+        }
+        return ["tools": .array(offered.map { .string($0.name) })]
+    }
+
+    private func authorize(requiring required: ClientAccess, for client: ClientIdentity?) async throws {
+        guard let authorizer else { return }
+        let access = await authorizer.access(for: client, prompting: true)
+        guard access.permits(required) else {
+            let name = client?.name ?? "This program"
+            if access == .read {
+                throw ControlError("\(name) has read-only access to MarkupEditor. Change this in MarkupEditor's settings under Assistants.")
+            }
+            throw ControlError("\(name) is not allowed to control MarkupEditor. Allow it in MarkupEditor's settings under Assistants.")
         }
     }
 

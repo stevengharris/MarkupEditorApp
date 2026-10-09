@@ -3,33 +3,91 @@
 //  MarkupEditorApp
 //
 
-#if DEBUG
 import AppKit
 import MarkupEditor
 import MarkupEditorAppLib
+import Observation
 import os
 internal import WebKit
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "Control")
 
-/// Debug builds only. Listens on a socket inside the app container so an MCP client, through
-/// `markup mcp`, can inspect and drive the running app.
-@MainActor
+/// Lets an assistant, through `markup mcp`, read and edit the open document once the user allows it.
+/// Listens on a socket inside the app container only while the Assistants setting is on. Each
+/// connection must come from the command line tool bundled with this app, and each client program
+/// is asked about before it can do anything.
+@MainActor @Observable
 final class AppControl {
 
     static let shared = AppControl()
 
-    /// The document being edited, registered by the document view.
-    var document: MarkupDocument?
-    var sourceShowing = false
+    /// UserDefaults key for the Assistants setting.
+    static let enabledKey = "ControlEnabled"
+#if DEBUG
+    /// Debug builds allow every client without asking, unless this key is "prompt".
+    static let consentKey = "ControlConsent"
+    private static let enabledByDefault = true
+#else
+    private static let enabledByDefault = false
+#endif
 
-    private var server: ControlServer?
+    /// Whether assistants may connect. Turning it off stops listening.
+    var isEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
+            reconcile()
+        }
+    }
 
-    func start() {
+    /// The program that last used the channel, and whether that was within the last minute, for the
+    /// window's indicator.
+    private(set) var recentClient: String?
+    private(set) var assistantActive = false
+    private(set) var approvals: [ClientApproval] = []
+
+    @ObservationIgnored var document: MarkupDocument?
+    @ObservationIgnored var sourceShowing = false
+    @ObservationIgnored private var server: ControlServer?
+    @ObservationIgnored private var activityReset: Task<Void, Never>?
+    @ObservationIgnored private let store = UserDefaultsApprovalStore()
+
+    private init() {
+        isEnabled = UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? Self.enabledByDefault
+        approvals = store.approvals()
+    }
+
+    /// The path of the bundled command line tool, which is also the only program allowed to connect.
+    static var bundledToolURL: URL? {
+        Bundle.main.resourceURL?.appendingPathComponent("bin/markup")
+    }
+
+    /// Starts or stops the listener to match the setting.
+    func reconcile() {
+        if isEnabled { startListening() } else { stopListening() }
+    }
+
+    func refreshApprovals() {
+        approvals = store.approvals()
+    }
+
+    func forget(_ client: ClientIdentity) {
+        store.revoke(client)
+        approvals = store.approvals()
+    }
+
+    private func startListening() {
         guard server == nil else { return }
-        let dispatcher = ControlDispatcher(facade: AppControlFacade(control: self))
-        let server = ControlServer(path: ControlClient.appPath(containerHome: NSHomeDirectory())) { line in
-            await dispatcher.handle(line)
+        guard let tool = Self.bundledToolURL, let requirement = CodeSignaturePeerVerifier.designatedRequirement(ofCodeAt: tool) else {
+            logger.error("Control channel not started: the bundled markup tool's signature could not be read")
+            return
+        }
+        let dispatcher = ControlDispatcher(facade: AppControlFacade(control: self), tools: Self.offeredTools, authorizer: makeAuthorizer())
+        let server = ControlServer(
+            path: ControlClient.appPath(containerHome: NSHomeDirectory()),
+            peerVerifier: CodeSignaturePeerVerifier(requirement: requirement)
+        ) { [weak self] line in
+            await self?.noteActivity(in: line)
+            return await dispatcher.handle(line)
         }
         do {
             try server.start()
@@ -38,12 +96,156 @@ final class AppControl {
             logger.error("Control channel not started: \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    private func stopListening() {
+        server?.stop()
+        server = nil
+    }
+
+    private static var offeredTools: [ControlTool] {
+#if DEBUG
+        ControlTools.all
+#else
+        ControlTools.endUser
+#endif
+    }
+
+    private func makeAuthorizer() -> ControlAuthorizing {
+        let authorizer = ControlAuthorizer(store: store, isEnabled: { [weak self] in self?.isEnabled ?? false }) { [weak self] client in
+            let choice = Self.ask(about: client)
+            self?.approvals = self?.store.approvals() ?? []
+            return choice
+        }
+#if DEBUG
+        return DebugConsentSwitch(asking: authorizer)
+#else
+        return authorizer
+#endif
+    }
+
+    private func noteActivity(in line: Data) {
+        guard let request = try? JSONDecoder().decode(ControlRequest.self, from: line) else { return }
+        recentClient = request.client?.name ?? "A program"
+        assistantActive = true
+        activityReset?.cancel()
+        activityReset = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            if !Task.isCancelled { self?.assistantActive = false }
+        }
+        approvals = store.approvals()
+    }
+
+    /// The user's choice for a client that has not been decided yet.
+    private static func ask(about client: ClientIdentity) -> ClientAccess {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Allow \(client.name) to use MarkupEditor?"
+        alert.informativeText = """
+            \(client.name) (\(client.path)) wants to work with the document you have open in MarkupEditor. \
+            It can read the document, including changes you have not saved, and the text you have selected. \
+            If you allow editing, it can also replace the selection; each change is one undo step and \
+            leaves the document unsaved for you to review.
+
+            You can change this later in Settings under Assistants.
+            """
+        alert.addButton(withTitle: "Allow Reading and Editing")
+        alert.addButton(withTitle: "Allow Reading Only")
+        alert.addButton(withTitle: "Don't Allow")
+        alert.alertStyle = .informational
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: return .readWrite
+        case .alertSecondButtonReturn: return .read
+        default: return .denied
+        }
+    }
 }
 
+#if DEBUG
+/// Debug builds allow every client unless the consent default is "prompt", re-read on each request
+/// so it can be switched while the app runs.
+@MainActor
+private struct DebugConsentSwitch: ControlAuthorizing {
+    let asking: ControlAuthorizing
+
+    func access(for client: ClientIdentity?, prompting: Bool) async -> ClientAccess {
+        guard UserDefaults.standard.string(forKey: AppControl.consentKey) == "prompt" else { return .readWrite }
+        return await asking.access(for: client, prompting: prompting)
+    }
+}
+#endif
+
+/// The end-user operations, in every build.
 @MainActor
 struct AppControlFacade: ControlFacade {
 
     let control: AppControl
+
+    fileprivate func webView() throws -> MarkupWKWebView {
+        guard let webView = MarkupEditor.selectedWebView else { throw ControlError("No editor web view is available") }
+        return webView
+    }
+
+    func appState() async throws -> JSONValue {
+        let document = control.document
+        var state: [String: JSONValue] = [
+            "url": document?.url.map { .string($0.path(percentEncoded: false)) } ?? .null,
+            "hasChanges": .bool(document?.hasChanges ?? false),
+            "documentType": document?.url.map { .string($0.pathExtension) } ?? .null,
+            "sourceShowing": .bool(control.sourceShowing),
+            "hasWebView": .bool(MarkupEditor.selectedWebView != nil),
+            "bundlePath": .string(Bundle.main.bundlePath),
+        ]
+#if DEBUG
+        state["appHidden"] = .bool(NSApp.isHidden)
+        state["appActive"] = .bool(NSApp.isActive)
+        state["modalWindow"] = .string(NSApp.modalWindow.map { String(describing: type(of: $0)) } ?? "")
+        state["windows"] = .array(NSApp.windows.map { window in
+            [
+                "id": .string(window.identifier?.rawValue ?? ""),
+                "title": .string(window.title),
+                "visible": .bool(window.isVisible),
+                "key": .bool(window.isKeyWindow),
+                "miniaturized": .bool(window.isMiniaturized),
+                "occluded": .bool(!window.occlusionState.contains(.visible)),
+                "delegate": .string(window.delegate.map { String(describing: type(of: $0)) } ?? "nil"),
+            ]
+        })
+#endif
+        return .object(state)
+    }
+
+    func bundlePath() -> String { Bundle.main.bundlePath }
+
+    func markdown() async throws -> String {
+        let webView = try webView()
+        guard let html = await webView.getHtml() else { throw ControlError("The editor returned no HTML") }
+        guard let document = control.document, !document.isHTMLish else { return html }
+        var warnings: [String] = []
+        document.syncMetadata(fromHTML: html, warnings: &warnings)
+        do {
+            let body = try await MarkupConverter.exportMarkdownDecoded(webView, content: html).result
+            return document.injectYAMLFrontMatter(into: body)
+        } catch {
+            throw ControlError(error.localizedDescription)
+        }
+    }
+
+    func selectionText() async throws -> String {
+        await (try webView()).getSelectionState().selection ?? ""
+    }
+
+    func typeText(_ text: String) async throws {
+        let webView = try webView()
+        webView.window?.makeFirstResponder(webView)
+        await withCheckedContinuation { continuation in
+            webView.pasteText(text) { continuation.resume() }
+        }
+    }
+}
+
+#if DEBUG
+/// Debug builds only: the broader control used for testing and demos.
+extension AppControlFacade: DeveloperControlFacade {
 
     private static let menuCommands: [String: Notification.Name] = [
         "new": .menuNewDocument,
@@ -53,37 +255,6 @@ struct AppControlFacade: ControlFacade {
         "toggleSource": .menuToggleSource,
         "showSettings": .menuShowSettings,
     ]
-
-    private func webView() throws -> MarkupWKWebView {
-        guard let webView = MarkupEditor.selectedWebView else { throw ControlError("No editor web view is available") }
-        return webView
-    }
-
-    func appState() async throws -> JSONValue {
-        let document = control.document
-        return [
-            "url": document?.url.map { .string($0.path(percentEncoded: false)) } ?? .null,
-            "hasChanges": .bool(document?.hasChanges ?? false),
-            "documentType": document?.url.map { .string($0.pathExtension) } ?? .null,
-            "sourceShowing": .bool(control.sourceShowing),
-            "hasWebView": .bool(MarkupEditor.selectedWebView != nil),
-            "bundlePath": .string(Bundle.main.bundlePath),
-            "appHidden": .bool(NSApp.isHidden),
-            "appActive": .bool(NSApp.isActive),
-            "modalWindow": .string(NSApp.modalWindow.map { String(describing: type(of: $0)) } ?? ""),
-            "windows": .array(NSApp.windows.map { window in
-                [
-                    "id": .string(window.identifier?.rawValue ?? ""),
-                    "title": .string(window.title),
-                    "visible": .bool(window.isVisible),
-                    "key": .bool(window.isKeyWindow),
-                    "delegate": .string(window.delegate.map { String(describing: type(of: $0)) } ?? "nil"),
-                    "miniaturized": .bool(window.isMiniaturized),
-                    "occluded": .bool(!window.occlusionState.contains(.visible)),
-                ]
-            }),
-        ]
-    }
 
     func saveDocument() async throws {
         guard let document = control.document else { throw ControlError("No document is open") }
@@ -96,6 +267,14 @@ struct AppControlFacade: ControlFacade {
     }
 
     func runMenuCommand(_ name: String) async throws {
+        if name == "hideApp" {
+            NSApp.hide(nil)
+            return
+        }
+        if name == "minimizeWindow" {
+            NSApp.windows.first { $0.identifier?.rawValue == MarkupEditorApp.mainWindowID }?.miniaturize(nil)
+            return
+        }
         if name == "closeWindow" {
             // Clicks the real close button, so its retargeted action is what runs.
             NSApp.windows.first { $0.identifier?.rawValue == MarkupEditorApp.mainWindowID }?.standardWindowButton(.closeButton)?.performClick(nil)
@@ -123,31 +302,9 @@ struct AppControlFacade: ControlFacade {
         }
     }
 
-    func markdown() async throws -> String {
-        let webView = try webView()
-        guard let html = await webView.getHtml() else { throw ControlError("The editor returned no HTML") }
-        guard let document = control.document, !document.isHTMLish else { return html }
-        var warnings: [String] = []
-        document.syncMetadata(fromHTML: html, warnings: &warnings)
-        do {
-            let body = try await MarkupConverter.exportMarkdownDecoded(webView, content: html).result
-            return document.injectYAMLFrontMatter(into: body)
-        } catch {
-            throw ControlError(error.localizedDescription)
-        }
-    }
-
     func html() async throws -> String {
         guard let html = await (try webView()).getHtml() else { throw ControlError("The editor returned no HTML") }
         return html
-    }
-
-    func typeText(_ text: String) async throws {
-        let webView = try webView()
-        webView.window?.makeFirstResponder(webView)
-        await withCheckedContinuation { continuation in
-            webView.pasteText(text) { continuation.resume() }
-        }
     }
 
     func screenshotEditor() async throws -> Data {

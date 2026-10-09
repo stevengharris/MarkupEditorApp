@@ -12,11 +12,15 @@ import Synchronization
 public final class ControlServer: Sendable {
 
     private let path: String
+    private let peerVerifier: PeerVerifying?
     private let handler: @Sendable (Data) async -> Data
     private let descriptor = Mutex<Int32>(-1)
 
-    public init(path: String, handler: @escaping @Sendable (Data) async -> Data) {
+    /// - Parameter peerVerifier: When set, a connecting process that fails it is told so and
+    ///   disconnected before any request is read.
+    public init(path: String, peerVerifier: PeerVerifying? = nil, handler: @escaping @Sendable (Data) async -> Data) {
         self.path = path
+        self.peerVerifier = peerVerifier
         self.handler = handler
     }
 
@@ -31,8 +35,14 @@ public final class ControlServer: Sendable {
                 throw ControlSocketError("Another process is already listening at \(path)")
             }
             unlink(path)
+            // A client can hang up before its reply is written, and a write to a closed connection
+            // raises SIGPIPE, whose default action ends the process. Ignore it for the whole process, and
+            // set the option on the listener so accepted connections inherit it even when the client is
+            // gone before this process can set it on them.
+            signal(SIGPIPE, SIG_IGN)
             let fd = socket(AF_UNIX, SOCK_STREAM, 0)
             guard fd >= 0 else { throw ControlSocketError.posix("socket") }
+            UnixSocket.suppressSigPipe(fd)
             guard UnixSocket.withSockaddr(&address, { bind(fd, $0, $1) }) == 0 else {
                 let error = ControlSocketError.posix("bind \(path)")
                 close(fd)
@@ -47,7 +57,8 @@ public final class ControlServer: Sendable {
             }
             descriptor = fd
             let handler = handler
-            DispatchQueue.global(qos: .userInitiated).async { Self.acceptLoop(fd, handler) }
+            let verifier = peerVerifier
+            DispatchQueue.global(qos: .userInitiated).async { Self.acceptLoop(fd, verifier, handler) }
         }
     }
 
@@ -65,19 +76,26 @@ public final class ControlServer: Sendable {
         stop()
     }
 
-    private static func acceptLoop(_ listener: Int32, _ handler: @escaping @Sendable (Data) async -> Data) {
+    private static func acceptLoop(_ listener: Int32, _ verifier: PeerVerifying?, _ handler: @escaping @Sendable (Data) async -> Data) {
         while true {
             let connection = accept(listener, nil, nil)
             if connection < 0 {
                 if errno == EINTR { continue }
                 return
             }
-            DispatchQueue.global(qos: .userInitiated).async { serve(connection, handler) }
+            DispatchQueue.global(qos: .userInitiated).async { serve(connection, verifier, handler) }
         }
     }
 
-    private static func serve(_ connection: Int32, _ handler: @escaping @Sendable (Data) async -> Data) {
+    private static func serve(_ connection: Int32, _ verifier: PeerVerifying?, _ handler: @escaping @Sendable (Data) async -> Data) {
         defer { close(connection) }
+        // A client may hang up before its reply is ready; that must not take the app down.
+        UnixSocket.suppressSigPipe(connection)
+        if let verifier, !verifier.verify(descriptor: connection) {
+            let refusal = ControlResponse.failure(id: -1, "Refused: only the markup command line tool shipped with MarkupEditor may connect")
+            if let data = try? JSONEncoder().encode(refusal) { try? UnixSocket.writeLine(data, to: connection) }
+            return
+        }
         var buffer: [UInt8] = []
         while let line = try? UnixSocket.readLine(from: connection, buffer: &buffer) {
             guard !line.isEmpty else { continue }

@@ -107,14 +107,18 @@ struct MCP: AsyncParsableCommand {
     var socket: String?
 
     func run() async throws {
-        let client = ControlClient(path: socket ?? ControlClient.defaultPath())
+        // The first call from a program the user has not decided about waits for their answer.
+        let client = ControlClient(path: socket ?? ControlClient.defaultPath(), timeout: 300)
         let backend = MCPControlBackend(
+            client: ClientIdentity.ofParentProcess(),
+            log: { FileHandle.standardError.write(Data(($0 + "\n").utf8)) },
             send: { try await client.send($0) },
             open: { try await MarkupEditorCLI.openInApp($0, appPath: $1) })
         let server = MCPServer(
             name: "markupeditor",
             version: BuildVariant.versionString,
             tools: { await backend.tools() },
+            knownNames: MCPControlBackend.knownToolNames,
             call: { await backend.call($0, $1) })
         await server.run(input: .standardInput, output: .standardOutput)
     }

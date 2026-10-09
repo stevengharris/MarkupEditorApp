@@ -22,6 +22,16 @@ enum UnixSocket {
     /// Longest line either side accepts. A PNG screenshot is the largest legitimate payload.
     static let maxLineBytes = 32 * 1024 * 1024
 
+    /// Makes a write to a descriptor whose other end has gone return an error instead of raising
+    /// SIGPIPE, which would silently terminate the whole process.
+    static func suppressSigPipe(_ descriptor: Int32) {
+        var on: Int32 = 1
+        // SO_NOSIGPIPE is the socket option; a pipe, such as standard output, needs the fcntl form.
+        if setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size)) != 0 {
+            _ = fcntl(descriptor, F_SETNOSIGPIPE, 1)
+        }
+    }
+
     static func address(for path: String) throws -> sockaddr_un {
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)

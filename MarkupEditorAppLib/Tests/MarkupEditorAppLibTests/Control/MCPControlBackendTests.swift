@@ -20,6 +20,10 @@ final class MCPControlBackendTests {
             open: { [opened, openedWith] url, appPath in opened.append(url); openedWith.append(appPath); try await open(url) })
     }
 
+    @Test func theKnownToolNamesCoverOpenDocumentAndEveryControlTool() {
+        #expect(MCPControlBackend.knownToolNames == Set(["open_document"] + ControlTools.all.map(\.name)))
+    }
+
     @Test func withNoAppListeningOnlyOpenDocumentIsOffered() async {
         let unreachable = MCPControlBackend(send: { _ in throw ControlSocketError("not listening") }, open: { _, _ in })
         #expect(await unreachable.tools().map(\.name) == ["open_document"])
@@ -87,19 +91,19 @@ final class MCPControlBackendTests {
 
         #expect(!result.isError)
         #expect(opened.all.map(\.path) == [file.path])
-        #expect(sent.all.map(\.tool) == ["app_state"])
+        #expect(sent.all.map(\.tool) == ["authorize_open"])
     }
 
     @Test func openDocumentOpensInTheAppOnTheOtherEndOfTheSocket() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("open-\(UUID().uuidString).md")
         try "# hi".write(to: file, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: file) }
-        let backend = backend(reply: { .success(id: $0.id, ["bundlePath": "/Debug/MarkupEditor.app"]) })
+        let backend = backend(reply: { .success(id: $0.id, ["allowed": true, "bundlePath": "/Debug/MarkupEditor.app"]) })
 
         _ = await backend.call("open_document", ["path": .string(file.path)])
 
         #expect(openedWith.all == ["/Debug/MarkupEditor.app"])
-        #expect(sent.all.map(\.tool) == ["app_state"])
+        #expect(sent.all.map(\.tool) == ["authorize_open"])
     }
 
     @Test func openDocumentFallsBackToTheDefaultAppWhenTheAppIsNotReachable() async throws {
@@ -127,5 +131,28 @@ final class MCPControlBackendTests {
         defer { try? FileManager.default.removeItem(at: file) }
         let result = await backend(open: { _ in throw ControlSocketError("not installed") }).call("open_document", ["path": .string(file.path)])
         #expect(result == .error("not installed"))
+    }
+
+    @Test func openDocumentDoesNotOpenWhenTheAppRefusesTheClient() async throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("open-\(UUID().uuidString).md")
+        try "x".write(to: file, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let backend = backend(reply: { .failure(id: $0.id, "Claude is not allowed to control MarkupEditor.") })
+
+        let result = await backend.call("open_document", ["path": .string(file.path)])
+
+        #expect(result == .error("Claude is not allowed to control MarkupEditor."))
+        #expect(opened.all.isEmpty)
+    }
+
+    @Test func everyRequestCarriesTheClientIdentity() async throws {
+        let claude = ClientIdentity(name: "Claude", path: "/A/Claude.app", bundleIdentifier: "com.anthropic.claude")
+        let backend = MCPControlBackend(client: claude, send: { [sent] request in sent.append(request); return .success(id: request.id, "ok") }, open: { _, _ in })
+
+        _ = await backend.call("get_document", [:])
+        _ = await backend.tools()
+
+        #expect(sent.all.map(\.tool) == ["get_document", "list_tools"])
+        #expect(sent.all.allSatisfy { $0.client == claude })
     }
 }

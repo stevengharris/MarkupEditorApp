@@ -146,3 +146,38 @@ struct ControlSocketTests {
         #expect(ControlClient.defaultPath().utf8.count < 104)
     }
 }
+
+struct ControlSocketDisconnectTests {
+
+    func socketPath() -> String { "/tmp/mecd-\(UUID().uuidString.prefix(8)).sock" }
+
+    /// Connects, sends one request, and disconnects without waiting for the reply.
+    func requestAndHangUp(at path: String, line: String) throws {
+        var address = try UnixSocket.address(for: path)
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        #expect(UnixSocket.withSockaddr(&address) { connect(fd, $0, $1) } == 0)
+        try UnixSocket.writeLine(Data(line.utf8), to: fd)
+        close(fd)
+    }
+
+    @Test func aClientThatHangsUpBeforeTheReplyDoesNotKillTheServer() async throws {
+        let path = socketPath()
+        // A slow handler, so the reply is written after the client has gone.
+        let server = ControlServer(path: path) { line in
+            try? await Task.sleep(for: .milliseconds(150))
+            let request = try? JSONDecoder().decode(ControlRequest.self, from: line)
+            return (try? JSONEncoder().encode(ControlResponse.success(id: request?.id ?? 0, "ok"))) ?? Data()
+        }
+        try server.start()
+        defer { server.stop() }
+
+        for id in 1...3 {
+            let request = try JSONEncoder().encode(ControlRequest(id: id, tool: "x"))
+            try requestAndHangUp(at: path, line: String(decoding: request, as: UTF8.self))
+        }
+        try await Task.sleep(for: .milliseconds(500))      // The replies are written to closed connections here.
+
+        let response = try await ControlClient(path: path).send(ControlRequest(id: 9, tool: "x"))
+        #expect(response == .success(id: 9, "ok"))
+    }
+}

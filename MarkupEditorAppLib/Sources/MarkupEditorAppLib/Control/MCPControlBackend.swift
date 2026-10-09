@@ -18,33 +18,55 @@ public struct MCPControlBackend: Sendable {
 
     private let send: Send
     private let open: OpenFile
+    private let client: ClientIdentity?
+    private let log: @Sendable (String) -> Void
     private let nextID = IDCounter()
 
-    public init(send: @escaping Send, open: @escaping OpenFile) {
+    /// - Parameter client: The program running this server, attached to every request so the app can
+    ///   decide what it may do.
+    ///   - log: Told why the app could not be used, for the server's stderr; MCP clients keep it.
+    public init(client: ClientIdentity? = nil, log: @escaping @Sendable (String) -> Void = { _ in }, send: @escaping Send, open: @escaping OpenFile) {
+        self.client = client
+        self.log = log
         self.send = send
         self.open = open
     }
 
+    private func request(_ tool: String, _ args: JSONValue = [:]) -> ControlRequest {
+        ControlRequest(id: nextID.next(), tool: tool, args: args, client: client)
+    }
+
     private static let openTool = ControlTool(
-        name: openDocument, title: "Open document", annotations: .additive,
+        name: openDocument, title: "Open document", scope: .endUser, access: .read, annotations: .additive,
         description: "Open a Markdown or HTML file in MarkupEditor, the same as double-clicking it in Finder. If the file uses local images, MarkupEditor may ask the user to grant access to its folder.",
         inputSchema: ControlTool.schema(["path": ("string", "Absolute path of the file.")], required: ["path"]))
+
+    /// Every tool name a client may call, offered or not.
+    public static var knownToolNames: Set<String> {
+        Set([openDocument] + ControlTools.all.map(\.name))
+    }
 
     /// `open_document` always, plus whichever other tools the connected app says it supports. With
     /// no app listening, as in a release build, that is `open_document` alone.
     public func tools() async -> [ControlTool] {
-        guard let response = try? await send(ControlRequest(id: nextID.next(), tool: ControlTools.listTools)),
-              response.ok, case .array(let items)? = response.result?["tools"] else {
+        do {
+            let response = try await send(request(ControlTools.listTools))
+            guard response.ok, case .array(let items)? = response.result?["tools"] else {
+                log("MarkupEditor did not offer its tools: \(response.error ?? "unexpected reply")")
+                return [Self.openTool]
+            }
+            let supported = Set(items.compactMap(\.stringValue))
+            return [Self.openTool] + ControlTools.all.filter { supported.contains($0.name) }
+        } catch {
+            log("MarkupEditor is not reachable: \(error.localizedDescription)")
             return [Self.openTool]
         }
-        let supported = Set(items.compactMap(\.stringValue))
-        return [Self.openTool] + ControlTools.all.filter { supported.contains($0.name) }
     }
 
     public func call(_ name: String, _ arguments: JSONValue) async -> MCPToolResult {
         if name == Self.openDocument { return await openFile(arguments) }
         do {
-            let response = try await send(ControlRequest(id: nextID.next(), tool: name, args: arguments))
+            let response = try await send(request(name, arguments))
             guard response.ok, let result = response.result else {
                 return .error(response.error ?? "The app reported an error")
             }
@@ -57,19 +79,31 @@ public struct MCPControlBackend: Sendable {
     private func openFile(_ arguments: JSONValue) async -> MCPToolResult {
         guard let path = arguments["path"]?.stringValue else { return .error("open_document requires a string argument 'path'") }
         guard FileManager.default.fileExists(atPath: path) else { return .error("No such file: \(path)") }
+        let appPath: String?
+        switch await authorizeOpen() {
+        case .refused(let message): return .error(message)
+        case .allowed(let bundlePath): appPath = bundlePath
+        }
         do {
-            try await open(URL(fileURLWithPath: path), await connectedAppPath())
+            try await open(URL(fileURLWithPath: path), appPath)
             return MCPToolResult([.text("Opened \(path)")])
         } catch {
             return .error(error.localizedDescription)
         }
     }
 
-    /// The bundle of the app on the other end of the socket, so a file opens in that copy and not
-    /// whichever copy Launch Services prefers. Nil when the app is not reachable.
-    private func connectedAppPath() async -> String? {
-        guard let response = try? await send(ControlRequest(id: nextID.next(), tool: ControlTools.appState)), response.ok else { return nil }
-        return response.result?["bundlePath"]?.stringValue
+    private enum OpenDecision {
+        case allowed(bundlePath: String?)
+        case refused(String)
+    }
+
+    /// Asks the connected app whether this client may open files, and which copy of the app to open
+    /// them in, so a file opens in the app that answered and not whichever copy Launch Services
+    /// prefers. With no app listening there is nothing to ask, and the file opens in the default app.
+    private func authorizeOpen() async -> OpenDecision {
+        guard let response = try? await send(request(ControlTools.authorizeOpen)) else { return .allowed(bundlePath: nil) }
+        guard response.ok else { return .refused(response.error ?? "MarkupEditor did not allow opening files") }
+        return .allowed(bundlePath: response.result?["bundlePath"]?.stringValue)
     }
 
     static func content(for tool: String, _ result: JSONValue) -> MCPToolResult {
