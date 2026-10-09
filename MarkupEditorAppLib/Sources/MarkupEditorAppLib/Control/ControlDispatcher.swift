@@ -12,14 +12,23 @@ public struct ControlDispatcher {
     private let facade: ControlFacade
     private let tools: [ControlTool]
     private let authorizer: ControlAuthorizing?
+    private let onAuthorizedUse: @MainActor (ClientIdentity?) -> Void
 
     /// - Parameters:
     ///   - tools: The tools this app answers; anything else is unknown, and `list_tools` reports only these.
     ///   - authorizer: Decides what the requesting client may do. Nil allows everything.
-    public init(facade: ControlFacade, tools: [ControlTool] = ControlTools.all, authorizer: ControlAuthorizing? = nil) {
+    ///   - onAuthorizedUse: Told which client is about to use a tool it was allowed to, and not for
+    ///     listing tools or for a refused call.
+    public init(
+        facade: ControlFacade,
+        tools: [ControlTool] = ControlTools.all,
+        authorizer: ControlAuthorizing? = nil,
+        onAuthorizedUse: @escaping @MainActor (ClientIdentity?) -> Void = { _ in }
+    ) {
         self.facade = facade
         self.tools = tools
         self.authorizer = authorizer
+        self.onAuthorizedUse = onAuthorizedUse
     }
 
     /// Handles one JSON request and returns the JSON reply. A line that can't be decoded gets a
@@ -45,6 +54,7 @@ public struct ControlDispatcher {
             return await listTools(for: request.client)
         case ControlTools.authorizeOpen:
             try await authorize(requiring: .read, for: request.client)
+            onAuthorizedUse(request.client)
             return ["allowed": true, "bundlePath": .string(facade.bundlePath())]
         default:
             break
@@ -53,6 +63,7 @@ public struct ControlDispatcher {
             throw ControlError("Unknown tool: \(request.tool)")
         }
         try await authorize(requiring: tool.access, for: request.client)
+        onAuthorizedUse(request.client)
         switch tool.name {
         case ControlTools.getDocument:
             let state = try await facade.appState()
@@ -68,8 +79,6 @@ public struct ControlDispatcher {
         case ControlTools.replaceSelection:
             try await facade.typeText(try argument("text", in: request))
             return ["replaced": true]
-        case ControlTools.appState:
-            return try await facade.appState()
         default:
             return try await runDeveloperTool(tool.name, request)
         }
@@ -81,6 +90,8 @@ public struct ControlDispatcher {
             throw ControlError("\(name) is not available in this build")
         }
         switch name {
+        case ControlTools.appState:
+            return try await developer.appState()
         case ControlTools.saveDocument:
             try await developer.saveDocument()
             return ["saved": true]

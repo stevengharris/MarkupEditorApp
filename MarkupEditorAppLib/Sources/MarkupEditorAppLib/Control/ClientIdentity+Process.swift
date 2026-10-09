@@ -10,7 +10,10 @@ extension ClientIdentity {
 
     /// The program that started this process, such as an MCP client launching `markup mcp`.
     public static func ofParentProcess() -> ClientIdentity? {
-        describe(pid: getppid())
+        let parent = getppid()
+        // Once the parent has exited this process belongs to launchd, which says nothing about who asked.
+        guard parent > 1 else { return nil }
+        return describe(pid: parent)
     }
 
     /// Describes the process `pid`. A process inside an app bundle is reported as that app, so a
@@ -25,7 +28,8 @@ extension ClientIdentity {
         let name = (info?["CFBundleDisplayName"] as? String)
             ?? (info?["CFBundleName"] as? String)
             ?? URL(fileURLWithPath: appPath).deletingPathExtension().lastPathComponent
-        return ClientIdentity(name: name, path: appPath, bundleIdentifier: bundle?.bundleIdentifier)
+        let identifier = bundle?.bundleIdentifier.flatMap { $0.isEmpty ? nil : $0 }
+        return ClientIdentity(name: name, path: appPath, bundleIdentifier: identifier)
     }
 
     /// The outermost `.app` directory in `path`, or nil when the path is not inside an app bundle.

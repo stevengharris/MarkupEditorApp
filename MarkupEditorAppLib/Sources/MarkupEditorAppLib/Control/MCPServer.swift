@@ -53,7 +53,7 @@ public struct MCPServer: Sendable {
     /// - Parameters:
     ///   - tools: Asked on every `tools/list`, so the offer follows what is available.
     ///   - knownNames: Tool names that may be called whether or not they are offered right now. A
-    ///     client with an older list can then get the app's own explanation, such as "read-only
+    ///     client with an older list can then get the app's explanation, such as "read-only
     ///     access", instead of a bare unknown-tool error. Nil limits calls to the offered tools.
     public init(name: String, version: String, tools: @escaping ListTools, knownNames: Set<String>? = nil, call: @escaping CallTool) {
         self.name = name

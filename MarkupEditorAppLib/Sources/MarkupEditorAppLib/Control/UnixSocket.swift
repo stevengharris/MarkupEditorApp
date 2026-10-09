@@ -19,8 +19,10 @@ public struct ControlSocketError: Error, LocalizedError, Equatable {
 
 enum UnixSocket {
 
-    /// Longest line either side accepts. A PNG screenshot is the largest legitimate payload.
+    /// Longest reply a client accepts. A PNG screenshot is the largest legitimate payload.
     static let maxLineBytes = 32 * 1024 * 1024
+    /// Longest request the server accepts.
+    static let maxRequestBytes = 4 * 1024 * 1024
 
     /// Makes a write to a descriptor whose other end has gone return an error instead of raising
     /// SIGPIPE, which would silently terminate the whole process.
@@ -40,7 +42,8 @@ enum UnixSocket {
             throw ControlSocketError("Socket path is too long (\(path.utf8.count) of \(capacity - 1) bytes): \(path)")
         }
         withUnsafeMutableBytes(of: &address.sun_path) { buffer in
-            _ = path.withCString { strncpy(buffer.baseAddress!.assumingMemoryBound(to: CChar.self), $0, capacity - 1) }
+            let bytes = Array(path.utf8.prefix(capacity - 1))
+            buffer.copyBytes(from: bytes)
         }
         return address
     }
@@ -51,6 +54,12 @@ enum UnixSocket {
                 body($0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
+    }
+
+    /// True when `path` exists and is a socket.
+    static func isSocketFile(_ path: String) -> Bool {
+        var info = stat()
+        return lstat(path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFSOCK
     }
 
     /// True when a process is accepting connections at `path`. A leftover socket file from a crashed
@@ -65,17 +74,18 @@ enum UnixSocket {
 
     /// Reads from `descriptor` until a newline, returning the line without it, or nil at end of stream.
     /// `buffer` carries bytes read past the newline to the next call.
-    static func readLine(from descriptor: Int32, buffer: inout [UInt8]) throws -> Data? {
+    static func readLine(from descriptor: Int32, buffer: inout [UInt8], maxBytes: Int = maxLineBytes) throws -> Data? {
         var chunk = [UInt8](repeating: 0, count: 64 * 1024)
         var scanned = 0     // Bytes of `buffer` already known to hold no newline
         while true {
             if let newline = buffer[scanned...].firstIndex(of: UInt8(ascii: "\n")) {
+                guard newline <= maxBytes else { throw ControlSocketError("Line exceeds \(maxBytes) bytes") }
                 let line = Data(buffer[..<newline])
                 buffer.removeSubrange(...newline)
                 return line
             }
             scanned = buffer.count
-            guard buffer.count <= maxLineBytes else { throw ControlSocketError("Line exceeds \(maxLineBytes) bytes") }
+            guard buffer.count <= maxBytes else { throw ControlSocketError("Line exceeds \(maxBytes) bytes") }
             let count = read(descriptor, &chunk, chunk.count)
             if count < 0 {
                 if errno == EINTR { continue }

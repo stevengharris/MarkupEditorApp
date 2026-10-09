@@ -25,11 +25,16 @@ public enum ClientAccess: String, Codable, Sendable, Comparable {
 
     public static func < (lhs: ClientAccess, rhs: ClientAccess) -> Bool { lhs.rank < rhs.rank }
 
-    /// True when this access permits a tool that needs `required`.
-    public func permits(_ required: ClientAccess) -> Bool { self >= required }
+    /// True when this access permits a tool that needs `required`. Undecided and denied permit nothing.
+    public func permits(_ required: ClientAccess) -> Bool {
+        switch self {
+        case .undecided, .denied: false
+        case .read, .readWrite: self >= required
+        }
+    }
 }
 
-/// The program on the other end of a `markup mcp` session, as the CLI reports it from its own
+/// The program on the other end of a `markup mcp` session, as the CLI reports it from its
 /// parent process. A client is remembered by `key`.
 public struct ClientIdentity: Codable, Sendable, Hashable {
     /// What to call it in a prompt, such as "Claude" or "node".
@@ -44,6 +49,7 @@ public struct ClientIdentity: Codable, Sendable, Hashable {
         self.bundleIdentifier = bundleIdentifier
     }
 
-    /// Stable identity for remembering a decision: the bundle identifier when there is one, else the path.
-    public var key: String { bundleIdentifier ?? path }
+    /// Stable identity for remembering a decision: the bundle identifier together with the path, so a
+    /// program that copies another app's Info.plist elsewhere does not inherit its approval.
+    public var key: String { "\(bundleIdentifier ?? "")|\(path)" }
 }

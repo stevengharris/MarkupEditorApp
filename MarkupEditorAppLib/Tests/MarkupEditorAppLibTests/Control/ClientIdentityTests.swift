@@ -26,7 +26,7 @@ struct ClientIdentityTests {
         #expect(identity.path == "/sbin/launchd")
         #expect(identity.name == "launchd")
         #expect(identity.bundleIdentifier == nil)
-        #expect(identity.key == "/sbin/launchd")
+        #expect(identity.key == "|/sbin/launchd")
     }
 
     @Test func aProcessInsideAnAppIsDescribedAsTheApp() throws {

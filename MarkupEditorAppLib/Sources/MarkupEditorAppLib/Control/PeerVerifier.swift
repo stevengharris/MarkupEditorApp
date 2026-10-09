@@ -37,7 +37,7 @@ public struct CodeSignaturePeerVerifier: PeerVerifying {
     }
 
     /// The designated requirement of the signed code at `url`: what any binary signed the same way
-    /// satisfies. A running app uses it on its own embedded command line tool, which makes the
+    /// satisfies. A running app uses it on its embedded command line tool, which makes the
     /// check follow whatever identity signed the build, Developer ID or a development certificate.
     public static func designatedRequirement(ofCodeAt url: URL) -> String? {
         var staticCode: SecStaticCode?

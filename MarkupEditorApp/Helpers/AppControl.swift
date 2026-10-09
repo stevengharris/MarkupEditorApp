@@ -81,13 +81,17 @@ final class AppControl {
             logger.error("Control channel not started: the bundled markup tool's signature could not be read")
             return
         }
-        let dispatcher = ControlDispatcher(facade: AppControlFacade(control: self), tools: Self.offeredTools, authorizer: makeAuthorizer())
+        let dispatcher = ControlDispatcher(
+            facade: AppControlFacade(control: self),
+            tools: Self.offeredTools,
+            authorizer: makeAuthorizer(),
+            onAuthorizedUse: { [weak self] client in self?.noteActivity(by: client) }
+        )
         let server = ControlServer(
             path: ControlClient.appPath(containerHome: NSHomeDirectory()),
             peerVerifier: CodeSignaturePeerVerifier(requirement: requirement)
-        ) { [weak self] line in
-            await self?.noteActivity(in: line)
-            return await dispatcher.handle(line)
+        ) { line in
+            await dispatcher.handle(line)
         }
         do {
             try server.start()
@@ -123,9 +127,8 @@ final class AppControl {
 #endif
     }
 
-    private func noteActivity(in line: Data) {
-        guard let request = try? JSONDecoder().decode(ControlRequest.self, from: line) else { return }
-        recentClient = request.client?.name ?? "A program"
+    private func noteActivity(by client: ClientIdentity?) {
+        recentClient = client.map { Self.displayed($0.name) } ?? "A program"
         assistantActive = true
         activityReset?.cancel()
         activityReset = Task { [weak self] in
@@ -135,25 +138,35 @@ final class AppControl {
         approvals = store.approvals()
     }
 
-    /// The user's choice for a client that has not been decided yet.
+    /// Text from a client for display in a prompt: control and invisible formatting characters removed,
+    /// and shortened.
+    static func displayed(_ text: String, limit: Int = 80) -> String {
+        let hidden = CharacterSet.controlCharacters.union(.illegalCharacters).union(CharacterSet(charactersIn: "\u{200B}"..."\u{200F}")).union(CharacterSet(charactersIn: "\u{202A}"..."\u{202E}")).union(CharacterSet(charactersIn: "\u{2066}"..."\u{2069}"))
+        let cleaned = String(String.UnicodeScalarView(text.unicodeScalars.filter { !hidden.contains($0) }))
+        return cleaned.count > limit ? String(cleaned.prefix(limit)) + "…" : cleaned
+    }
+
+    /// The user's choice for a client that has not been decided yet. Don't Allow is the default button,
+    /// so a stray Return does not grant anything.
     private static func ask(about client: ClientIdentity) -> ClientAccess {
         NSApp.activate(ignoringOtherApps: true)
+        let name = displayed(client.name)
         let alert = NSAlert()
-        alert.messageText = "Allow \(client.name) to use MarkupEditor?"
+        alert.messageText = "Allow \(name) to use MarkupEditor?"
         alert.informativeText = """
-            \(client.name) (\(client.path)) wants to work with the document you have open in MarkupEditor. \
+            \(name) (\(displayed(client.path, limit: 200))) wants to work with the document you have open in MarkupEditor. \
             It can read the document, including changes you have not saved, and the text you have selected. \
             If you allow editing, it can also replace the selection; each change is one undo step and \
             leaves the document unsaved for you to review.
 
             You can change this later in Settings under Assistants.
             """
-        alert.addButton(withTitle: "Allow Reading and Editing")
-        alert.addButton(withTitle: "Allow Reading Only")
         alert.addButton(withTitle: "Don't Allow")
+        alert.addButton(withTitle: "Allow Reading Only")
+        alert.addButton(withTitle: "Allow Reading and Editing")
         alert.alertStyle = .informational
         switch alert.runModal() {
-        case .alertFirstButtonReturn: return .readWrite
+        case .alertThirdButtonReturn: return .readWrite
         case .alertSecondButtonReturn: return .read
         default: return .denied
         }
@@ -173,6 +186,32 @@ private struct DebugConsentSwitch: ControlAuthorizing {
     }
 }
 #endif
+
+/// Waits for an editor operation that reports completion through a handler, and gives up after a
+/// deadline, since the editor drops a paste that arrives while another is in progress without
+/// calling its handler.
+@MainActor
+private final class PasteCompletion {
+
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    static func wait(seconds: Double, start: (@escaping () -> Void) -> Void) async -> Bool {
+        let completion = PasteCompletion()
+        return await withCheckedContinuation { continuation in
+            completion.continuation = continuation
+            start { completion.finish(true) }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(seconds))
+                completion.finish(false)
+            }
+        }
+    }
+
+    private func finish(_ value: Bool) {
+        continuation?.resume(returning: value)
+        continuation = nil
+    }
+}
 
 /// The end-user operations, in every build.
 @MainActor
@@ -234,12 +273,17 @@ struct AppControlFacade: ControlFacade {
         await (try webView()).getSelectionState().selection ?? ""
     }
 
+    /// Inserts `text` as text. The editor parses what it is pasted as HTML, so markup characters are
+    /// escaped to arrive literally.
     func typeText(_ text: String) async throws {
         let webView = try webView()
         webView.window?.makeFirstResponder(webView)
-        await withCheckedContinuation { continuation in
-            webView.pasteText(text) { continuation.resume() }
-        }
+        let escaped = text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+        let finished = await PasteCompletion.wait(seconds: 10) { done in webView.pasteText(escaped, handler: done) }
+        guard finished else { throw ControlError("The editor did not finish the edit; it may be busy with another paste. Try again.") }
     }
 }
 

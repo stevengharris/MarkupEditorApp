@@ -19,17 +19,23 @@ public struct MCPControlBackend: Sendable {
     private let send: Send
     private let open: OpenFile
     private let client: ClientIdentity?
-    private let log: @Sendable (String) -> Void
+    private let rawLog: @Sendable (String) -> Void
     private let nextID = IDCounter()
+    private let lastLogged = LastMessage()
 
     /// - Parameter client: The program running this server, attached to every request so the app can
     ///   decide what it may do.
     ///   - log: Told why the app could not be used, for the server's stderr; MCP clients keep it.
     public init(client: ClientIdentity? = nil, log: @escaping @Sendable (String) -> Void = { _ in }, send: @escaping Send, open: @escaping OpenFile) {
         self.client = client
-        self.log = log
+        self.rawLog = log
         self.send = send
         self.open = open
+    }
+
+    /// Tools are listed every few seconds, so a message is logged only when it changes.
+    private func log(_ message: String) {
+        if lastLogged.changes(to: message) { rawLog(message) }
     }
 
     private func request(_ tool: String, _ args: JSONValue = [:]) -> ControlRequest {
@@ -38,7 +44,7 @@ public struct MCPControlBackend: Sendable {
 
     private static let openTool = ControlTool(
         name: openDocument, title: "Open document", scope: .endUser, access: .read, annotations: .additive,
-        description: "Open a Markdown or HTML file in MarkupEditor, the same as double-clicking it in Finder. If the file uses local images, MarkupEditor may ask the user to grant access to its folder.",
+        description: "Open a Markdown or HTML file in MarkupEditor, the same as double-clicking it in Finder. Requires MarkupEditor to be running with Assistants turned on and this program allowed. If the file uses local images, MarkupEditor may ask the user to grant access to its folder. If the open document has unsaved changes, MarkupEditor asks the user whether to save them first.",
         inputSchema: ControlTool.schema(["path": ("string", "Absolute path of the file.")], required: ["path"]))
 
     /// Every tool name a client may call, offered or not.
@@ -47,7 +53,7 @@ public struct MCPControlBackend: Sendable {
     }
 
     /// `open_document` always, plus whichever other tools the connected app says it supports. With
-    /// no app listening, as in a release build, that is `open_document` alone.
+    /// no app listening, that is `open_document` alone, which then reports that the app did not answer.
     public func tools() async -> [ControlTool] {
         do {
             let response = try await send(request(ControlTools.listTools))
@@ -99,11 +105,15 @@ public struct MCPControlBackend: Sendable {
 
     /// Asks the connected app whether this client may open files, and which copy of the app to open
     /// them in, so a file opens in the app that answered and not whichever copy Launch Services
-    /// prefers. With no app listening there is nothing to ask, and the file opens in the default app.
+    /// prefers. An app that cannot be reached, or has Assistants turned off, does not allow it.
     private func authorizeOpen() async -> OpenDecision {
-        guard let response = try? await send(request(ControlTools.authorizeOpen)) else { return .allowed(bundlePath: nil) }
-        guard response.ok else { return .refused(response.error ?? "MarkupEditor did not allow opening files") }
-        return .allowed(bundlePath: response.result?["bundlePath"]?.stringValue)
+        do {
+            let response = try await send(request(ControlTools.authorizeOpen))
+            guard response.ok else { return .refused(response.error ?? "MarkupEditor did not allow opening files") }
+            return .allowed(bundlePath: response.result?["bundlePath"]?.stringValue)
+        } catch {
+            return .refused("MarkupEditor did not answer, so the file was not opened. Make sure MarkupEditor is running with Assistants turned on in its settings. (\(error.localizedDescription))")
+        }
     }
 
     static func content(for tool: String, _ result: JSONValue) -> MCPToolResult {
@@ -115,6 +125,16 @@ public struct MCPControlBackend: Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let text = (try? encoder.encode(result)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
         return MCPToolResult([.text(text)])
+    }
+}
+
+private final class LastMessage: Sendable {
+    private let value = Mutex<String?>(nil)
+    func changes(to message: String) -> Bool {
+        value.withLock { last in
+            defer { last = message }
+            return last != message
+        }
     }
 }
 

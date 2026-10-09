@@ -17,7 +17,7 @@ public protocol ControlFacade {
 }
 
 /// The broader control Debug builds add for testing and demos. A release build's facade does not
-/// adopt this, so none of it is compiled in.
+/// adopt this, so the dispatcher refuses every tool that needs it.
 @MainActor
 public protocol DeveloperControlFacade: ControlFacade {
     func saveDocument() async throws

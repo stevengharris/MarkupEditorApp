@@ -106,16 +106,18 @@ final class MCPControlBackendTests {
         #expect(sent.all.map(\.tool) == ["authorize_open"])
     }
 
-    @Test func openDocumentFallsBackToTheDefaultAppWhenTheAppIsNotReachable() async throws {
+    @Test func openDocumentIsRefusedWhenTheAppCannotBeAsked() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("open-\(UUID().uuidString).md")
         try "# hi".write(to: file, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: file) }
-        let unreachable = MCPControlBackend(send: { _ in throw ControlSocketError("not listening") }, open: { [openedWith] _, appPath in openedWith.append(appPath) })
+        for failure in [ControlSocketError("not listening"), ControlSocketError("read: Operation timed out")] {
+            let unreachable = MCPControlBackend(send: { _ in throw failure }, open: { [openedWith] _, appPath in openedWith.append(appPath) })
 
-        let result = await unreachable.call("open_document", ["path": .string(file.path)])
+            let result = await unreachable.call("open_document", ["path": .string(file.path)])
 
-        #expect(!result.isError)
-        #expect(openedWith.all == [nil])
+            #expect(result.isError)
+        }
+        #expect(openedWith.all.isEmpty)
     }
 
     @Test func openDocumentRejectsAMissingFileAndAMissingPath() async {

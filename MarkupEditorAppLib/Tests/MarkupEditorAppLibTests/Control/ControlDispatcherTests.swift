@@ -194,6 +194,24 @@ struct ControlDispatcherAccessTests {
         return try JSONDecoder().decode(ControlResponse.self, from: reply)
     }
 
+    @Test func onlyAuthorizedUseIsReportedAsActivity() async throws {
+        var used: [String?] = []
+        func run(_ tool: String, access: ClientAccess) async throws {
+            let dispatcher = ControlDispatcher(facade: facade, authorizer: FakeAuthorizer(access), onAuthorizedUse: { used.append($0?.name) })
+            let request = ControlRequest(id: 1, tool: tool, args: ["text": "x"], client: claude)
+            _ = await dispatcher.handle(try JSONEncoder().encode(request))
+        }
+
+        try await run("list_tools", access: .readWrite)
+        try await run("get_selection", access: .denied)
+        try await run("replace_selection", access: .read)
+        #expect(used.isEmpty)
+
+        try await run("get_selection", access: .read)
+        try await run("authorize_open", access: .read)
+        #expect(used == ["Claude", "Claude"])
+    }
+
     @Test func getDocumentReturnsTheStateAndTheLiveMarkdown() async throws {
         let response = try await send("get_document", access: .read)
         #expect(response.ok)
@@ -309,6 +327,15 @@ struct ControlDispatcherReleaseFacadeTests {
         let line = try JSONEncoder().encode(ControlRequest(id: 1, tool: "eval_js", args: ["script": "1"]))
         let response = try JSONDecoder().decode(ControlResponse.self, from: await dispatcher.handle(line))
         #expect(response == .failure(id: 1, "eval_js is not available in this build"))
+        #expect(facade.calls.isEmpty)
+    }
+
+    @Test func appStateNeedsTheDeveloperFacade() async throws {
+        let facade = EndUserOnlyFacade()
+        let dispatcher = ControlDispatcher(facade: facade, tools: ControlTools.all)
+        let line = try JSONEncoder().encode(ControlRequest(id: 1, tool: "app_state"))
+        let response = try JSONDecoder().decode(ControlResponse.self, from: await dispatcher.handle(line))
+        #expect(response == .failure(id: 1, "app_state is not available in this build"))
         #expect(facade.calls.isEmpty)
     }
 

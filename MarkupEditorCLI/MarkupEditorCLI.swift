@@ -94,16 +94,16 @@ struct Open: AsyncParsableCommand {
 }
 
 
-/// `markup mcp`: a Model Context Protocol server on stdin and stdout that lets an MCP client drive
-/// a Debug build of MarkupEditor. Release builds do not listen, so every tool but open_document
-/// reports that the app is not reachable.
+/// `markup mcp`: a Model Context Protocol server on stdin and stdout that lets an MCP client read
+/// and edit the document open in MarkupEditor. It works only while the app is running with
+/// Assistants turned on and the user has allowed the client.
 struct MCP: AsyncParsableCommand {
 
     static let configuration = CommandConfiguration(
         commandName: "mcp",
-        abstract: "Run an MCP server on stdin/stdout that controls a Debug build of MarkupEditor.")
+        abstract: "Run an MCP server on stdin/stdout that lets an assistant work with the document open in MarkupEditor.")
 
-    @Option(name: .long, help: "Path of the app's control socket. Defaults to the Debug app's container.")
+    @Option(name: .long, help: "Path of the app's control socket. Defaults to the app's container.")
     var socket: String?
 
     func run() async throws {

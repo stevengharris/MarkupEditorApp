@@ -24,7 +24,7 @@ public struct ControlClient: Sendable {
         appPath(containerHome: "\(home)/Library/Containers/\(bundleIdentifier)/Data")
     }
 
-    /// Where the app binds, given its own `NSHomeDirectory()`, which inside the sandbox is the container.
+    /// Where the app binds, given `NSHomeDirectory()` as the app sees it, which inside the sandbox is the container.
     public static func appPath(containerHome: String) -> String {
         "\(containerHome)/tmp/mcp.sock"
     }
@@ -51,7 +51,7 @@ public struct ControlClient: Sendable {
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
         guard UnixSocket.withSockaddr(&address, { connect(fd, $0, $1) }) == 0 else {
-            throw ControlSocketError("MarkupEditor is not listening at \(path). Run a Debug build of the app. (\(String(cString: strerror(errno))))")
+            throw ControlSocketError("MarkupEditor is not listening at \(path). Start MarkupEditor and turn on Assistants in its settings. (\(String(cString: strerror(errno))))")
         }
         try UnixSocket.writeLine(line, to: fd)
         var buffer: [UInt8] = []

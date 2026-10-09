@@ -43,11 +43,11 @@ struct ControlSocketTests {
         let client = ControlClient(path: path)
 
         let ids = try await withThrowingTaskGroup(of: Int.self) { group in
-            for id in 1...20 { group.addTask { try await client.send(ControlRequest(id: id, tool: "x")).id } }
+            for id in 1...12 { group.addTask { try await client.send(ControlRequest(id: id, tool: "x")).id } }
             return try await group.reduce(into: Set<Int>()) { $0.insert($1) }
         }
 
-        #expect(ids == Set(1...20))
+        #expect(ids == Set(1...12))
     }
 
     @Test func aLargePayloadRoundTrips() async throws {
@@ -78,12 +78,51 @@ struct ControlSocketTests {
         #expect(!FileManager.default.fileExists(atPath: path))
     }
 
-    @Test func aStaleSocketFileIsReplacedOnStart() throws {
+    @Test func aFileThatIsNotASocketIsNeverDeleted() throws {
         let path = socketPath()
-        FileManager.default.createFile(atPath: path, contents: Data())
+        FileManager.default.createFile(atPath: path, contents: Data("keep".utf8))
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        #expect(throws: ControlSocketError.self) { try ControlServer(path: path) { $0 }.start() }
+
+        #expect(FileManager.default.contents(atPath: path) == Data("keep".utf8))
+    }
+
+    @Test func aRequestOverTheSizeLimitEndsTheConnection() async throws {
+        let path = socketPath()
         let server = try echoServer(at: path)
         defer { server.stop() }
-        #expect(FileManager.default.fileExists(atPath: path))
+        let tooBig = String(repeating: "x", count: UnixSocket.maxRequestBytes + 1024)
+
+        await #expect(throws: (any Error).self) {
+            try await ControlClient(path: path).send(ControlRequest(id: 1, tool: "x", args: ["big": .string(tooBig)]))
+        }
+    }
+
+    @Test func connectionsBeyondTheLimitAreClosed() throws {
+        let path = socketPath()
+        let server = try echoServer(at: path)
+        defer { server.stop() }
+        func connect() throws -> Int32 {
+            var address = try UnixSocket.address(for: path)
+            let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+            #expect(UnixSocket.withSockaddr(&address, { Darwin.connect(fd, $0, $1) }) == 0)
+            // The listen backlog is small; let the server accept before the next arrives.
+            Thread.sleep(forTimeInterval: 0.02)
+            return fd
+        }
+        let held = try (0..<ControlServer.maxConnections).map { _ in try connect() }
+        defer { held.forEach { close($0) } }
+        Thread.sleep(forTimeInterval: 0.3)
+
+        let extra = try connect()
+        defer { close(extra) }
+        var limit = timeval(tv_sec: 2, tv_usec: 0)
+        setsockopt(extra, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
+        var byte: UInt8 = 0
+
+        // A closed connection reads as end of stream; an admitted one would wait for a request.
+        #expect(read(extra, &byte, 1) == 0)
     }
 
     @Test func aSecondServerCannotTakeOverALiveSocket() async throws {

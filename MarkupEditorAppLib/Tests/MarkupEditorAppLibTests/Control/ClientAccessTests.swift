@@ -18,9 +18,19 @@ struct ClientAccessTests {
         #expect(!ClientAccess.undecided.permits(.read))
     }
 
-    @Test func aClientIsRememberedByBundleIdentifierWhenItHasOneElseByPath() {
-        #expect(ClientIdentity(name: "Claude", path: "/A/Claude.app", bundleIdentifier: "com.anthropic.claude").key == "com.anthropic.claude")
-        #expect(ClientIdentity(name: "node", path: "/usr/local/bin/node").key == "/usr/local/bin/node")
+    @Test func aClientIsRememberedByBundleIdentifierAndPath() {
+        let genuine = ClientIdentity(name: "Claude", path: "/Applications/Claude.app", bundleIdentifier: "com.anthropic.claude")
+        let copied = ClientIdentity(name: "Claude", path: "/Users/u/x/Claude.app", bundleIdentifier: "com.anthropic.claude")
+        #expect(genuine.key != copied.key)
+        #expect(ClientIdentity(name: "node", path: "/usr/local/bin/node").key != ClientIdentity(name: "node", path: "/opt/node").key)
+    }
+
+    @Test func accessThatWasNeverGrantedPermitsNothing() {
+        for access in [ClientAccess.undecided, .denied] {
+            for required in [ClientAccess.undecided, .denied, .read, .readWrite] {
+                #expect(!access.permits(required))
+            }
+        }
     }
 }
 
