@@ -39,11 +39,8 @@ public final class ReconnectRefresher {
     }
 
     private func waitUntilIdle() async {
-        while model.isWorking {
-            await withCheckedContinuation { continuation in
-                withObservationTracking { _ = model.isWorking } onChange: { continuation.resume() }
-            }
-        }
+        let model = model
+        for await working in Observations({ model.isWorking }) where !working { return }
     }
 }
 
