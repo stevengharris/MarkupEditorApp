@@ -64,39 +64,24 @@ import Foundation
     }
 }
 
-@MainActor struct WindowCloseGuardTests {
+@MainActor struct WindowCloseActionTests {
 
-    private final class RecordingDelegate: NSObject, NSWindowDelegate {
-        var resizes = 0
-        var closeQueries = 0
-        func windowDidResize(_ notification: Notification) { resizes += 1 }
-        func windowShouldClose(_ sender: NSWindow) -> Bool { closeQueries += 1; return true }
+    @Test func testClosingTheDocumentWindowChecksForUnsavedChangesFirst() {
+        let action = AppDelegate.closeAction(forWindowIdentifier: MarkupEditorApp.mainWindowID, skipTerminateCheck: false)
+        #expect(action == .quitAfterSaveCheck)
     }
 
-    @Test func testWindowShouldCloseUsesTheGuardClosure() {
-        let window = NSWindow()
-        let wrapped = RecordingDelegate()
-        var asked: NSWindow?
-        let closeGuard = WindowCloseGuard(wrapping: wrapped) { asked = $0; return false }
-        #expect(closeGuard.windowShouldClose(window) == false)
-        #expect(asked === window)
-        #expect(wrapped.closeQueries == 0)
+    @Test func testClosingTheDocumentWindowDuringQuitJustCloses() {
+        let action = AppDelegate.closeAction(forWindowIdentifier: MarkupEditorApp.mainWindowID, skipTerminateCheck: true)
+        #expect(action == .closeNow)
     }
 
-    @Test func testOtherDelegateMessagesReachTheWrappedDelegate() {
-        let wrapped = RecordingDelegate()
-        let closeGuard = WindowCloseGuard(wrapping: wrapped) { _ in true }
-        #expect(closeGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
-        _ = closeGuard.perform(#selector(NSWindowDelegate.windowDidResize(_:)), with: Notification(name: NSWindow.didResizeNotification))
-        #expect(wrapped.resizes == 1)
+    @Test(arguments: ["plugin-gallery", "welcome", "upgrade", "com_apple_SwiftUI_Settings_window", ""])
+    func testClosingAnotherWindowJustCloses(identifier: String) {
+        #expect(AppDelegate.closeAction(forWindowIdentifier: identifier, skipTerminateCheck: false) == .closeNow)
     }
 
-    @Test func testAWindowNotifiesTheWrappedDelegateThroughTheGuard() {
-        let window = NSWindow()
-        let wrapped = RecordingDelegate()
-        let closeGuard = WindowCloseGuard(wrapping: wrapped) { _ in true }
-        window.delegate = closeGuard
-        NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
-        #expect(wrapped.resizes == 1)
+    @Test func testClosingAWindowWithoutAnIdentifierJustCloses() {
+        #expect(AppDelegate.closeAction(forWindowIdentifier: nil, skipTerminateCheck: false) == .closeNow)
     }
 }

@@ -10,7 +10,7 @@ import MarkupEditor
 import MarkupEditorAppLib
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
@@ -29,9 +29,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Set by applicationShouldTerminate when it returns .terminateLater (Cmd+Q path),
     /// so handleQuit knows to call NSApp.reply instead of NSApp.terminate.
     static var isRespondingToTerminateQuery = false
-
-    /// Retained here because NSWindow holds its delegate weakly.
-    private var windowCloseGuard: WindowCloseGuard?
 
     /// Submenu under File > Export, populated by populateExportMenu(_:).
     var exportSubmenu = NSMenu(title: "Export")
@@ -61,10 +58,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         true
     }
 
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        guard !AppDelegate.skipTerminateCheck else { return true }
-        NotificationCenter.default.post(name: .menuQuitApplication, object: nil)
-        return false
+    /// What closing a window does. The document window is the app's only document, so closing it
+    /// quits after the unsaved-changes check.
+    enum WindowCloseAction: Equatable {
+        case quitAfterSaveCheck
+        case closeNow
+    }
+
+    static func closeAction(forWindowIdentifier identifier: String?, skipTerminateCheck: Bool) -> WindowCloseAction {
+        identifier == MarkupEditorApp.mainWindowID && !skipTerminateCheck ? .quitAfterSaveCheck : .closeNow
+    }
+
+    /// Target of the document window's close button and File > Close. SwiftUI must keep its own
+    /// window delegate to route a Finder open to the existing window, so close is intercepted here
+    /// instead of through `windowShouldClose`.
+    @objc func closeWindow(_ sender: Any?) {
+        let window = (sender as? NSButton)?.window ?? NSApp.keyWindow
+        switch Self.closeAction(forWindowIdentifier: window?.identifier?.rawValue, skipTerminateCheck: Self.skipTerminateCheck) {
+        case .quitAfterSaveCheck:
+            NotificationCenter.default.post(name: .menuQuitApplication, object: nil)
+        case .closeNow:
+            window?.close()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -101,12 +116,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApplication.shared.mainMenu = buildMenu()
             populateExportMenu()
             let documentWindow = NSApp.windows.first { $0.identifier?.rawValue == MarkupEditorApp.mainWindowID }
-            if let window = documentWindow ?? NSApplication.shared.mainWindow, !(window.delegate is WindowCloseGuard) {
-                let guardDelegate = WindowCloseGuard(wrapping: window.delegate) { [weak self] in
-                    self?.windowShouldClose($0) ?? true
-                }
-                windowCloseGuard = guardDelegate
-                window.delegate = guardDelegate
+            if let button = (documentWindow ?? NSApplication.shared.mainWindow)?.standardWindowButton(.closeButton) {
+                button.target = self
+                button.action = #selector(closeWindow(_:))
             }
             // SwiftUI's internal AppDelegate runs makeMainMenu whenever the scene
             // graph changes phase (background ↔ active, environment changes, etc.).
@@ -297,7 +309,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         openRecentMenu.delegate = self
         fileMenu.addItem(openRecentItem)
         fileMenu.addItem(.separator())
-        fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(closeWindow(_:)), keyEquivalent: "w"))
         fileMenu.addItem(NSMenuItem(title: "Save", action: #selector(saveDocument(_:)), keyEquivalent: "s"))
         let saveAsItem = NSMenuItem(title: "Save As…", action: #selector(saveAsDocument(_:)), keyEquivalent: "s")
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
@@ -696,34 +708,5 @@ extension AppDelegate: NSMenuDelegate {
         )
         clearItem.target = self
         menu.addItem(clearItem)
-    }
-}
-
-/// Routes `windowShouldClose` to `shouldClose` and forwards every other delegate message to the
-/// delegate SwiftUI installed. Replacing that delegate outright makes SwiftUI treat the window as
-/// unmatched and close it when a file is opened from Finder. SwiftUI's own `windowShouldClose` is
-/// deliberately not consulted. Whether SwiftUI accepts a wrapping delegate was established by running
-/// a warm Finder open, so keep that check when changing this.
-final class WindowCloseGuard: NSObject, NSWindowDelegate {
-    // Immutable after init and read only by AppKit message forwarding, which the nonisolated overrides require.
-    private nonisolated(unsafe) let wrapped: NSWindowDelegate?
-    private let shouldClose: (NSWindow) -> Bool
-
-    init(wrapping wrapped: NSWindowDelegate?, shouldClose: @escaping (NSWindow) -> Bool) {
-        self.wrapped = wrapped
-        self.shouldClose = shouldClose
-    }
-
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        shouldClose(sender)
-    }
-
-    override nonisolated func responds(to aSelector: Selector!) -> Bool {
-        super.responds(to: aSelector) || (wrapped as? NSObject)?.responds(to: aSelector) == true
-    }
-
-    override nonisolated func forwardingTarget(for aSelector: Selector!) -> Any? {
-        if let wrapped = wrapped as? NSObject, wrapped.responds(to: aSelector) { return wrapped }
-        return super.forwardingTarget(for: aSelector)
     }
 }
