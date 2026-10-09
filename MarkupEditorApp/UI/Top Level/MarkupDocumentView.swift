@@ -162,6 +162,8 @@ struct MarkupDocumentView: View {
             }
         }
 #if DEBUG
+        .onAppear { AppControl.shared.document = document }
+        .onChange(of: sourceShowing) { _, showing in AppControl.shared.sourceShowing = showing }
         .task {
             for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {
                 let ud = UserDefaults.standard

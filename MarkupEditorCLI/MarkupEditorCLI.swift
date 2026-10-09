@@ -13,11 +13,36 @@ import MarkupEditorAppLib
 
 @main struct MarkupEditorCLI: AsyncParsableCommand {
 
-    static var versionString: String { BuildVariant.versionString }
-
-    static let configuration = CommandConfiguration(commandName: "markup")
+    static let configuration = CommandConfiguration(
+        commandName: "markup",
+        usage: """
+            markup [--version] [<file>]
+            markup mcp [--socket <path>]
+            """,
+        subcommands: [Open.self, MCP.self],
+        defaultSubcommand: Open.self
+    )
 
     static let appBundleIdentifier = "com.stevengharris.MarkupEditorApp"
+
+    static var versionString: String { BuildVariant.versionString }
+
+    /// Hand `fileURL` to MarkupEditor through Launch Services: the app at `appPath` when given, else
+    /// the installed app.
+    static func openInApp(_ fileURL: URL, appPath: String? = nil) async throws {
+        guard let appURL = appPath.map({ URL(fileURLWithPath: $0) })
+                ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: appBundleIdentifier) else {
+            throw ValidationError("MarkupEditor is not installed")
+        }
+        _ = try await NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+    }
+}
+
+/// `markup [file]`: open a file in the installed app. This is the default subcommand, so
+/// `markup file.md` works without naming it. A file called `mcp` needs `./mcp`.
+struct Open: AsyncParsableCommand {
+
+    static let configuration = CommandConfiguration(abstract: "Open a file in MarkupEditor.")
 
     //@Flag(name: [.short, .long], help: "Use named exporter.")
     //var exporter: String? = nil
@@ -41,7 +66,7 @@ import MarkupEditorAppLib
 
         // If version, then report and return
         if version {
-            print(Self.versionString)
+            print(MarkupEditorCLI.versionString)
             return
         }
 
@@ -56,13 +81,9 @@ import MarkupEditorAppLib
         guard FileManager.default.fileExists(atPath: filename) else {
             throw ValidationError("No such file: \(filename)")
         }
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.appBundleIdentifier) else {
-            throw ValidationError("MarkupEditor is not installed")
-        }
-        let fileURL = URL(fileURLWithPath: filename)
-        _ = try await NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+        try await MarkupEditorCLI.openInApp(URL(fileURLWithPath: filename))
     }
-    
+
     func showUnrecognized() {
         if !other.isEmpty {
             print("\nWarning: Unrecognized arguments ignored")
@@ -72,3 +93,29 @@ import MarkupEditorAppLib
     
 }
 
+
+/// `markup mcp`: a Model Context Protocol server on stdin and stdout that lets an MCP client drive
+/// a Debug build of MarkupEditor. Release builds do not listen, so every tool but open_document
+/// reports that the app is not reachable.
+struct MCP: AsyncParsableCommand {
+
+    static let configuration = CommandConfiguration(
+        commandName: "mcp",
+        abstract: "Run an MCP server on stdin/stdout that controls a Debug build of MarkupEditor.")
+
+    @Option(name: .long, help: "Path of the app's control socket. Defaults to the Debug app's container.")
+    var socket: String?
+
+    func run() async throws {
+        let client = ControlClient(path: socket ?? ControlClient.defaultPath())
+        let backend = MCPControlBackend(
+            send: { try await client.send($0) },
+            open: { try await MarkupEditorCLI.openInApp($0, appPath: $1) })
+        let server = MCPServer(
+            name: "markupeditor",
+            version: BuildVariant.versionString,
+            tools: { await backend.tools() },
+            call: { await backend.call($0, $1) })
+        await server.run(input: .standardInput, output: .standardOutput)
+    }
+}

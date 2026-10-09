@@ -97,6 +97,9 @@ struct MarkupEditorApp: App {
         _upgradeOnly = State(initialValue: evaluation.upgradeOnly)
 #endif
         _ = UpdateManager.shared
+#if DEBUG
+        AppControl.shared.start()
+#endif
         Task { await SubscriptionModel.shared.refresh() }
         _ = SubscriptionModel.reconnectRefresher
         MarkupEditor.allowLocalImages = true
