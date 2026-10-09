@@ -28,6 +28,13 @@ struct AssistantSettingsSection: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            if control.isEnabled, let problem = control.startupProblem {
+                LabeledContent("") {
+                    Label(problem, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
             if control.isEnabled {
                 LabeledContent("Allowed:") {
                     allowedPrograms

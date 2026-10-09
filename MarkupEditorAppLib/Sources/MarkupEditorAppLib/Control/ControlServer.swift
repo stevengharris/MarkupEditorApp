@@ -12,7 +12,7 @@ import Synchronization
 public final class ControlServer: Sendable {
 
     private let path: String
-    private let peerVerifier: PeerVerifying?
+    private let peerVerifier: PeerVerifying
     private let handler: @Sendable (Data) async -> Data
     private let descriptor = Mutex<Int32>(-1)
     private let connections = Mutex<Int>(0)
@@ -22,13 +22,20 @@ public final class ControlServer: Sendable {
     /// Seconds a connection may sit without sending a request before it is closed.
     static let idleSeconds = 30
 
-    /// - Parameter peerVerifier: When set, a connecting process that fails it is told so and
-    ///   disconnected before any request is read.
-    public init(path: String, peerVerifier: PeerVerifying? = nil, handler: @escaping @Sendable (Data) async -> Data) {
+    /// - Parameter peerVerifier: A connecting process that fails it is told so and disconnected
+    ///   before any request is read.
+    public init(path: String, peerVerifier: PeerVerifying, handler: @escaping @Sendable (Data) async -> Data) {
         self.path = path
         self.peerVerifier = peerVerifier
         self.handler = handler
     }
+
+#if DEBUG
+    /// Tests: accepts every peer.
+    public convenience init(path: String, handler: @escaping @Sendable (Data) async -> Data) {
+        self.init(path: path, peerVerifier: AcceptAnyPeer(), handler: handler)
+    }
+#endif
 
     /// Binds the socket, replacing a stale file from an earlier run, and starts accepting.
     public func start() throws {
@@ -87,7 +94,7 @@ public final class ControlServer: Sendable {
         stop()
     }
 
-    private func acceptLoop(_ listener: Int32, _ verifier: PeerVerifying?, _ handler: @escaping @Sendable (Data) async -> Data) {
+    private func acceptLoop(_ listener: Int32, _ verifier: PeerVerifying, _ handler: @escaping @Sendable (Data) async -> Data) {
         while true {
             let connection = accept(listener, nil, nil)
             if connection < 0 {
@@ -115,13 +122,13 @@ public final class ControlServer: Sendable {
         }
     }
 
-    private static func serve(_ connection: Int32, _ verifier: PeerVerifying?, _ handler: @escaping @Sendable (Data) async -> Data) {
+    private static func serve(_ connection: Int32, _ verifier: PeerVerifying, _ handler: @escaping @Sendable (Data) async -> Data) {
         defer { close(connection) }
         // A client may hang up before its reply is ready; that must not take the app down.
         UnixSocket.suppressSigPipe(connection)
         var idle = timeval(tv_sec: idleSeconds, tv_usec: 0)
         setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &idle, socklen_t(MemoryLayout<timeval>.size))
-        if let verifier, !verifier.verify(descriptor: connection) {
+        if !verifier.verify(descriptor: connection) {
             let refusal = ControlResponse.failure(id: -1, "Refused: only the markup command line tool shipped with MarkupEditor may connect")
             if let data = try? JSONEncoder().encode(refusal) { try? UnixSocket.writeLine(data, to: connection) }
             return

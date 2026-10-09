@@ -12,6 +12,13 @@ public protocol PeerVerifying: Sendable {
     func verify(descriptor: Int32) -> Bool
 }
 
+#if DEBUG
+/// Tests: accepts every peer.
+struct AcceptAnyPeer: PeerVerifying {
+    func verify(descriptor: Int32) -> Bool { true }
+}
+#endif
+
 /// Accepts a peer only when its code signature satisfies a requirement. The check uses the
 /// audit token the kernel attaches to the connection, so it cannot be spoofed by the peer.
 /// The peer's executable must be readable by this process; one that is not fails the check.

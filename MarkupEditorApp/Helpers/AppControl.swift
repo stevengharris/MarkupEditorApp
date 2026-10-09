@@ -44,6 +44,8 @@ final class AppControl {
     private(set) var recentClient: String?
     private(set) var assistantActive = false
     private(set) var approvals: [ClientApproval] = []
+    /// Why the listener could not start, shown in Settings while Assistants is on.
+    private(set) var startupProblem: String?
 
     @ObservationIgnored var document: MarkupDocument?
     @ObservationIgnored var sourceShowing = false
@@ -77,8 +79,10 @@ final class AppControl {
 
     private func startListening() {
         guard server == nil else { return }
+        startupProblem = nil
         guard let tool = Self.bundledToolURL, let requirement = CodeSignaturePeerVerifier.designatedRequirement(ofCodeAt: tool) else {
             logger.error("Control channel not started: the bundled markup tool's signature could not be read")
+            startupProblem = "The command line tool inside MarkupEditor could not be verified."
             return
         }
         let dispatcher = ControlDispatcher(
@@ -98,12 +102,14 @@ final class AppControl {
             self.server = server
         } catch {
             logger.error("Control channel not started: \(error.localizedDescription, privacy: .public)")
+            startupProblem = "Assistants could not connect: \(error.localizedDescription)"
         }
     }
 
     private func stopListening() {
         server?.stop()
         server = nil
+        startupProblem = nil
     }
 
     private static var offeredTools: [ControlTool] {

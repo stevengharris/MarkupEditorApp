@@ -21,7 +21,9 @@ struct ClientAccessTests {
     @Test func aClientIsRememberedByBundleIdentifierAndPath() {
         let genuine = ClientIdentity(name: "Claude", path: "/Applications/Claude.app", bundleIdentifier: "com.anthropic.claude")
         let copied = ClientIdentity(name: "Claude", path: "/Users/u/x/Claude.app", bundleIdentifier: "com.anthropic.claude")
+        let resigned = ClientIdentity(name: "Claude", path: "/Applications/Claude.app", bundleIdentifier: "com.anthropic.claude", teamIdentifier: "ABCDE12345")
         #expect(genuine.key != copied.key)
+        #expect(genuine.key != resigned.key)
         #expect(ClientIdentity(name: "node", path: "/usr/local/bin/node").key != ClientIdentity(name: "node", path: "/opt/node").key)
     }
 

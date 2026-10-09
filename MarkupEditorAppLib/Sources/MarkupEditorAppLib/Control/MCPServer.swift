@@ -122,13 +122,28 @@ public struct MCPServer: Sendable {
         let writer = LineWriter(descriptor: output.fileDescriptor)
         var watcher: Task<Void, Never>?
         defer { watcher?.cancel() }
-        var buffer: [UInt8] = []
-        while let line = try? UnixSocket.readLine(from: input.fileDescriptor, buffer: &buffer) {
+        for await line in Self.lines(from: input.fileDescriptor) {
             guard !line.isEmpty else { continue }
             if watcher == nil, Self.isInitializedNotification(line) {
                 watcher = Task { await watchTools(every: pollInterval, writer: writer) }
             }
             if let reply = await handle(line) { writer.write(reply) }
+        }
+    }
+
+    /// Lines read from `descriptor` on a dedicated thread, so a blocking read never holds a
+    /// cooperative-pool thread. The stream finishes when the descriptor reaches end of input.
+    private static func lines(from descriptor: Int32) -> AsyncStream<Data> {
+        AsyncStream { continuation in
+            let reader = Thread {
+                var buffer: [UInt8] = []
+                while let line = try? UnixSocket.readLine(from: descriptor, buffer: &buffer) {
+                    continuation.yield(line)
+                }
+                continuation.finish()
+            }
+            reader.name = "MCPServer.stdin"
+            reader.start()
         }
     }
 

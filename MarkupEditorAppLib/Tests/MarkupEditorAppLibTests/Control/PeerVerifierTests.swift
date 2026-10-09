@@ -26,8 +26,8 @@ struct PeerVerifierTests {
         return try #require(text as String?)
     }
 
-    func server(at path: String, requirement: String?, seen: CallLog<String>) throws -> ControlServer {
-        let server = ControlServer(path: path, peerVerifier: requirement.map(CodeSignaturePeerVerifier.init(requirement:))) { line in
+    func server(at path: String, requirement: String, seen: CallLog<String>) throws -> ControlServer {
+        let server = ControlServer(path: path, peerVerifier: CodeSignaturePeerVerifier(requirement: requirement)) { line in
             seen.append("handled")
             let request = try? JSONDecoder().decode(ControlRequest.self, from: line)
             return (try? JSONEncoder().encode(ControlResponse.success(id: request?.id ?? 0, "ok"))) ?? Data()
@@ -68,13 +68,6 @@ struct PeerVerifierTests {
 
         #expect(!response.ok)
         #expect(seen.all.isEmpty)
-    }
-
-    @Test func withoutAVerifierEveryPeerIsServed() async throws {
-        let path = socketPath(), seen = CallLog<String>()
-        let server = try server(at: path, requirement: nil, seen: seen)
-        defer { server.stop() }
-        #expect(try await ControlClient(path: path).send(ControlRequest(id: 7, tool: "x")).ok)
     }
 
     @Test func theDesignatedRequirementOfSignedCodeParses() throws {

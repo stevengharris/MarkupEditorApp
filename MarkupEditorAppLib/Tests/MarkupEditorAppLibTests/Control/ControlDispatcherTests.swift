@@ -197,7 +197,7 @@ struct ControlDispatcherAccessTests {
     @Test func onlyAuthorizedUseIsReportedAsActivity() async throws {
         var used: [String?] = []
         func run(_ tool: String, access: ClientAccess) async throws {
-            let dispatcher = ControlDispatcher(facade: facade, authorizer: FakeAuthorizer(access), onAuthorizedUse: { used.append($0?.name) })
+            let dispatcher = ControlDispatcher(facade: facade, tools: ControlTools.all, authorizer: FakeAuthorizer(access), onAuthorizedUse: { used.append($0?.name) })
             let request = ControlRequest(id: 1, tool: tool, args: ["text": "x"], client: claude)
             _ = await dispatcher.handle(try JSONEncoder().encode(request))
         }

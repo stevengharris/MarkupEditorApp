@@ -11,18 +11,18 @@ public struct ControlDispatcher {
 
     private let facade: ControlFacade
     private let tools: [ControlTool]
-    private let authorizer: ControlAuthorizing?
+    private let authorizer: ControlAuthorizing
     private let onAuthorizedUse: @MainActor (ClientIdentity?) -> Void
 
     /// - Parameters:
     ///   - tools: The tools this app answers; anything else is unknown, and `list_tools` reports only these.
-    ///   - authorizer: Decides what the requesting client may do. Nil allows everything.
+    ///   - authorizer: Decides what the requesting client may do.
     ///   - onAuthorizedUse: Told which client is about to use a tool it was allowed to, and not for
     ///     listing tools or for a refused call.
     public init(
         facade: ControlFacade,
-        tools: [ControlTool] = ControlTools.all,
-        authorizer: ControlAuthorizing? = nil,
+        tools: [ControlTool],
+        authorizer: ControlAuthorizing,
         onAuthorizedUse: @escaping @MainActor (ClientIdentity?) -> Void = { _ in }
     ) {
         self.facade = facade
@@ -30,6 +30,13 @@ public struct ControlDispatcher {
         self.authorizer = authorizer
         self.onAuthorizedUse = onAuthorizedUse
     }
+
+#if DEBUG
+    /// Tests and Debug tooling: every client is allowed everything.
+    public init(facade: ControlFacade, tools: [ControlTool] = ControlTools.all) {
+        self.init(facade: facade, tools: tools, authorizer: OpenAuthorizer())
+    }
+#endif
 
     /// Handles one JSON request and returns the JSON reply. A line that can't be decoded gets a
     /// reply with id -1, since the caller's id is unknown.
@@ -117,7 +124,7 @@ public struct ControlDispatcher {
     /// The tools to offer this client. Asking never prompts: an undecided client sees every tool,
     /// and the prompt comes with its first call.
     private func listTools(for client: ClientIdentity?) async -> JSONValue {
-        let access = await authorizer?.access(for: client, prompting: false) ?? .readWrite
+        let access = await authorizer.access(for: client, prompting: false)
         let offered: [ControlTool]
         switch access {
         case .denied: offered = []
@@ -128,7 +135,6 @@ public struct ControlDispatcher {
     }
 
     private func authorize(requiring required: ClientAccess, for client: ClientIdentity?) async throws {
-        guard let authorizer else { return }
         let access = await authorizer.access(for: client, prompting: true)
         guard access.permits(required) else {
             let name = client?.name ?? "This program"

@@ -42,14 +42,18 @@ public struct ClientIdentity: Codable, Sendable, Hashable {
     /// Executable path of the process, or of the app that contains it.
     public var path: String
     public var bundleIdentifier: String?
+    /// The Apple team that signed the process, when it is signed by one.
+    public var teamIdentifier: String?
 
-    public init(name: String, path: String, bundleIdentifier: String? = nil) {
+    public init(name: String, path: String, bundleIdentifier: String? = nil, teamIdentifier: String? = nil) {
         self.name = name
         self.path = path
         self.bundleIdentifier = bundleIdentifier
+        self.teamIdentifier = teamIdentifier
     }
 
-    /// Stable identity for remembering a decision: the bundle identifier together with the path, so a
-    /// program that copies another app's Info.plist elsewhere does not inherit its approval.
-    public var key: String { "\(bundleIdentifier ?? "")|\(path)" }
+    /// Stable identity for remembering a decision: bundle identifier, signing team and path together,
+    /// so a program that copies another app's Info.plist elsewhere, or is signed by someone else,
+    /// does not inherit its approval.
+    public var key: String { "\(bundleIdentifier ?? "")|\(teamIdentifier ?? "")|\(path)" }
 }

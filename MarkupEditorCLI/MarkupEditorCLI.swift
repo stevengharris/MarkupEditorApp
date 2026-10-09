@@ -111,7 +111,7 @@ struct MCP: AsyncParsableCommand {
         let client = ControlClient(path: socket ?? ControlClient.defaultPath(), timeout: 300)
         let backend = MCPControlBackend(
             client: ClientIdentity.ofParentProcess(),
-            log: { FileHandle.standardError.write(Data(($0 + "\n").utf8)) },
+            log: { try? FileHandle.standardError.write(contentsOf: Data(($0 + "\n").utf8)) },
             send: { try await client.send($0) },
             open: { try await MarkupEditorCLI.openInApp($0, appPath: $1) })
         let server = MCPServer(
