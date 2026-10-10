@@ -4,6 +4,8 @@
 //
 
 import Foundation
+import Logging
+import MCP
 import Synchronization
 
 /// A piece of a tool result, as MCP carries it.
@@ -11,10 +13,10 @@ public enum MCPContent: Sendable, Equatable {
     case text(String)
     case image(base64: String, mimeType: String)
 
-    var json: JSONValue {
+    var sdkContent: Tool.Content {
         switch self {
-        case .text(let text): ["type": "text", "text": .string(text)]
-        case .image(let base64, let mimeType): ["type": "image", "data": .string(base64), "mimeType": .string(mimeType)]
+        case .text(let text): .text(text: text, annotations: nil, _meta: nil)
+        case .image(let base64, let mimeType): .image(data: base64, mimeType: mimeType, annotations: nil, _meta: nil)
         }
     }
 }
@@ -33,22 +35,19 @@ public struct MCPToolResult: Sendable, Equatable {
     }
 }
 
-/// A Model Context Protocol server speaking JSON-RPC 2.0 over newline-delimited stdio. It offers
-/// tools only; `call` runs one.
+/// A Model Context Protocol server over newline-delimited stdio, built on the MCP Swift SDK. It
+/// offers tools only; `call` runs one.
 public struct MCPServer: Sendable {
 
     public typealias CallTool = @Sendable (_ name: String, _ arguments: JSONValue) async -> MCPToolResult
 
     public typealias ListTools = @Sendable () async -> [ControlTool]
 
-    static let supportedVersions = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
-
     private let name: String
     private let version: String
     private let tools: ListTools
     private let knownNames: Set<String>?
     private let call: CallTool
-    private let advertised = AdvertisedTools()
 
     /// - Parameters:
     ///   - tools: Asked on every `tools/list`, so the offer follows what is available.
@@ -67,118 +66,72 @@ public struct MCPServer: Sendable {
         self.init(name: name, version: version, tools: { tools }, call: call)
     }
 
-    /// Handles one message and returns the reply line, or nil when none is due (notifications).
-    public func handle(_ message: Data) async -> Data? {
-        guard let object = try? JSONDecoder().decode(JSONValue.self, from: message), case .object = object else {
-            return encode(error: -32700, "Parse error", id: .null)
-        }
-        guard let method = object["method"]?.stringValue else {
-            // A response to a request this server never makes, or garbage.
-            return object["id"] == nil ? nil : encode(error: -32600, "Invalid request", id: object["id"] ?? .null)
-        }
-        guard let id = object["id"] else { return nil }     // Notification: no reply
-        let params = object["params"] ?? [:]
-
-        switch method {
-        case "initialize":
-            let requested = params["protocolVersion"]?.stringValue ?? ""
-            let negotiated = Self.supportedVersions.contains(requested) ? requested : Self.supportedVersions[0]
-            return encode(result: [
-                "protocolVersion": .string(negotiated),
-                "capabilities": ["tools": ["listChanged": true]],
-                "serverInfo": ["name": .string(name), "version": .string(version)],
-            ], id: id)
-        case "ping":
-            return encode(result: [:], id: id)
-        case "tools/list":
-            let offered = await tools()
-            advertised.set(offered.map(\.name))
-            return encode(result: ["tools": .array(offered.map(toolJSON))], id: id)
-        case "tools/call":
-            guard let toolName = params["name"]?.stringValue else {
-                return encode(error: -32602, "tools/call requires a tool name", id: id)
-            }
-            let callable: Set<String>
-            if let knownNames { callable = knownNames } else { callable = Set(await tools().map(\.name)) }
-            guard callable.contains(toolName) else {
-                return encode(error: -32602, "Unknown tool: \(toolName)", id: id)
-            }
-            let result = await call(toolName, params["arguments"] ?? [:])
-            return encode(result: [
-                "content": .array(result.content.map(\.json)),
-                "isError": .bool(result.isError),
-            ], id: id)
-        default:
-            return encode(error: -32601, "Method not found: \(method)", id: id)
-        }
-    }
-
-    /// Reads requests from `input` until it closes, writing replies to `output`. After the client
-    /// reports it is initialized, the offered tools are re-checked every `pollInterval` and a
+    /// Serves requests read from `input` until it closes, writing replies to `output`. After the
+    /// client reports it is initialized, the offered tools are re-checked every `pollInterval` and a
     /// `tools/list_changed` notification is sent when they differ from what was last listed.
     public func run(input: FileHandle, output: FileHandle, pollInterval: Duration = .seconds(3)) async {
-        // If the client closes our output, a write should fail quietly; the loop ends when input closes.
-        UnixSocket.suppressSigPipe(output.fileDescriptor)
-        let writer = LineWriter(descriptor: output.fileDescriptor)
-        var watcher: Task<Void, Never>?
-        defer { watcher?.cancel() }
-        for await line in Self.lines(from: input.fileDescriptor) {
-            guard !line.isEmpty else { continue }
-            if watcher == nil, Self.isInitializedNotification(line) {
-                watcher = Task { await watchTools(every: pollInterval, writer: writer) }
-            }
-            if let reply = await handle(line) { writer.write(reply) }
-        }
+        await serve(over: DescriptorTransport(input: input.fileDescriptor, output: output.fileDescriptor), pollInterval: pollInterval)
     }
 
-    /// Lines read from `descriptor` on a dedicated thread, so a blocking read never holds a
-    /// cooperative-pool thread. The stream finishes when the descriptor reaches end of input.
-    private static func lines(from descriptor: Int32) -> AsyncStream<Data> {
-        AsyncStream { continuation in
-            let reader = Thread {
-                var buffer: [UInt8] = []
-                while let line = try? UnixSocket.readLine(from: descriptor, buffer: &buffer) {
-                    continuation.yield(line)
-                }
-                continuation.finish()
-            }
-            reader.name = "MCPServer.stdin"
-            reader.start()
+    func serve(over transport: any Transport, pollInterval: Duration) async {
+        let server = Server(name: name, version: version, capabilities: .init(tools: .init(listChanged: true)))
+        let advertised = AdvertisedTools()
+        let watcher = Watcher()
+
+        await server.withMethodHandler(MCP.ListTools.self) { _ in
+            let offered = await tools()
+            advertised.set(offered.map(\.name))
+            return .init(tools: try offered.map(Self.sdkTool))
         }
+        await server.withMethodHandler(MCP.CallTool.self) { params in
+            let callable: Set<String>
+            if let knownNames { callable = knownNames } else { callable = Set(await tools().map(\.name)) }
+            guard callable.contains(params.name) else {
+                throw MCPError.invalidParams("Unknown tool: \(params.name)")
+            }
+            let arguments = try Self.convert(params.arguments ?? [:], to: JSONValue.self)
+            let result = await call(params.name, arguments)
+            return .init(content: result.content.map(\.sdkContent), isError: result.isError)
+        }
+        await server.onNotification(InitializedNotification.self) { _ in
+            watcher.startOnce { await watchTools(server, advertised, every: pollInterval) }
+        }
+
+        do {
+            try await server.start(transport: transport)
+        } catch {
+            return
+        }
+        await server.waitUntilCompleted()
+        watcher.cancel()
+        await server.stop()
     }
 
-    private func watchTools(every interval: Duration, writer: LineWriter) async {
+    private func watchTools(_ server: Server, _ advertised: AdvertisedTools, every interval: Duration) async {
         while !Task.isCancelled {
             try? await Task.sleep(for: interval)
             let names = await tools().map(\.name)
             guard let listed = advertised.names, listed != names else { continue }
             advertised.set(names)
-            if let notification = try? JSONEncoder().encode(JSONValue.object(["jsonrpc": "2.0", "method": "notifications/tools/list_changed"])) {
-                writer.write(notification)
-            }
+            try? await server.notify(ToolListChangedNotification.message())
         }
     }
 
-    private static func isInitializedNotification(_ line: Data) -> Bool {
-        (try? JSONDecoder().decode(JSONValue.self, from: line))?["method"]?.stringValue == "notifications/initialized"
+    private static func sdkTool(_ tool: ControlTool) throws -> Tool {
+        var annotations = Tool.Annotations()
+        annotations.readOnlyHint = tool.annotations.readOnly
+        annotations.openWorldHint = false
+        if !tool.annotations.readOnly { annotations.destructiveHint = tool.annotations.destructive }
+        return Tool(
+            name: tool.name,
+            title: tool.title,
+            description: tool.description,
+            inputSchema: try convert(tool.inputSchema, to: Value.self),
+            annotations: annotations)
     }
 
-    private func toolJSON(_ tool: ControlTool) -> JSONValue {
-        [
-            "name": .string(tool.name),
-            "title": .string(tool.title),
-            "description": .string(tool.description),
-            "inputSchema": tool.inputSchema,
-            "annotations": tool.annotations.json,
-        ]
-    }
-
-    private func encode(result: JSONValue, id: JSONValue) -> Data? {
-        try? JSONEncoder().encode(JSONValue.object(["jsonrpc": "2.0", "id": id, "result": result]))
-    }
-
-    private func encode(error code: Int, _ message: String, id: JSONValue) -> Data? {
-        try? JSONEncoder().encode(JSONValue.object(["jsonrpc": "2.0", "id": id, "error": ["code": .number(Double(code)), "message": .string(message)]]))
+    private static func convert<From: Encodable, To: Decodable>(_ value: From, to type: To.Type) throws -> To {
+        try JSONDecoder().decode(To.self, from: JSONEncoder().encode(value))
     }
 }
 
@@ -189,12 +142,59 @@ private final class AdvertisedTools: Sendable {
     func set(_ names: [String]) { value.withLock { $0 = names } }
 }
 
-/// Serializes writes from the request loop and the tool watcher onto one descriptor.
-private final class LineWriter: Sendable {
-    private let descriptor: Int32
-    private let lock = Mutex<Void>(())
-    init(descriptor: Int32) { self.descriptor = descriptor }
-    func write(_ data: Data) {
-        lock.withLock { _ in try? UnixSocket.writeLine(data, to: descriptor) }
+/// Runs the tool-list watcher once, however many times the client says it is initialized.
+private final class Watcher: Sendable {
+    private let task = Mutex<Task<Void, Never>?>(nil)
+    func startOnce(_ work: @escaping @Sendable () async -> Void) {
+        task.withLock { if $0 == nil { $0 = Task { await work() } } }
+    }
+    func cancel() { task.withLock { $0?.cancel() } }
+}
+
+/// Newline-delimited JSON over a pair of descriptors. Input is read on a dedicated thread so a
+/// blocking read never holds a cooperative-pool thread, and the descriptors stay in blocking mode.
+actor DescriptorTransport: Transport {
+    nonisolated let logger = Logger(label: "markupeditor.mcp.transport", factory: { _ in SwiftLogNoOpLogHandler() })
+
+    private let input: Int32
+    private let output: Int32
+    private let stream: AsyncThrowingStream<Data, Swift.Error>
+    private let continuation: AsyncThrowingStream<Data, Swift.Error>.Continuation
+    private var started = false
+
+    init(input: Int32, output: Int32) {
+        self.input = input
+        self.output = output
+        (stream, continuation) = AsyncThrowingStream.makeStream()
+    }
+
+    func connect() async throws {
+        guard !started else { return }
+        started = true
+        // If the client closes our output, a write should fail quietly; the loop ends when input closes.
+        UnixSocket.suppressSigPipe(output)
+        let descriptor = input
+        let continuation = continuation
+        let reader = Thread {
+            var buffer: [UInt8] = []
+            while let line = try? UnixSocket.readLine(from: descriptor, buffer: &buffer) {
+                if !line.isEmpty { continuation.yield(line) }
+            }
+            continuation.finish()
+        }
+        reader.name = "MCPServer.stdin"
+        reader.start()
+    }
+
+    func disconnect() async {
+        continuation.finish()
+    }
+
+    func send(_ data: Data) async throws {
+        try UnixSocket.writeLine(data, to: output)
+    }
+
+    func receive() -> AsyncThrowingStream<Data, Swift.Error> {
+        stream
     }
 }
