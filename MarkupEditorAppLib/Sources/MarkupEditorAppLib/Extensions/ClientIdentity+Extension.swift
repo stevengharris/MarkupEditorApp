@@ -1,5 +1,5 @@
 //
-//  ClientIdentity+Process.swift
+//  ClientIdentity+Extension.swift
 //  MarkupEditorAppLib
 //
 

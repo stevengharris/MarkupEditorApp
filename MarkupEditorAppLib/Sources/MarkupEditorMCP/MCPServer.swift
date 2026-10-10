@@ -9,15 +9,6 @@ import MarkupEditorAppLib
 import MCP
 import Synchronization
 
-extension MCPContent {
-    var sdkContent: Tool.Content {
-        switch self {
-        case .text(let text): .text(text: text, annotations: nil, _meta: nil)
-        case .image(let base64, let mimeType): .image(data: base64, mimeType: mimeType, annotations: nil, _meta: nil)
-        }
-    }
-}
-
 /// A Model Context Protocol server over newline-delimited stdio, built on the MCP Swift SDK. It
 /// offers tools only; `call` runs one.
 public struct MCPServer: Sendable {
