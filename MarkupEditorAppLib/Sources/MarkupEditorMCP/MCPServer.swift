@@ -1,37 +1,20 @@
 //
 //  MCPServer.swift
-//  MarkupEditorAppLib
+//  MarkupEditorMCP
 //
 
 import Foundation
 import Logging
+import MarkupEditorAppLib
 import MCP
 import Synchronization
 
-/// A piece of a tool result, as MCP carries it.
-public enum MCPContent: Sendable, Equatable {
-    case text(String)
-    case image(base64: String, mimeType: String)
-
+extension MCPContent {
     var sdkContent: Tool.Content {
         switch self {
         case .text(let text): .text(text: text, annotations: nil, _meta: nil)
         case .image(let base64, let mimeType): .image(data: base64, mimeType: mimeType, annotations: nil, _meta: nil)
         }
-    }
-}
-
-public struct MCPToolResult: Sendable, Equatable {
-    public var content: [MCPContent]
-    public var isError: Bool
-
-    public init(_ content: [MCPContent], isError: Bool = false) {
-        self.content = content
-        self.isError = isError
-    }
-
-    public static func error(_ message: String) -> MCPToolResult {
-        MCPToolResult([.text(message)], isError: true)
     }
 }
 

@@ -1,11 +1,12 @@
 //
 //  MCPControlBackendTests.swift
-//  MarkupEditorAppLibTests
+//  MarkupEditorMCPTests
 //
 
 import Foundation
 import Testing
-@testable import MarkupEditorAppLib
+import MarkupEditorAppLib
+@testable import MarkupEditorMCP
 
 final class MCPControlBackendTests {
 

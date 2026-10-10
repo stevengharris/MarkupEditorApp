@@ -12,6 +12,7 @@
 		AA3F964B302A835B00FB96C9 /* markup in Embed markup CLI */ = {isa = PBXBuildFile; fileRef = AA3F963C302A516B00FB96C9 /* markup */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		AA3F99F4302D225A00FB96C9 /* MarkupEditorAppLib in Frameworks */ = {isa = PBXBuildFile; productRef = AA3F99F3302D225A00FB96C9 /* MarkupEditorAppLib */; };
 		AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */ = {isa = PBXBuildFile; productRef = AA7B99C22F9291B90085425B /* MarkupEditor */; };
+		AA8BB49B307ADD4E00EB58DF /* MarkupEditorMCP in Frameworks */ = {isa = PBXBuildFile; productRef = AA8BB49A307ADD4E00EB58DF /* MarkupEditorMCP */; };
 		AAB801F52FC7471300212250 /* SplitView in Frameworks */ = {isa = PBXBuildFile; productRef = AAB801F42FC7471300212250 /* SplitView */; };
 		AADAE3AD306487BA006863E3 /* MarkupEditorAppLib in Frameworks */ = {isa = PBXBuildFile; productRef = AADAE3AC306487BA006863E3 /* MarkupEditorAppLib */; };
 		AADAE3B43065C5AA006863E3 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AADAE3B33065C5AA006863E3 /* Sparkle */; };
@@ -157,6 +158,7 @@
 			files = (
 				AA3F9647302A64AC00FB96C9 /* ArgumentParser in Frameworks */,
 				AADAE3AD306487BA006863E3 /* MarkupEditorAppLib in Frameworks */,
+				AA8BB49B307ADD4E00EB58DF /* MarkupEditorMCP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,6 +243,7 @@
 			packageProductDependencies = (
 				AA3F9646302A64AC00FB96C9 /* ArgumentParser */,
 				AADAE3AC306487BA006863E3 /* MarkupEditorAppLib */,
+				AA8BB49A307ADD4E00EB58DF /* MarkupEditorMCP */,
 			);
 			productName = MarkupEditorCLI;
 			productReference = AA3F963C302A516B00FB96C9 /* markup */;
@@ -1153,6 +1156,11 @@
 		AA7B99C22F9291B90085425B /* MarkupEditor */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkupEditor;
+		};
+		AA8BB49A307ADD4E00EB58DF /* MarkupEditorMCP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA3F99F2302D225A00FB96C9 /* XCLocalSwiftPackageReference "MarkupEditorAppLib" */;
+			productName = MarkupEditorMCP;
 		};
 		AAB801F42FC7471300212250 /* SplitView */ = {
 			isa = XCSwiftPackageProductDependency;

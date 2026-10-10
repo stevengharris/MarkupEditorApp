@@ -10,6 +10,9 @@ let package = Package(
         .library(
             name: "MarkupEditorAppLib",
             targets: ["MarkupEditorAppLib"]),
+        .library(
+            name: "MarkupEditorMCP",
+            targets: ["MarkupEditorMCP"]),
     ],
     dependencies: [
         .package(url: "https://github.com/stevengharris/MarkupEditor.git", branch: "main"),
@@ -21,6 +24,11 @@ let package = Package(
             name: "MarkupEditorAppLib",
             dependencies: [
                 .product(name: "MarkupEditor", package: "MarkupEditor"),
+            ]),
+        .target(
+            name: "MarkupEditorMCP",
+            dependencies: [
+                "MarkupEditorAppLib",
                 .product(name: "MCP", package: "swift-sdk"),
                 .product(name: "Logging", package: "swift-log"),
             ]),
@@ -29,6 +37,12 @@ let package = Package(
             dependencies: [
                 "MarkupEditorAppLib",
                 .product(name: "MarkupEditor", package: "MarkupEditor"),
+            ]),
+        .testTarget(
+            name: "MarkupEditorMCPTests",
+            dependencies: [
+                "MarkupEditorMCP",
+                "MarkupEditorAppLib",
             ]),
     ],
     swiftLanguageModes: [.v6]

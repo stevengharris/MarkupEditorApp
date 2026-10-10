@@ -10,6 +10,7 @@ import AppKit
 import Foundation
 import ArgumentParser
 import MarkupEditorAppLib
+import MarkupEditorMCP
 
 @main struct MarkupEditorCLI: AsyncParsableCommand {
 
@@ -92,7 +93,6 @@ struct Open: AsyncParsableCommand {
     }
     
 }
-
 
 /// `markup mcp`: a Model Context Protocol server on stdin and stdout that lets an MCP client read
 /// and edit the document open in MarkupEditor. It works only while the app is running with

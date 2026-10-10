@@ -17,16 +17,16 @@ public struct ControlSocketError: Error, LocalizedError, Equatable {
     }
 }
 
-enum UnixSocket {
+package enum UnixSocket {
 
     /// Longest reply a client accepts. A PNG screenshot is the largest legitimate payload.
-    static let maxLineBytes = 32 * 1024 * 1024
+    package static let maxLineBytes = 32 * 1024 * 1024
     /// Longest request the server accepts.
     static let maxRequestBytes = 4 * 1024 * 1024
 
     /// Makes a write to a descriptor whose other end has gone return an error instead of raising
     /// SIGPIPE, which would silently terminate the whole process.
-    static func suppressSigPipe(_ descriptor: Int32) {
+    package static func suppressSigPipe(_ descriptor: Int32) {
         var on: Int32 = 1
         // SO_NOSIGPIPE is the socket option; a pipe, such as standard output, needs the fcntl form.
         if setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size)) != 0 {
@@ -74,7 +74,7 @@ enum UnixSocket {
 
     /// Reads from `descriptor` until a newline, returning the line without it, or nil at end of stream.
     /// `buffer` carries bytes read past the newline to the next call.
-    static func readLine(from descriptor: Int32, buffer: inout [UInt8], maxBytes: Int = maxLineBytes) throws -> Data? {
+    package static func readLine(from descriptor: Int32, buffer: inout [UInt8], maxBytes: Int = maxLineBytes) throws -> Data? {
         var chunk = [UInt8](repeating: 0, count: 64 * 1024)
         var scanned = 0     // Bytes of `buffer` already known to hold no newline
         while true {
@@ -100,7 +100,7 @@ enum UnixSocket {
         }
     }
 
-    static func writeLine(_ data: Data, to descriptor: Int32) throws {
+    package static func writeLine(_ data: Data, to descriptor: Int32) throws {
         var bytes = [UInt8](data)
         bytes.append(UInt8(ascii: "\n"))
         var offset = 0

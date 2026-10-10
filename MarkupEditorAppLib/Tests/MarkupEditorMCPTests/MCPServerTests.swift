@@ -1,12 +1,13 @@
 //
 //  MCPServerTests.swift
-//  MarkupEditorAppLibTests
+//  MarkupEditorMCPTests
 //
 
 import Foundation
 import Synchronization
 import Testing
-@testable import MarkupEditorAppLib
+import MarkupEditorAppLib
+@testable import MarkupEditorMCP
 
 final class MCPServerTests: Sendable {
 

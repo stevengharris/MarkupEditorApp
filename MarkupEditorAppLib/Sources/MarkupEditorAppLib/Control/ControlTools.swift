@@ -52,7 +52,7 @@ public struct ControlTool: Sendable, Equatable {
 
     public static let noArguments: JSONValue = ["type": "object", "properties": [:]]
 
-    static func schema(_ properties: [String: (type: String, description: String)], required: [String]) -> JSONValue {
+    public static func schema(_ properties: [String: (type: String, description: String)], required: [String]) -> JSONValue {
         .object([
             "type": "object",
             "properties": .object(properties.mapValues { ["type": .string($0.type), "description": .string($0.description)] }),

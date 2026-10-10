@@ -1,9 +1,10 @@
 //
 //  MCPControlBackend.swift
-//  MarkupEditorAppLib
+//  MarkupEditorMCP
 //
 
 import Foundation
+import MarkupEditorAppLib
 import Synchronization
 
 /// Connects MCP tool calls to the app: control-channel tools go over the socket, and
