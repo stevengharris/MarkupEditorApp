@@ -14,6 +14,7 @@ import MarkupEditor
 private let repoRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent()
+    .deletingLastPathComponent()
 private let pluginsDir = repoRoot.appendingPathComponent("plugins")
 private let pluginsPresent = FileManager.default.fileExists(atPath: pluginsDir.path(percentEncoded: false))
 

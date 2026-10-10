@@ -16,6 +16,7 @@ struct PluginCatalogDecodingTests {
     static func realPluginsJSONData() throws -> Data {
         let thisFile = URL(fileURLWithPath: #filePath)
         let repoRoot = thisFile
+            .deletingLastPathComponent() // Plugins/
             .deletingLastPathComponent() // MarkupEditorAppLibTests/
             .deletingLastPathComponent() // Tests/
             .deletingLastPathComponent() // MarkupEditorAppLib/
