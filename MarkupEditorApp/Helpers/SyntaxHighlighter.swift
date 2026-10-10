@@ -5,10 +5,6 @@
 
 import SwiftUI
 
-enum SyntaxMode {
-    case html, markdown
-}
-
 struct SyntaxHighlighter {
 
     let mode: SyntaxMode
