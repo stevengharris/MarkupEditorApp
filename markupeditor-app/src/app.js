@@ -8,6 +8,7 @@
 import { MU } from "markupeditor"
 import { MarkupEditorDelegate } from "./delegate.js"
 import { getMarkdown, exportMarkdown, importMarkdown } from "./markdown.js"
+import { makeInsertTableWithHeader } from "./tables.js"
 import { getSelectionBlockIndex, selectBlockIndex, blockIndexAtOffset, offsetForBlockIndex } from "./blocks.js"
 
 // Register the delegate so it can be looked up by name when the MarkupEditor instance is created.
@@ -20,4 +21,6 @@ MU.getSelectionBlockIndex = getSelectionBlockIndex
 MU.selectBlockIndex = selectBlockIndex
 MU.blockIndexAtOffset = blockIndexAtOffset
 MU.offsetForBlockIndex = offsetForBlockIndex
+// Override markupeditor-base MU.insertTable to force a header in Markdown
+MU.insertTable = makeInsertTableWithHeader(MU.insertTable, () => MU.activeView())
 
