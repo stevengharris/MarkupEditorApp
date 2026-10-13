@@ -2,6 +2,15 @@
    passed by name as `userCssFile` when creating the MarkupEditorView in
    MarkupDocumentView. */
 
+/* A bottom border on the element that scrolls the document shortens its scrolling area
+   by 12px without changing the editor's outer height. The line being typed or revealed
+   then stays above the window's rounded bottom corners. The border color matches the
+   editor background. */
+.Markup-toolbar-wrapper {
+  box-sizing: border-box;
+  border-bottom: 12px solid white;
+}
+
 /* Match the editor background to the rest of the app's dark-mode colors;
    e.g., the SourceView's TextEditor. Value used here obtained using
    Digital Color Meter. Using Canvas yields `black`, which does not play
@@ -11,6 +20,9 @@
 @media (prefers-color-scheme: dark) {
   #editor, .editor {
     background: #24292d;
+  }
+  .Markup-toolbar-wrapper {
+    border-bottom-color: #24292d;
   }
 }
 
