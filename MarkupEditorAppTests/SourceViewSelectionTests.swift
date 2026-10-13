@@ -152,6 +152,65 @@ import AppKit
 // MARK: - 1b. Pure isGenuineEdit tests (the dirty-flag guard's decision logic)
 
 @MainActor
+@Suite struct SourceViewBlockScrollTests {
+
+    // The visible area spans 100...700, so 568 points are usable with the default 16 margin.
+    private func action(top: CGFloat, bottom: CGFloat, margin: CGFloat = 16) -> SourceView.BlockScroll {
+        SourceView.blockScroll(blockTop: top, blockBottom: bottom, visibleTop: 100, visibleBottom: 700, margin: margin)
+    }
+
+    @Test func leavesAFullyVisibleBlockAlone() {
+        #expect(action(top: 200, bottom: 300) == .none)
+    }
+
+    @Test func centersABlockBelowTheVisibleArea() {
+        #expect(action(top: 800, bottom: 900) == .center)
+    }
+
+    @Test func centersABlockAboveTheVisibleArea() {
+        #expect(action(top: -50, bottom: 40) == .center)
+    }
+
+    @Test func centersABlockCutOffAtTheBottom() {
+        #expect(action(top: 650, bottom: 750) == .center)
+    }
+
+    @Test func centersABlockWithinTheMarginOfTheBottomEdge() {
+        #expect(action(top: 650, bottom: 690) == .center)
+    }
+
+    @Test func alignsTheTopOfABlockTallerThanTheVisibleArea() {
+        #expect(action(top: 300, bottom: 1500) == .start)
+    }
+
+    @Test func leavesATooTallBlockAloneWhenItsTopIsAlreadyAtTheTop() {
+        #expect(action(top: 110, bottom: 1500) == .none)
+    }
+
+    @Test func honorsACustomMargin() {
+        #expect(action(top: 650, bottom: 690, margin: 5) == .none)
+    }
+
+    @Test func noScrollOriginWhenNoScrollIsNeeded() {
+        #expect(SourceView.scrollOriginY(for: .none, blockTop: 200, blockBottom: 300, visibleHeight: 600, maxOrigin: 1000) == nil)
+    }
+
+    @Test func centersTheBlockInTheVisibleHeight() {
+        // Block 1000...1100 has its middle at 1050; a 600-high area centered there starts at 750.
+        #expect(SourceView.scrollOriginY(for: .center, blockTop: 1000, blockBottom: 1100, visibleHeight: 600, maxOrigin: 5000) == 750)
+    }
+
+    @Test func alignsTheBlockTopWithTheMargin() {
+        #expect(SourceView.scrollOriginY(for: .start, blockTop: 1000, blockBottom: 3000, visibleHeight: 600, maxOrigin: 5000) == 984)
+    }
+
+    @Test func clampsTheOriginToTheScrollableRange() {
+        #expect(SourceView.scrollOriginY(for: .center, blockTop: 10, blockBottom: 30, visibleHeight: 600, maxOrigin: 5000) == 0)
+        #expect(SourceView.scrollOriginY(for: .center, blockTop: 4900, blockBottom: 4950, visibleHeight: 600, maxOrigin: 4400) == 4400)
+    }
+}
+
+@MainActor
 @Suite struct SourceViewIsGenuineEditTests {
 
     @Test func differingContentIsAGenuineEdit() {
@@ -207,7 +266,7 @@ private func makeHostedSourceView(document: MarkupDocument, box: SourceBox) -> H
     let pendingOffsetBinding = Binding(get: { box.pendingOffset }, set: { box.pendingOffset = $0 })
     let currentOffsetBinding = Binding(get: { box.currentOffset }, set: { box.currentOffset = $0 })
 
-    let view = SourceView(document: .constant(document), source: sourceBinding, pendingOffset: pendingOffsetBinding, currentOffset: currentOffsetBinding)
+    let view = SourceView(document: .constant(document), source: sourceBinding, pendingOffset: pendingOffsetBinding, pendingEndOffset: .constant(nil), currentOffset: currentOffsetBinding)
     let hostingView = NSHostingView(rootView: view)
     hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
 

@@ -35,6 +35,9 @@ struct MarkupDocumentView: View {
     // by handleToggleSource before flipping sourceShowing (Document -> Source), consumed
     // and cleared by SourceView itself.
     @State private var pendingSourceOffset: Int? = nil
+    // UTF-16 offset where the block at `pendingSourceOffset` ends, so SourceView can scroll
+    // the whole block into view. Set and cleared alongside `pendingSourceOffset`.
+    @State private var pendingSourceEndOffset: Int? = nil
     // Top-level block index to restore the ProseMirror selection to once the next
     // MarkupWKWebView finishes loading -- set by handleToggleSource before flipping
     // sourceShowing (Source -> Document), consumed and cleared in markupDidLoad.
@@ -79,6 +82,7 @@ struct MarkupDocumentView: View {
                             document: $document,
                             source: $currentSource,
                             pendingOffset: $pendingSourceOffset,
+                            pendingEndOffset: $pendingSourceEndOffset,
                             currentOffset: $sourceCursorOffset
                         )
                     } else {
@@ -419,10 +423,23 @@ struct MarkupDocumentView: View {
             await setDocumentSourceFromView()
             if document.isHTMLish {
                 pendingSourceOffset = nil
+                pendingSourceEndOffset = nil
             } else if let blockIndex, let webView {
-                pendingSourceOffset = await webView.offsetForBlockIndex(markdownText: currentSource, index: blockIndex)
+                let start = await webView.offsetForBlockIndex(markdownText: currentSource, index: blockIndex)
+                pendingSourceOffset = start
+                // offsetForBlockIndex clamps past the last block to the last block's start, so an
+                // end that does not move past the start means "to the end of the text".
+                let next = await webView.offsetForBlockIndex(markdownText: currentSource, index: blockIndex + 1)
+                if let start, let next, next > start {
+                    pendingSourceEndOffset = next
+                } else if start != nil {
+                    pendingSourceEndOffset = currentSource.utf16.count
+                } else {
+                    pendingSourceEndOffset = nil
+                }
             } else {
                 pendingSourceOffset = nil
+                pendingSourceEndOffset = nil
             }
             withAnimation(.easeInOut(duration: 0.25)) { sourceShowing.toggle() }
         } else {
@@ -464,6 +481,7 @@ struct MarkupDocumentView: View {
     /// the pendingURL branch of markupDidLoad itself).
     private func clearPendingSelectionRestoreState() {
         pendingSourceOffset = nil
+        pendingSourceEndOffset = nil
         pendingBlockIndex = nil
         sourceCursorOffset = nil
     }

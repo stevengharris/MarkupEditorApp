@@ -203,9 +203,46 @@ describe('getSelectionBlockIndex / selectBlockIndex', () => {
 
       selectBlockIndex(1)
 
-      expect(dispatch).toHaveBeenCalledTimes(1)
-      const tr = dispatch.mock.calls[0][0]
+      const tr = dispatch.mock.calls.at(-1)[0]
       expect(tr.selection.from).toBe(posForBlockIndex(doc, 1))
+    })
+
+    // The block's end is scrolled into view before its start, so a block that fits is shown
+    // whole and one that does not fit ends with its top showing.
+    test('scrolls the end of the block into view, then its start, ending on the start', () => {
+      const doc = fourParagraphDoc()
+      const state = EditorState.create({ doc })
+      const dispatch = vi.fn()
+      activeViewSpy.mockReturnValue({ state, dispatch })
+
+      selectBlockIndex(1)
+
+      expect(dispatch).toHaveBeenCalledTimes(2)
+      const [endTr, startTr] = dispatch.mock.calls.map(c => c[0])
+      expect(endTr.scrolledIntoView).toBe(true)
+      expect(startTr.scrolledIntoView).toBe(true)
+      const block = doc.child(1)
+      const blockStart = posForBlockIndex(doc, 1)
+      expect(endTr.selection.from).toBeGreaterThan(blockStart)
+      expect(endTr.selection.from).toBeLessThanOrEqual(blockStart + block.content.size)
+      expect(startTr.selection.from).toBe(blockStart)
+    })
+
+    // A failure while scrolling the block's end into view must not cost the selection
+    // restore, which is the point of the call.
+    test('still selects the start of the block when scrolling the end throws', () => {
+      const doc = fourParagraphDoc()
+      const state = EditorState.create({ doc })
+      const dispatch = vi.fn()
+      dispatch.mockImplementationOnce(() => { throw new Error('layout failed') })
+      activeViewSpy.mockReturnValue({ state, dispatch })
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      expect(() => selectBlockIndex(1)).not.toThrow()
+
+      expect(dispatch).toHaveBeenCalledTimes(2)
+      expect(dispatch.mock.calls[1][0].selection.from).toBe(posForBlockIndex(doc, 1))
+      warn.mockRestore()
     })
 
     test('no-ops without throwing when there is no active view', () => {
@@ -224,8 +261,7 @@ describe('getSelectionBlockIndex / selectBlockIndex', () => {
 
       expect(() => selectBlockIndex(NaN)).not.toThrow()
 
-      expect(dispatch).toHaveBeenCalledTimes(1)
-      const tr = dispatch.mock.calls[0][0]
+      const tr = dispatch.mock.calls.at(-1)[0]
       expect(tr.selection.from).toBe(posForBlockIndex(doc, 0))
     })
 
@@ -260,8 +296,7 @@ describe('getSelectionBlockIndex / selectBlockIndex', () => {
       for (let n = 0; n < doc.content.childCount; n++) {
         dispatch.mockClear()
         expect(() => selectBlockIndex(n)).not.toThrow()
-        expect(dispatch).toHaveBeenCalledTimes(1)
-        const tr = dispatch.mock.calls[0][0]
+        const tr = dispatch.mock.calls.at(-1)[0]
         // A valid TextSelection must resolve into a genuine text-bearing node.
         expect(tr.selection.$from.parent.inlineContent, `block index ${n}`).toBe(true)
       }

@@ -76,7 +76,7 @@ private func makeIntegrationHostedSourceView(document: MarkupDocument, box: Inte
     let pendingOffsetBinding = Binding(get: { box.pendingOffset }, set: { box.pendingOffset = $0 })
     let currentOffsetBinding = Binding(get: { box.currentOffset }, set: { box.currentOffset = $0 })
 
-    let view = SourceView(document: .constant(document), source: sourceBinding, pendingOffset: pendingOffsetBinding, currentOffset: currentOffsetBinding)
+    let view = SourceView(document: .constant(document), source: sourceBinding, pendingOffset: pendingOffsetBinding, pendingEndOffset: .constant(nil), currentOffset: currentOffsetBinding)
     let hostingView = NSHostingView(rootView: view)
     hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
 

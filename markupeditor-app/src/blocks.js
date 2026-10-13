@@ -99,12 +99,30 @@ export function selectBlockIndex(n) {
   const view = MU.activeView()
   if (!view) return
   const pos = posForBlockIndex(view.state.doc, n)
+  let startSelection
   try {
-    const selection = TextSelection.near(view.state.doc.resolve(pos), 1)
-    const tr = view.state.tr.setSelection(selection)
-    view.dispatch(tr)
+    startSelection = TextSelection.near(view.state.doc.resolve(pos), 1)
   } catch (e) {
     console.warn(`selectBlockIndex(${n}): could not construct a selection at pos ${pos}`, e)
+    return
+  }
+  // Scroll the block's end into view first, then its start, so the whole block is
+  // visible when it fits and its top is when it is taller than the view. The
+  // transactions scroll through ProseMirror, which scrolls whichever container holds the document.
+  // A failure here must not cost the selection restore below.
+  try {
+    const $pos = view.state.doc.resolve(pos)
+    if ($pos.depth >= 1) {
+      const endSelection = TextSelection.near(view.state.doc.resolve($pos.after(1) - 1), -1)
+      view.dispatch(view.state.tr.setSelection(endSelection).scrollIntoView())
+    }
+  } catch (e) {
+    console.warn(`selectBlockIndex(${n}): could not scroll the end of the block into view`, e)
+  }
+  try {
+    view.dispatch(view.state.tr.setSelection(startSelection).scrollIntoView())
+  } catch (e) {
+    console.warn(`selectBlockIndex(${n}): could not select the start of the block`, e)
   }
 }
 
