@@ -99,8 +99,17 @@ table th {
   font-weight: 600;
 }
 
+/* Size a table to its content, as GitHub does, wrapping once it reaches the editor's width.
+   The minimum keeps an empty column about as wide as six characters of text. */
+table {
+  table-layout: auto;
+  width: max-content;
+  max-width: 100%;
+}
+
 table th, table td {
   padding: 6px 13px;
+  min-width: 6ch;
 }
 
 /* Not GitHub's `display: block; overflow: auto` wide-table scroll wrapper --
