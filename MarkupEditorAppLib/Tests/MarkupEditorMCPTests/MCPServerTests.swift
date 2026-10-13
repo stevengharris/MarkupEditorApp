@@ -45,32 +45,20 @@ final class MCPServerTests: Sendable {
     /// up to `timeout` for a `tools/list_changed` notification before closing input.
     func runAwaitingAnnouncement(_ server: MCPServer, script: [String], timeout: Duration = .seconds(5), change: () -> Void) async -> [String] {
         let input = Pipe(), output = Pipe()
-        let received = Mutex(Data())
-        let readEnd = output.fileHandleForReading
-        let reader = Task.detached {
-            while case let chunk = readEnd.availableData, !chunk.isEmpty {
-                received.withLock { $0.append(chunk) }
-            }
-        }
+        let received = ReceivedOutput(output.fileHandleForReading)
+        let reader = Task.detached { received.drain() }
         let finished = Task { await server.run(input: input.fileHandleForReading, output: output.fileHandleForWriting, pollInterval: .milliseconds(20)) }
         for line in script { input.fileHandleForWriting.write(Data((line + "\n").utf8)) }
 
-        func waitFor(_ text: String) async {
-            let deadline = ContinuousClock.now + timeout
-            while ContinuousClock.now < deadline {
-                if received.withLock({ String(decoding: $0, as: UTF8.self) }).contains(text) { return }
-                try? await Task.sleep(for: .milliseconds(10))
-            }
-        }
-        await waitFor(#""id":2"#)
+        await received.wait(for: #""id":2"#, timeout: timeout)
         change()
-        await waitFor("notifications/tools/list_changed")
+        await received.wait(for: "notifications/tools/list_changed", timeout: timeout)
 
         try? input.fileHandleForWriting.close()
         await finished.value
         try? output.fileHandleForWriting.close()
         await reader.value
-        return String(decoding: received.withLock { $0 }, as: UTF8.self).split(separator: "\n").map(String.init)
+        return received.text.split(separator: "\n").map(String.init)
     }
 
     func parse(_ lines: [String]) throws -> [JSONValue] {
@@ -267,4 +255,28 @@ final class OfferedTools: Sendable {
     init(_ tools: [ControlTool]) { value = Mutex(tools) }
     var current: [ControlTool] { value.withLock { $0 } }
     func set(_ tools: [ControlTool]) { value.withLock { $0 = tools } }
+}
+
+/// Output read from a pipe as it arrives, so a test can wait for a specific line.
+final class ReceivedOutput: @unchecked Sendable {
+    private let handle: FileHandle
+    private let data = Mutex(Data())
+
+    init(_ handle: FileHandle) { self.handle = handle }
+
+    var text: String { String(decoding: data.withLock { $0 }, as: UTF8.self) }
+
+    /// Reads until the write end closes.
+    func drain() {
+        while case let chunk = handle.availableData, !chunk.isEmpty {
+            data.withLock { $0.append(chunk) }
+        }
+    }
+
+    func wait(for fragment: String, timeout: Duration) async {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline, !text.contains(fragment) {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
 }
