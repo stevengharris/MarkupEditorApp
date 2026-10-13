@@ -41,6 +41,38 @@ final class MCPServerTests: Sendable {
         return String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).split(separator: "\n").map(String.init)
     }
 
+    /// Runs `server` with `script`, waits for the reply to `tools/list`, calls `change`, then waits
+    /// up to `timeout` for a `tools/list_changed` notification before closing input.
+    func runAwaitingAnnouncement(_ server: MCPServer, script: [String], timeout: Duration = .seconds(5), change: () -> Void) async -> [String] {
+        let input = Pipe(), output = Pipe()
+        let received = Mutex(Data())
+        let readEnd = output.fileHandleForReading
+        let reader = Task.detached {
+            while case let chunk = readEnd.availableData, !chunk.isEmpty {
+                received.withLock { $0.append(chunk) }
+            }
+        }
+        let finished = Task { await server.run(input: input.fileHandleForReading, output: output.fileHandleForWriting, pollInterval: .milliseconds(20)) }
+        for line in script { input.fileHandleForWriting.write(Data((line + "\n").utf8)) }
+
+        func waitFor(_ text: String) async {
+            let deadline = ContinuousClock.now + timeout
+            while ContinuousClock.now < deadline {
+                if received.withLock({ String(decoding: $0, as: UTF8.self) }).contains(text) { return }
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+        }
+        await waitFor(#""id":2"#)
+        change()
+        await waitFor("notifications/tools/list_changed")
+
+        try? input.fileHandleForWriting.close()
+        await finished.value
+        try? output.fileHandleForWriting.close()
+        await reader.value
+        return String(decoding: received.withLock { $0 }, as: UTF8.self).split(separator: "\n").map(String.init)
+    }
+
     func parse(_ lines: [String]) throws -> [JSONValue] {
         try lines.map { try JSONDecoder().decode(JSONValue.self, from: Data($0.utf8)) }
     }
@@ -193,7 +225,7 @@ final class MCPServerTests: Sendable {
 
     @Test func aChangeInTheOfferedToolsIsAnnouncedAfterInitialization() async throws {
         let offered = OfferedTools([ControlTools.all[0]])
-        let out = await run(switchableServer(offered), script: [Self.initialize(), Self.initialized, Self.listTools], delay: .milliseconds(300)) {
+        let out = await runAwaitingAnnouncement(switchableServer(offered), script: [Self.initialize(), Self.initialized, Self.listTools]) {
             offered.set(ControlTools.all)
         }
         #expect(try announcements(out) == 1)
