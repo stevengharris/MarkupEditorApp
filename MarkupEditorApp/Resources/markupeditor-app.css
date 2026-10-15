@@ -11,6 +11,14 @@
   border-bottom: 12px solid white;
 }
 
+/* Limit the text to a centered column. The margins are padding on the full-width
+   editable element, so a click in a margin still places the caret. The padding
+   never drops below 40px. */
+.ProseMirror {
+  padding-left: max(40px, calc((100% - 760px) / 2));
+  padding-right: max(40px, calc((100% - 760px) / 2));
+}
+
 /* Match the editor background to the rest of the app's dark-mode colors;
    e.g., the SourceView's TextEditor. Value used here obtained using
    Digital Color Meter. Using Canvas yields `black`, which does not play
