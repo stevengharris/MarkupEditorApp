@@ -19,7 +19,7 @@
     "bold": "Mod-b",
     "italic": "Mod-i",
     "underline": "Mod-u",
-    "strikethrough": "Ctrl-s",
+    "strikethrough": "Mod-~",
     "code": "Mod-`",
     "subscript": "",
     "superscript": "",
