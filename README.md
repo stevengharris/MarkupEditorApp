@@ -17,6 +17,10 @@ A native macOS Markdown viewer and WYSIWYG editor.
 
 Markdown was designed as a plain text formatting syntax that is as readable as possible while being easily converted to HTML. You still need a tool to render the HTML, often leading to an edit-preview cycle that seems ridiculous when we've had WYSIWYG editors for 40 years. The MarkupEditor presents the HTML as you write, providing immediate feedback while letting you continue to use the Markdown muscle memory you already have. It is customizable and extensible. Built-in extensions let you export to different formats and view/edit diagrams and Markdown front-matter right in your document.
 
+## Demo
+
+![MarkupEditor Demo](https://github.com/user-attachments/assets/ec3f9340-1007-48ce-a9e6-3369e6ba0e63)
+
 ## Features
 
 * Native macOS app, open source from top to bottom.
