@@ -46,6 +46,7 @@ struct MarkupEditorApp: App {
                 .environment(editLog)
 #endif
         }
+        .defaultSize(width: 776, height: 582)
 #if EVAL_VERSION
         .defaultLaunchBehavior(upgradeOnly ? .suppressed : .automatic)
 #endif
