@@ -101,6 +101,11 @@ struct MarkupEditorApp: App {
         Task { await SubscriptionModel.shared.refresh() }
         _ = SubscriptionModel.reconnectRefresher
         MarkupEditor.allowLocalImages = true
+        // Keep WebKit from substituting curly quotes and em dashes as text is typed. A smart quote
+        // breaks syntax highlighting in code blocks and is turned back into a straight one when the
+        // document is toggled back from Markdown.
+        UserDefaults.standard.set(false, forKey: "WebAutomaticQuoteSubstitutionEnabled")
+        UserDefaults.standard.set(false, forKey: "WebAutomaticDashSubstitutionEnabled")
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
         MarkupEditor.isInspectable = true
