@@ -12,8 +12,8 @@ import MarkupEditorAppLib
 struct GeneralSettingsView: View {
 
     enum SettingGroup: String, CaseIterable, Identifiable {
+        case editing = "Editing"
         case updates = "Updates"
-        case behavior = "Behavior"
         case assistants = "Assistants"
         var id: Self { self }
     }
@@ -36,6 +36,13 @@ struct GeneralSettingsView: View {
             .pickerStyle(.segmented)
 
             switch settingGroup {
+            case .editing:
+                Form {
+                    Text("")
+                    Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
+                    Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
             case .updates:
                 Form {
                     Text("")
@@ -48,13 +55,6 @@ struct GeneralSettingsView: View {
                     if subscription.isPaidConnected, BuildVariant.current != .evaluation {
                         UpdateSettingsSection()
                     }
-                }
-                .frame(maxHeight: .infinity, alignment: .top)
-            case .behavior:
-                Form {
-                    Text("")
-                    Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
-                    Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
             case .assistants:
