@@ -13,10 +13,10 @@
 
 /* Limit the text to a centered column. The margins are padding on the full-width
    editable element, so a click in a margin still places the caret. The padding
-   never drops below 8px. */
+   never drops below 8px. `--column-width` is set from the app's column width setting. */
 .ProseMirror {
-  padding-left: max(8px, calc((100% - 760px) / 2));
-  padding-right: max(8px, calc((100% - 760px) / 2));
+  padding-left: max(8px, calc((100% - var(--column-width, 760px)) / 2));
+  padding-right: max(8px, calc((100% - var(--column-width, 760px)) / 2));
 }
 
 /* Match the editor background to the rest of the app's dark-mode colors;

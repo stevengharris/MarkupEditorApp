@@ -41,6 +41,16 @@ struct GeneralSettingsView: View {
                     Text("")
                     Toggle("Correct spelling automatically", isOn: spellingCorrectionBinding())
                     Toggle("Show inline predictive text", isOn: inlinePredictionsBinding())
+                    LabeledContent("Document width:") {
+                        HStack(spacing: 4) {
+                            TextField("", value: columnWidthBinding(), format: .number.grouping(.never))
+                                .labelsHidden()
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 60)
+                            Stepper("", value: columnWidthBinding(), in: AppConfig.columnWidthRange, step: 10)
+                                .labelsHidden()
+                        }
+                    }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
             case .updates:
@@ -80,6 +90,16 @@ struct GeneralSettingsView: View {
                     $0.spellcheck = newValue
                     $0.autocorrect = newValue
                 }
+            }
+        )
+    }
+
+    private func columnWidthBinding() -> Binding<Int> {
+        Binding(
+            get: { AppConfig.shared.columnWidth },
+            set: { newValue in
+                let clamped = min(max(newValue, AppConfig.columnWidthRange.lowerBound), AppConfig.columnWidthRange.upperBound)
+                AppConfig.update { $0.columnWidth = clamped }
             }
         )
     }

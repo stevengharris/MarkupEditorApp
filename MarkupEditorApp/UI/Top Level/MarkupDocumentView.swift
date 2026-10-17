@@ -124,6 +124,9 @@ struct MarkupDocumentView: View {
             markupConfiguration.topLevelAttributes = AppConfig.shared.topLevelAttributes()
             reloadEditorForConfigChange()
         }
+        .onChange(of: AppConfig.shared.columnWidth) { _, _ in
+            MarkupEditor.selectedWebView?.applyColumnWidth()
+        }
         .onChange(of: AppConfig.shared.inlinePredictions) { _, _ in
             markupConfiguration.allowsInlinePredictions = AppConfig.shared.inlinePredictions
             reloadEditorForConfigChange()
@@ -903,6 +906,7 @@ extension MarkupDocumentView: MarkupDelegate {
     func markupDidLoad(_ view: MarkupWKWebView, handler: (()->Void)?) {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(!AppConfig.shared.isHidden())
+        view.applyColumnWidth()
         if let url = AppDelegate.consumePendingURL() {
             // A freshly-opened document invalidates any stale restore target left over
             // from whatever toggle/document preceded it.
@@ -1036,4 +1040,12 @@ extension MarkupDocumentView: MarkupDelegate {
 #Preview {
     MarkupDocumentView()
         .environment(EditLog())
+}
+
+extension MarkupWKWebView {
+
+    /// Set the CSS variable that markupeditor-app.css uses for the width of the centered text column.
+    func applyColumnWidth() {
+        evaluateJavaScript("document.documentElement.style.setProperty('--column-width', '\(AppConfig.shared.columnWidth)px')")
+    }
 }
