@@ -15,8 +15,8 @@ struct ControlSocketTests {
         "/tmp/mecs-\(UUID().uuidString.prefix(8)).sock"
     }
 
-    func echoServer(at path: String) throws -> ControlServer {
-        let server = ControlServer(path: path) { line in
+    func echoServer(at path: String, connectionLimit: Int? = nil) throws -> ControlServer {
+        let server = ControlServer(path: path, connectionLimit: connectionLimit) { line in
             guard let request = try? JSONDecoder().decode(ControlRequest.self, from: line) else {
                 return (try? JSONEncoder().encode(ControlResponse.failure(id: -1, "bad"))) ?? Data()
             }
@@ -99,30 +99,52 @@ struct ControlSocketTests {
         }
     }
 
+    @Test func serversServeTheDefaultNumberOfConnections() throws {
+        let server = try echoServer(at: socketPath())
+        defer { server.stop() }
+        #expect(server.connectionLimit == ControlServer.maxConnections)
+    }
+
     @Test func connectionsBeyondTheLimitAreClosed() throws {
+        // A small limit keeps the descriptors and threads this needs well within a busy machine's means.
+        let connectionLimit = 3
         let path = socketPath()
-        let server = try echoServer(at: path)
+        let server = try echoServer(at: path, connectionLimit: connectionLimit)
         defer { server.stop() }
         func connect() throws -> Int32 {
             var address = try UnixSocket.address(for: path)
             let fd = socket(AF_UNIX, SOCK_STREAM, 0)
             #expect(UnixSocket.withSockaddr(&address, { Darwin.connect(fd, $0, $1) }) == 0)
-            // The listen backlog is small; let the server accept before the next arrives.
-            Thread.sleep(forTimeInterval: 0.02)
             return fd
         }
-        let held = try (0..<ControlServer.maxConnections).map { _ in try connect() }
+        let held = try (0..<connectionLimit).map { _ in try connect() }
         defer { held.forEach { close($0) } }
-        Thread.sleep(forTimeInterval: 0.3)
+
+        // connect() returns once the kernel queues the connection, not once the server has accepted it.
+        // Only after every held connection is counted is the next one certain to be over the limit.
+        let allAdmitted = waitUntil(timeout: 10) { server.activeConnections == connectionLimit }
+        #expect(allAdmitted, "only \(server.activeConnections) of \(connectionLimit) connections were admitted")
 
         let extra = try connect()
         defer { close(extra) }
-        var limit = timeval(tv_sec: 2, tv_usec: 0)
-        setsockopt(extra, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
+        var timeout = timeval(tv_sec: 10, tv_usec: 0)
+        setsockopt(extra, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         var byte: UInt8 = 0
 
         // A closed connection reads as end of stream; an admitted one would wait for a request.
-        #expect(read(extra, &byte, 1) == 0)
+        let result = read(extra, &byte, 1)
+        let error = errno
+        #expect(result == 0, "read returned \(result), errno \(error), \(server.activeConnections) of \(connectionLimit) connections active")
+    }
+
+    /// Polls `condition` until it holds or `timeout` seconds pass.
+    private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() >= deadline { return false }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return true
     }
 
     @Test func aSecondServerCannotTakeOverALiveSocket() async throws {
