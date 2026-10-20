@@ -421,7 +421,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildFormatMenu(from config: ToolbarConfig) -> NSMenu? {
         let visibility = config.visibility
-        guard visibility["toolbar"] == true else { return nil }
 
         // Collect submenus in order specified by the ordering config
         var orderedEntries: [(Int, NSMenuItem)] = []
