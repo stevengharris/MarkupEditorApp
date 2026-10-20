@@ -112,6 +112,33 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 }
 
+// MARK: - openUntitled()
+
+@MainActor struct MarkupDocumentOpenUntitledTests {
+
+    @Test func hasNoUrlSoSavingAsksForALocation() {
+        let doc = MarkupDocument()
+        doc.url = URL(filePath: "/tmp/previous.md")
+        doc.openUntitled(markdown: "# Welcome", metadata: [])
+        #expect(doc.url == nil)
+    }
+
+    @Test func isMarkdownWithTheGivenSource() {
+        let doc = MarkupDocument()
+        doc.url = URL(filePath: "/tmp/previous.html")
+        doc.openUntitled(markdown: "# Welcome", metadata: [])
+        #expect(doc.documentType == .md)
+        #expect(doc.source == "# Welcome")
+    }
+
+    @Test func leavesHasChangesFalseEvenWithMetadata() {
+        let doc = MarkupDocument()
+        doc.openUntitled(markdown: "# Welcome", metadata: [makeMetadata()])
+        #expect(doc.hasChanges == false)
+        #expect(doc.metadata.count == 1)
+    }
+}
+
 // MARK: - openHtml
 
 @MainActor struct MarkupDocumentOpenHtmlTests {

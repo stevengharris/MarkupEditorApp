@@ -41,6 +41,7 @@ struct WelcomeView: View {
                         hasSeenWelcome = true
                         // The document window answers the unsaved-changes check from here on.
                         AppDelegate.skipTerminateCheck = false
+                        AppDelegate.pendingWelcomeDocument = true
                         openWindow(id: MarkupEditorApp.mainWindowID)
                         dismissWindow(id: "welcome")
                     } else {

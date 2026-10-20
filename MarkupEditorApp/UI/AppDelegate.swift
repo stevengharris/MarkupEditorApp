@@ -51,6 +51,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return url
     }
 
+    /// Set when the Welcome finishes, so the document window that opens next loads the bundled welcome document.
+    static var pendingWelcomeDocument = false
+
+    static func consumePendingWelcomeDocument() -> Bool {
+        let pending = pendingWelcomeDocument
+        pendingWelcomeDocument = false
+        return pending
+    }
+
     /// Quit the app when the window is closed. Without this, SwiftUI keeps the
     /// process alive and `applicationDidFinishLaunching` won't fire on the next
     /// Xcode run, which prevents the custom menu from being rebuilt.

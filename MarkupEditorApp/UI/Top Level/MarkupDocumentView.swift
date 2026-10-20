@@ -713,6 +713,42 @@ struct MarkupDocumentView: View {
         } catch {
             throw MarkupDocumentError.couldNotReadFile("\(error.localizedDescription)")
         }
+        let (html, metadata) = try await importMarkdown(markdown, in: webView)
+        do {
+            try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
+        } catch {
+            throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
+        }
+        // No-op when this document has no frontmatter.
+        try setHTML(document.seedMetadataBlock(in: html))
+        currentSource = markdown
+        track(url: url)
+    }
+
+    /// Open the welcome document bundled with the app as an untitled document, so saving it asks for a
+    /// location instead of writing back to the bundle.
+    private func openWelcomeDocument() async {
+        guard let webView = MarkupEditor.selectedWebView,
+              let url = Bundle.main.url(forResource: "welcome", withExtension: "md") else {
+            showError("The welcome document could not be found.")
+            return
+        }
+        clearPendingSelectionRestoreState()
+        do {
+            let markdown = try String(contentsOf: url, encoding: .utf8)
+            let (html, metadata) = try await importMarkdown(markdown, in: webView)
+            document.openUntitled(markdown: markdown, metadata: metadata)
+            try setHTML(document.seedMetadataBlock(in: html))
+            currentSource = markdown
+            NSApplication.shared.mainWindow?.representedURL = nil
+        } catch {
+            showError("The welcome document could not be opened: \(error.localizedDescription)")
+        }
+    }
+
+    /// Convert `markdown` to HTML with the editor's parser. Returns the HTML and the parsed frontmatter, and
+    /// logs any warnings.
+    private func importMarkdown(_ markdown: String, in webView: MarkupWKWebView) async throws -> (html: String, metadata: [MetadataTuple]) {
         let converted = try await MarkupConverter.importMarkdownDecoded(webView, content: markdown)
         var warnings = converted.warnings
         let metadata: [MetadataTuple]
@@ -722,17 +758,9 @@ struct MarkupDocumentView: View {
             metadata = []
         }
         editLog.warnings(warnings)
-        do {
-            try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
-        } catch {
-            throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
-        }
-        // No-op when this document has no frontmatter.
-        try setHTML(document.seedMetadataBlock(in: converted.result))
-        currentSource = markdown
-        track(url: url)
+        return (converted.result, metadata)
     }
-    
+
     //MARK: Getting HTML and Markdown
     
     /// Return the HTML and/or Markdown that is currently showing in the view. If there are no errors encountered,
@@ -925,12 +953,20 @@ extension MarkupDocumentView: MarkupDelegate {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(!AppConfig.shared.isHidden())
         view.applyColumnWidth()
+        // Consumed here even when a Finder open wins, so it can't carry over to a later window.
+        let showWelcomeDocument = AppDelegate.consumePendingWelcomeDocument()
         if let url = AppDelegate.consumePendingURL() {
             // A freshly-opened document invalidates any stale restore target left over
             // from whatever toggle/document preceded it.
             pendingBlockIndex = nil
             Task {
                 await openDocument(at: url)
+                handler?()
+            }
+        } else if showWelcomeDocument {
+            pendingBlockIndex = nil
+            Task {
+                await openWelcomeDocument()
                 handler?()
             }
         } else if let blockIndex = pendingBlockIndex {

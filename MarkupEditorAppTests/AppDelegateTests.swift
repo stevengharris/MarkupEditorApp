@@ -33,6 +33,23 @@ import Foundation
     }
 }
 
+// .serialized prevents races on the shared static AppDelegate.pendingWelcomeDocument
+@MainActor @Suite(.serialized) struct AppDelegateConsumePendingWelcomeDocumentTests {
+
+    @Test func testConsumeReturnsFalseWhenNotPending() {
+        AppDelegate.pendingWelcomeDocument = false
+        #expect(!AppDelegate.consumePendingWelcomeDocument())
+    }
+
+    @Test func testConsumeReturnsTrueOnceThenClears() {
+        AppDelegate.pendingWelcomeDocument = true
+        defer { AppDelegate.pendingWelcomeDocument = false }
+        #expect(AppDelegate.consumePendingWelcomeDocument())
+        #expect(!AppDelegate.pendingWelcomeDocument)
+        #expect(!AppDelegate.consumePendingWelcomeDocument())
+    }
+}
+
 // .serialized prevents races on the shared static AppDelegate.upgradeOnly
 @MainActor @Suite(.serialized) struct AppDelegateReopenTests {
 
