@@ -52,4 +52,28 @@ public enum BuildVariant: Equatable {
     public static var versionString: String {
         "\(version) (\(build)) — \(current.label)"
     }
+
+    /// UserDefaults key holding the date the evaluation build was first launched.
+    public static let firstLaunchDateKey = "firstLaunchDateKey"
+
+    public static let evaluationPeriodDays = 14
+
+    /// The date the evaluation ends: `evaluationPeriodDays` after the first launch. Nil for any
+    /// other variant, and for the evaluation build before its first launch is recorded.
+    public static func expiryDate() -> Date? {
+        guard current == .evaluation,
+              let firstLaunch = UserDefaults.standard.object(forKey: firstLaunchDateKey) as? Date else { return nil }
+        return Calendar.current.date(byAdding: .day, value: evaluationPeriodDays, to: firstLaunch)
+    }
+
+    /// Whether the evaluation has ended. False for any other variant, and for the evaluation build
+    /// before its first launch is recorded.
+    public static func isExpired(now: Date = .now) -> Bool {
+        isExpired(expiry: expiryDate(), now: now)
+    }
+
+    static func isExpired(expiry: Date?, now: Date) -> Bool {
+        guard let expiry else { return false }
+        return now >= expiry
+    }
 }

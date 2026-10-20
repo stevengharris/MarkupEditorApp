@@ -7,10 +7,9 @@
 
 #if EVAL_VERSION
 import Foundation
+import MarkupEditorAppLib
 
 struct EvaluationManager {
-    
-    private static let evaluationPeriodDays = 14
 
     static var firstLaunchDate: Date? {
         get { UserDefaults.standard.object(forKey: MarkupEditorApp.firstLaunchDateKey) as? Date }
@@ -25,7 +24,7 @@ struct EvaluationManager {
     /// The date the evaluation period ends.
     static func expirationDate() -> Date {
         guard let firstLaunchDate else { return .distantFuture }
-        return Calendar.current.date(byAdding: .day, value: evaluationPeriodDays, to: firstLaunchDate) ?? .distantFuture
+        return Calendar.current.date(byAdding: .day, value: BuildVariant.evaluationPeriodDays, to: firstLaunchDate) ?? .distantFuture
     }
 
     /// Whether the evaluation period has ended as of `Date.now`.
