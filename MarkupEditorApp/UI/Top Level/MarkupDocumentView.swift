@@ -59,7 +59,7 @@ struct MarkupDocumentView: View {
     // mistaken for an external change.
     @State private var ignoreNextExternalFileChange: Bool = false
 
-    @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
+    @State private var infoHide = MarkupDocumentView.makeInfoHide()
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
     
     @AppStorage(ConfigKeys.toolbar) private var toolbarConfigJSON = ""
@@ -259,7 +259,25 @@ struct MarkupDocumentView: View {
             )
         }
     }
-    
+
+    private static let infoHideKey = "infoHide"
+    private static let infoVisibleValue = "visible"
+
+    /// The holder for the Info side of the split. It starts hidden, and the user's choice is stored
+    /// explicitly, because `usingUserDefaults` removes the key when the side is shown, which would
+    /// make a visible Info view indistinguishable from never having chosen.
+    private static func makeInfoHide() -> SideHolder {
+        let stored = UserDefaults.standard.string(forKey: infoHideKey)
+        let initial: SplitSide? = switch stored {
+        case nil: .secondary
+        case infoVisibleValue: nil
+        default: stored.flatMap(SplitSide.init(rawValue:))
+        }
+        return SideHolder(initial, setter: { side in
+            UserDefaults.standard.set(side?.rawValue ?? infoVisibleValue, forKey: infoHideKey)
+        })
+    }
+
     init() {
         // The markupConfiguration must be set before the first render.
         let config = MarkupWKWebViewConfiguration()
