@@ -1062,8 +1062,10 @@ extension MarkupDocumentView: MarkupDelegate {
 
 extension MarkupWKWebView {
 
-    /// Set the CSS variable that markupeditor-app.css uses for the width of the centered text column.
+    /// Set the CSS variables that markupeditor-app.css uses for the width of the centered text column
+    /// and the smallest margin beside it.
     func applyColumnWidth() {
-        evaluateJavaScript("document.documentElement.style.setProperty('--column-width', '\(AppConfig.shared.columnWidth)px')")
+        let style = "document.documentElement.style"
+        evaluateJavaScript("\(style).setProperty('--column-width', '\(AppConfig.shared.columnWidth)px'); \(style).setProperty('--column-margin', '\(AppConfig.columnMargin)px')")
     }
 }

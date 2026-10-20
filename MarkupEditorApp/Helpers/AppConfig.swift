@@ -28,6 +28,15 @@ public final class AppConfig: JSONConfigurable {
     
     public static let defaultColumnWidth = 760
     public static let columnWidthRange = 400...1200
+    /// Smallest space between the document column and the window edge; matches the padding floor in markupeditor-app.css.
+    public static let columnMargin = 8
+
+    /// Initial size of the document window for the current column width: the column plus a margin
+    /// on each side, at 4:3.
+    public var documentWindowSize: CGSize {
+        let width = Double(columnWidth + 2 * Self.columnMargin)
+        return CGSize(width: width, height: (width * 0.75).rounded())
+    }
 
     public enum ToggledState: String {
         case hidden, visible
