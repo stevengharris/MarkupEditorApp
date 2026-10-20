@@ -19,7 +19,10 @@ jobs:
     # fails fast.
     - name: Test MarkupEditorAppLib
       working-directory: MarkupEditorAppLib
-      run: swift test
+      run: |
+        # Recorded so a failure that depends on the runner's limits can be told apart from a code bug.
+        echo "file descriptor soft limit: $(ulimit -n); CPUs: $(sysctl -n hw.ncpu)"
+        swift test
 
     - uses: actions/setup-node@v7
       with:
@@ -72,4 +75,5 @@ jobs:
     - name: Clean up keychain
       if: always()
       run: |
-        security delete-keychain $RUNNER_TEMP/build.keychain
+        # The keychain does not exist when an earlier step failed before "Install certificate" ran.
+        security delete-keychain $RUNNER_TEMP/build.keychain || true

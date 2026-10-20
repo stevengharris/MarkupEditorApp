@@ -17,23 +17,31 @@ public final class ControlServer: Sendable {
     private let descriptor = Mutex<Int32>(-1)
     private let connections = Mutex<Int>(0)
 
-    /// Connections served at once; further ones are closed on arrival.
+    /// Connections served at once unless the caller asks for a different limit.
     static let maxConnections = 16
     /// Seconds a connection may sit without sending a request before it is closed.
     static let idleSeconds = 30
 
+    /// Connections served at once; further ones are closed on arrival.
+    let connectionLimit: Int
+
+    /// Connections being served right now.
+    var activeConnections: Int { connections.withLock { $0 } }
+
     /// - Parameter peerVerifier: A connecting process that fails it is told so and disconnected
     ///   before any request is read.
-    public init(path: String, peerVerifier: PeerVerifying, handler: @escaping @Sendable (Data) async -> Data) {
+    /// - Parameter connectionLimit: Connections served at once; further ones are closed on arrival. Defaults to `maxConnections`.
+    public init(path: String, peerVerifier: PeerVerifying, connectionLimit: Int? = nil, handler: @escaping @Sendable (Data) async -> Data) {
         self.path = path
         self.peerVerifier = peerVerifier
+        self.connectionLimit = connectionLimit ?? Self.maxConnections
         self.handler = handler
     }
 
 #if DEBUG
     /// Tests: accepts every peer.
-    public convenience init(path: String, handler: @escaping @Sendable (Data) async -> Data) {
-        self.init(path: path, peerVerifier: AcceptAnyPeer(), handler: handler)
+    public convenience init(path: String, connectionLimit: Int? = nil, handler: @escaping @Sendable (Data) async -> Data) {
+        self.init(path: path, peerVerifier: AcceptAnyPeer(), connectionLimit: connectionLimit, handler: handler)
     }
 #endif
 
@@ -107,7 +115,7 @@ public final class ControlServer: Sendable {
                 return
             }
             let admitted = connections.withLock { count in
-                guard count < Self.maxConnections else { return false }
+                guard count < connectionLimit else { return false }
                 count += 1
                 return true
             }
