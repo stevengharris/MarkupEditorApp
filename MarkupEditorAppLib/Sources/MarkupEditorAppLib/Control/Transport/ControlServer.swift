@@ -91,8 +91,9 @@ public final class ControlServer: Sendable {
     public func stop() {
         descriptor.withLock { descriptor in
             guard descriptor >= 0 else { return }
-            shutdown(descriptor, SHUT_RDWR)
-            close(descriptor)
+            // The accept loop notices within its poll interval and closes the listener on its way out.
+            // Closing it here frees the descriptor number while the loop can still call accept on it, and a
+            // socket created in the meantime would reuse the number and have its connections taken by this loop.
             descriptor = -1
             unlink(path)
         }
@@ -103,7 +104,16 @@ public final class ControlServer: Sendable {
     }
 
     private func acceptLoop(_ listener: Int32, _ verifier: PeerVerifying, _ handler: @escaping @Sendable (Data) async -> Data) {
+        // The loop owns the listener from here on; see stop().
+        defer { close(listener) }
         while true {
+            // stop() clears the stored descriptor. Checking first means a stopped server never calls accept,
+            // and polling means a blocked accept never keeps the loop from noticing.
+            guard descriptor.withLock({ $0 }) == listener else { return }
+            var ready = pollfd(fd: listener, events: Int16(POLLIN), revents: 0)
+            let polled = poll(&ready, 1, 100)
+            if polled == 0 || (polled < 0 && errno == EINTR) { continue }
+            if polled < 0 { return }
             let connection = accept(listener, nil, nil)
             if connection < 0 {
                 // Transient failures, such as a connection aborted before it was accepted or a full
