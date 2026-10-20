@@ -20,7 +20,7 @@ extension Notification.Name {
 #if DEBUG
     static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
     static let menuClearCacheDir = Notification.Name("menuClearCacheDir")
-    static let resetTour = Notification.Name("resetTour")
+    static let resetWelcome = Notification.Name("resetWelcome")
     static let setExpired = Notification.Name("setExpired")
     static let setUnexpired = Notification.Name("setUnexpired")
 #endif

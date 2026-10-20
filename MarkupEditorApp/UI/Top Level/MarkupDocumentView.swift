@@ -69,7 +69,7 @@ struct MarkupDocumentView: View {
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
     
-    @AppStorage(MarkupEditorApp.hasSeenTourKey) private var hasSeenTour = false
+    @AppStorage(MarkupEditorApp.hasSeenWelcomeKey) private var hasSeenWelcome = false
     
     var body: some View {
         //let _ = Self._printChanges()
@@ -175,7 +175,7 @@ struct MarkupDocumentView: View {
             for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {
                 let ud = UserDefaults.standard
                 ud.removeObject(forKey: MarkupEditorApp.firstLaunchDateKey)
-                ud.removeObject(forKey: MarkupEditorApp.hasSeenTourKey)
+                ud.removeObject(forKey: MarkupEditorApp.hasSeenWelcomeKey)
                 ud.removeObject(forKey: MarkupEditorApp.hasSetupPluginsKey)
                 ud.removeObject(forKey: ConfigKeys.toolbar)
                 ud.removeObject(forKey: ConfigKeys.keymap)
@@ -209,8 +209,8 @@ struct MarkupDocumentView: View {
             }
         }
         .task {
-            for await _ in NotificationCenter.default.notifications(named: .resetTour) {
-                hasSeenTour = false
+            for await _ in NotificationCenter.default.notifications(named: .resetWelcome) {
+                hasSeenWelcome = false
             }
         }
         .task {
