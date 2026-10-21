@@ -12,9 +12,9 @@ import MarkupEditorAppLib
 @main
 struct MarkupEditorApp: App {
     
-    static let firstLaunchDateKey = "firstLaunchDateKey"
+    static let firstLaunchDateKey = BuildVariant.firstLaunchDateKey
     static let hasSetupPluginsKey = "hasSetupPluginsKey"
-    static let hasSeenTourKey = "hasSeenTourKey"
+    static let hasSeenWelcomeKey = "hasSeenWelcomeKey"
     /// Scene id of the document window, which is also its `NSWindow` identifier.
     static let mainWindowID = "main"
     
@@ -23,19 +23,19 @@ struct MarkupEditorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var editLog = EditLog()
     
-    @AppStorage(Self.hasSeenTourKey) private var hasSeenTour = false
+    @AppStorage(Self.hasSeenWelcomeKey) private var hasSeenWelcome = false
     @AppStorage(Self.hasSetupPluginsKey) private var hasSetupPlugins = false
     
 #if EVAL_VERSION
-    @State private var evaluationNotice: String?
-    /// The evaluation has expired: no document or tour window opens.
-    @State private var upgradeOnly = false
+    /// The evaluation had expired when the app launched. Fixed at launch so a document is never
+    /// swapped out from under the user when the expiration passes mid-session.
+    private let expiredAtLaunch = EvaluationManager.isExpired()
 #endif
-    
+
     var body: some Scene {
         Window("MarkupEditor", id: Self.mainWindowID) {
 #if EVAL_VERSION
-            if upgradeOnly {
+            if expiredAtLaunch {
                 ExpiredDocumentRedirect()
             } else {
                 MarkupDocumentView()
@@ -46,10 +46,7 @@ struct MarkupEditorApp: App {
                 .environment(editLog)
 #endif
         }
-        .defaultSize(width: 776, height: 582)
-#if EVAL_VERSION
-        .defaultLaunchBehavior(upgradeOnly ? .suppressed : .automatic)
-#endif
+        .defaultSize(AppConfig.shared.documentWindowSize)
         Window("Gallery", id: "plugin-gallery") {
             PluginDiscoveryView()
         }
@@ -67,19 +64,15 @@ struct MarkupEditorApp: App {
         .defaultSize(width: 500, height: 400)
         .windowResizability(.automatic)
         Window("MarkupEditor", id: "welcome") {
-#if EVAL_VERSION
-            TourView(editLog: $editLog, evaluationNotice: evaluationNotice)
-#else
-            TourView(editLog: $editLog)
-#endif
+            WelcomeView()
         }
+        .windowResizability(.contentSize)
 #if EVAL_VERSION
-        // Forced to present even if the Tour was already seen -- a fresh
-        // evaluation notice must still show at least once, and TourView folds
-        // it in as a leading page rather than this window skipping it.
-        .defaultLaunchBehavior(upgradeOnly ? .suppressed : (!hasSeenTour || evaluationNotice != nil) ? .presented : .automatic)
+        // An expired evaluation presents the Welcome even if it was already seen, because
+        // WelcomeView is what hands off to the upgrade window.
+        .defaultLaunchBehavior(!hasSeenWelcome || expiredAtLaunch ? .presented : .automatic)
 #else
-        .defaultLaunchBehavior(!hasSeenTour ? .presented : .automatic)
+        .defaultLaunchBehavior(!hasSeenWelcome ? .presented : .automatic)
 #endif
 #if EVAL_VERSION
         Window("Upgrade to Unlimited", id: "upgrade") {
@@ -87,16 +80,11 @@ struct MarkupEditorApp: App {
         }
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
-        .defaultLaunchBehavior(upgradeOnly ? .presented : .suppressed)
+        .defaultLaunchBehavior(.suppressed)
 #endif
     }
     
     init() {
-#if EVAL_VERSION
-        let evaluation = Self.evaluationCheck()
-        _evaluationNotice = State(initialValue: evaluation.notice)
-        _upgradeOnly = State(initialValue: evaluation.upgradeOnly)
-#endif
         _ = UpdateManager.shared
         AppControl.shared.reconcile()
         Task { await SubscriptionModel.shared.refresh() }
@@ -133,29 +121,6 @@ struct MarkupEditorApp: App {
             config.codeViews = CodeViewManager.syncInternalPlugins(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
         }
     }
-    
-#if EVAL_VERSION
-    /// Returns the first-launch notice text for TourView to fold in as a
-    /// leading page (nil if there's nothing to show this launch), and whether
-    /// the evaluation has expired, in which case the upgrade window is the
-    /// only window that opens.
-    private static func evaluationCheck() -> (notice: String?, upgradeOnly: Bool) {
-        guard EvaluationManager.firstLaunchDate != nil else {
-            let now = Date()
-            EvaluationManager.recordFirstLaunch(now)
-            let expiration = EvaluationManager.expirationDate()
-            let formatted = DateFormatter.localizedString(from: expiration, dateStyle: .long, timeStyle: .none)
-            return ("This is an evaluation version of MarkupEditor, usable through \(formatted). Subscribe at markupeditor.app at any time.", false)
-        }
-        if EvaluationManager.isExpired() {
-            AppDelegate.upgradeOnly = true
-            // No document view exists to answer the unsaved-changes check a quit normally waits for.
-            AppDelegate.skipTerminateCheck = true
-            return (nil, true)
-        }
-        return (nil, false)
-    }
-#endif
     
 }
 

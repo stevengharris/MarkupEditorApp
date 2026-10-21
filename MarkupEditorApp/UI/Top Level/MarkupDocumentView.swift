@@ -59,7 +59,7 @@ struct MarkupDocumentView: View {
     // mistaken for an external change.
     @State private var ignoreNextExternalFileChange: Bool = false
 
-    @State private var infoHide = SideHolder.usingUserDefaults(key: "infoHide")
+    @State private var infoHide = MarkupDocumentView.makeInfoHide()
     let docFraction = FractionHolder.usingUserDefaults(0.75, key: "docFraction")
     
     @AppStorage(ConfigKeys.toolbar) private var toolbarConfigJSON = ""
@@ -69,7 +69,7 @@ struct MarkupDocumentView: View {
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
     
-    @AppStorage(MarkupEditorApp.hasSeenTourKey) private var hasSeenTour = false
+    @AppStorage(MarkupEditorApp.hasSeenWelcomeKey) private var hasSeenWelcome = false
     
     var body: some View {
         //let _ = Self._printChanges()
@@ -175,7 +175,7 @@ struct MarkupDocumentView: View {
             for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {
                 let ud = UserDefaults.standard
                 ud.removeObject(forKey: MarkupEditorApp.firstLaunchDateKey)
-                ud.removeObject(forKey: MarkupEditorApp.hasSeenTourKey)
+                ud.removeObject(forKey: MarkupEditorApp.hasSeenWelcomeKey)
                 ud.removeObject(forKey: MarkupEditorApp.hasSetupPluginsKey)
                 ud.removeObject(forKey: ConfigKeys.toolbar)
                 ud.removeObject(forKey: ConfigKeys.keymap)
@@ -209,8 +209,8 @@ struct MarkupDocumentView: View {
             }
         }
         .task {
-            for await _ in NotificationCenter.default.notifications(named: .resetTour) {
-                hasSeenTour = false
+            for await _ in NotificationCenter.default.notifications(named: .resetWelcome) {
+                hasSeenWelcome = false
             }
         }
         .task {
@@ -259,7 +259,25 @@ struct MarkupDocumentView: View {
             )
         }
     }
-    
+
+    private static let infoHideKey = "infoHide"
+    private static let infoVisibleValue = "visible"
+
+    /// The holder for the Info side of the split. It starts hidden, and the user's choice is stored
+    /// explicitly, because `usingUserDefaults` removes the key when the side is shown, which would
+    /// make a visible Info view indistinguishable from never having chosen.
+    private static func makeInfoHide() -> SideHolder {
+        let stored = UserDefaults.standard.string(forKey: infoHideKey)
+        let initial: SplitSide? = switch stored {
+        case nil: .secondary
+        case infoVisibleValue: nil
+        default: stored.flatMap(SplitSide.init(rawValue:))
+        }
+        return SideHolder(initial, setter: { side in
+            UserDefaults.standard.set(side?.rawValue ?? infoVisibleValue, forKey: infoHideKey)
+        })
+    }
+
     init() {
         // The markupConfiguration must be set before the first render.
         let config = MarkupWKWebViewConfiguration()
@@ -695,6 +713,42 @@ struct MarkupDocumentView: View {
         } catch {
             throw MarkupDocumentError.couldNotReadFile("\(error.localizedDescription)")
         }
+        let (html, metadata) = try await importMarkdown(markdown, in: webView)
+        do {
+            try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
+        } catch {
+            throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
+        }
+        // No-op when this document has no frontmatter.
+        try setHTML(document.seedMetadataBlock(in: html))
+        currentSource = markdown
+        track(url: url)
+    }
+
+    /// Open the welcome document bundled with the app as an untitled document, so saving it asks for a
+    /// location instead of writing back to the bundle.
+    private func openWelcomeDocument() async {
+        guard let webView = MarkupEditor.selectedWebView,
+              let url = Bundle.main.url(forResource: "welcome", withExtension: "md") else {
+            showError("The welcome document could not be found.")
+            return
+        }
+        clearPendingSelectionRestoreState()
+        do {
+            let markdown = try String(contentsOf: url, encoding: .utf8)
+            let (html, metadata) = try await importMarkdown(markdown, in: webView)
+            document.openUntitled(markdown: markdown, metadata: metadata)
+            try setHTML(document.seedMetadataBlock(in: html))
+            currentSource = markdown
+            NSApplication.shared.mainWindow?.representedURL = nil
+        } catch {
+            showError("The welcome document could not be opened: \(error.localizedDescription)")
+        }
+    }
+
+    /// Convert `markdown` to HTML with the editor's parser. Returns the HTML and the parsed frontmatter, and
+    /// logs any warnings.
+    private func importMarkdown(_ markdown: String, in webView: MarkupWKWebView) async throws -> (html: String, metadata: [MetadataTuple]) {
         let converted = try await MarkupConverter.importMarkdownDecoded(webView, content: markdown)
         var warnings = converted.warnings
         let metadata: [MetadataTuple]
@@ -704,17 +758,9 @@ struct MarkupDocumentView: View {
             metadata = []
         }
         editLog.warnings(warnings)
-        do {
-            try document.openMd(at: url, baseUrl: webView.baseUrl, markdown: markdown, metadata: metadata)
-        } catch {
-            throw MarkupDocumentError.couldNotPrepareFile("\(error.localizedDescription)")
-        }
-        // No-op when this document has no frontmatter.
-        try setHTML(document.seedMetadataBlock(in: converted.result))
-        currentSource = markdown
-        track(url: url)
+        return (converted.result, metadata)
     }
-    
+
     //MARK: Getting HTML and Markdown
     
     /// Return the HTML and/or Markdown that is currently showing in the view. If there are no errors encountered,
@@ -907,12 +953,20 @@ extension MarkupDocumentView: MarkupDelegate {
         MarkupEditor.selectedWebView = view
         view.setToolbarVisible(!AppConfig.shared.isHidden())
         view.applyColumnWidth()
+        // Consumed here even when a Finder open wins, so it can't carry over to a later window.
+        let showWelcomeDocument = AppDelegate.consumePendingWelcomeDocument()
         if let url = AppDelegate.consumePendingURL() {
             // A freshly-opened document invalidates any stale restore target left over
             // from whatever toggle/document preceded it.
             pendingBlockIndex = nil
             Task {
                 await openDocument(at: url)
+                handler?()
+            }
+        } else if showWelcomeDocument {
+            pendingBlockIndex = nil
+            Task {
+                await openWelcomeDocument()
                 handler?()
             }
         } else if let blockIndex = pendingBlockIndex {
@@ -1044,8 +1098,10 @@ extension MarkupDocumentView: MarkupDelegate {
 
 extension MarkupWKWebView {
 
-    /// Set the CSS variable that markupeditor-app.css uses for the width of the centered text column.
+    /// Set the CSS variables that markupeditor-app.css uses for the width of the centered text column
+    /// and the smallest margin beside it.
     func applyColumnWidth() {
-        evaluateJavaScript("document.documentElement.style.setProperty('--column-width', '\(AppConfig.shared.columnWidth)px')")
+        let style = "document.documentElement.style"
+        evaluateJavaScript("\(style).setProperty('--column-width', '\(AppConfig.shared.columnWidth)px'); \(style).setProperty('--column-margin', '\(AppConfig.columnMargin)px')")
     }
 }

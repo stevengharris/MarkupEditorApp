@@ -51,6 +51,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return url
     }
 
+    /// Set when the Welcome finishes, so the document window that opens next loads the bundled welcome document.
+    static var pendingWelcomeDocument = false
+
+    static func consumePendingWelcomeDocument() -> Bool {
+        let pending = pendingWelcomeDocument
+        pendingWelcomeDocument = false
+        return pending
+    }
+
     /// Quit the app when the window is closed. Without this, SwiftUI keeps the
     /// process alive and `applicationDidFinishLaunching` won't fire on the next
     /// Xcode run, which prevents the custom menu from being rebuilt.
@@ -225,8 +234,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(name: .menuClearCacheDir, object: nil)
     }
     
-    @objc private func resetTour(_ sender: Any?) {
-        NotificationCenter.default.post(name: .resetTour, object: nil)
+    @objc private func resetWelcome(_ sender: Any?) {
+        NotificationCenter.default.post(name: .resetWelcome, object: nil)
     }
     
     @objc private func setExpired(_ sender: Any?) {
@@ -388,7 +397,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let developMenu = NSMenu(title: "Develop")
         developMenu.addItem(NSMenuItem(title: "Clear UserDefaults", action: #selector(clearUserDefaults(_:)), keyEquivalent: ""))
         developMenu.addItem(NSMenuItem(title: "Clear Cache Directory", action: #selector(clearCacheDir(_:)), keyEquivalent: ""))
-        developMenu.addItem(NSMenuItem(title: "Reset Tour", action: #selector(resetTour(_:)), keyEquivalent: ""))
+        developMenu.addItem(NSMenuItem(title: "Reset Welcome", action: #selector(resetWelcome(_:)), keyEquivalent: ""))
         developMenu.addItem(NSMenuItem(title: "Set Eval Expired", action: #selector(setExpired(_:)), keyEquivalent: ""))
         developMenu.addItem(NSMenuItem(title: "Set Eval Unexpired", action: #selector(setUnexpired(_:)), keyEquivalent: ""))
         developMenuItem.submenu = developMenu
@@ -421,7 +430,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildFormatMenu(from config: ToolbarConfig) -> NSMenu? {
         let visibility = config.visibility
-        guard visibility["toolbar"] == true else { return nil }
 
         // Collect submenus in order specified by the ordering config
         var orderedEntries: [(Int, NSMenuItem)] = []

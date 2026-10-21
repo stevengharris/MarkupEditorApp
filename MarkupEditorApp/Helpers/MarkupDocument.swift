@@ -91,6 +91,15 @@ internal import UniformTypeIdentifiers
         }
     }
 
+    /// Loads `markdown` as an untitled document with no file behind it. Saving it asks for a location
+    /// instead of writing to a `url`.
+    func openUntitled(markdown: String, metadata: [MetadataTuple]) {
+        url = nil                   // Sets documentType to .md
+        source = markdown
+        self.metadata = metadata    // triggers didSet → hasChanges = true
+        hasChanges = false          // override didSet — must be last
+    }
+
     /// Updates model state after a successful open. Sets hasChanges = false last
     /// to override the metadata didSet.
     private func setOpenResult(source: String, url: URL, metadata: [MetadataTuple]) {

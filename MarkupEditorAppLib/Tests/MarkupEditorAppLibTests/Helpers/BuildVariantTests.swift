@@ -4,6 +4,7 @@
 //
 
 import Testing
+import Foundation
 @testable import MarkupEditorAppLib
 
 struct BuildVariantTests {
@@ -33,6 +34,34 @@ struct BuildVariantTests {
     @Test func bothMarkersSetPrefersEvaluation() {
         let info = ["MarkupEditorEvalVersion": "YES", "MarkupEditorUnlimitedVersion": "YES"]
         #expect(BuildVariant.resolve(from: info) == .evaluation)
+    }
+
+    @Test func expiryDateIsNilOutsideEvaluationBuild() {
+        #expect(BuildVariant.current != .evaluation)
+        #expect(BuildVariant.expiryDate() == nil)
+    }
+
+    @Test func isExpiredIsFalseOutsideEvaluationBuild() {
+        #expect(!BuildVariant.isExpired())
+    }
+
+    @Test func noExpiryIsNotExpired() {
+        #expect(!BuildVariant.isExpired(expiry: nil, now: .now))
+    }
+
+    @Test func beforeExpiryIsNotExpired() {
+        let now = Date()
+        #expect(!BuildVariant.isExpired(expiry: now.addingTimeInterval(60), now: now))
+    }
+
+    @Test func atExpiryIsExpired() {
+        let now = Date()
+        #expect(BuildVariant.isExpired(expiry: now, now: now))
+    }
+
+    @Test func afterExpiryIsExpired() {
+        let now = Date()
+        #expect(BuildVariant.isExpired(expiry: now.addingTimeInterval(-60), now: now))
     }
 
     @Test func labelsAreDistinct() {
