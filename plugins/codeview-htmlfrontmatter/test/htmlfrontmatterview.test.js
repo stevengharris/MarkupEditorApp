@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Schema, EditorState, EditorView, MU } from 'markupeditor'
+import { Schema, EditorState, EditorView, MU, Selection } from 'markupeditor'
 import { HTMLFrontMatterView, isHTMLFrontMatterLanguage } from '../src/htmlfrontmatterview.js'
 
 // HTMLFrontMatterView unit coverage in isolation, via a hand-wired nodeViews
@@ -401,6 +401,52 @@ describe('content replaced entirely while already in Rendered mode (e.g. paste o
     expect(instance.contentDOM.classList.contains('htmlfrontmatter-hidden-code')).toBe(true)
     expect(instance.renderedContainer.innerHTML).toBe('<p>new</p>')
 
+    teardown()
+  })
+})
+
+// The base CodeView's update() resets the code element's class to just the language class, which
+// removes the class that hides the source in Rendered mode. An update with unchanged text (a
+// selection moving next to the block, a decoration change) must not bring the source back.
+describe('Rendered mode keeps the source hidden across updates', () => {
+  it('update() with unchanged text leaves the source hidden', () => {
+    const doc = leadingHtmlDoc('<p align="center"><img src="x.png"></p>')
+    const { view, teardown } = mountView(doc)
+    const instance = view.nodeDOM(0).codeView
+    expect(instance.mode).toBe('rendered')
+    expect(instance.contentDOM.classList.contains('htmlfrontmatter-hidden-code')).toBe(true)
+
+    expect(instance.update(view.state.doc.firstChild)).toBe(true)
+
+    expect(instance.contentDOM.classList.contains('htmlfrontmatter-hidden-code')).toBe(true)
+    expect(instance.contentDOM.classList.contains('language-html')).toBe(true)
+    teardown()
+  })
+
+  it('moving the selection to the block after it keeps the source hidden', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('code_block', { language: 'html' }, schema.text('<p>logo</p>')),
+      schema.node('paragraph', null, schema.text('Heading text'))
+    ])
+    const { view, teardown } = mountView(doc)
+    const instance = view.nodeDOM(0).codeView
+    const after = doc.firstChild.nodeSize + 3
+    view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(after))))
+    view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(1))))
+    view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(after))))
+
+    expect(instance.mode).toBe('rendered')
+    expect(instance.contentDOM.classList.contains('htmlfrontmatter-hidden-code')).toBe(true)
+    teardown()
+  })
+
+  it('in Source mode the source is not hidden after an update', () => {
+    const doc = leadingHtmlDoc('<p>x</p>')
+    const { view, teardown } = mountView(doc)
+    const instance = view.nodeDOM(0).codeView
+    instance.setMode(true)
+    instance.update(view.state.doc.firstChild)
+    expect(instance.contentDOM.classList.contains('htmlfrontmatter-hidden-code')).toBe(false)
     teardown()
   })
 })
