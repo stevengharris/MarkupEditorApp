@@ -71,23 +71,32 @@ public struct ControlDispatcher {
         }
         try await authorize(requiring: tool.access, for: request.client)
         onAuthorizedUse(request.client)
-        switch tool.name {
-        case ControlTools.getDocument:
-            let state = try await facade.appState()
-            return [
-                "url": state["url"] ?? .null,
-                "hasChanges": state["hasChanges"] ?? false,
-                "documentType": state["documentType"] ?? .null,
-                "markdown": .string(try await facade.markdown()),
-            ]
-        case ControlTools.getSelection:
-            let text = try await facade.selectionText()
-            return ["text": .string(text), "isEmpty": .bool(text.isEmpty)]
-        case ControlTools.replaceSelection:
-            try await facade.typeText(try argument("text", in: request))
-            return ["replaced": true]
-        default:
-            return try await runDeveloperTool(tool.name, request)
+        if let command = try ContentCommand(tool: tool.name, args: request.args) {
+            return try await run(command)
+        }
+        return try await runDeveloperTool(tool.name, request)
+    }
+
+    /// The command's arguments are already validated, so the facade sees only well-formed calls.
+    private func run(_ command: ContentCommand) async throws -> JSONValue {
+        switch command {
+        case .getDocument(let format, let from, let limit):
+            return try await facade.documentContent(format: format, from: from, limit: limit).jsonValue()
+        case .getSelection:
+            return try await facade.selectionContent().jsonValue()
+        case .select(let target):
+            return try await facade.select(target).jsonValue()
+        case .replaceBlocks(let index, let count, let markdown, let expected, let allowLoss):
+            return try await facade.replaceBlocks(index: index, count: count, markdown: markdown, expected: expected, allowLoss: allowLoss).jsonValue()
+        case .undo:
+            try await facade.undo()
+            return ["undone": true]
+        case .redo:
+            try await facade.redo()
+            return ["redone": true]
+        case .saveDocument:
+            let url = try await facade.saveDocument()
+            return ["saved": true, "url": .string(url.absoluteString)]
         }
     }
 
@@ -99,9 +108,6 @@ public struct ControlDispatcher {
         switch name {
         case ControlTools.appState:
             return try await developer.appState()
-        case ControlTools.saveDocument:
-            try await developer.saveDocument()
-            return ["saved": true]
         case ControlTools.runMenuCommand:
             try await developer.runMenuCommand(try argument("name", in: request))
             return ["ran": true]

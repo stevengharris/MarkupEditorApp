@@ -9,10 +9,14 @@ import Foundation
 /// implementation; the dispatcher depends only on this, so it is testable without a web view.
 @MainActor
 public protocol ControlFacade {
-    func appState() async throws -> JSONValue
-    func markdown() async throws -> String
-    func typeText(_ text: String) async throws
-    func selectionText() async throws -> String
+    func documentContent(format: ContentFormat, from: Int?, limit: Int?) async throws -> DocumentContent
+    func selectionContent() async throws -> SelectionContent
+    func select(_ target: SelectionTarget) async throws -> SelectionResult
+    func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult
+    func undo() async throws
+    func redo() async throws
+    /// Saves the open document to its existing file and returns the file's URL.
+    func saveDocument() async throws -> URL
     func bundlePath() -> String
 }
 
@@ -20,7 +24,9 @@ public protocol ControlFacade {
 /// adopt this, so the dispatcher refuses every tool that needs it.
 @MainActor
 public protocol DeveloperControlFacade: ControlFacade {
-    func saveDocument() async throws
+    func appState() async throws -> JSONValue
+    func markdown() async throws -> String
+    func typeText(_ text: String) async throws
     func runMenuCommand(_ name: String) async throws
     func evalJS(_ script: String) async throws -> JSONValue
     func html() async throws -> String

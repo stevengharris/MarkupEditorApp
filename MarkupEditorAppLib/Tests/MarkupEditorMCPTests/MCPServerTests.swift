@@ -198,11 +198,11 @@ final class MCPServerTests: Sendable {
         let server = switchableServer(OfferedTools([ControlTools.all[0]]), knownNames: Set(ControlTools.all.map(\.name))) { name, _ in
             .error("\(name) is read-only here")
         }
-        let call = #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"replace_selection"}}"#
+        let call = #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"replace_blocks"}}"#
         let parsed = try await reply(to: call, id: 3, using: server)
         #expect(parsed["error"] == nil)
         #expect(parsed["result"]?["isError"] == true)
-        #expect(parsed["result"]?["content"] == [["type": "text", "text": "replace_selection is read-only here"]])
+        #expect(parsed["result"]?["content"] == [["type": "text", "text": "replace_blocks is read-only here"]])
     }
 
     @Test func aNameNobodyKnowsIsStillAProtocolErrorEvenWithKnownNamesSet() async throws {

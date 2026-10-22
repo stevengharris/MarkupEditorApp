@@ -169,7 +169,11 @@ struct MarkupDocumentView: View {
             }
         }
         .onAppear { AppControl.shared.document = document }
-        .onChange(of: sourceShowing) { _, showing in AppControl.shared.sourceShowing = showing }
+        .onChange(of: sourceShowing) { _, showing in
+            AppControl.shared.sourceShowing = showing
+            AppControl.shared.sourceText = currentSource
+        }
+        .onChange(of: currentSource) { _, source in AppControl.shared.sourceText = source }
 #if DEBUG
         .task {
             for await _ in NotificationCenter.default.notifications(named: .menuClearUserDefaults) {

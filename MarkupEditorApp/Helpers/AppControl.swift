@@ -24,7 +24,7 @@ final class AppControl {
     /// UserDefaults key for the Assistants setting.
     static let enabledKey = "ControlEnabled"
 #if DEBUG
-    /// Debug builds allow every client without asking, unless this key is "prompt".
+    /// Debug builds ask like every other build, unless this key is "allow", which allows every client without asking.
     static let consentKey = "ControlConsent"
     private static let enabledByDefault = true
 #else
@@ -49,6 +49,12 @@ final class AppControl {
 
     @ObservationIgnored var document: MarkupDocument?
     @ObservationIgnored var sourceShowing = false
+    /// The text the source view shows (HTML for an HTML document, Markdown otherwise); read-only for assistants.
+    @ObservationIgnored var sourceText = ""
+    /// Runs the assistant calls that change the document one at a time, in arrival order.
+    let edits = EditQueue()
+    /// What save_document does to ask the document view to save; replaceable so tests never reach a real save panel.
+    var requestSave: @MainActor () -> Void = { NotificationCenter.default.post(name: .menuSaveDocument, object: nil) }
     @ObservationIgnored private var server: ControlServer?
     @ObservationIgnored private var activityReset: Task<Void, Never>?
     @ObservationIgnored private let store = UserDefaultsApprovalStore()
@@ -166,9 +172,9 @@ final class AppControl {
         alert.messageText = "Allow \(name) to use MarkupEditor?"
         alert.informativeText = """
             \(name) (\(displayed(client.path, limit: 200))) wants to work with the document you have open in MarkupEditor. \
-            It can read the document, including changes you have not saved, and the text you have selected. \
-            If you allow editing, it can also replace the selection; each change is one undo step and \
-            leaves the document unsaved for you to review.
+            It can read the document, including changes you have not saved, and show you a place in it. \
+            If you allow editing, it can also change the document, undo and redo, and save it to its file. \
+            Each change is one undo step and leaves the document unsaved for you to review; a save cannot be undone with Undo.
 
             You can change this later in Settings under Assistants.
             """
@@ -185,14 +191,14 @@ final class AppControl {
 }
 
 #if DEBUG
-/// Debug builds allow every client unless the consent default is "prompt", re-read on each request
+/// Debug builds ask like Release builds, unless the consent default is "allow", re-read on each request
 /// so it can be switched while the app runs.
 @MainActor
 private struct DebugConsentSwitch: ControlAuthorizing {
     let asking: ControlAuthorizing
 
     func access(for client: ClientIdentity?, prompting: Bool) async -> ClientAccess {
-        guard UserDefaults.standard.string(forKey: AppControl.consentKey) == "prompt" else { return .readWrite }
+        if UserDefaults.standard.string(forKey: AppControl.consentKey) == "allow" { return .readWrite }
         return await asking.access(for: client, prompting: prompting)
     }
 }
