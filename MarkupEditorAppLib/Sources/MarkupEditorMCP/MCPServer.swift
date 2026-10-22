@@ -22,13 +22,15 @@ public struct MCPServer: Sendable {
     private let tools: ListTools
     private let knownNames: Set<String>?
     private let call: CallTool
+    private let instructions: String?
 
     /// - Parameters:
     ///   - tools: Asked on every `tools/list`, so the offer follows what is available.
     ///   - knownNames: Tool names that may be called whether or not they are offered right now. A
     ///     client with an older list can then get the app's explanation, such as "read-only
     ///     access", instead of a bare unknown-tool error. Nil limits calls to the offered tools.
-    public init(name: String, version: String, tools: @escaping ListTools, knownNames: Set<String>? = nil, call: @escaping CallTool) {
+    public init(name: String, version: String, instructions: String? = nil, tools: @escaping ListTools, knownNames: Set<String>? = nil, call: @escaping CallTool) {
+        self.instructions = instructions
         self.name = name
         self.version = version
         self.tools = tools
@@ -36,8 +38,8 @@ public struct MCPServer: Sendable {
         self.call = call
     }
 
-    public init(name: String, version: String, tools: [ControlTool], call: @escaping CallTool) {
-        self.init(name: name, version: version, tools: { tools }, call: call)
+    public init(name: String, version: String, instructions: String? = nil, tools: [ControlTool], call: @escaping CallTool) {
+        self.init(name: name, version: version, instructions: instructions, tools: { tools }, call: call)
     }
 
     /// Serves requests read from `input` until it closes, writing replies to `output`. After the
@@ -48,7 +50,7 @@ public struct MCPServer: Sendable {
     }
 
     func serve(over transport: any Transport, pollInterval: Duration) async {
-        let server = Server(name: name, version: version, capabilities: .init(tools: .init(listChanged: true)))
+        let server = Server(name: name, version: version, instructions: instructions, capabilities: .init(tools: .init(listChanged: true)))
         let advertised = AdvertisedTools()
         let watcher = Watcher()
 

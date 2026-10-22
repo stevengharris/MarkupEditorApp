@@ -93,6 +93,14 @@ final class MCPServerTests: Sendable {
         #expect(reply["result"]?["serverInfo"]?["version"] == "1.2.3")
     }
 
+    @Test func instructionsAreSentOnInitializeWhenGiven() async throws {
+        let withText = MCPServer(name: "markup", version: "1.2.3", instructions: "Use bare file names.", tools: ControlTools.all) { _, _ in .error("nope") }
+        let reply = try #require(try parse(await run(withText, script: [Self.initialize()])).first)
+        #expect(reply["result"]?["instructions"] == "Use bare file names.")
+        let without = try #require(try parse(await run(server(), script: [Self.initialize()])).first)
+        #expect(without["result"]?["instructions"] == nil)
+    }
+
     @Test func anUnknownClientVersionGetsTheLatestSupported() async throws {
         let reply = try #require(try parse(await run(server(), script: [Self.initialize("1999-01-01")])).first)
         #expect(reply["result"]?["protocolVersion"] == "2025-11-25")

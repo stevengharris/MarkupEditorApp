@@ -31,6 +31,7 @@ struct MCP: AsyncParsableCommand {
         let server = MCPServer(
             name: "markupeditor",
             version: BuildVariant.versionString,
+            instructions: AssistantInstructions.text,
             tools: { await backend.tools() },
             knownNames: MCPControlBackend.knownToolNames,
             call: { await backend.call($0, $1) })
