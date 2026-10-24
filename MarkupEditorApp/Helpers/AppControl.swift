@@ -25,12 +25,10 @@ final class AppControl {
     static let enabledKey = "ControlEnabled"
     /// UserDefaults key for limiting the images an assistant adds to relative paths.
     static let restrictImagesKey = "ControlRestrictImages"
+    private static let enabledByDefault = false
 #if DEBUG
     /// Debug builds ask like every other build, unless this key is "allow", which allows every client without asking.
     static let consentKey = "ControlConsent"
-    private static let enabledByDefault = true
-#else
-    private static let enabledByDefault = false
 #endif
 
     /// Whether assistants may connect. Turning it off stops listening.
