@@ -15,16 +15,20 @@ public struct ClientIdentity: Codable, Sendable, Hashable {
     public var bundleIdentifier: String?
     /// The Apple team that signed the process, when it is signed by one.
     public var teamIdentifier: String?
+    /// For a program run by an interpreter such as node or python, the script it runs, so one interpreter
+    /// does not stand for every program it runs.
+    public var script: String?
 
-    public init(name: String, path: String, bundleIdentifier: String? = nil, teamIdentifier: String? = nil) {
+    public init(name: String, path: String, bundleIdentifier: String? = nil, teamIdentifier: String? = nil, script: String? = nil) {
         self.name = name
         self.path = path
         self.bundleIdentifier = bundleIdentifier
         self.teamIdentifier = teamIdentifier
+        self.script = script
     }
 
     /// Stable identity for remembering a decision: bundle identifier, signing team and path together,
     /// so a program that copies another app's Info.plist elsewhere, or is signed by someone else,
     /// does not inherit its approval.
-    public var key: String { "\(bundleIdentifier ?? "")|\(teamIdentifier ?? "")|\(path)" }
+    public var key: String { "\(bundleIdentifier ?? "")|\(teamIdentifier ?? "")|\(path)" + (script.map { "|\($0)" } ?? "") }
 }
