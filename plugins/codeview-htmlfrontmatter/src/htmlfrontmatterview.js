@@ -131,6 +131,8 @@ export class HTMLFrontMatterView extends MU.CodeView {
             this.forceSourceOnly()
             return true
         }
+        // The base update replaced the code element's class with just the language class.
+        this.contentDOM.classList.toggle(HIDDEN_CODE_CLASS, this.mode === 'rendered')
         this.node = node
         const text = node.textContent
         if (text !== this.lastRenderedText) {

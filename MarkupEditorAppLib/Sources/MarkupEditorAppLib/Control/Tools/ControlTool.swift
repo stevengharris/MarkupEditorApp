@@ -52,6 +52,30 @@ public struct ControlTool: Sendable, Equatable {
 
     public static let noArguments: JSONValue = ["type": "object", "properties": [:]]
 
+    /// One property of a tool's input schema.
+    public struct Property: Sendable, Equatable {
+        let json: JSONValue
+
+        public static func string(_ description: String) -> Property { scalar("string", description) }
+        public static func integer(_ description: String) -> Property { scalar("integer", description) }
+        public static func boolean(_ description: String) -> Property { scalar("boolean", description) }
+        public static func stringArray(_ description: String) -> Property {
+            Property(json: ["type": "array", "items": ["type": "string"], "description": .string(description)])
+        }
+
+        private static func scalar(_ type: String, _ description: String) -> Property {
+            Property(json: ["type": .string(type), "description": .string(description)])
+        }
+    }
+
+    public static func schema(_ properties: [String: Property], required: [String]) -> JSONValue {
+        .object([
+            "type": "object",
+            "properties": .object(properties.mapValues(\.json)),
+            "required": .array(required.map { .string($0) }),
+        ])
+    }
+
     public static func schema(_ properties: [String: (type: String, description: String)], required: [String]) -> JSONValue {
         .object([
             "type": "object",

@@ -29,6 +29,75 @@ struct ClientIdentityTests {
         #expect(identity.key == "||/sbin/launchd")
     }
 
+    @Test func aVersionNumberExecutableIsNamedAfterItsProgram() {
+        #expect(ClientIdentity.displayName(forExecutable: "/Users/u/.local/share/claude/versions/2.1.310") == "Claude 2.1.310")
+        #expect(ClientIdentity.displayName(forExecutable: "/opt/tool/4.0") == "Tool 4.0")
+        #expect(ClientIdentity.displayName(forExecutable: "/usr/local/bin/node") == "node")
+        #expect(ClientIdentity.displayName(forExecutable: "/usr/local/bin/python3") == "python3")
+        #expect(ClientIdentity.displayName(forExecutable: "/2.1.310") == "2.1.310")
+    }
+
+    @Test func interpretersAreRecognized() {
+        #expect(ClientIdentity.isInterpreter("/opt/homebrew/bin/node"))
+        #expect(ClientIdentity.isInterpreter("/usr/bin/python3.12"))
+        #expect(ClientIdentity.isInterpreter("/bin/zsh"))
+        #expect(!ClientIdentity.isInterpreter("/usr/local/bin/codex"))
+        #expect(!ClientIdentity.isInterpreter("/Users/u/.local/share/claude/versions/2.1.310"))
+    }
+
+    @Test func theScriptIsTheFirstArgumentThatIsNotAnOption() {
+        #expect(ClientIdentity.scriptArgument(in: ["node", "/opt/x/bin/gemini.js", "--flag"], interpreter: "node") == "/opt/x/bin/gemini.js")
+        #expect(ClientIdentity.scriptArgument(in: ["node", "--no-warnings", "/opt/x/cli.js"], interpreter: "node") == "/opt/x/cli.js")
+        #expect(ClientIdentity.scriptArgument(in: ["node", "--require", "/opt/hook.js", "/opt/x/cli.js"], interpreter: "node") == "/opt/x/cli.js")
+        #expect(ClientIdentity.scriptArgument(in: ["python3", "-m", "agent"], interpreter: "python3") == "agent")
+    }
+
+    @Test func inlineCodeAndReplsHaveNoScript() {
+        #expect(ClientIdentity.scriptArgument(in: ["node"], interpreter: "node") == nil)
+        #expect(ClientIdentity.scriptArgument(in: ["node", "-e", "console.log(1)"], interpreter: "node") == nil)
+        #expect(ClientIdentity.scriptArgument(in: ["sh", "-c", "tool --serve"], interpreter: "sh") == nil)
+    }
+
+    @Test func aScriptNamesTheProgramAndSeparatesItsApproval() {
+        let a = ClientIdentity(name: "gemini-cli (node)", path: "/opt/homebrew/bin/node", script: "/opt/lib/node_modules/@google/gemini-cli/dist/index.js")
+        let b = ClientIdentity(name: "other (node)", path: "/opt/homebrew/bin/node", script: "/opt/lib/node_modules/other/index.js")
+        let bare = ClientIdentity(name: "node", path: "/opt/homebrew/bin/node")
+        #expect(a.key != b.key)
+        #expect(a.key != bare.key)
+        #expect(bare.key == "||/opt/homebrew/bin/node")
+        #expect(ClientIdentity.displayName(forExecutable: "/opt/homebrew/bin/node", script: a.script) == "gemini-cli (node)")
+        #expect(ClientIdentity.displayName(forExecutable: "/usr/bin/python3", script: "/home/u/agent/run.py") == "run (python3)")
+    }
+
+    @Test func theArgumentBlockOfARunningProcessParses() throws {
+        let arguments = try #require(ClientIdentity.processArguments(of: getpid()))
+        #expect(!arguments.isEmpty)
+    }
+
+    @Test func aRunningScriptIsDescribedByItsScript() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("identity-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let script = directory.appendingPathComponent("fake-agent.sh")
+        try "sleep 30\n".write(to: script, atomically: true, encoding: .utf8)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [script.path]
+        try process.run()
+        defer { process.terminate() }
+        let identity = try #require(ClientIdentity.describe(pid: process.processIdentifier))
+        #expect(identity.script == script.resolvingSymlinksInPath().path)
+        #expect(identity.name == "fake-agent (sh)")
+        #expect(identity.key.hasSuffix("|" + script.resolvingSymlinksInPath().path))
+    }
+
+    @Test func aTruncatedArgumentBlockIsRejected() {
+        var block = [UInt8](repeating: 0, count: 4)
+        block[0] = 3
+        block += Array("/bin/x".utf8) + [0, 0] + Array("x".utf8) + [0]
+        #expect(ClientIdentity.parseProcessArguments(block) == nil)
+    }
+
     @Test func aProcessInsideAnAppIsDescribedAsTheApp() throws {
         let identity = try #require(ClientIdentity.describe(pid: getpid()))
         #expect(!identity.name.isEmpty)

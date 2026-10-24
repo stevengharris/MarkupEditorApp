@@ -8,19 +8,29 @@
 import SwiftUI
 
 struct SettingsView: View {
+
+    enum Pane: String {
+        case general, toolbar, keymap, plugins
+    }
+
+    /// UserDefaults key for the selected tab.
+    static let selectedTabKey = "settingsTab"
+
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(Self.selectedTabKey) private var selection: Pane = .general
+
     var body: some View {
-        TabView {
-            Tab("General", systemImage: "gearshape.2") {
+        TabView(selection: $selection) {
+            Tab("General", systemImage: "gearshape.2", value: .general) {
                 GeneralSettingsView()
             }
-            Tab("Toolbar", systemImage: "rectangle.topthird.inset.filled") {
+            Tab("Toolbar", systemImage: "rectangle.topthird.inset.filled", value: .toolbar) {
                 ToolbarSettingsView()
             }
-            Tab("Keymap", systemImage: "keyboard") {
+            Tab("Keymap", systemImage: "keyboard", value: .keymap) {
                 KeymapSettingsView()
             }
-            Tab("Plugins", systemImage: "powerplug") {
+            Tab("Plugins", systemImage: "powerplug", value: .plugins) {
                 PluginSettingsView()
             }
         }

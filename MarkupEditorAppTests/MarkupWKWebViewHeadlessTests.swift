@@ -25,32 +25,6 @@ import MarkupEditor
 import MarkupEditorAppLib
 @testable import MarkupEditorApp
 
-/// Holds a MarkupWKWebView instance through to its "ready" state, headlessly -- no SwiftUI, no
-/// document model. Mirrors MarkupEditor's own HtmlTestPage.swift.
-@MainActor
-private class HeadlessTestPage: MarkupDelegate {
-    var webView: MarkupWKWebView!
-    private var coordinator: MarkupCoordinator!
-    private var continuation: CheckedContinuation<Void, Never>?
-
-    func start() async {
-        let configuration = MarkupWKWebViewConfiguration()
-        configuration.userScriptFile = "markupeditor-app.js"
-        configuration.delegate = "MarkupEditorDelegate"
-        await withCheckedContinuation { continuation in
-            self.continuation = continuation
-            webView = MarkupWKWebView(markupDelegate: self, configuration: configuration)
-            coordinator = MarkupCoordinator(markupDelegate: self, webView: webView)
-            webView.setCoordinatorConfiguration(coordinator)
-        }
-    }
-
-    func markupDidLoad(_ view: MarkupWKWebView, handler: (() -> Void)?) {
-        continuation?.resume()
-        continuation = nil
-    }
-}
-
 @MainActor
 struct MarkupWKWebViewHeadlessTests {
 

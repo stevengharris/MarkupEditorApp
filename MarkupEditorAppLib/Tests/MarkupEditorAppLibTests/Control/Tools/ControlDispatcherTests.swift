@@ -11,21 +11,37 @@ import Testing
 final class FakeControlFacade: DeveloperControlFacade {
     var calls: [String] = []
     var failure: ControlError?
+    var replaceResult = ReplaceResult(ok: true, range: .init(index: 1, count: 1), blocks: [ContentBlock(index: 1, kind: "paragraph", hash: "h2", markdown: "new")])
+    var selectResult = SelectionResult(found: true, blockIndex: 2)
 
     private func record(_ call: String) throws {
         calls.append(call)
         if let failure { throw failure }
     }
 
+    func documentContent(format: ContentFormat, from: Int?, limit: Int?) async throws -> DocumentContent {
+        try record("documentContent:\(format.rawValue):\(from.map(String.init) ?? "-"):\(limit.map(String.init) ?? "-")")
+        return DocumentContent(view: "editor", hasChanges: true, blocks: [ContentBlock(index: 0, kind: "heading", hash: "h1", markdown: "# Title")], firstEditable: 0)
+    }
+    func selectionContent() async throws -> SelectionContent {
+        try record("selectionContent")
+        return SelectionContent(text: "chosen words", blockIndex: 0, block: ContentBlock(index: 0, kind: "heading", hash: "h1", markdown: "# Title"), state: ["canUndo": true])
+    }
+    func select(_ target: SelectionTarget) async throws -> SelectionResult { try record("select:\(target)"); return selectResult }
+    func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult {
+        try record("replaceBlocks:\(index):\(count):\(markdown):\(expected.joined(separator: ",")):\(allowLoss)")
+        return replaceResult
+    }
+    func undo() async throws { try record("undo") }
+    func redo() async throws { try record("redo") }
+    func saveDocument() async throws -> URL { try record("saveDocument"); return URL(fileURLWithPath: "/tmp/doc.md") }
     func appState() async throws -> JSONValue { try record("appState"); return ["hasChanges": true] }
-    func saveDocument() async throws { try record("saveDocument") }
     func runMenuCommand(_ name: String) async throws { try record("runMenuCommand:\(name)") }
     func evalJS(_ script: String) async throws -> JSONValue { try record("evalJS:\(script)"); return .number(42) }
     func markdown() async throws -> String { try record("markdown"); return "# Title" }
     func html() async throws -> String { try record("html"); return "<h1>Title</h1>" }
     func typeText(_ text: String) async throws { try record("typeText:\(text)") }
     func screenshotEditor() async throws -> Data { try record("screenshotEditor"); return Data([1, 2, 3]) }
-    func selectionText() async throws -> String { try record("selectionText"); return "chosen words" }
     func bundlePath() -> String { "/Applications/MarkupEditor.app" }
 }
 
@@ -128,13 +144,25 @@ struct ControlDispatcherTests {
 
     @Test func everyListedToolIsDispatchable() async throws {
         for tool in ControlTools.all {
-            var args: [String: JSONValue] = [:]
-            for key in tool.inputSchema["required"].map({ value -> [String] in
-                if case .array(let items) = value { return items.compactMap(\.stringValue) } else { return [] }
-            }) ?? [] { args[key] = "x" }
-            let response = try await send(tool.name, .object(args))
+            let response = try await send(tool.name, Self.sampleArguments(for: tool))
             #expect(response.ok, "\(tool.name) should dispatch")
         }
+    }
+
+    /// Arguments that satisfy the tool's schema: a value of the right type for each required property.
+    static func sampleArguments(for tool: ControlTool) -> JSONValue {
+        if tool.name == "select" { return ["block": 0] }
+        var args: [String: JSONValue] = [:]
+        guard case .array(let required)? = tool.inputSchema["required"] else { return .object(args) }
+        for name in required.compactMap(\.stringValue) {
+            switch tool.inputSchema["properties"]?[name]?["type"]?.stringValue {
+            case "integer": args[name] = 0
+            case "boolean": args[name] = false
+            case "array": args[name] = []
+            default: args[name] = "x"
+            }
+        }
+        return .object(args)
     }
 }
 
@@ -149,19 +177,20 @@ struct ControlToolsCatalogTests {
 
     @Test func readOnlyToolsNeedReadAndAllOthersNeedWrite() {
         for tool in ControlTools.all {
-            #expect(tool.access == (tool.annotations.readOnly ? .read : .readWrite), "\(tool.name)")
+            let readsOnly = tool.annotations.readOnly || tool.name == "select"   // select only moves the visible selection
+            #expect(tool.access == (readsOnly ? .read : .readWrite), "\(tool.name)")
         }
     }
 
     @Test func theEndUserSetIsExactlyTheDocumentTools() {
-        #expect(ControlTools.endUser.map(\.name) == ["get_document", "get_selection", "replace_selection"])
+        #expect(ControlTools.endUser.map(\.name) == ["get_document", "get_selection", "select", "replace_blocks", "undo", "redo", "save_document"])
         #expect(ControlTools.endUser.allSatisfy { $0.scope == .endUser })
         #expect(ControlTools.developer.allSatisfy { $0.scope == .developer })
         #expect(ControlTools.all.count == ControlTools.endUser.count + ControlTools.developer.count)
     }
 
     @Test func noEndUserToolReachesBeyondTheDocument() {
-        let reachingTools: Set<String> = ["eval_js", "run_menu_command", "save_document", "screenshot_editor", "app_state"]
+        let reachingTools: Set<String> = ["eval_js", "run_menu_command", "screenshot_editor", "app_state", "type_text"]
         #expect(Set(ControlTools.endUser.map(\.name)).isDisjoint(with: reachingTools))
     }
 }
@@ -204,7 +233,7 @@ struct ControlDispatcherAccessTests {
 
         try await run("list_tools", access: .readWrite)
         try await run("get_selection", access: .denied)
-        try await run("replace_selection", access: .read)
+        try await run("replace_blocks", access: .read)
         #expect(used.isEmpty)
 
         try await run("get_selection", access: .read)
@@ -212,24 +241,81 @@ struct ControlDispatcherAccessTests {
         #expect(used == ["Claude", "Claude"])
     }
 
-    @Test func getDocumentReturnsTheStateAndTheLiveMarkdown() async throws {
-        let response = try await send("get_document", access: .read)
+    @Test func getDocumentReturnsTheBlocksAndTheViewState() async throws {
+        let response = try await send("get_document", ["from": 2, "limit": 100], access: .read)
         #expect(response.ok)
-        #expect(response.result?["markdown"] == "# Title")
+        #expect(response.result?["view"] == "editor")
         #expect(response.result?["hasChanges"] == true)
-        #expect(response.result?["url"] == .null)
-        #expect(response.result?["windows"] == nil)
+        #expect(response.result?["firstEditable"] == 0)
+        #expect(response.result?["blocks"] == [["index": 0, "kind": "heading", "hash": "h1", "markdown": "# Title", "warnings": []]])
+        #expect(response.result?["next"] == nil)
+        #expect(facade.calls == ["documentContent:markdown:2:100"])
     }
 
-    @Test func getSelectionReturnsTheSelectedText() async throws {
+    @Test func getDocumentPassesTheFormatThrough() async throws {
+        _ = try await send("get_document", ["format": "html"], access: .read)
+        #expect(facade.calls == ["documentContent:html:-:-"])
+    }
+
+    @Test func getSelectionReturnsTheSelectionAndItsBlock() async throws {
         let response = try await send("get_selection", access: .read)
-        #expect(response.result == ["text": "chosen words", "isEmpty": false])
+        #expect(response.result?["text"] == "chosen words")
+        #expect(response.result?["blockIndex"] == 0)
+        #expect(response.result?["block"]?["hash"] == "h1")
+        #expect(response.result?["state"] == ["canUndo": true])
     }
 
-    @Test func replaceSelectionInsertsThroughTheEditor() async throws {
-        let response = try await send("replace_selection", ["text": "new"], access: .readWrite)
-        #expect(response.result == ["replaced": true])
-        #expect(facade.calls == ["typeText:new"])
+    @Test func selectReachesTheFacadeWithItsTarget() async throws {
+        let byBlock = try await send("select", ["block": 3], access: .read)
+        #expect(byBlock.result == ["found": true, "blockIndex": 2])
+        _ = try await send("select", ["text": "cat", "occurrence": 2], access: .read)
+        #expect(facade.calls == ["select:block(3)", "select:text(\"cat\", occurrence: 2)"])
+    }
+
+    @Test func replaceBlocksReachesTheFacadeAndReturnsItsResult() async throws {
+        let args: JSONValue = ["index": 1, "count": 1, "markdown": "new", "expected": ["h2"], "allowLoss": true]
+        let response = try await send("replace_blocks", args, access: .readWrite)
+        #expect(response.result?["ok"] == true)
+        #expect(response.result?["range"] == ["index": 1, "count": 1])
+        #expect(response.result?["blocks"] == [["index": 1, "kind": "paragraph", "hash": "h2", "markdown": "new", "warnings": []]])
+        #expect(facade.calls == ["replaceBlocks:1:1:new:h2:true"])
+    }
+
+    @Test func aRefusedReplaceIsAReplyWithTheCurrentBlocksNotAnError() async throws {
+        facade.replaceResult = ReplaceResult(ok: false, reason: "The document changed since it was read", blocks: [ContentBlock(index: 1, kind: "paragraph", hash: "now", markdown: "changed")])
+        let response = try await send("replace_blocks", ["index": 1, "count": 1, "markdown": "x", "expected": ["old"]], access: .readWrite)
+        #expect(response.ok)
+        #expect(response.result?["ok"] == false)
+        #expect(response.result?["reason"] == "The document changed since it was read")
+        guard case .array(let blocks)? = response.result?["blocks"] else { Issue.record("no blocks"); return }
+        #expect(blocks.first?["hash"] == "now")
+    }
+
+    @Test func undoRedoAndSaveReachTheFacade() async throws {
+        #expect(try await send("undo", access: .readWrite).result == ["undone": true])
+        #expect(try await send("redo", access: .readWrite).result == ["redone": true])
+        #expect(try await send("save_document", access: .readWrite).result == ["saved": true, "url": "file:///tmp/doc.md"])
+        #expect(facade.calls == ["undo", "redo", "saveDocument"])
+    }
+
+    @Test func invalidArgumentsNeverReachTheFacade() async throws {
+        let bad: [(String, JSONValue)] = [
+            ("get_document", ["from": -1]),
+            ("get_document", ["format": "pdf"]),
+            ("select", [:]),
+            ("select", ["block": 1, "text": "x"]),
+            ("replace_blocks", ["index": 0, "count": 1, "markdown": "x"]),
+            ("replace_blocks", ["index": -1, "count": 1, "markdown": "x", "expected": ["h"]]),
+            ("replace_blocks", ["index": 0, "count": 1.5, "markdown": "x", "expected": ["h"]]),
+            ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": "h"]),
+            ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"], "allowLoss": "yes"]),
+        ]
+        for (tool, args) in bad {
+            let response = try await send(tool, args, access: .readWrite)
+            #expect(!response.ok, "\(tool) \(args)")
+            #expect(response.error?.hasPrefix("\(tool):") == true, "\(tool): \(response.error ?? "")")
+        }
+        #expect(facade.calls.isEmpty)
     }
 
     @Test func aDeniedClientCannotCallAnything() async throws {
@@ -239,16 +325,32 @@ struct ControlDispatcherAccessTests {
         #expect(facade.calls.isEmpty)
     }
 
-    @Test func aReadOnlyClientCanReadButNotChange() async throws {
+    @Test func aReadOnlyClientCanReadAndShowButNotChange() async throws {
         #expect(try await send("get_document", access: .read).ok)
-        let refused = try await send("replace_selection", ["text": "x"], access: .read)
-        #expect(!refused.ok)
-        #expect(refused.error?.contains("read-only access") == true)
-        #expect(facade.calls == ["appState", "markdown"])
+        #expect(try await send("get_selection", access: .read).ok)
+        #expect(try await send("select", ["block": 0], access: .read).ok)
+        let writes: [(String, JSONValue)] = [
+            ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"]]),
+            ("undo", [:]), ("redo", [:]), ("save_document", [:]),
+        ]
+        for (tool, args) in writes {
+            let refused = try await send(tool, args, access: .read)
+            #expect(!refused.ok, Comment(rawValue: tool))
+            #expect(refused.error?.contains("read-only access") == true, Comment(rawValue: tool))
+        }
+        #expect(facade.calls == ["documentContent:markdown:-:-", "selectionContent", "select:block(0)"])
     }
 
     @Test func aReadWriteClientCanChange() async throws {
-        #expect(try await send("replace_selection", ["text": "x"], access: .readWrite).ok)
+        let args: JSONValue = ["index": 0, "count": 1, "markdown": "x", "expected": ["h"]]
+        #expect(try await send("replace_blocks", args, access: .readWrite).ok)
+    }
+
+    @Test func aDeniedClientCannotWriteOrSave() async throws {
+        for tool in ["undo", "redo", "save_document"] {
+            #expect(try await send(tool, access: .denied).ok == false, Comment(rawValue: tool))
+        }
+        #expect(facade.calls.isEmpty)
     }
 
     @Test func callingAToolPromptsButAnUnknownToolDoesNot() async throws {
@@ -267,7 +369,7 @@ struct ControlDispatcherAccessTests {
     }
 
     @Test func developerToolsAreUnknownInAnEndUserBuildEvenForAFullAccessClient() async throws {
-        for name in ["eval_js", "save_document", "run_menu_command", "app_state", "screenshot_editor", "get_html"] {
+        for name in ["eval_js", "run_menu_command", "app_state", "screenshot_editor", "get_html", "type_text", "get_markdown"] {
             let response = try await send(name, ["script": "1", "name": "save"], access: .readWrite, tools: ControlTools.endUser)
             #expect(response == .failure(id: 1, "Unknown tool: \(name)"), "\(name)")
         }
@@ -285,13 +387,13 @@ struct ControlDispatcherAccessTests {
     }
 
     @Test func listingOffersEverythingBeforeADecisionAndNothingWhenDenied() async throws {
-        #expect(try await listed(.undecided) == ["get_document", "get_selection", "replace_selection"])
+        #expect(try await listed(.undecided) == ["get_document", "get_selection", "select", "replace_blocks", "undo", "redo", "save_document"])
         #expect(try await listed(.denied) == [])
     }
 
     @Test func listingOffersOnlyReadToolsToAReadOnlyClient() async throws {
-        #expect(try await listed(.read) == ["get_document", "get_selection"])
-        #expect(try await listed(.readWrite) == ["get_document", "get_selection", "replace_selection"])
+        #expect(try await listed(.read) == ["get_document", "get_selection", "select"])
+        #expect(try await listed(.readWrite) == ["get_document", "get_selection", "select", "replace_blocks", "undo", "redo", "save_document"])
     }
 
     @Test func authorizeOpenAllowsAReadClientAndReportsTheAppBundle() async throws {
@@ -311,10 +413,13 @@ struct ControlDispatcherAccessTests {
 @MainActor
 final class EndUserOnlyFacade: ControlFacade {
     var calls: [String] = []
-    func appState() async throws -> JSONValue { calls.append("appState"); return ["hasChanges": false] }
-    func markdown() async throws -> String { calls.append("markdown"); return "text" }
-    func typeText(_ text: String) async throws { calls.append("typeText") }
-    func selectionText() async throws -> String { calls.append("selectionText"); return "" }
+    func documentContent(format: ContentFormat, from: Int?, limit: Int?) async throws -> DocumentContent { calls.append("documentContent"); return DocumentContent(view: "editor", hasChanges: false) }
+    func selectionContent() async throws -> SelectionContent { calls.append("selectionContent"); return SelectionContent(text: "") }
+    func select(_ target: SelectionTarget) async throws -> SelectionResult { calls.append("select"); return SelectionResult(found: false) }
+    func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult { calls.append("replaceBlocks"); return ReplaceResult(ok: true) }
+    func undo() async throws { calls.append("undo") }
+    func redo() async throws { calls.append("redo") }
+    func saveDocument() async throws -> URL { calls.append("saveDocument"); return URL(fileURLWithPath: "/tmp/x.md") }
     func bundlePath() -> String { "/Applications/MarkupEditor.app" }
 }
 
@@ -344,6 +449,7 @@ struct ControlDispatcherReleaseFacadeTests {
         let dispatcher = ControlDispatcher(facade: facade, tools: ControlTools.endUser)
         let line = try JSONEncoder().encode(ControlRequest(id: 2, tool: "get_selection"))
         let response = try JSONDecoder().decode(ControlResponse.self, from: await dispatcher.handle(line))
-        #expect(response.result == ["text": "", "isEmpty": true])
+        #expect(response.result?["text"] == "")
+        #expect(facade.calls == ["selectionContent"])
     }
 }

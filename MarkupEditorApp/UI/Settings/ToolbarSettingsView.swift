@@ -12,6 +12,9 @@ struct ToolbarSettingsView: View {
     
     enum Field { case p, h1, h2, h3, h4, h5, h6, code }
 
+    /// UserDefaults key for the selected segment.
+    static let settingGroupKey = "toolbarSettingGroup"
+
     enum SettingGroup: String, CaseIterable, Identifiable {
         case visibility = "Visibility"
         case insert = "Insert"
@@ -27,7 +30,7 @@ struct ToolbarSettingsView: View {
     @AppStorage(ConfigKey.toolbar) private var toolbarConfigJSON: String = ""
     @State private var toolbarConfig: ToolbarConfig = ToolbarConfig.fromDefaults()
     @State private var toolbarVisibility: ToolbarVisibility = ToolbarVisibility(rawValue: AppConfig.shared.toolbarVisibility) ?? .toggled
-    @State private var settingGroup: SettingGroup = .visibility
+    @AppStorage(Self.settingGroupKey) private var settingGroup: SettingGroup = .visibility
     @State private var loaded = false
     @State private var bars: [String] = []
     @FocusState private var focusedField: Field?
@@ -162,9 +165,6 @@ struct ToolbarSettingsView: View {
             }
         }
         .clipped()  // Just clip all to avoid layout weirdness w/ very narrow SplitView
-        .onChange(of: settingGroup) {
-            UserDefaults.standard.set(settingGroup.rawValue, forKey: "settingGroup")
-        }
         .onAppear {
             guard !loaded else { return }
             Task { focusedField = nil }

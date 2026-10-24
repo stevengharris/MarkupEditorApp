@@ -13,8 +13,6 @@ struct AppToolbarView: ToolbarContent {
 
     typealias ToggledState = AppConfig.ToggledState
 
-    @Environment(\.openSettings) private var openSettings
-    
     @Binding var url: URL?
     @Binding var toolbarConfigJSON: String
     @Binding var markupConfiguration: MarkupWKWebViewConfiguration
@@ -44,15 +42,14 @@ struct AppToolbarView: ToolbarContent {
         }
         .sharedBackgroundVisibility(.hidden)
         ToolbarSpacer(.flexible)
-        if AppControl.shared.assistantActive {
+        if AppControl.shared.isEnabled {
             ToolbarItem {
                 AssistantActivityIndicator()
             }
+            // Keeps the indicator in its own glass pill so it does not shift the buttons that follow.
+            ToolbarSpacer(.fixed)
         }
         ToolbarItemGroup {
-            if let url {
-                ShareLink(item: url)
-            }
             if AppConfig.shared.isToggled() {
                 // The button will only appear if the behavior is set to toggled. The behavior
                 // can change from the ToolbarSettingsView; AppConfig's Observable tracking updates this view automatically.
@@ -82,12 +79,6 @@ struct AppToolbarView: ToolbarContent {
                 }
             }) {
                 Image(systemName: "sidebar.right")
-            }
-            // The settings button will go away, it's just a convenience during development
-            Button(action: {
-                openSettings()
-            }) {
-                Image(systemName: "gearshape")
             }
         }
     }

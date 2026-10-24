@@ -200,3 +200,46 @@ extension MarkupWKWebView {
     }
 
 }
+
+// MARK: Block-addressed content
+
+extension MarkupWKWebView {
+
+    /// The document's top-level blocks from `MU.getBlocks`, starting at block `from` and stopping before
+    /// the block that would pass `limit` characters of Markdown (always at least one block).
+    public func getBlocks(from: Int?, limit: Int?) async throws(ContentBridgeError) -> BlocksReply {
+        let call = "MU.getBlocks(\(from.map(String.init) ?? "undefined"), \(limit.map(String.init) ?? "undefined"))"
+        return try BlocksReply.decode(await runBlockFunction(call, name: "getBlocks"))
+    }
+
+    /// Replace, insert or delete blocks through `MU.replaceBlocks`. Unless `restrictImages` is false, an image
+    /// without a relative source is turned into a link. A refusal comes back as a result with `ok` false; only
+    /// a failure to reach or read the editor throws.
+    public func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool, restrictImages: Bool = true) async throws(ContentBridgeError) -> ReplaceResult {
+        let call = "MU.replaceBlocks(\(index), \(count), \(Self.jsLiteral(markdown)), \(Self.jsLiteral(expected)), \(allowLoss), \(restrictImages))"
+        return try ReplaceResult.decode(await runBlockFunction(call, name: "replaceBlocks"))
+    }
+
+    /// Select the `occurrence`th match of `text` (case-insensitive, counted from the document start) through
+    /// `MU.selectText`. Nothing changes when there is no match.
+    public func selectText(_ text: String, occurrence: Int) async throws(ContentBridgeError) -> SelectionResult {
+        let call = "MU.selectText(\(Self.jsLiteral(text)), \(occurrence))"
+        return try SelectionResult.decode(await runBlockFunction(call, name: "selectText"))
+    }
+
+    /// The JSON encoding of `value`, which is also a JavaScript literal, so no argument needs hand escaping.
+    static func jsLiteral<T: Encodable>(_ value: T) -> String {
+        guard let data = try? JSONEncoder().encode(value), let text = String(data: data, encoding: .utf8) else { return "null" }
+        return text
+    }
+
+    /// The JSON text the editor function returned, or `nil` when the call failed or returned something else.
+    private func runBlockFunction(_ call: String, name: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            executeJavaScript(call) { result, error in
+                if let error { Logger.webview.error("Error running \(name): \(error)") }
+                continuation.resume(returning: error == nil ? result as? String : nil)
+            }
+        }
+    }
+}

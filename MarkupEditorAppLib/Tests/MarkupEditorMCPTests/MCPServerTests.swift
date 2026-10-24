@@ -93,6 +93,14 @@ final class MCPServerTests: Sendable {
         #expect(reply["result"]?["serverInfo"]?["version"] == "1.2.3")
     }
 
+    @Test func instructionsAreSentOnInitializeWhenGiven() async throws {
+        let withText = MCPServer(name: "markup", version: "1.2.3", instructions: "Use bare file names.", tools: ControlTools.all) { _, _ in .error("nope") }
+        let reply = try #require(try parse(await run(withText, script: [Self.initialize()])).first)
+        #expect(reply["result"]?["instructions"] == "Use bare file names.")
+        let without = try #require(try parse(await run(server(), script: [Self.initialize()])).first)
+        #expect(without["result"]?["instructions"] == nil)
+    }
+
     @Test func anUnknownClientVersionGetsTheLatestSupported() async throws {
         let reply = try #require(try parse(await run(server(), script: [Self.initialize("1999-01-01")])).first)
         #expect(reply["result"]?["protocolVersion"] == "2025-11-25")
@@ -198,11 +206,11 @@ final class MCPServerTests: Sendable {
         let server = switchableServer(OfferedTools([ControlTools.all[0]]), knownNames: Set(ControlTools.all.map(\.name))) { name, _ in
             .error("\(name) is read-only here")
         }
-        let call = #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"replace_selection"}}"#
+        let call = #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"replace_blocks"}}"#
         let parsed = try await reply(to: call, id: 3, using: server)
         #expect(parsed["error"] == nil)
         #expect(parsed["result"]?["isError"] == true)
-        #expect(parsed["result"]?["content"] == [["type": "text", "text": "replace_selection is read-only here"]])
+        #expect(parsed["result"]?["content"] == [["type": "text", "text": "replace_blocks is read-only here"]])
     }
 
     @Test func aNameNobodyKnowsIsStillAProtocolErrorEvenWithKnownNamesSet() async throws {

@@ -255,8 +255,8 @@
 			buildPhases = (
 				AA7B99932F9290DF0085425B /* Sources */,
 				AA7B99942F9290DF0085425B /* Frameworks */,
-				AA7B99952F9290DF0085425B /* Resources */,
 				AA832774302E3FE70034CD46 /* Build npm projects */,
+				AA7B99952F9290DF0085425B /* Resources */,
 				AA3F964A302A830800FB96C9 /* Embed markup CLI */,
 			);
 			buildRules = (

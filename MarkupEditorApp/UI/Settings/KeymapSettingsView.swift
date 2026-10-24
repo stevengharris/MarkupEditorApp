@@ -10,6 +10,9 @@ import MarkupEditor
 
 struct KeymapSettingsView: View {
 
+    /// UserDefaults key for the selected segment.
+    static let settingGroupKey = "keymapSettingGroup"
+
     enum SettingGroup: String, CaseIterable, Identifiable {
         case general = "General"
         case insert = "Insert"
@@ -83,7 +86,7 @@ struct KeymapSettingsView: View {
     @State private var bindingStrings: [String: [String]] = [:]
     @State private var actions: [String] = []
     @State private var loaded = false
-    @State private var settingGroup: SettingGroup = .general
+    @AppStorage(Self.settingGroupKey) private var settingGroup: SettingGroup = .general
 
     private var conflicts: Set<String> {
         var actionForSpec: [String: String] = [:]
