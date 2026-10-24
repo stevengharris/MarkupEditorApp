@@ -185,6 +185,16 @@ struct MarkupDocumentView: View {
                 ud.removeObject(forKey: ConfigKeys.keymap)
                 ud.removeObject(forKey: ConfigKeys.behavior)
                 ud.removeObject(forKey: ConfigKeys.app)
+                ud.removeObject(forKey: AppControl.enabledKey)
+                ud.removeObject(forKey: AppControl.restrictImagesKey)
+                ud.removeObject(forKey: AppControl.consentKey)
+                ud.removeObject(forKey: UserDefaultsApprovalStore.defaultsKey)
+                ud.removeObject(forKey: SubscriptionModel.lastEmailKey)
+                ud.removeObject(forKey: SubscriptionModel.updateDefaultsAppliedKey)
+                ud.removeObject(forKey: GeneralSettingsView.settingGroupKey)
+                ud.removeObject(forKey: ToolbarSettingsView.settingGroupKey)
+                ud.removeObject(forKey: KeymapSettingsView.settingGroupKey)
+                ud.removeObject(forKey: SettingsView.selectedTabKey)
                 for key in ud.dictionaryRepresentation().keys where key.hasPrefix("parentDirBookmark:") {
                     ud.removeObject(forKey: key)
                 }
