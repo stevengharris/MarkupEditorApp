@@ -132,7 +132,7 @@ struct AppControlFacade: ControlFacade {
         let result = try await control.edits.run {
             // The view may have changed while this call waited its turn.
             let webView = try editorWebView(for: "replace_blocks")
-            return try await bridged { try await webView.replaceBlocks(index: index, count: count, markdown: text, expected: expected, allowLoss: allowLoss) }
+            return try await bridged { try await webView.replaceBlocks(index: index, count: count, markdown: text, expected: expected, allowLoss: allowLoss, restrictImages: control.restrictImages) }
         }
         // A refusal that carries no data is an error; one that returns the current blocks is a reply.
         if !result.ok && result.blocks.isEmpty { throw ControlError(result.reason ?? "replace_blocks was refused") }

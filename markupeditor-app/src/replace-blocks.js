@@ -32,11 +32,11 @@ const refuse = (reason, blocks) => (blocks ? { ok: false, reason, blocks } : { o
  * Arguments are validated, not clamped. The change is one transaction.
  *
  * @param {object} state - EditorState
- * @param {{index: number, count: number, markdown: string, expected: string[], allowLoss?: boolean}} args
+ * @param {{index: number, count: number, markdown: string, expected: string[], allowLoss?: boolean, restrictImages?: boolean}} args
  * @returns {object} `{ok: false, reason, blocks?}`, or `{ok: true, tr, range: {index, count}, blocks, warnings}`
  *   where `blocks` are the new blocks and `warnings` are the import's.
  */
-export function planReplace(state, { index, count, markdown, expected, allowLoss }) {
+export function planReplace(state, { index, count, markdown, expected, allowLoss, restrictImages = true }) {
   const total = state.doc.childCount
   const firstEditable = firstEditableOf(state.doc)
   // Only the blocks a check needs are serialized.
@@ -108,9 +108,11 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
     for (let i = index; i < index + count; i++) {
       state.doc.child(i).descendants(node => { if (node.type.name === 'image') keepSrcs.add(node.attrs.src) })
     }
-    const applied = applyImagePolicy(fragment, state.schema, keepSrcs)
-    fragment = applied.fragment
-    importWarnings.push(...applied.warnings)
+    if (restrictImages !== false) {
+      const applied = applyImagePolicy(fragment, state.schema, keepSrcs)
+      fragment = applied.fragment
+      importWarnings.push(...applied.warnings)
+    }
   }
 
   const offsets = []
@@ -147,11 +149,11 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
  *
  * @returns {string} JSON: `{ok: false, reason, blocks?}` or `{ok: true, range, blocks, warnings}`
  */
-export function replaceBlocks(index, count, markdown, expected, allowLoss) {
+export function replaceBlocks(index, count, markdown, expected, allowLoss, restrictImages) {
   const view = MU.activeView()
   if (!view) return JSON.stringify({ ok: false, reason: 'No active view' })
   try {
-    const plan = planReplace(view.state, { index, count, markdown, expected, allowLoss })
+    const plan = planReplace(view.state, { index, count, markdown, expected, allowLoss, restrictImages })
     if (!plan.ok) return JSON.stringify(plan)
     view.dispatch(plan.tr)
     // End the undo event here so typing straight after the change does not join it.

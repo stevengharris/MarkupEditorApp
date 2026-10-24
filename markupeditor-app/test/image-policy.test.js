@@ -217,6 +217,27 @@ describe('the policy in replaceBlocks', () => {
     expect(linksIn(result.tr.doc).length).toBe(1)
   })
 
+  test('with restrictImages false a remote image stays an image and no warning is given', () => {
+    const document = parse('one\n\ntwo')
+    const result = planReplace(stateOf(document), {
+      index: 1, count: 1, markdown: '![chart](https://example.com/chart.png)',
+      expected: hashesFor(document, 1, 1), allowLoss: false, restrictImages: false,
+    })
+    expect(result.ok, result.reason).toBe(true)
+    expect(imagesIn(result.tr.doc).map(i => i.attrs.src)).toEqual(['https://example.com/chart.png'])
+    expect(result.warnings).toEqual([])
+  })
+
+  test('restrictImages true behaves as the default', () => {
+    const document = parse('one\n\ntwo')
+    const result = planReplace(stateOf(document), {
+      index: 1, count: 1, markdown: '![chart](https://example.com/chart.png)',
+      expected: hashesFor(document, 1, 1), allowLoss: false, restrictImages: true,
+    })
+    expect(imagesIn(result.tr.doc)).toEqual([])
+    expect(result.warnings.length).toBe(1)
+  })
+
   test('a relative image goes through untouched', () => {
     const result = plan(parse('a\n\nb'), 1, 1, '![local](images/pic.png)')
     expect(imagesIn(result.tr.doc).map(i => i.attrs.src)).toEqual(['images/pic.png'])

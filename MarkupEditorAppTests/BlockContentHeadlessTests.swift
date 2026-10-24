@@ -33,7 +33,7 @@ struct BlockContentHeadlessTests {
         try await webView.getBlocks(from: nil, limit: nil).blocks
     }
 
-    private static func replace(_ webView: MarkupWKWebView, _ index: Int, _ count: Int, _ markdown: String, allowLoss: Bool = false) async throws -> ReplaceResult {
+    private static func replace(_ webView: MarkupWKWebView, _ index: Int, _ count: Int, _ markdown: String, allowLoss: Bool = false, restrictImages: Bool = true) async throws -> ReplaceResult {
         let current = try await webView.getBlocks(from: nil, limit: nil)
         let expected: [String]
         if count > 0 {
@@ -41,7 +41,7 @@ struct BlockContentHeadlessTests {
         } else {
             expected = index <= current.firstEditable ? [] : [current.blocks[index - 1].hash]
         }
-        return try await webView.replaceBlocks(index: index, count: count, markdown: markdown, expected: expected, allowLoss: allowLoss)
+        return try await webView.replaceBlocks(index: index, count: count, markdown: markdown, expected: expected, allowLoss: allowLoss, restrictImages: restrictImages)
     }
 
     private static let everyKind = """
@@ -152,6 +152,14 @@ struct BlockContentHeadlessTests {
         #expect(result.ok)
         #expect(result.warnings.count == 1)
         #expect(try await Self.blocks(webView)[0].markdown == "[chart](https://example.invalid/chart.png)")
+    }
+
+    @Test func aRemoteImageStaysAnImageWhenTheRestrictionIsOff() async throws {
+        let (_, webView) = try await Self.loaded("one")
+        let result = try await Self.replace(webView, 0, 1, "![chart](https://example.invalid/chart.png)", restrictImages: false)
+        #expect(result.ok)
+        #expect(result.warnings.isEmpty)
+        #expect(try await Self.blocks(webView)[0].kind == "image")
     }
 
     @Test func frontMatterBlocksCountAndAgreeWithTheSelectionBridges() async throws {

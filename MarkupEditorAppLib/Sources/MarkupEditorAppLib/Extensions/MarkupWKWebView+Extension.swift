@@ -212,10 +212,11 @@ extension MarkupWKWebView {
         return try BlocksReply.decode(await runBlockFunction(call, name: "getBlocks"))
     }
 
-    /// Replace, insert or delete blocks through `MU.replaceBlocks`. A refusal comes back as a result with
-    /// `ok` false; only a failure to reach or read the editor throws.
-    public func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws(ContentBridgeError) -> ReplaceResult {
-        let call = "MU.replaceBlocks(\(index), \(count), \(Self.jsLiteral(markdown)), \(Self.jsLiteral(expected)), \(allowLoss))"
+    /// Replace, insert or delete blocks through `MU.replaceBlocks`. Unless `restrictImages` is false, an image
+    /// without a relative source is turned into a link. A refusal comes back as a result with `ok` false; only
+    /// a failure to reach or read the editor throws.
+    public func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool, restrictImages: Bool = true) async throws(ContentBridgeError) -> ReplaceResult {
+        let call = "MU.replaceBlocks(\(index), \(count), \(Self.jsLiteral(markdown)), \(Self.jsLiteral(expected)), \(allowLoss), \(restrictImages))"
         return try ReplaceResult.decode(await runBlockFunction(call, name: "replaceBlocks"))
     }
 

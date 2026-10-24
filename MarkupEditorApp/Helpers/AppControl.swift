@@ -23,6 +23,8 @@ final class AppControl {
 
     /// UserDefaults key for the Assistants setting.
     static let enabledKey = "ControlEnabled"
+    /// UserDefaults key for limiting the images an assistant adds to relative paths.
+    static let restrictImagesKey = "ControlRestrictImages"
 #if DEBUG
     /// Debug builds ask like every other build, unless this key is "allow", which allows every client without asking.
     static let consentKey = "ControlConsent"
@@ -37,6 +39,11 @@ final class AppControl {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
             reconcile()
         }
+    }
+
+    /// Whether images an assistant adds must have a relative path; any other source is turned into a link.
+    var restrictImages: Bool {
+        didSet { UserDefaults.standard.set(restrictImages, forKey: Self.restrictImagesKey) }
     }
 
     /// The program that last used the channel, and whether that was within the last minute, for the
@@ -61,6 +68,7 @@ final class AppControl {
 
     private init() {
         isEnabled = UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? Self.enabledByDefault
+        restrictImages = UserDefaults.standard.object(forKey: Self.restrictImagesKey) as? Bool ?? true
         approvals = store.approvals()
     }
 
