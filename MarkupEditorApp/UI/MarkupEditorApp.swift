@@ -98,25 +98,21 @@ struct MarkupEditorApp: App {
         // Set to true to allow the MarkupWKWebView to be inspectable from the Safari Development
         // menu in iOS/macCatalyst 16.4 or higher.
         MarkupEditor.isInspectable = true
-        // Pre-installed plugins (DocX, Mermaid) are seeded from the app bundle once, at true
-        // first launch -- not every launch, which would re-copy over anything the user replaced
-        // them with via Settings.
+        // The plugin folders and built-in exporters are set up once, at true first launch. No plugin
+        // is installed by default.
         if !hasSetupPlugins {
             AppConfig.update { config in
-                config.exporters = ExporterManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
+                config.exporters = ExporterManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
             }
-            AppConfig.update { config in
-                config.codeViews = CodeViewManager.setupOnLaunch(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
-            }
+            CodeViewManager.setupOnLaunch()
             hasSetupPlugins = true
         }
         // Built-in exporters need no file, so an existing install picks up a newly added one here.
         AppConfig.update { config in
             config.exporters = ExporterManager.ensureBuiltIns(config.exporters)
         }
-        // Internal plugins (currently just Metadata) are re-synced every launch, unlike the
-        // first-launch-only seeding above -- they have no user-facing update mechanism, so an
-        // existing install must also pick up a newer bundled copy.
+        // Internal plugins (currently just Metadata) are re-synced every launch, because they have
+        // no user-facing update mechanism and an existing install must pick up a newer bundled copy.
         AppConfig.update { config in
             config.codeViews = CodeViewManager.syncInternalPlugins(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
         }
