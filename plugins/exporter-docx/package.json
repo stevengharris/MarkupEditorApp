@@ -1,7 +1,7 @@
 {
   "name": "exporter-docx",
-  "version": "0.1.0",
-  "description": "MarkupEditor exporter plugin for DOCX.",
+  "version": "1.0.0",
+  "description": "Export to DOCX format.",
   "type": "module",
   "main": "dist/exporter-docx.js",
   "license": "MIT",

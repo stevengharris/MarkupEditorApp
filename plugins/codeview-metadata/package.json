@@ -1,7 +1,7 @@
 {
   "name": "codeview-metadata",
   "version": "1.0.0",
-  "description": "Internal MarkupEditor codeview plugin that presents a document's YAML frontmatter as an in-editor collapsible bar with Table/Source views, at document position 0.",
+  "description": "MarkupEditor internal - render YAML frontmatter as a table.",
   "type": "module",
   "main": "dist/codeview-metadata.js",
   "license": "MIT",

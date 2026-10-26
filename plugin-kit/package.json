@@ -1,6 +1,6 @@
 {
   "name": "markupeditor-plugin-kit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Shared code for MarkupEditor plugins: frontmatter parsing and, in later releases, image, export, registration, build and test helpers.",
   "private": true,
   "type": "module",

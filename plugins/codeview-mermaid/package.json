@@ -1,7 +1,7 @@
 {
   "name": "codeview-mermaid",
   "version": "1.0.0",
-  "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
+  "description": "Render a diagram from a Mermaid code block.",
   "type": "module",
   "main": "dist/codeview-mermaid.js",
   "license": "MIT",
