@@ -74,21 +74,12 @@ struct ClientIdentityTests {
         #expect(!arguments.isEmpty)
     }
 
-    @Test func aRunningScriptIsDescribedByItsScript() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("identity-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let script = directory.appendingPathComponent("fake-agent.sh")
-        try "sleep 30\n".write(to: script, atomically: true, encoding: .utf8)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = [script.path]
-        try process.run()
-        defer { process.terminate() }
-        let identity = try #require(ClientIdentity.describe(pid: process.processIdentifier))
-        #expect(identity.script == script.resolvingSymlinksInPath().path)
-        #expect(identity.name == "fake-agent (sh)")
-        #expect(identity.key.hasSuffix("|" + script.resolvingSymlinksInPath().path))
+    @Test func aScriptRunByAnInterpreterIsNamedAfterTheScript() {
+        let identity = ClientIdentity.identity(ofExecutable: "/bin/bash", arguments: ["bash", "/opt/agents/fake-agent.sh"], team: nil)
+        #expect(identity.name == "fake-agent (bash)")
+        #expect(identity.path == "/bin/bash")
+        #expect(identity.script == "/opt/agents/fake-agent.sh")
+        #expect(identity.key.hasSuffix("|/opt/agents/fake-agent.sh"))
     }
 
     @Test func aTruncatedArgumentBlockIsRejected() {

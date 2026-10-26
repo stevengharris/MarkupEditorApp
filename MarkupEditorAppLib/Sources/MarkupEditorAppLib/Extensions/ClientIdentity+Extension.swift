@@ -23,8 +23,7 @@ extension ClientIdentity {
         guard let executable = executablePath(of: pid) else { return nil }
         let team = teamIdentifier(ofProcess: pid)
         guard let appPath = outermostAppBundle(containing: executable) else {
-            let script = isInterpreter(executable) ? scriptArgument(in: processArguments(of: pid) ?? [], interpreter: executable) : nil
-            return ClientIdentity(name: displayName(forExecutable: executable, script: script), path: executable, teamIdentifier: team, script: script)
+            return identity(ofExecutable: executable, arguments: isInterpreter(executable) ? processArguments(of: pid) ?? [] : [], team: team)
         }
         let bundle = Bundle(path: appPath)
         let info = bundle?.infoDictionary
@@ -33,6 +32,12 @@ extension ClientIdentity {
             ?? URL(fileURLWithPath: appPath).deletingPathExtension().lastPathComponent
         let identifier = bundle?.bundleIdentifier.flatMap { $0.isEmpty ? nil : $0 }
         return ClientIdentity(name: name, path: appPath, bundleIdentifier: identifier, teamIdentifier: team)
+    }
+
+    /// A program that is not in an app bundle: its executable and, for an interpreter, the script in `arguments`.
+    static func identity(ofExecutable executable: String, arguments: [String], team: String?) -> ClientIdentity {
+        let script = isInterpreter(executable) ? scriptArgument(in: arguments, interpreter: executable) : nil
+        return ClientIdentity(name: displayName(forExecutable: executable, script: script), path: executable, teamIdentifier: team, script: script)
     }
 
     /// What to call a program that is not in an app bundle: its executable's name, except that a version
