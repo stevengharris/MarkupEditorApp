@@ -3,7 +3,7 @@
     "GeoJSON": {
       "name": "GeoJSON",
       "filename": "codeview-geojson.js",
-      "description": "MarkupEditor codeview plugin that renders geojson code blocks as a live, interactive Leaflet map.",
+      "description": "Render a GeoJSON code block as a live, interactive Leaflet map.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
       "version": "1.0.0",
       "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-geojson",
@@ -12,7 +12,7 @@
     "Mermaid": {
       "name": "Mermaid",
       "filename": "codeview-mermaid.js",
-      "description": "MarkupEditor codeview plugin for Mermaid diagrams.",
+      "description": "Render a diagram from a Mermaid code block.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
       "version": "1.0.0",
       "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-mermaid",
@@ -24,9 +24,9 @@
       "name": "DocX",
       "filename": "exporter-docx.js",
       "ext": "docx",
-      "description": "MarkupEditor exporter plugin for DOCX.",
+      "description": "Export to DOCX format.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-docx",
       "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/exporter-docx/dist/exporter-docx.js"
     },
@@ -34,9 +34,9 @@
       "name": "EPUB",
       "filename": "exporter-epub.js",
       "ext": "epub",
-      "description": "MarkupEditor exporter plugin for EPUB3.",
+      "description": "Export to EPUB 3 format.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-epub",
       "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/exporter-epub/dist/exporter-epub.js"
     }

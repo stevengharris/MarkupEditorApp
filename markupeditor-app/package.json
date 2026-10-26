@@ -1,6 +1,6 @@
 {
   "name": "markupeditor-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "The userscript to support Markdown and insert ops in MarkupEditorApp",
   "type": "module",
   "main": "dist/markupeditor-app.js",

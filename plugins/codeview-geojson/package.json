@@ -1,7 +1,7 @@
 {
   "name": "codeview-geojson",
   "version": "1.0.0",
-  "description": "MarkupEditor codeview plugin that renders geojson code blocks as a live, interactive Leaflet map.",
+  "description": "Render a GeoJSON code block as a live, interactive Leaflet map.",
   "type": "module",
   "main": "dist/codeview-geojson.js",
   "license": "MIT",

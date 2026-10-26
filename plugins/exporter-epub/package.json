@@ -1,7 +1,7 @@
 {
   "name": "exporter-epub",
-  "version": "0.1.0",
-  "description": "MarkupEditor exporter plugin for EPUB3.",
+  "version": "1.0.0",
+  "description": "Export to EPUB 3 format.",
   "type": "module",
   "main": "dist/exporter-epub.js",
   "license": "MIT",

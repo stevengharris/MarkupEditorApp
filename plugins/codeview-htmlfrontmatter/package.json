@@ -1,7 +1,7 @@
 {
   "name": "codeview-htmlfrontmatter",
   "version": "1.0.0",
-  "description": "Internal MarkupEditor codeview plugin that renders a leading HTML preamble block live, GitHub-README style, instead of as literal escaped text.",
+  "description": "MarkupEditor internal - renders an HTML frontmatter block live instead of as HTML text.",
   "type": "module",
   "main": "dist/codeview-htmlfrontmatter.js",
   "license": "MIT",
