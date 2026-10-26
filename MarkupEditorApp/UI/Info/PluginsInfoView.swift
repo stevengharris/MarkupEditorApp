@@ -20,6 +20,7 @@ struct PluginsInfoView: View {
     /// How far the disclosure chevrons are moved right, clear of the splitter that overlaps the panel's left edge.
     private static let chevronInset: CGFloat = 8
 
+    @Environment(EditLog.self) private var editLog
     @State private var model = PluginDiscoveryModel()
     @State private var codeViewsExpanded = true
     @State private var exportersExpanded = true
@@ -43,6 +44,8 @@ struct PluginsInfoView: View {
     private struct UninstallRequest {
         let plugin: Plugin
         let type: PluginType
+        /// Whether the plugin was added from a file, in which case it is reinstalled from a file.
+        let fromFile: Bool
     }
 
     var body: some View {
@@ -73,7 +76,7 @@ struct PluginsInfoView: View {
             Button("Uninstall", role: .destructive) { uninstall(request) }
             Button("Cancel", role: .cancel) {}
         } message: { request in
-            Text("The original source location for \"\(request.plugin.name)\" will not be affected. You cannot undo this action.")
+            Text(request.fromFile ? "You can reinstall from file at any time." : "You can reinstall at any time.")
         }
         .alert(addDialogTitle, isPresented: $showAddDialog, presenting: addDialog) { dialog in
             switch dialog {
@@ -146,7 +149,7 @@ struct PluginsInfoView: View {
         } else {
             ForEach(items) { item in
                 PluginRow(item: item, type: type) { plugin in
-                    uninstallRequest = UninstallRequest(plugin: plugin, type: type)
+                    uninstallRequest = UninstallRequest(plugin: plugin, type: type, fromFile: AppConfig.shared.filePlugins.contains(CatalogInstaller.versionKey(type, plugin.name)))
                     showUninstall = true
                 }
                 .padding(.leading, -(Self.disclosureIndent + Self.chevronInset))
@@ -173,7 +176,8 @@ struct PluginsInfoView: View {
             PluginItem(
                 name: name,
                 entry: entries.first { $0.name == name },
-                installed: installed.first { $0.name == name }
+                installed: installed.first { $0.name == name },
+                fromFile: AppConfig.shared.filePlugins.contains(CatalogInstaller.versionKey(type, name))
             )
         }
         .sorted { ($0.isBuiltIn ? 0 : 1, $0.name) < ($1.isBuiltIn ? 0 : 1, $1.name) }
@@ -240,6 +244,7 @@ struct PluginsInfoView: View {
             present(.confirm(PendingPlugin(url: url, banner: banner)))
         } catch {
             url.stopAccessingSecurityScopedResource()
+            editLog.error("Could not add \(url.lastPathComponent): \(error.localizedDescription)")
             present(.failure(error.localizedDescription))
             addPluginType = nil
         }
@@ -265,7 +270,7 @@ struct PluginsInfoView: View {
                     }
                     config.exporters = try ExporterManager.install(name: banner.name, url: pending.url, ext: ext, exporters: config.exporters, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
                 }
-                config.pluginVersions[Self.versionKey(banner.kind == .exporter ? .exporter : .codeview, banner.name)] = nil
+                config.recordFileInstall(key: CatalogInstaller.versionKey(banner.kind == .exporter ? .exporter : .codeview, banner.name))
                 config.pluginsRevision += 1
             } catch {
                 failure = error.localizedDescription
@@ -273,39 +278,33 @@ struct PluginsInfoView: View {
         }
         addPluginType = nil
         if let failure {
+            editLog.error("Could not add \(banner.kind.displayName) \(banner.name): \(failure)")
             // Presented after this alert has finished dismissing, which would clear it.
             Task { present(.failure(failure)) }
+        } else {
+            editLog.info("Added \(banner.kind.displayName) \(banner.name) from \(pending.url.path(percentEncoded: false))")
         }
-    }
-
-    /// The key under which `AppConfig.pluginVersions` records the version of an installed plugin.
-    static func versionKey(_ type: PluginType, _ name: String) -> String {
-        "\(type == .codeview ? "codeview" : "exporter")/\(name)"
     }
 
     // MARK: Uninstalling
 
     private func uninstall(_ request: UninstallRequest) {
+        editLog.info("Uninstalled \(request.type.logName) \(request.plugin.name)")
         switch request.type {
         case .codeview:
             AppConfig.update { config in
                 config.codeViews = CodeViewManager.delete(request.plugin, codeViews: config.codeViews, cacheDir: AppDelegate.webViewCacheDir)
-                config.pluginVersions[Self.versionKey(.codeview, request.plugin.name)] = nil
+                config.recordUninstall(key: CatalogInstaller.versionKey(.codeview, request.plugin.name))
                 config.pluginsRevision += 1
             }
         case .exporter:
             AppConfig.update { config in
                 config.exporters = ExporterManager.delete(request.plugin, exporters: config.exporters, cacheDir: AppDelegate.webViewCacheDir)
-                config.pluginVersions[Self.versionKey(.exporter, request.plugin.name)] = nil
+                config.recordUninstall(key: CatalogInstaller.versionKey(.exporter, request.plugin.name))
                 config.pluginsRevision += 1
             }
         }
     }
-}
-
-private extension Color {
-    /// The system green in dark mode, and a darker green in light mode where it reads better as text.
-    static let installed = Color(nsColor: .dynamic(light: "#1A8033", dark: "#30D158"))
 }
 
 /// A plugin that is installed, listed in the catalog, or both.
@@ -313,6 +312,8 @@ private struct PluginItem: Identifiable {
     let name: String
     let entry: PluginCatalogEntry?
     let installed: Plugin?
+    /// Whether the installed plugin was added from a file.
+    var fromFile = false
 
     var id: String { name }
 
@@ -322,6 +323,7 @@ private struct PluginItem: Identifiable {
 }
 
 private struct PluginRow: View {
+    @Environment(EditLog.self) private var editLog
     let item: PluginItem
     let type: PluginType
     let onUninstall: (Plugin) -> Void
@@ -338,10 +340,10 @@ private struct PluginRow: View {
                     .fixedSize()
             }
             if item.installed != nil {
-                Label(item.isBuiltIn ? "Built in" : "Installed", systemImage: "checkmark.circle.fill")
+                Label(item.isBuiltIn ? "Built in" : (item.fromFile ? "Installed from file" : "Installed"), systemImage: "checkmark.circle.fill")
                     .labelStyle(.titleAndIcon)
                     .font(.caption)
-                    .foregroundStyle(Color.installed)
+                    .foregroundStyle(Color.installedPlugin)
             }
             if let entry = item.entry {
                 Text(entry.description)
@@ -375,7 +377,8 @@ private struct PluginRow: View {
     private var title: Text {
         let name = Text(item.name).font(.headline)
         guard let version = item.entry?.version else { return name }
-        return name + Text(" v\(version)").font(.subheadline).foregroundStyle(.secondary)
+        let versionText = Text(" v\(version)").font(.subheadline).foregroundStyle(.secondary)
+        return Text("\(name)\(versionText)")
     }
 
     @ViewBuilder private var action: some View {
@@ -402,7 +405,7 @@ private struct PluginRow: View {
     /// Whether the catalog has a newer version than the recorded installed one. Nothing is offered when the
     /// installed version is unknown.
     private func updateAvailable(for entry: PluginCatalogEntry) -> Bool {
-        guard let installed = AppConfig.shared.pluginVersions[PluginsInfoView.versionKey(type, entry.name)] else { return false }
+        guard let installed = AppConfig.shared.pluginVersions[CatalogInstaller.versionKey(type, entry.name)] else { return false }
         return PluginVersion.isNewer(entry.version, than: installed)
     }
 
@@ -412,18 +415,7 @@ private struct PluginRow: View {
         Task {
             defer { isInstalling = false }
             do {
-                let (exporters, codeViews) = try await installPlugin(
-                    entry, type: type,
-                    exporters: AppConfig.shared.exporters,
-                    codeViews: AppConfig.shared.codeViews,
-                    cacheDir: AppDelegate.webViewCacheDir
-                )
-                AppConfig.update { config in
-                    config.exporters = exporters
-                    config.codeViews = codeViews
-                    config.pluginVersions[PluginsInfoView.versionKey(type, entry.name)] = entry.version
-                    config.pluginsRevision += 1
-                }
+                try await CatalogInstaller.install(entry, type: type, log: editLog)
             } catch {
                 installErrorMessage = error.localizedDescription
             }
@@ -433,4 +425,5 @@ private struct PluginRow: View {
 
 #Preview {
     PluginsInfoView()
+        .environment(EditLog())
 }

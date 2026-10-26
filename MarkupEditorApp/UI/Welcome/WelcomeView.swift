@@ -13,23 +13,30 @@ struct WelcomeView: View {
     @AppStorage(MarkupEditorApp.hasSeenWelcomeKey) private var hasSeenWelcome = false
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
-    @State private var showedThanks = false
+    @Environment(EditLog.self) private var editLog
+    private enum Page {
+        case thanks, editing, plugins
+    }
+
+    @State private var page = Page.thanks
+    @State private var plugins = PluginsWelcomeModel()
     // Fixed when the welcome is created, so the text and Next behavior can't change mid-display.
     @State private var expirationDate: Date?
     @State private var isExpired: Bool
 
     var body: some View {
         VStack(spacing: 16) {
-            // Both pages stay in the layout so the window is always as tall as the taller one.
+            // All pages stay in the layout so the window is always as tall as the tallest one.
             ZStack {
                 ThanksView(variant: BuildVariant.current, expirationDate: expirationDate, isExpired: isExpired)
-                    .opacity(showedThanks ? 0 : 1)
-                    .allowsHitTesting(!showedThanks)
-                    .accessibilityHidden(showedThanks)
+                    .pageVisibility(page == .thanks)
+                // The pages with a description and a box are aligned at the top, so their text lines up.
                 EditingWelcomeView()
-                    .opacity(showedThanks ? 1 : 0)
-                    .allowsHitTesting(showedThanks)
-                    .accessibilityHidden(!showedThanks)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .pageVisibility(page == .editing)
+                PluginsWelcomeView(model: plugins)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .pageVisibility(page == .plugins)
             }
             HStack {
                 Button("Next") {
@@ -37,26 +44,51 @@ struct WelcomeView: View {
                         AppDelegate.upgradeOnly = true
                         openWindow(id: "upgrade")
                         dismissWindow(id: "welcome")
-                    } else if showedThanks {
-                        hasSeenWelcome = true
-                        // The document window answers the unsaved-changes check from here on.
-                        AppDelegate.skipTerminateCheck = false
-                        AppDelegate.pendingWelcomeDocument = true
-                        openWindow(id: MarkupEditorApp.mainWindowID)
-                        dismissWindow(id: "welcome")
                     } else {
-                        showedThanks = true
+                        next()
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(plugins.isInstalling)
             }
         }
         .padding(20)
         .frame(width: 460)
         .onAppear {
+            plugins.editLog = editLog
             // No document view exists to answer the unsaved-changes check a quit normally waits for.
             AppDelegate.skipTerminateCheck = true
         }
+    }
+
+    private func next() {
+        switch page {
+        case .thanks:
+            page = .editing
+        case .editing:
+            page = .plugins
+        case .plugins:
+            Task {
+                // Failures stay on the page once, so they can be read before moving on.
+                if !plugins.failuresShown {
+                    await plugins.installSelected()
+                    if !plugins.failures.isEmpty {
+                        plugins.failuresShown = true
+                        return
+                    }
+                }
+                finish()
+            }
+        }
+    }
+
+    private func finish() {
+        hasSeenWelcome = true
+        // The document window answers the unsaved-changes check from here on.
+        AppDelegate.skipTerminateCheck = false
+        AppDelegate.pendingWelcomeDocument = true
+        openWindow(id: MarkupEditorApp.mainWindowID)
+        dismissWindow(id: "welcome")
     }
 
     init() {
@@ -74,4 +106,5 @@ struct WelcomeView: View {
 
 #Preview {
     WelcomeView()
+        .environment(EditLog())
 }

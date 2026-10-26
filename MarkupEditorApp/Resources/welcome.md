@@ -4,15 +4,15 @@ This is a sample document you can use to try out the editor when you open it for
 
 ## Demo
 
-If you're connected to the internet, check out the five-minute video overview below. It covers all the basic editing capabilities. Or, just open a file (`File->Open` or ⌘+O) or create a new one (`File->New` or ⌘+N) and start editing. 
+Check out the five-minute video overview below if you're connected to the internet. It covers all the basic editing capabilities.
 
-Some things not shown in the demo that you might want to explore:
+> <img src="https://github.com/user-attachments/assets/ec3f9340-1007-48ce-a9e6-3369e6ba0e63" alt="MarkupEditor Demo" width="627" height="545">
+
+Other areas you might want to explore:
 
 * Settings (⌘+,) let you customize the editor's behavior and look, and for subscribers, gives you access to automated updates.
 
-* The right sidebar shows an activity log for this session, including any warnings/errors that might occur.
-
-<img src="https://github.com/user-attachments/assets/ec3f9340-1007-48ce-a9e6-3369e6ba0e63" alt="MarkupEditor Demo" width="1280" height="1116">
+* Open the side panel to see an activity log for this session, including any warnings/errors that might occur. The side panel also provides access to the Plugin catalog, where you can see what plugins you have installed and add new ones.
 
 ## Source and Issues
 

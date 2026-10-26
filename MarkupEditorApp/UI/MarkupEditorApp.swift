@@ -54,6 +54,7 @@ struct MarkupEditorApp: App {
         .windowResizability(.automatic)
         Window("MarkupEditor", id: "welcome") {
             WelcomeView()
+                .environment(editLog)
         }
         .windowResizability(.contentSize)
 #if EVAL_VERSION
