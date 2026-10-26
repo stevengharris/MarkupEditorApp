@@ -9,11 +9,6 @@ import MarkupEditor
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "PluginInstaller")
 
-public enum PluginType: Sendable {
-    case exporter
-    case codeview
-}
-
 public enum PluginInstallError: Error, Equatable, Sendable {
     case missingExtension(String)
     case invalidSourceURL(String)
