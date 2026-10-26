@@ -13,6 +13,7 @@ projects=(
     plugins/exporter-docx
     plugins/codeview-mermaid
     plugins/codeview-geojson
+    plugins/exporter-epub
 )
 
 # True when the project's output is missing or older than anything it is built from: its own

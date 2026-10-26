@@ -121,6 +121,31 @@ The build (`pluginConfig`) writes the identity as the first line of every built 
 
 When a user adds a plugin in Settings, the app reads this line without executing the file. The user picks only the file; the name and extension are read from the banner and confirmed in an alert. A file with no banner is rejected. Do not edit it by hand: change `package.json` and rebuild. Each plugin's `registration-contract.test.js` fails when banner, `package.json` and registration disagree.
 
+## Building
+
+A plugin's built file in `dist/` is what the app installs and what the catalog serves, so it is committed. Install dependencies once from the repository root, then build a plugin from its own directory:
+
+```bash
+npm install                      # once, from the repository root
+cd plugins/codeview-mermaid
+npm run build                    # writes dist/codeview-mermaid.js
+```
+
+`build-npm.sh` in the repository root builds `markupeditor-app` and every plugin, and skips any project whose output is newer than its inputs. Run `FORCE=1 ./build-npm.sh` to rebuild them all.
+
+## Versions
+
+A plugin's `version` in `package.json` is the version the catalog shows. The app compares it with the version it recorded when the plugin was installed from the catalog, and offers Update when the catalog's is newer. The version is not part of the built file, whose banner holds only the name, type and extension, so changing only the version does not change `dist/`.
+
+To release new versions:
+
+1. Edit `version` in each `package.json`.
+2. Run `npm install` from the repository root, which brings the workspace versions in `package-lock.json` up to date.
+3. Rebuild with `npm run build` where a plugin's source changed.
+4. Run `npm test --workspaces` from the repository root, which runs every project's tests.
+5. Regenerate `plugins/plugins.json` as described below.
+6. Commit the `package.json` files, `package-lock.json`, `plugins/plugins.json`, and any changed `dist/` files together.
+
 ## Publishing plugins.json
 
 After merging a plugin PR, the maintainer regenerates the discovery manifest and commits it:
