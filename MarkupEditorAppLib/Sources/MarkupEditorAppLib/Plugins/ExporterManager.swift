@@ -72,17 +72,11 @@ public enum ExporterManager {
         return support.appendingPathComponent("exporters")
     }
 
-    /// First-launch setup: ensures `defaultDir` exists, the built-in exporters are listed,
-    /// and the bundled DocX exporter is installed from `resourceURL` (mirrors CodeViewManager's
-    /// Mermaid handling). The built-ins are distinct from every other exporter because the app
-    /// exports them natively rather than through a JS module file, so they're just list
-    /// insertions, no file to copy. `resourceURL` is the app bundle's resource directory (`Bundle.main.
-    /// resourceURL` at the app-side call site) -- injected since this package can't reach
-    /// `Bundle.main` itself. Returns the updated exporters list.
-    ///
-    /// Caller-gated to run once, at true first launch: calling this again would re-copy the
-    /// bundled DocX exporter over anything the user installed in its place via Settings.
-    public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
+    /// First-launch setup: ensures `defaultDir` exists, the built-in exporters are listed, and the
+    /// editor's plugin cache exists. No other exporter is installed by default. The built-ins are
+    /// list insertions only, because the app exports them natively rather than through a JS module
+    /// file. Returns the updated exporters list.
+    public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], cacheDir: URL) -> [Plugin] {
         do {
             try FileManager.default.createDirectory(
                 at: defaultDir,
@@ -95,16 +89,8 @@ public enum ExporterManager {
         }
 
         let updated = ensureBuiltIns(exporters)
-
-        guard
-            let filename = docx.filename,
-            let source = resourceURL?.appendingPathComponent(filename)
-        else {
-            logger.warning("Resource URL was not found.")
-            PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
-            return updated
-        }
-        return add(name: docx.name, url: source, ext: docx.ext ?? "docx", exporters: updated, codeViews: codeViews, cacheDir: cacheDir)
+        PluginCacheSync.sync(cacheDir: cacheDir, exporters: updated, codeViews: codeViews)
+        return updated
     }
 
     /// Adds the exporter, returning the list unchanged when the copy fails (which is logged).

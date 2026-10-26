@@ -10,7 +10,6 @@ import MarkupEditor
 
 struct InfoView: View {
 
-    @Binding var url: URL?
     @State private var infoType: InfoType
     
     let height = ToolbarConfig.fromDefaults().toolbarHeight() - 1
@@ -34,8 +33,8 @@ struct InfoView: View {
             switch infoType {
             case .log:
                 LogInfoView()
-            case .document:
-                DocumentInfoView(url: $url)
+            case .plugins:
+                PluginsInfoView()
             }
             
             Spacer()
@@ -46,10 +45,9 @@ struct InfoView: View {
         }
     }
     
-    init(url: Binding<URL?>? = nil) {
-        _url = url ?? .constant(nil)
-        let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.document.rawValue
-        _infoType = State(initialValue: InfoType(rawValue: stored) ?? .document)
+    init() {
+        let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.plugins.rawValue
+        _infoType = State(initialValue: InfoType(rawValue: stored) ?? .plugins)
     }
 }
 

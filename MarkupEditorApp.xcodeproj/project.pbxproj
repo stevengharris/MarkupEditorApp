@@ -59,6 +59,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA26E910308FC18600AEFE4B /* architecture-diagram.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "architecture-diagram.svg"; sourceTree = "<group>"; };
+		AA26E911308FC18600AEFE4B /* CONTRIBUTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CONTRIBUTING.md; sourceTree = "<group>"; };
 		AA3F963C302A516B00FB96C9 /* markup */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = markup; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99A42F9290E00085425B /* MarkupEditorAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarkupEditorAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -87,9 +89,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"codeview-htmlfrontmatter/dist/codeview-htmlfrontmatter.js",
-				"codeview-mermaid/dist/codeview-mermaid.js",
 				"codeview-metadata/dist/codeview-metadata.js",
-				"exporter-docx/dist/exporter-docx.js",
 			);
 			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
 		};
@@ -189,6 +189,7 @@
 			children = (
 				AAE62DEE305314D500692635 /* LICENSE */,
 				AAC586203022A9E100C6CDA3 /* README.md */,
+				AA26E911308FC18600AEFE4B /* CONTRIBUTING.md */,
 				AAA4188D3030C877007C44C3 /* package.json */,
 				AAA4188E3030C877007C44C3 /* package-lock.json */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
@@ -200,6 +201,7 @@
 				AA27464A303E395300AD8E61 /* templates */,
 				AAAB554B3059E78400BEAEE2 /* Config */,
 				AADAE3AB306487BA006863E3 /* Frameworks */,
+				AA26E910308FC18600AEFE4B /* architecture-diagram.svg */,
 				AA7B99982F9290DF0085425B /* Products */,
 			);
 			sourceTree = "<group>";

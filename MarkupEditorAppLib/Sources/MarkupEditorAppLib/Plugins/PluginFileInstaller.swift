@@ -24,6 +24,7 @@ enum PluginFileInstaller {
         let staged = destination.deletingLastPathComponent()
             .appendingPathComponent(".\(UUID().uuidString)-\(destination.lastPathComponent)")
         do {
+            try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
             try fileManager.copyItem(at: source, to: staged)
             if fileManager.fileExists(atPath: destination.path(percentEncoded: false)) {
                 _ = try fileManager.replaceItemAt(destination, withItemAt: staged)

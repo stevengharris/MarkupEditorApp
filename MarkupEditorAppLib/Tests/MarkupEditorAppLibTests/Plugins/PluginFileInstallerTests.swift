@@ -39,6 +39,18 @@ struct PluginFileInstallerTests {
         #expect(try read(destination) == "v1")
     }
 
+    @Test func createsTheDestinationFolderWhenItIsMissing() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = dir.appendingPathComponent("plugin.js")
+        try write("v1", to: source)
+        let destination = dir.appendingPathComponent("not/yet/created/plugin.js")
+
+        try PluginFileInstaller.install(source: source, destination: destination)
+
+        #expect(try read(destination) == "v1")
+    }
+
     @Test func replacesAnInstalledFileAndLeavesNoStagingFileBehind() throws {
         let dir = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }

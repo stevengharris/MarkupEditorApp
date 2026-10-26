@@ -110,3 +110,30 @@ struct PluginCatalogDecodingTests {
         #expect(catalog.exporter.isEmpty)
     }
 }
+
+struct PluginCatalogAuthorTests {
+
+    private func entry(author: String) -> PluginCatalogEntry {
+        let json = """
+        {"name": "X", "filename": "x.js", "description": "d", "author": \(String(decoding: try! JSONEncoder().encode(author), as: UTF8.self)),
+         "version": "1.0.0", "repo": "https://example.com/r", "source": "https://example.com/s.js"}
+        """
+        return try! JSONDecoder().decode(PluginCatalogEntry.self, from: Data(json.utf8))
+    }
+
+    @Test func theAuthorNameDropsAnEmailAddress() {
+        #expect(entry(author: "Steven G. Harris <steven.g.harris@gmail.com>").authorName == "Steven G. Harris")
+    }
+
+    @Test func theAuthorNameDropsAnEmailAddressAndAURL() {
+        #expect(entry(author: "Ada Lovelace <ada@example.com> (https://example.com)").authorName == "Ada Lovelace")
+    }
+
+    @Test func aPlainAuthorNameIsUnchanged() {
+        #expect(entry(author: "Ada Lovelace").authorName == "Ada Lovelace")
+    }
+
+    @Test func anAuthorThatIsOnlyAnEmailAddressIsShownAsGiven() {
+        #expect(entry(author: "<ada@example.com>").authorName == "<ada@example.com>")
+    }
+}

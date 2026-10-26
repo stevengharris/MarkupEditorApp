@@ -56,15 +56,8 @@ public enum CodeViewManager {
         return support.appendingPathComponent("codeviews")
     }
 
-    /// First-launch setup: ensures `defaultDir` exists and the bundled Mermaid codeview is
-    /// present. `resourceURL` is the app bundle's resource directory (`Bundle.main.resourceURL`
-    /// at the app-side call site) -- injected since this package can't reach `Bundle.main`
-    /// itself. Returns the updated codeViews list (unchanged if Mermaid is already present, or
-    /// if setup failed).
-    ///
-    /// Caller-gated to run once, at true first launch: calling this again would re-copy the
-    /// bundled Mermaid codeview over anything the user installed in its place via Settings.
-    public static func setupOnLaunch(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
+    /// First-launch setup: ensures `defaultDir` exists. No CodeView is installed by default.
+    public static func setupOnLaunch() {
         do {
             try FileManager.default.createDirectory(
                 at: defaultDir,
@@ -73,17 +66,7 @@ public enum CodeViewManager {
             )
         } catch {
             logger.error("Failed to create directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
-            return codeViews
         }
-
-        guard
-            let filename = mermaid.filename,
-            let source = resourceURL?.appendingPathComponent(filename)
-        else {
-            logger.warning("Resource URL was not found.")
-            return codeViews
-        }
-        return add(name: mermaid.name, url: source, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir)
     }
 
     /// Re-syncs every internal plugin (`InternalCodeView.allCases`) from the app bundle,

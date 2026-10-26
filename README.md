@@ -41,9 +41,9 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 * Extend MarkupEditor functionality using JavaScript-based *plugins*.
 
-* Export to PDF and DocX out-of-the-box. Add exporters using plugins.
+* Export to HTML and PDF out-of-the-box. Install exporters for DocX and EPUB from the plugin catalog, or add your own.
 
-* View Mermaid diagrams and GeoJSON out-of-the-box. Add plugins for additional capabilities.
+* View Mermaid diagrams and GeoJSON by installing their plugins from the catalog. Add plugins for additional capabilities.
 
 * Discover hosted plugins and contribute to a community of MarkupEditor users.
 
@@ -107,7 +107,7 @@ opens `<filename>` in the MarkupEditor, the same as double-clicking it in Finder
 
 ## Plugins
 
-Plugins extend the functionality of the MarkupEditor. The editor comes with pre-installed plugins to support DocX exporting and to let you edit and display Mermaid diagrams and GeoJSON on OpenStreetMap-based maps. You can add and remove plugins from Settings within the app. The catalog of public plugins on the web site is synced with the app. You can create your own plugins and install them locally, and you can contribute a public plugin using a pull request.
+Plugins extend the functionality of the MarkupEditor. HTML and PDF export are built in. Plugins from the catalog support DocX and EPUB exporting and let you edit and display Mermaid diagrams and GeoJSON on OpenStreetMap-based maps. You can install, update, add from a file, and uninstall plugins in the Plugins panel of the app's right sidebar. The catalog of public plugins on the web site is synced with the app. You can create your own plugins and install them locally, and you can contribute a public plugin using a pull request.
 
 Consult the [README.md](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins) in the plugins directory for information about creating plugins for your own use and contributing them to the community.
 

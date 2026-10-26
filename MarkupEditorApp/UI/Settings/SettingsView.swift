@@ -10,7 +10,7 @@ import SwiftUI
 struct SettingsView: View {
 
     enum Pane: String {
-        case general, toolbar, keymap, plugins
+        case general, toolbar, keymap
     }
 
     /// UserDefaults key for the selected tab.
@@ -29,9 +29,6 @@ struct SettingsView: View {
             }
             Tab("Keymap", systemImage: "keyboard", value: .keymap) {
                 KeymapSettingsView()
-            }
-            Tab("Plugins", systemImage: "powerplug", value: .plugins) {
-                PluginSettingsView()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .dismissSettings)) { notification in

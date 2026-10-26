@@ -34,7 +34,7 @@ public struct PluginBanner: Equatable, Sendable {
         public var displayName: String {
             switch self {
             case .exporter: "exporter"
-            case .codeview: "codeview"
+            case .codeview: "CodeView"
             }
         }
     }

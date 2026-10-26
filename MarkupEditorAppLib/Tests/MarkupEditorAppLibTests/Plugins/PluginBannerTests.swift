@@ -84,7 +84,7 @@ struct PluginBannerParseTests {
 
     @Test func kindsReadAsExporterAndCodeviewInMessages() {
         #expect(PluginBanner.Kind.exporter.displayName == "exporter")
-        #expect(PluginBanner.Kind.codeview.displayName == "codeview")
+        #expect(PluginBanner.Kind.codeview.displayName == "CodeView")
     }
 
     @Test func errorsDescribeThemselvesForTheUser() {
