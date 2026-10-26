@@ -71,7 +71,7 @@ import Foundation
         #expect(MarkupDocumentView.dismissesSettings(whenClosingWindow: MarkupEditorApp.mainWindowID))
     }
 
-    @Test(arguments: ["SUStatus", "plugin-gallery", "com_apple_SwiftUI_Settings_window", "welcome", "upgrade", ""])
+    @Test(arguments: ["SUStatus", "com_apple_SwiftUI_Settings_window", "welcome", "upgrade", ""])
     func testClosingAnotherWindowLeavesSettingsOpen(identifier: String) {
         #expect(!MarkupDocumentView.dismissesSettings(whenClosingWindow: identifier))
     }
@@ -93,7 +93,7 @@ import Foundation
         #expect(action == .closeNow)
     }
 
-    @Test(arguments: ["plugin-gallery", "welcome", "upgrade", "com_apple_SwiftUI_Settings_window", ""])
+    @Test(arguments: ["welcome", "upgrade", "com_apple_SwiftUI_Settings_window", ""])
     func testClosingAnotherWindowJustCloses(identifier: String) {
         #expect(AppDelegate.closeAction(forWindowIdentifier: identifier, skipTerminateCheck: false) == .closeNow)
     }

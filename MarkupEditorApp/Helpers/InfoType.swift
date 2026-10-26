@@ -9,6 +9,6 @@ import Foundation
 
 enum InfoType: String, CaseIterable, Identifiable {
     case log = "Log"
-    case document = "Document"
+    case plugins = "Plugins"
     var id: Self { self }
 }
