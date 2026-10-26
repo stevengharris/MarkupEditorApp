@@ -54,6 +54,27 @@ public final class AppConfig: JSONConfigurable {
     /// The catalog version of each plugin installed from the catalog, keyed "<kind>/<name>". A plugin that
     /// was added from a file, or installed with the app, has no entry, so its version is unknown.
     public var pluginVersions: [String: String] = [:]
+    /// The plugins added from a file, keyed "<kind>/<name>" like `pluginVersions`. An installed plugin in neither
+    /// has an unknown source.
+    public var filePlugins: Set<String> = []
+
+    /// Records that the plugin with `key` was installed from the catalog at `version`.
+    public func recordCatalogInstall(key: String, version: String) {
+        pluginVersions[key] = version
+        filePlugins.remove(key)
+    }
+
+    /// Records that the plugin with `key` was added from a file, whose version is unknown.
+    public func recordFileInstall(key: String) {
+        pluginVersions[key] = nil
+        filePlugins.insert(key)
+    }
+
+    /// Forgets how the plugin with `key` was installed.
+    public func recordUninstall(key: String) {
+        pluginVersions[key] = nil
+        filePlugins.remove(key)
+    }
     // Bumped on every plugin install/delete (PluginSettingsView/PluginDiscoveryView) so
     // MarkupDocumentView's .onChange always sees a change. Plugin equality only compares
     // name/type/filename, so reinstalling with the same name but different bytes leaves the
@@ -95,7 +116,7 @@ public final class AppConfig: JSONConfigurable {
 
     public init(from decoder: any Decoder) throws {
         enum Keys: String, CodingKey {
-            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect, columnWidth, pluginVersions
+            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect, columnWidth, pluginVersions, filePlugins
         }
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
@@ -107,6 +128,7 @@ public final class AppConfig: JSONConfigurable {
         autocorrect = try c.decodeIfPresent(Bool.self, forKey: .autocorrect) ?? true
         columnWidth = try c.decodeIfPresent(Int.self, forKey: .columnWidth) ?? Self.defaultColumnWidth
         pluginVersions = try c.decodeIfPresent([String: String].self, forKey: .pluginVersions) ?? [:]
+        filePlugins = try c.decodeIfPresent(Set<String>.self, forKey: .filePlugins) ?? []
     }
 
     /// Written by hand (rather than relying on synthesis) because `@Observable` renames the
@@ -115,7 +137,7 @@ public final class AppConfig: JSONConfigurable {
     /// producing JSON that `init(from:)` can't decode back.
     public func encode(to encoder: Encoder) throws {
         enum Keys: String, CodingKey {
-            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect, columnWidth, pluginVersions
+            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect, columnWidth, pluginVersions, filePlugins
         }
         var c = encoder.container(keyedBy: Keys.self)
         try c.encode(toolbarVisibility, forKey: .toolbarVisibility)
@@ -127,6 +149,7 @@ public final class AppConfig: JSONConfigurable {
         try c.encode(autocorrect, forKey: .autocorrect)
         try c.encode(columnWidth, forKey: .columnWidth)
         try c.encode(pluginVersions, forKey: .pluginVersions)
+        try c.encode(filePlugins, forKey: .filePlugins)
     }
 
     /// The single, process-wide instance. Read its properties directly; use `update(_:)` to mutate and persist.
