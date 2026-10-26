@@ -41,24 +41,41 @@ final class MCPServerTests: Sendable {
         return String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).split(separator: "\n").map(String.init)
     }
 
-    /// Runs `server` with `script`, waits for the reply to `tools/list`, calls `change`, then waits
-    /// up to `timeout` for a `tools/list_changed` notification before closing input.
-    func runAwaitingAnnouncement(_ server: MCPServer, script: [String], timeout: Duration = .seconds(5), change: () -> Void) async -> [String] {
+    /// Runs `server` with `script`, calls `awaiting` with the output as it arrives, then closes input and
+    /// returns everything the server wrote.
+    func runAwaiting(_ server: MCPServer, script: [String], awaiting: (ReceivedOutput) async -> Void) async -> [String] {
         let input = Pipe(), output = Pipe()
         let received = ReceivedOutput(output.fileHandleForReading)
-        let reader = Task.detached { received.drain() }
+        received.start()
         let finished = Task { await server.run(input: input.fileHandleForReading, output: output.fileHandleForWriting, pollInterval: .milliseconds(20)) }
         for line in script { input.fileHandleForWriting.write(Data((line + "\n").utf8)) }
 
-        await received.wait(for: #""id":2"#, timeout: timeout)
-        change()
-        await received.wait(for: "notifications/tools/list_changed", timeout: timeout)
+        await awaiting(received)
 
         try? input.fileHandleForWriting.close()
         await finished.value
         try? output.fileHandleForWriting.close()
-        await reader.value
+        received.finish()
         return received.text.split(separator: "\n").map(String.init)
+    }
+
+    /// Runs `server` with `script`, waits for the reply to `tools/list`, calls `change`, then waits
+    /// up to `timeout` for a `tools/list_changed` notification before closing input.
+    func runAwaitingAnnouncement(_ server: MCPServer, script: [String], timeout: Duration = .seconds(5), change: () -> Void) async -> [String] {
+        await runAwaiting(server, script: script) { received in
+            await received.wait(for: #""id":2"#, timeout: timeout)
+            change()
+            await received.wait(for: "notifications/tools/list_changed", timeout: timeout)
+        }
+    }
+
+    /// Runs `server` with `script` and waits up to `timeout` for the reply to the request with `id`, however
+    /// long the machine takes to run it.
+    func runAwaitingReply(_ server: MCPServer, script: [String], id: JSONValue, timeout: Duration = .seconds(5)) async throws -> [String] {
+        let fragment = #""id":"# + String(decoding: try JSONEncoder().encode(id), as: UTF8.self)
+        return await runAwaiting(server, script: script) { received in
+            await received.wait(for: fragment, timeout: timeout)
+        }
     }
 
     func parse(_ lines: [String]) throws -> [JSONValue] {
@@ -67,7 +84,7 @@ final class MCPServerTests: Sendable {
 
     /// The reply to the request with `id`, after a successful initialize handshake.
     func reply(to request: String, id: JSONValue, using server: MCPServer? = nil) async throws -> JSONValue {
-        let out = await run(server ?? self.server(), script: [Self.initialize(), Self.initialized, request])
+        let out = try await runAwaitingReply(server ?? self.server(), script: [Self.initialize(), Self.initialized, request], id: id)
         return try #require(try parse(out).first { $0["id"] == id })
     }
 
@@ -84,7 +101,7 @@ final class MCPServerTests: Sendable {
     }
 
     @Test func initializeNegotiatesAKnownVersionAndAdvertisesTools() async throws {
-        let out = try parse(await run(server(), script: [Self.initialize("2025-03-26")]))
+        let out = try parse(try await runAwaitingReply(server(), script: [Self.initialize("2025-03-26")], id: 1))
         let reply = try #require(out.first)
         #expect(reply["id"] == 1)
         #expect(reply["result"]?["protocolVersion"] == "2025-03-26")
@@ -95,24 +112,24 @@ final class MCPServerTests: Sendable {
 
     @Test func instructionsAreSentOnInitializeWhenGiven() async throws {
         let withText = MCPServer(name: "markup", version: "1.2.3", instructions: "Use bare file names.", tools: ControlTools.all) { _, _ in .error("nope") }
-        let reply = try #require(try parse(await run(withText, script: [Self.initialize()])).first)
+        let reply = try #require(try parse(try await runAwaitingReply(withText, script: [Self.initialize()], id: 1)).first)
         #expect(reply["result"]?["instructions"] == "Use bare file names.")
-        let without = try #require(try parse(await run(server(), script: [Self.initialize()])).first)
+        let without = try #require(try parse(try await runAwaitingReply(server(), script: [Self.initialize()], id: 1)).first)
         #expect(without["result"]?["instructions"] == nil)
     }
 
     @Test func anUnknownClientVersionGetsTheLatestSupported() async throws {
-        let reply = try #require(try parse(await run(server(), script: [Self.initialize("1999-01-01")])).first)
+        let reply = try #require(try parse(try await runAwaitingReply(server(), script: [Self.initialize("1999-01-01")], id: 1)).first)
         #expect(reply["result"]?["protocolVersion"] == "2025-11-25")
     }
 
     @Test func theNewestSpecVersionIsNegotiated() async throws {
-        let reply = try #require(try parse(await run(server(), script: [Self.initialize("2025-11-25")])).first)
+        let reply = try #require(try parse(try await runAwaitingReply(server(), script: [Self.initialize("2025-11-25")], id: 1)).first)
         #expect(reply["result"]?["protocolVersion"] == "2025-11-25")
     }
 
     @Test func theServerAdvertisesThatItsToolListCanChange() async throws {
-        let reply = try #require(try parse(await run(server(), script: [Self.initialize("2025-06-18")])).first)
+        let reply = try #require(try parse(try await runAwaitingReply(server(), script: [Self.initialize("2025-06-18")], id: 1)).first)
         #expect(reply["result"]?["capabilities"]?["tools"]?["listChanged"] == true)
     }
 
@@ -274,11 +291,23 @@ final class ReceivedOutput: @unchecked Sendable {
 
     var text: String { String(decoding: data.withLock { $0 }, as: UTF8.self) }
 
-    /// Reads until the write end closes.
-    func drain() {
-        while case let chunk = handle.availableData, !chunk.isEmpty {
-            data.withLock { $0.append(chunk) }
+    /// Collects output as it arrives, without holding a thread while waiting for it.
+    func start() {
+        handle.readabilityHandler = { [self] handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+            } else {
+                data.withLock { $0.append(chunk) }
+            }
         }
+    }
+
+    /// Stops collecting and takes whatever is left, once the write end has closed.
+    func finish() {
+        handle.readabilityHandler = nil
+        let rest = handle.readDataToEndOfFile()
+        data.withLock { $0.append(rest) }
     }
 
     func wait(for fragment: String, timeout: Duration) async {
