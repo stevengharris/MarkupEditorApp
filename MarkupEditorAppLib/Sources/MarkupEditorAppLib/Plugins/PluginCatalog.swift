@@ -22,6 +22,14 @@ public struct PluginCatalogEntry: Decodable, Equatable, Sendable, Identifiable {
     public let repo: String
     public let source: String
     public let ext: String?
+
+    /// The author's name without the email address or URL that package.json's author field can carry,
+    /// as in "Name <name@example.com> (https://example.com)".
+    public var authorName: String {
+        let end = author.firstIndex { $0 == "<" || $0 == "(" } ?? author.endIndex
+        let name = author[..<end].trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? author : name
+    }
 }
 
 /// Wraps a per-entry decode so one malformed entry never fails the whole

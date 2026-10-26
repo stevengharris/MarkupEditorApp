@@ -100,6 +100,6 @@ struct PluginAddCheckTests {
         #expect(PluginAddError.nameInUse("DocX").errorDescription?.contains("DocX") == true)
         #expect(PluginAddError.filenameInUse("a.js", plugin: "DocX").errorDescription?.contains("a.js") == true)
         #expect(PluginAddError.wrongKind(expected: .codeview, found: .exporter).errorDescription?.contains("exporter") == true)
-        #expect(PluginAddError.wrongKind(expected: .exporter, found: .codeview).errorDescription == "This file is a codeview, not an exporter. Use the add button for codeviews.")
+        #expect(PluginAddError.wrongKind(expected: .exporter, found: .codeview).errorDescription == "This file is a CodeView, not an exporter. Use the add button for CodeViews.")
     }
 }
