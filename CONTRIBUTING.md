@@ -1,8 +1,8 @@
 # Contributing
 
-Contributions, including bug fixes, enhancements, and plugins, are welcome. Clone this repository, run and extend tests as needed, and submit a pull request. For a bug fix or enhancement, run the MarkupEditorAppTests. For a plugin, refer to the requirements in the [Plugins README](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins).
+Contributions - including bug fixes, enhancements, and plugins - are welcome.
 
-I want this project to be a welcoming, harassment-free space for everyone, regardless of background or identity. You should expect me to behave in a friendly, open, and respectful manner, and I expect people interacting on issues and other areas to do likewise. I may formally adopt a [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) at some point if I feel it is needed.
+This project should be a welcoming, harassment-free space for everyone, regardless of background or identity. You should expect me to behave in a friendly, open, and respectful manner, and I expect people interacting on issues and other areas to do likewise. I may formally adopt a [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) at some point if I feel it is needed.
 
 ## AI Policy
 
