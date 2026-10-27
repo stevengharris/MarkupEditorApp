@@ -386,6 +386,9 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(SRCROOT)/markupeditor-app/dist/markupeditor-app.js",
+				"$(SRCROOT)/plugins/codeview-metadata/dist/codeview-metadata.js",
+				"$(SRCROOT)/plugins/codeview-htmlfrontmatter/dist/codeview-htmlfrontmatter.js",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
