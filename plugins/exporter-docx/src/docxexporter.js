@@ -2,6 +2,7 @@ import { MU } from "markupeditor"
 import pkg from "../package.json" with { type: "json" }
 import { Document, Packer } from "docx"
 import { resolveImages } from "markupeditor-plugin-kit/images"
+import { embedDiagrams, rasterizeSvg } from "markupeditor-plugin-kit/diagrams"
 import { failureEnvelope, successEnvelope } from "markupeditor-plugin-kit/export"
 import { registerExporter } from "markupeditor-plugin-kit/register"
 import { htmlToDocxChildren, PAGE_WIDTH_TWIPS, PAGE_HEIGHT_TWIPS, PAGE_MARGIN_TWIPS } from "./htmlToDocx.js"
@@ -9,12 +10,23 @@ import { documentStyles } from "./styles.js"
 import { numberingConfig } from "./numbering.js"
 import { extractMetadata, metadataScalar, parseMetadataList, stripMetadataBlock } from "markupeditor-plugin-kit/metadata"
 
+const TWIPS_PER_PIXEL = 15
+
 export class DocXExporter {
+
+    constructor({ rasterize = rasterizeSvg } = {}) {
+        this.rasterize = rasterize
+    }
 
     async run() {
         const warnings = []
         try {
-            const html = await resolveImages(stripMetadataBlock(MU.getHTML()), warnings)
+            const withDiagrams = await embedDiagrams(stripMetadataBlock(MU.getHTML()), warnings, {
+                format: 'png',
+                maxWidth: (PAGE_WIDTH_TWIPS - 2 * PAGE_MARGIN_TWIPS) / TWIPS_PER_PIXEL,
+                rasterize: this.rasterize,
+            })
+            const html = await resolveImages(withDiagrams, warnings)
             const children = htmlToDocxChildren(html, warnings)
             const metadata = extractMetadata(MU)
             const keywords = parseMetadataList(metadata.keywords)

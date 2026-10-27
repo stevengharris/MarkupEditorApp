@@ -11,6 +11,7 @@
   },
   "exports": {
     "./base64": "./src/base64.js",
+    "./diagrams": "./src/diagrams.js",
     "./export": "./src/export.js",
     "./images": "./src/images.js",
     "./manifest": "./src/manifest.js",

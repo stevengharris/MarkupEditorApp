@@ -1,6 +1,6 @@
 {
   "name": "exporter-docx",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Export to DOCX format.",
   "type": "module",
   "main": "dist/exporter-docx.js",

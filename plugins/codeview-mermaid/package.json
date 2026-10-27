@@ -1,6 +1,6 @@
 {
   "name": "codeview-mermaid",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Render a diagram from a Mermaid code block.",
   "type": "module",
   "main": "dist/codeview-mermaid.js",
