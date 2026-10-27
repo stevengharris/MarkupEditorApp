@@ -9,6 +9,15 @@ export { isMermaidLanguage }
 
 const HIDE_CARET_CLASS = 'mermaid-hide-caret'
 
+let exportCounter = 0
+
+// Per-diagram init directive, so an export render neither depends on nor changes the global
+// configuration the editor's own diagrams use. Exports always use the light theme.
+export function exportDirective(plainLabels) {
+    const config = { theme: 'default', ...(plainLabels && { htmlLabels: false, flowchart: { htmlLabels: false } }) }
+    return `%%{init: ${JSON.stringify(config)}}%%`
+}
+
 export class MermaidPlugin {
 
     constructor() {
@@ -19,6 +28,13 @@ export class MermaidPlugin {
         // instead. We show a Source-mode fallback on error and don't want
         // the mermaid error SVG anyway.
         mermaid.initialize({ theme: this.prefersDark ? 'dark' : 'default', suppressErrorRendering: true })
+    }
+
+    // Renders `source` to an SVG string for export. With plainLabels, labels are <text>
+    // elements instead of <foreignObject>.
+    async renderForExport(source, { plainLabels = false } = {}) {
+        const { svg } = await mermaid.render(`mermaid-export-${++exportCounter}`, `${exportDirective(plainLabels)}\n${source}`)
+        return svg
     }
 
     // Add the mermaid css to the root node
@@ -290,6 +306,8 @@ export class MermaidPlugin {
     // wraps MU.pasteCode, registers with markupeditor-base's plugin registry,
     // and adds the keyboard/clipboard/theme Plugin to the editor state.
     install() {
+        MU.diagramRenderers = { ...MU.diagramRenderers, mermaid: (source, options) => this.renderForExport(source, options) }
+
         const view = MU.activeView()
         if (!view) return
 

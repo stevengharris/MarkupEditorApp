@@ -31,6 +31,7 @@ function fakeMetadataDoc(text) {
 }
 
 beforeEach(() => {
+    MU.diagramRenderers = undefined
     getHTML.mockClear()
     getHTML.mockReturnValue('<h1>Test</h1><p>hello</p>')
     activeView.mockReset()
@@ -258,5 +259,34 @@ describe('EpubExporter.run(), the full real pipeline (resolveImages -> extractIm
         const envelope = JSON.parse(json)
         expect(envelope.warnings).toEqual([])
         expect(envelope.result).toBeTruthy()
+    })
+})
+
+describe('EpubExporter.run(), Mermaid diagrams', () => {
+    const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 800 400"><text>hi</text></svg>'
+    const BLOCK = '<pre><code class="language-mermaid">graph TD\n  A--&gt;B</code></pre>'
+
+    it('embeds the diagram as an SVG zip entry, rendered with plain text labels', async () => {
+        const render = vi.fn(async () => SVG)
+        MU.diagramRenderers = { mermaid: render }
+        getHTML.mockReturnValue(`<h1>T</h1>${BLOCK}`)
+
+        const envelope = JSON.parse(await epubExporter.run())
+        expect(envelope.warnings).toEqual([])
+        expect(render).toHaveBeenCalledWith('graph TD\n  A-->B', { plainLabels: true })
+
+        const parts = decodeEpubBuffer(Buffer.from(envelope.result, 'base64'))
+        expect(parts['OEBPS/content.xhtml']).toContain('<p><img src="images/image1.svg" alt="Mermaid diagram" width="800" height="400"/></p>')
+        expect(parts['OEBPS/content.opf']).toContain('<item id="img1" href="images/image1.svg" media-type="image/svg+xml"/>')
+        expect(parts['OEBPS/images/image1.svg']).toBeDefined()
+        expect(parts['OEBPS/content.xhtml']).not.toContain('graph TD')
+    })
+
+    it('leaves the code block and warns when the Mermaid plugin is not installed', async () => {
+        getHTML.mockReturnValue(BLOCK)
+        const envelope = JSON.parse(await epubExporter.run())
+        expect(envelope.warnings).toEqual(['Mermaid diagrams were left as code blocks because the Mermaid plugin is not installed'])
+        const parts = decodeEpubBuffer(Buffer.from(envelope.result, 'base64'))
+        expect(parts['OEBPS/content.xhtml']).toContain('graph TD')
     })
 })

@@ -2,6 +2,7 @@ import { MU } from "markupeditor"
 import pkg from "../package.json" with { type: "json" }
 import { zipSync } from "fflate"
 import { resolveImages } from "markupeditor-plugin-kit/images"
+import { embedDiagrams } from "markupeditor-plugin-kit/diagrams"
 import { failureEnvelope, successEnvelope } from "markupeditor-plugin-kit/export"
 import { registerExporter } from "markupeditor-plugin-kit/register"
 import { extractImages } from "./extractImages.js"
@@ -20,7 +21,8 @@ export class EpubExporter {
         const warnings = []
         try {
             const rawHtml = stripMetadataBlock(MU.getHTML())
-            const resolvedHtml = await resolveImages(rawHtml, warnings)
+            const withDiagrams = await embedDiagrams(rawHtml, warnings, { format: 'svg' })
+            const resolvedHtml = await resolveImages(withDiagrams, warnings)
             const { html: htmlWithImagePaths, images } = extractImages(resolvedHtml, warnings)
             const bodyHtml = htmlToXhtmlBody(htmlWithImagePaths, warnings)
             const headings = extractHeadings(htmlWithImagePaths)

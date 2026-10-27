@@ -18,7 +18,7 @@ MU.getHTML = getHTML
 MU.registerPlugin = registerPlugin
 MU.activeView = activeView
 
-const { docXExporter } = await import('../dist/exporter-docx.js')
+const { docXExporter, DocXExporter } = await import('../dist/exporter-docx.js')
 // registerPlugin fires once, at module load, above -- capture it now, before any beforeEach
 // clears the mock's call history for the per-test assertions below.
 const registerPluginCallArgs = registerPlugin.mock.calls[0]
@@ -28,6 +28,7 @@ function fakeMetadataDoc(text) {
 }
 
 beforeEach(() => {
+    MU.diagramRenderers = undefined
     getHTML.mockClear()
     getHTML.mockReturnValue('<p>hello</p>')
     activeView.mockReset()
@@ -193,5 +194,39 @@ describe('DocXExporter.run(), the full real pipeline (resolveImages -> converter
         const envelope = JSON.parse(json)
         expect(envelope.warnings).toEqual([])
         expect(envelope.result).toBeTruthy()
+    })
+})
+
+describe('DocXExporter.run(), Mermaid diagrams', () => {
+    const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 800 400"><text>hi</text></svg>'
+    const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+    const BLOCK = '<pre><code class="language-mermaid">graph TD\n  A--&gt;B</code></pre>'
+
+    it('embeds the diagram as an image, rasterized from the rendered SVG, scaled to the page width', async () => {
+        const render = vi.fn(async () => SVG)
+        const rasterize = vi.fn(async () => PNG)
+        MU.diagramRenderers = { mermaid: render }
+        getHTML.mockReturnValue(`<p>before</p>${BLOCK}`)
+
+        const envelope = JSON.parse(await new DocXExporter({ rasterize }).run())
+        expect(envelope.warnings).toEqual([])
+        expect(render).toHaveBeenCalledWith('graph TD\n  A-->B', { plainLabels: false })
+        expect(rasterize).toHaveBeenCalledWith(SVG, 800, 400)
+
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        const documentXml = await zip.file('word/document.xml').async('string')
+        expect(documentXml).toContain('<w:drawing>')
+        expect(documentXml).not.toContain('graph TD')
+        // 624 px (6.5 in) of content width at 9525 EMU per px
+        expect(documentXml).toContain(`<wp:extent cx="${624 * 9525}" cy="${312 * 9525}"/>`)
+    })
+
+    it('leaves the code block and warns when the Mermaid plugin is not installed', async () => {
+        getHTML.mockReturnValue(BLOCK)
+        const envelope = JSON.parse(await docXExporter.run())
+        expect(envelope.result).toBeTruthy()
+        expect(envelope.warnings).toEqual(['Mermaid diagrams were left as code blocks because the Mermaid plugin is not installed'])
+        const zip = await JSZip.loadAsync(Buffer.from(envelope.result, 'base64'))
+        expect(await zip.file('word/document.xml').async('string')).toContain('graph TD')
     })
 })
