@@ -11,7 +11,7 @@ import Foundation
 /// entirely app-side (file I/O, security scope, package structure) and can't be thrown by code
 /// that doesn't know about those app-level concerns.
 public enum MarkupConversionError: Error, Equatable, Sendable {
-    case contentEditableNotFound
+    case unableToExportPDF
     case unexpectedImport
     case unableToImport(String)
     case unexpectedExport
@@ -26,8 +26,8 @@ public enum MarkupConversionError: Error, Equatable, Sendable {
 extension MarkupConversionError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .contentEditableNotFound:
-            return "Could not locate the editable document content in the web view."
+        case .unableToExportPDF:
+            return "Could not export the document as PDF."
         case .unexpectedImport:
             return "Unexpected response on import."
         case .unableToImport(let reason):

@@ -132,21 +132,14 @@ extension MarkupWKWebView {
         }
     }
 
-    /// Export the contenteditable document content as PDF data, excluding the toolbar and search bar.
-    ///
-    /// Problems the naive `pdf(configuration:)` call doesn't solve on its own: the editor's scroll
-    /// containers independently clip via `overflow-y: scroll`, so content outside whatever was
-    /// currently scrolled into view is never painted even when `rect` is tall enough; and a focused
-    /// editor shows selection/focus chrome (caret, node-selected outlines, resize handles, the
-    /// code-block language tab, other codeview tabs) that doesn't belong in an export. Both are
-    /// addressed by toggling the `Markup-exporting` class on `#editor` — every visual override lives
-    /// in `markupeditor-app.css`.
+    /// Export the document as PDF data, paginated by a print operation without panels. A focused editor
+    /// shows selection/focus chrome (caret, node-selected outlines, resize handles, the code-block
+    /// language tab, other codeview tabs), and the toolbar and search bar are in the page; the
+    /// `Markup-exporting` class on `#editor` hides all of it, and every override lives in `markupeditor-app.css`.
     public func exportPDF() async throws -> Data {
         await setExporting(true)
         do {
-            let config = WKPDFConfiguration()
-            config.rect = try await contentEditableRect()
-            let data = try await pdf(configuration: config)
+            let data = try await printedPDF()
             await setExporting(false)
             return data
         } catch {
@@ -155,30 +148,22 @@ extension MarkupWKWebView {
         }
     }
 
-    // TODO: Methods compose JS that reaches into document structure directly; replace with
-    // proper API calls if/when markupeditor-base exposes them.
-
-    /// The bounding rect of just the contenteditable document area (the `.ProseMirror` element),
-    /// in the web view's own coordinate space, excluding the toolbar and search bar.
-    ///
-    /// `.ProseMirror` sits inside `<markup-editor>`'s shadow root as a flow sibling of the toolbar
-    /// and search bar, not their parent or child, so its own layout box already excludes both —
-    /// whether or not the search bar happens to be showing. `offsetLeft`/`offsetTop`/`offsetWidth`/
-    /// `offsetHeight` are used rather than `getBoundingClientRect()` because they reflect the full,
-    /// scroll-position-independent layout box.
-    private func contentEditableRect() async throws(MarkupConversionError) -> CGRect {
-        let js = """
-        const host = document.getElementById('markupeditor')
-        const pm = host?.shadowRoot?.querySelector('.ProseMirror')
-        if (!pm) return null
-        return { x: pm.offsetLeft, y: pm.offsetTop, width: pm.offsetWidth, height: pm.offsetHeight }
-        """
-        guard let result = try? await callAsyncJavaScript(js, contentWorld: .page) as? [String: Double],
-              let x = result["x"], let y = result["y"],
-              let width = result["width"], let height = result["height"] else {
-            throw .contentEditableNotFound
-        }
-        return CGRect(x: x, y: y, width: width, height: height)
+    /// The document paginated by WebKit print layout onto the print system's default paper, saved to a
+    /// temporary file by a print operation that shows no panels.
+    private func printedPDF() async throws -> Data {
+        guard let window else { throw MarkupConversionError.unableToExportPDF }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let info = NSPrintInfo(dictionary: [
+            .jobDisposition: NSPrintInfo.JobDisposition.save,
+            .jobSavingURL: url,
+        ])
+        let operation = printOperation(with: info)
+        operation.showsPrintPanel = false
+        operation.showsProgressPanel = false
+        operation.view?.frame = NSRect(origin: .zero, size: info.paperSize)
+        guard await PrintRunner().run(operation, in: window) else { throw MarkupConversionError.unableToExportPDF }
+        return try Data(contentsOf: url)
     }
 
     /// Add or remove the `Markup-exporting` class on `#editor`. `markupeditor-app.css` keys every
@@ -241,5 +226,23 @@ extension MarkupWKWebView {
                 continuation.resume(returning: error == nil ? result as? String : nil)
             }
         }
+    }
+}
+
+/// Runs a print operation as a sheet on a window and reports whether it succeeded.
+private final class PrintRunner: NSObject {
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    @MainActor
+    func run(_ operation: NSPrintOperation, in window: NSWindow) async -> Bool {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            operation.runModal(for: window, delegate: self, didRun: #selector(printOperationDidRun(_:success:contextInfo:)), contextInfo: nil)
+        }
+    }
+
+    @objc private func printOperationDidRun(_ operation: NSPrintOperation, success: Bool, contextInfo: UnsafeMutableRawPointer?) {
+        continuation?.resume(returning: success)
+        continuation = nil
     }
 }

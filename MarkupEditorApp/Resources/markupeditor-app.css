@@ -52,6 +52,11 @@
   height: auto;
 }
 
+#editor.Markup-exporting .Markup-toolbar,
+#editor.Markup-exporting .Markup-searchbar {
+  display: none;
+}
+
 #editor.Markup-exporting .ProseMirror {
   caret-color: transparent;
 }
@@ -111,13 +116,20 @@ table th {
    The minimum keeps an empty column about as wide as six characters of text. */
 table {
   table-layout: auto;
-  width: max-content;
+  width: fit-content;
   max-width: 100%;
 }
 
 table th, table td {
   padding: 6px 13px;
   min-width: 6ch;
+  /* Lets an unbreakable word break, so a column can shrink and the table fits the editor's width. */
+  overflow-wrap: anywhere;
+}
+
+/* The base `code` rule is white-space: pre, which keeps a code span in a cell from wrapping. */
+table td code, table th code {
+  white-space: pre-wrap;
 }
 
 /* Not GitHub's `display: block; overflow: auto` wide-table scroll wrapper --
