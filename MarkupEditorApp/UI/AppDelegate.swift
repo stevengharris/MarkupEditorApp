@@ -10,7 +10,7 @@ import MarkupEditor
 import MarkupEditorAppLib
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     private var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
@@ -334,8 +334,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(NSMenuItem(title: "Undo", action: #selector(MarkupWKWebView.undoFromMenu(_:)), keyEquivalent: "z"))
-        let redoItem = NSMenuItem(title: "Redo", action: #selector(MarkupWKWebView.redoFromMenu(_:)), keyEquivalent: "z")
+        editMenu.addItem(NSMenuItem(title: "Undo", action: #selector(undoEdit(_:)), keyEquivalent: "z"))
+        let redoItem = NSMenuItem(title: "Redo", action: #selector(redoEdit(_:)), keyEquivalent: "z")
         redoItem.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(redoItem)
         editMenu.addItem(.separator())
@@ -479,6 +479,42 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             lastOrder = order
         }
         return formatMenu
+    }
+
+    // MARK: - Undo and redo
+
+    /// The text view that has focus while the source view shows, or nil when the web view edits.
+    private var focusedTextView: NSTextView? {
+        NSApp.keyWindow?.firstResponder as? NSTextView
+    }
+
+    @objc private func undoEdit(_ sender: Any?) {
+        if let undoManager = focusedTextView?.undoManager {
+            undoManager.undo()
+        } else {
+            MarkupEditor.selectedWebView?.undoFromMenu(sender)
+        }
+    }
+
+    @objc private func redoEdit(_ sender: Any?) {
+        if let undoManager = focusedTextView?.undoManager {
+            undoManager.redo()
+        } else {
+            MarkupEditor.selectedWebView?.redoFromMenu(sender)
+        }
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(undoEdit(_:)):
+            if let textView = focusedTextView { return textView.undoManager?.canUndo ?? false }
+            return MarkupEditor.selectedWebView?.validateMenuItem(NSMenuItem(title: "", action: #selector(MarkupWKWebView.undoFromMenu(_:)), keyEquivalent: "")) ?? false
+        case #selector(redoEdit(_:)):
+            if let textView = focusedTextView { return textView.undoManager?.canRedo ?? false }
+            return MarkupEditor.selectedWebView?.validateMenuItem(NSMenuItem(title: "", action: #selector(MarkupWKWebView.redoFromMenu(_:)), keyEquivalent: "")) ?? false
+        default:
+            return true
+        }
     }
 
     // MARK: - Insert menu via executeJavaScript

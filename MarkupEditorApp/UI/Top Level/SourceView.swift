@@ -41,6 +41,8 @@ struct SourceView: View {
     @Binding var currentOffset: Int?
     @State private var attributedSource = AttributedString("")
     @State private var selection = AttributedTextSelection()
+    /// The last source written from typing, so a change to `source` from elsewhere can be told apart.
+    @State private var typedSource: String?
     /// Drives keyboard focus onto the TextEditor. Setting `selection` (in
     /// `applyPendingOffsetIfNeeded`, below) updates `@State` correctly, but without the
     /// TextEditor being first responder, AppKit has no reason to visually move the caret
@@ -71,10 +73,13 @@ struct SourceView: View {
                 .onChange(of: attributedSource) { _, newAttributedSource in
                     guard Self.isGenuineEdit(newAttributedSource: newAttributedSource, currentSource: source) else { return }
                     source = String(newAttributedSource.characters)
+                    typedSource = source
                     document.hasChanges = true
                 }
                 .onChange(of: source) { _, newSource in
+                    let isExternalChange = newSource != typedSource
                     attributedSource = highlighter.highlight(newSource)
+                    if isExternalChange { discardUndoHistory() }
                 }
                 .onChange(of: selection) { _, newSelection in
                     currentOffset = Self.utf16Offset(of: newSelection, in: attributedSource)
@@ -88,6 +93,7 @@ struct SourceView: View {
             // fresh instance each call, and an AttributedString.Index from one instance
             // is not valid against another.
             attributedSource = highlighter.highlight(source)
+            discardUndoHistory()
             applyPendingOffsetIfNeeded()
             // Focus after the selection is set: unlike the WKWebView/ProseMirror side
             // (MarkupWKWebView.focus() -> setSelection(), which can reset the selection),
@@ -147,6 +153,17 @@ struct SourceView: View {
         // directly instead of depending on that comparison.
         currentOffset = offset
         pendingOffset = nil // consumed exactly once
+    }
+
+    /// Clears the text view's undo history once it holds the current text, so Undo cannot
+    /// remove text that was loaded rather than typed.
+    private func discardUndoHistory() {
+        let box = windowBox
+        let expectedLength = String(attributedSource.characters).utf16.count
+        Task { @MainActor in
+            let textView = await Self.textViewWhenReady(in: box, length: expectedLength)
+            textView?.undoManager?.removeAllActions()
+        }
     }
 
     /// What to do to bring a block of text fully into view.
