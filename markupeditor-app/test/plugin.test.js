@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { MU } from 'markupeditor'
-import { exportMarkdown, importMarkdown } from '../src/markdown.js'
+import { exportMarkdown, getMarkdown, importMarkdown } from '../src/markdown.js'
 const { schema } = MU
 
 // ---------------------------------------------------------------------------
@@ -49,6 +49,21 @@ describe('exportFn — plain document', () => {
     expect(typeof envelope.result).toBe('string')
     expect(Array.isArray(envelope.warnings)).toBe(true)
     expect(envelope.warnings).toHaveLength(0)
+  })
+})
+
+describe('getMarkdown', () => {
+  test('returns the document as a Markdown string', () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, [schema.text('Hello')])
+    ])
+    activeViewSpy.mockReturnValue({ state: { doc } })
+    expect(getMarkdown()).toBe('Hello')
+  })
+
+  test('returns null when MU has no active view', () => {
+    activeViewSpy.mockReturnValue(null)
+    expect(getMarkdown()).toBeNull()
   })
 })
 

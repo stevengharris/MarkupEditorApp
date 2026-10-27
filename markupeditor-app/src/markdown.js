@@ -10,7 +10,7 @@ import frontMatterPlugin from 'markdown-it-front-matter'
  * A function to mirror getHTML that makes it simpler for plugin consumption.
  */
 export function getMarkdown() {
-    return exportMarkdown().result
+    return JSON.parse(exportMarkdown()).result
 }
 
 /**
