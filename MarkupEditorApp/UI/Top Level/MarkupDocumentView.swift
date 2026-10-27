@@ -660,8 +660,12 @@ struct MarkupDocumentView: View {
             alert.addButton(withTitle: "Reload from Disk")
             alert.addButton(withTitle: "Keep My Changes")
             alert.alertStyle = .warning
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                editLog.info("\(currentURL.lastPathComponent) changed on disk; keeping unsaved changes")
+                return
+            }
         }
+        editLog.info("\(currentURL.lastPathComponent) changed on disk; reloading")
         await openDocument(at: currentURL)
     }
 
