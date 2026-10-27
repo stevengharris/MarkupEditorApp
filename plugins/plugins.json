@@ -14,7 +14,7 @@
       "filename": "codeview-mermaid.js",
       "description": "Render a diagram from a Mermaid code block.",
       "author": "Steven G. Harris <steven.g.harris@gmail.com>",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "repo": "https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-mermaid",
       "source": "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/codeview-mermaid/dist/codeview-mermaid.js"
     }
