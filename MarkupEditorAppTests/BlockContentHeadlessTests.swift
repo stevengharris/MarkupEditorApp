@@ -39,7 +39,7 @@ struct BlockContentHeadlessTests {
         if count > 0 {
             expected = current.blocks[index..<(index + count)].map(\.hash)
         } else {
-            expected = index <= current.firstEditable ? [] : [current.blocks[index - 1].hash]
+            expected = index == 0 ? [] : [current.blocks[index - 1].hash]
         }
         return try await webView.replaceBlocks(index: index, count: count, markdown: markdown, expected: expected, allowLoss: allowLoss, restrictImages: restrictImages)
     }
@@ -175,12 +175,30 @@ struct BlockContentHeadlessTests {
                 await webView.selectBlockIndex(block.index)
                 #expect(await webView.getSelectionBlockIndex() == block.index, Comment(rawValue: "block \(block.index) of \(source.debugDescription)"))
             }
-            // The first editable block can be replaced; the blocks before it cannot.
+            // The metadata block reads as its front matter and is replaced like any other block.
             if metadataBlocks > 0 {
-                let refused = try await webView.replaceBlocks(index: 0, count: 1, markdown: "x", expected: [page.blocks[0].hash], allowLoss: true)
-                #expect(!refused.ok)
+                #expect(page.blocks[0].markdown == "---\ntitle: Doc\n---")
+                let changed = try await Self.replace(webView, 0, 1, "---\ntitle: New\n---")
+                #expect(changed.ok, Comment(rawValue: changed.reason ?? ""))
+                #expect(try await Self.blocks(webView)[0].markdown == "---\ntitle: New\n---")
+                #expect(changed.metadataRemoved == nil)
             }
         }
+    }
+
+    @Test func frontMatterAndAnHTMLHeaderCanBeWrittenChangedAndRemoved() async throws {
+        let (_, webView) = try await Self.loaded("body one\n\nbody two")
+        let created = try await Self.replace(webView, 0, 0, "---\ntitle: Doc\n---")
+        #expect(created.ok, Comment(rawValue: created.reason ?? ""))
+        let header = try await Self.replace(webView, 1, 0, "<p align=\"center\">\n  <img src=\"logo.svg\" width=\"96\">\n</p>\n\n# Title")
+        #expect(header.ok, Comment(rawValue: header.reason ?? ""))
+        #expect(try await Self.blocks(webView).map(\.kind) == ["metadata", "html-preamble", "heading", "paragraph", "paragraph"])
+        let removed = try await Self.replace(webView, 0, 1, "")
+        #expect(removed.ok)
+        #expect(removed.metadataRemoved == true)
+        #expect(try await Self.blocks(webView).map(\.kind) == ["html-preamble", "heading", "paragraph", "paragraph"])
+        let pushed = try await Self.replace(webView, 0, 0, "A new first paragraph")
+        #expect(!pushed.ok)
     }
 
     @Test func selectTextFindsOccurrencesAndReportsAMiss() async throws {

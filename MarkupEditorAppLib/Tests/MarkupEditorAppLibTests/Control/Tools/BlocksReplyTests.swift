@@ -39,6 +39,15 @@ struct BlocksReplyTests {
         #expect(result.warnings.count == 1)
     }
 
+    @Test func aRemovedMetadataBlockIsReportedAndOtherwiseLeftOut() throws {
+        let removed = try ReplaceResult.decode(#"{"ok":true,"range":{"index":0,"count":0},"blocks":[],"warnings":[],"metadataRemoved":true}"#)
+        #expect(removed.metadataRemoved == true)
+        #expect(try ReplaceResult.decode(replaced).metadataRemoved == nil)
+        // The assistant's reply carries no field for a change that left the metadata block alone.
+        let encoded = try String(decoding: JSONEncoder().encode(try ReplaceResult.decode(replaced)), as: UTF8.self)
+        #expect(!encoded.contains("metadataRemoved"))
+    }
+
     @Test func aStaleRefusalKeepsTheCurrentBlocks() throws {
         let result = try ReplaceResult.decode(stale)
         #expect(!result.ok)

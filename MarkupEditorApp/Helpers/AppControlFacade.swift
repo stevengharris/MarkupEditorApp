@@ -129,14 +129,58 @@ struct AppControlFacade: ControlFacade {
     func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult {
         _ = try editorWebView(for: "replace_blocks")
         let text = control.document?.normalizeSmartPunctuation(in: markdown) ?? markdown
-        let result = try await control.edits.run {
-            // The view may have changed while this call waited its turn.
+        var result = try await control.edits.run {
+            // The view and the document may have changed while this call waited its turn.
             let webView = try editorWebView(for: "replace_blocks")
-            return try await bridged { try await webView.replaceBlocks(index: index, count: count, markdown: text, expected: expected, allowLoss: allowLoss, restrictImages: control.restrictImages) }
+            let document = control.document
+            var result = try await bridged {
+                try await webView.replaceBlocks(index: index, count: count, markdown: text, expected: expected, allowLoss: allowLoss,
+                                                restrictImages: control.restrictImages, allowSpecialBlocks: !(document?.isHTMLish ?? false))
+            }
+            // Done here, before another call can read or save the document.
+            if result.ok, let document { applyFrontMatter(of: &result, to: document) }
+            return result
         }
         // A refusal that carries no data is an error; one that returns the current blocks is a reply.
         if !result.ok && result.blocks.isEmpty { throw ControlError(result.reason ?? "replace_blocks was refused") }
         return result
+    }
+
+    /// A removed metadata block must also leave the document's front matter, which saving otherwise keeps when
+    /// the editor has no block. Front matter the app does not keep is reported to the assistant.
+    private func applyFrontMatter(of result: inout ReplaceResult, to document: MarkupDocument) {
+        if result.metadataRemoved == true { document.metadata = [] }
+        guard let block = result.blocks.first(where: { $0.kind == "metadata" }) else { return }
+        var lines = block.markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if lines.first == "---" { lines.removeFirst() }
+        if lines.last == "---" { lines.removeLast() }
+        let yaml = lines.joined(separator: "\n")
+        var problems: [String] = []
+        _ = YAMLMetadata.parse(yaml, warnings: &problems)
+        problems += Self.unkeptFrontMatter(yaml)
+        result.warnings += problems.map { "Front matter: \($0)" }
+    }
+
+    /// What the app's YAML reader drops without saying: comments, nested mappings, anchors, aliases, tags and
+    /// mappings in braces. Line numbers count from the first line of the YAML.
+    private static func unkeptFrontMatter(_ yaml: String) -> [String] {
+        var problems: [String] = []
+        for (offset, raw) in yaml.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            let line = String(raw)
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+            if trimmed.hasPrefix("#") {
+                problems.append("the comment on line \(offset + 1) is not kept")
+            } else if line.first == " " || line.first == "\t" {
+                if !trimmed.hasPrefix("- ") { problems.append("the indented line \(offset + 1) is not kept; only flat key: value lines and lists are") }
+            } else if let colon = trimmed.firstIndex(of: ":") {
+                let value = trimmed[trimmed.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+                if let first = value.first, "&*{!".contains(first) {
+                    problems.append("line \(offset + 1) uses an anchor, alias, tag or mapping in braces, which is not kept")
+                }
+            }
+        }
+        return problems
     }
 
     func undo() async throws {

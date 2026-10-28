@@ -33,7 +33,7 @@ const isCodeBlock = (node, language) => node.type.name === 'code_block' && node.
  * serializer and the app treat them specially: the metadata block (language `metadata`, index 0) and the
  * HTML-preamble block (language `html`, index 0, or index 1 after a metadata block).
  */
-function kindOf(node, index, doc) {
+export function kindOf(node, index, doc) {
   switch (node.type.name) {
     case 'paragraph':
       return node.childCount === 1 && node.firstChild.type.name === 'image' ? 'image' : 'paragraph'
@@ -69,15 +69,20 @@ export function firstEditableOf(doc) {
   return n
 }
 
+/** A metadata block's front matter as it is written at the start of the file. */
+const frontMatterOf = (node) => (node.textContent.trim() === '' ? '---\n---' : `---\n${node.textContent.replace(/\s+$/, '')}\n---`)
+
 /**
  * Serialize top-level blocks of `doc`, each on its own, and describe them.
  *
  * Every block is rendered by the same serializer and the same state as an export of the whole document, with
- * the real document as its parent and its real index. The serializer's rules for the metadata and
- * HTML-preamble blocks depend on both. What is added to the output while a block renders is that block's
- * Markdown, once the newlines that separate it from its neighbors are trimmed, so the document's Markdown is
- * the blocks' Markdown in order with only newlines between. A warning raised while a block renders is
- * reported on that block. Only the blocks asked for are rendered.
+ * the real document as its parent and its real index. The serializer's rules for the HTML-preamble block
+ * depend on both. What is added to the output while a block renders is that block's Markdown, once the
+ * newlines that separate it from its neighbors are trimmed, so the document's Markdown is the blocks'
+ * Markdown in order with only newlines between. The metadata block is the exception: the serializer leaves
+ * it out of the document's Markdown, and its block reads as the front matter the app writes at the start of
+ * the saved file. A warning raised while a block renders is reported on that block. Only the blocks asked
+ * for are rendered.
  *
  * Pure: it reads `doc` and nothing else, so it can be tested without an editor.
  *
@@ -113,17 +118,23 @@ export function describeBlocks(doc, { from, to, limit } = {}) {
   let next
   for (let index = start; index < end; index++) {
     const node = doc.child(index)
+    const kind = kindOf(node, index, doc)
     const outputStart = state.out.length
     const warningsBefore = warnings.get().length
-    state.render(node, doc, index)
-    const markdown = state.out.slice(outputStart).replace(/^\n+/, '').replace(/\n+$/, '')
+    let markdown
+    if (kind === 'metadata') {
+      markdown = frontMatterOf(node)
+    } else {
+      state.render(node, doc, index)
+      markdown = state.out.slice(outputStart).replace(/^\n+/, '').replace(/\n+$/, '')
+    }
     if (limit != null && blocks.length > 0 && characters + markdown.length > limit) {
       next = index
       break
     }
     blocks.push({
       index,
-      kind: kindOf(node, index, doc),
+      kind,
       hash: hashMarkdown(markdown),
       markdown,
       warnings: warnings.get().slice(warningsBefore),
