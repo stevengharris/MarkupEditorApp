@@ -212,6 +212,18 @@ extension MarkupWKWebView {
         return try SelectionResult.decode(await runBlockFunction(call, name: "selectText"))
     }
 
+    /// Offer suggested edits to the user through `MU.proposeEdits`; the document is not changed. A refusal of one edit
+    /// is in the result, and so is a refusal of the whole call (`ok` false); only a failure to reach or read the editor throws.
+    public func proposeEdits(_ edits: [SuggestedEdit]) async throws(ContentBridgeError) -> ProposeResult {
+        let call = "MU.proposeEdits(\(Self.jsLiteral(edits)))"
+        return try ProposeResult.decode(await runBlockFunction(call, name: "proposeEdits"))
+    }
+
+    /// Every suggestion made this session, with its status, from `MU.listSuggestions`.
+    public func listSuggestions() async throws(ContentBridgeError) -> SuggestionList {
+        try SuggestionList.decode(await runBlockFunction("MU.listSuggestions()", name: "listSuggestions"))
+    }
+
     /// The JSON encoding of `value`, which is also a JavaScript literal, so no argument needs hand escaping.
     static func jsLiteral<T: Encodable>(_ value: T) -> String {
         guard let data = try? JSONEncoder().encode(value), let text = String(data: data, encoding: .utf8) else { return "null" }
