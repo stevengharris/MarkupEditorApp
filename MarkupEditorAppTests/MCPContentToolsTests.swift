@@ -284,6 +284,109 @@ struct MCPContentToolsTests {
         #expect(nothing.isError)
     }
 
+    // MARK: Suggestions
+
+    /// A `propose_edits` argument for one edit, with the block's hash read just now.
+    private func proposal(_ fixture: ContentFixture, block: Int, find: String, replace: String, note: String? = nil) async throws -> JSONValue {
+        let hash = try await fixture.hashes(block..<(block + 1))[0]
+        var edit: [String: JSONValue] = ["block": .number(Double(block)), "expected": .string(hash), "find": .string(find), "replace": .string(replace)]
+        if let note { edit["note"] = .string(note) }
+        return ["edits": [.object(edit)]]
+    }
+
+    @Test func proposingThroughTheAssistantsConnectionReturnsIdsAndListsThemPending() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat on the mat.", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        let before = try await fixture.markdowns()
+        let outcome = try await fixture.harness.call("propose_edits", try await proposal(fixture, block: 1, find: "cat", replace: "dog", note: "prefer dogs"))
+        #expect(outcome.isError == false, Comment(rawValue: outcome.text))
+        #expect(outcome.json?["ok"] == true)
+        #expect(outcome.json?["results"]?[0]?["status"] == "proposed")
+        let id = try #require(outcome.json?["results"]?[0]?["id"]?.stringValue)
+        #expect(try await fixture.markdowns() == before)
+
+        let listed = try await fixture.harness.call("list_suggestions")
+        #expect(listed.json?["ok"] == true)
+        let first = try #require(listed.json?["suggestions"]?[0])
+        #expect(first["id"]?.stringValue == id)
+        #expect(first["status"] == "pending")
+        #expect(first["find"] == "cat" && first["replace"] == "dog" && first["note"] == "prefer dogs")
+    }
+
+    @Test func aRefusedEditIsAReplyAndNeverAToolError() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat.", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        let outcome = try await fixture.harness.call("propose_edits", try await proposal(fixture, block: 1, find: "zebra", replace: "dog"))
+        #expect(outcome.isError == false, Comment(rawValue: outcome.text))
+        #expect(outcome.json?["ok"] == true)
+        #expect(outcome.json?["results"]?[0]?["status"] == "refused")
+        #expect(outcome.json?["results"]?[0]?["reason"]?.stringValue?.contains("find not found") == true)
+    }
+
+    @Test func badProposeArgumentsAreRefusedBeforeAnythingRuns() async throws {
+        let fixture = try await ContentFixture.start("one\n\ntwo")
+        defer { fixture.stop() }
+        let bad: [JSONValue] = [
+            [:], ["edits": []],
+            ["edits": [["block": 0, "expected": "h", "find": "", "replace": "x"]]],
+            ["edits": [["block": -1, "expected": "h", "find": "one", "replace": "x"]]],
+            ["edits": [["block": 0, "expected": "h", "find": "one"]]],
+        ]
+        for args in bad {
+            let outcome = try await fixture.harness.call("propose_edits", args)
+            #expect(outcome.isError, Comment(rawValue: "\(args)"))
+        }
+        #expect(try await fixture.harness.call("list_suggestions").json?["suggestions"] == [])
+    }
+
+    @Test func curlyQuotesInReplaceArriveStraightButFindStillMatchesCurlyQuotesInTheDocument() async throws {
+        let fixture = try await ContentFixture.start("", html: "<p>Intro</p><p>It\u{2019}s a \u{201C}fine\u{201D} day.</p>", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        let args = try await proposal(fixture, block: 1, find: "It\u{2019}s a \u{201C}fine\u{201D} day", replace: "It\u{2019}s a \u{201C}grand\u{201D} day")
+        let outcome = try await fixture.harness.call("propose_edits", args)
+        #expect(outcome.json?["results"]?[0]?["status"] == "proposed", Comment(rawValue: outcome.text))
+        // The suggestion keeps what the assistant asked to find; the replacement was normalized like replace_blocks writes.
+        let suggestion = try #require(try await fixture.harness.call("list_suggestions").json?["suggestions"]?[0])
+        #expect(suggestion["find"] == "It\u{2019}s a \u{201C}fine\u{201D} day")
+        #expect(suggestion["replace"] == "It's a \"grand\" day")
+        // The user accepts in the page.
+        _ = try await fixture.webView.executeJavaScript("MU.acceptAllSuggestions()")
+        #expect(try await fixture.markdowns()[1] == "It's a \"grand\" day.")
+    }
+
+    @Test func aStraightQuoteFindDoesNotMatchACurlyQuoteInTheDocument() async throws {
+        let fixture = try await ContentFixture.start("", html: "<p>Intro</p><p>It\u{2019}s fine.</p>", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        let outcome = try await fixture.harness.call("propose_edits", try await proposal(fixture, block: 1, find: "It's", replace: "It is"))
+        #expect(outcome.json?["results"]?[0]?["status"] == "refused", Comment(rawValue: outcome.text))
+    }
+
+    // propose_edits runs on the same queue as replace_blocks, so the two cannot interleave. Whichever the queue runs first,
+    // the pair must end in a state that order explains.
+    @Test func proposeEditsAndReplaceBlocksRunInQueueOrder() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat.\n\nThird", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        let hashes = try await fixture.hashes(1..<2)
+        let proposeArgs: JSONValue = ["edits": [["block": 1, "expected": .string(hashes[0]), "find": "cat", "replace": "dog"]]]
+        let replaceArgs: JSONValue = ["index": 1, "count": 1, "markdown": "Brand new text", "expected": .array(hashes.map { .string($0) })]
+        async let proposed = fixture.harness.call("propose_edits", proposeArgs)
+        async let replaced = fixture.harness.call("replace_blocks", replaceArgs)
+        let (propose, replace) = try await (proposed, replaced)
+        #expect(replace.json?["ok"] == true, Comment(rawValue: replace.text))
+        let status = propose.json?["results"]?[0]?["status"]
+        let listed = try #require(try await fixture.harness.call("list_suggestions").json?["suggestions"])
+        if status == "proposed" {
+            // propose_edits ran first; replace_blocks then rewrote the block under it.
+            #expect(listed[0]?["status"] == "stale", Comment(rawValue: "\(propose.text) | \(replace.text)"))
+        } else {
+            // replace_blocks ran first; the hash propose_edits was given no longer matched.
+            #expect(status == "refused", Comment(rawValue: propose.text))
+            #expect(propose.json?["results"]?[0]?["reason"]?.stringValue?.hasPrefix("document changed") == true, Comment(rawValue: propose.text))
+            #expect(listed == [])
+        }
+        #expect(try await fixture.markdowns()[1] == "Brand new text")
+    }
+
     // MARK: Source view
 
     @Test func theSourceViewIsReadableAndEverythingElseRefusesNamingIt() async throws {
@@ -298,6 +401,8 @@ struct MCPContentToolsTests {
         let refusals: [(String, JSONValue)] = [
             ("get_selection", [:]), ("select", ["block": 0]), ("undo", [:]), ("redo", [:]), ("save_document", [:]),
             ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"]]),
+            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "one", "replace": "1"]]]),
+            ("list_suggestions", [:]),
         ]
         for (tool, args) in refusals {
             let outcome = try await fixture.harness.call(tool, args)
@@ -314,7 +419,12 @@ struct MCPContentToolsTests {
         #expect(try await fixture.harness.call("get_document").isError == false)
         #expect(try await fixture.harness.call("get_selection").isError == false)
         #expect(try await fixture.harness.call("select", ["block": 1]).isError == false)
-        let writes: [(String, JSONValue)] = [("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"]]), ("undo", [:]), ("redo", [:]), ("save_document", [:])]
+        #expect(try await fixture.harness.call("list_suggestions").isError == false)
+        let writes: [(String, JSONValue)] = [
+            ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"]]),
+            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "one", "replace": "1"]]]),
+            ("undo", [:]), ("redo", [:]), ("save_document", [:]),
+        ]
         for (tool, args) in writes {
             let outcome = try await fixture.harness.call(tool, args)
             #expect(outcome.isError, Comment(rawValue: tool))

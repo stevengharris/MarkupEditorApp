@@ -139,6 +139,32 @@ struct AppControlFacade: ControlFacade {
         return result
     }
 
+    func proposeEdits(_ edits: [SuggestedEdit]) async throws -> ProposeResult {
+        _ = try editorWebView(for: "propose_edits")
+        // Only the replacement is written into the document, so only it is normalized, as replace_blocks writes are.
+        // `find` and `expected` are matched against the document as it is, curly quotes and all.
+        let normalized = edits.map { edit in
+            var edit = edit
+            edit.replace = control.document?.normalizeSmartPunctuation(in: edit.replace) ?? edit.replace
+            return edit
+        }
+        let result = try await control.edits.run {
+            // The view may have changed while this call waited its turn.
+            let webView = try editorWebView(for: "propose_edits")
+            return try await bridged { try await webView.proposeEdits(normalized) }
+        }
+        // A refusal of one edit is part of the reply; a refusal of the whole call is an error.
+        if !result.ok { throw ControlError(result.reason ?? "propose_edits was refused") }
+        return result
+    }
+
+    func listSuggestions() async throws -> SuggestionList {
+        let webView = try editorWebView(for: "list_suggestions")
+        let list = try await bridged { try await webView.listSuggestions() }
+        if !list.ok { throw ControlError(list.reason ?? "list_suggestions was refused") }
+        return list
+    }
+
     func undo() async throws {
         _ = try editorWebView(for: "undo")
         try await control.edits.run {
