@@ -12,7 +12,7 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
-    private var keymap: KeymapConfig?
+    var keymap: KeymapConfig?
     private var openRecentMenu = NSMenu(title: "Open Recent")
     /// Direct accessor for the running AppDelegate instance, set in applicationWillFinishLaunching.
     /// `NSApplication.shared.delegate as? AppDelegate` is the more usual way to reach it, and works
@@ -347,6 +347,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let findItem = jsMenuItem(title: "Find", js: "MU.toggleSearch()", keyEquivalent: "f", modifierMask: .command)
         findItem.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Find")
         editMenu.addItem(findItem)
+        editMenu.addItem(buildSuggestionsSubmenuItem())
         editMenuItem.submenu = editMenu
 
         // Format menu driven by app's toolbarconfig.json
@@ -547,6 +548,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let item = NSMenuItem(title: title, action: #selector(executeMenuJS(_:)), keyEquivalent: "")
         item.representedObject = js
         item.target = self
+        return item
+    }
+
+    /// Edit > Suggestions: step through, or settle all at once, the proposals an assistant made.
+    /// Always enabled: validateMenuItem is synchronous and cannot ask the web view whether any are
+    /// pending, and with none pending the MU functions answer found:false and nothing happens.
+    /// Next and Previous take Cmd-' and Cmd-Shift-' (Xcode's next/previous issue chords); none of
+    /// the menu, keymapconfig.json or the editor's own keymap uses them. Accept All and Reject All
+    /// change text, so they carry no shortcut.
+    private func buildSuggestionsSubmenuItem() -> NSMenuItem {
+        let submenu = NSMenu(title: "Suggestions")
+        submenu.addItem(jsMenuItem(title: "Next Suggestion", js: "MU.nextSuggestion()", keyEquivalent: "'", modifierMask: .command))
+        submenu.addItem(jsMenuItem(title: "Previous Suggestion", js: "MU.previousSuggestion()", keyEquivalent: "'", modifierMask: [.command, .shift]))
+        submenu.addItem(.separator())
+        submenu.addItem(jsMenuItem(title: "Accept All Suggestions", js: "MU.acceptAllSuggestions()", modifierMask: []))
+        submenu.addItem(jsMenuItem(title: "Reject All Suggestions", js: "MU.rejectAllSuggestions()", modifierMask: []))
+        let item = NSMenuItem(title: "Suggestions", action: nil, keyEquivalent: "")
+        item.submenu = submenu
         return item
     }
 
