@@ -556,11 +556,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// pending, and with none pending the MU functions answer found:false and nothing happens.
     /// Next and Previous take Cmd-' and Cmd-Shift-' (Xcode's next/previous issue chords); none of
     /// the menu, keymapconfig.json or the editor's own keymap uses them. Accept All and Reject All
-    /// change text, so they carry no shortcut.
+    /// change text, so they carry no shortcut. AppKit matches a key equivalent against the key's
+    /// characters with Shift applied, so Previous is the shifted character `"` with Command alone:
+    /// `'` with Command and Shift is displayed the same and is never delivered (pinned in
+    /// SuggestionsHeadlessTests).
     private func buildSuggestionsSubmenuItem() -> NSMenuItem {
         let submenu = NSMenu(title: "Suggestions")
         submenu.addItem(jsMenuItem(title: "Next Suggestion", js: "MU.nextSuggestion()", keyEquivalent: "'", modifierMask: .command))
-        submenu.addItem(jsMenuItem(title: "Previous Suggestion", js: "MU.previousSuggestion()", keyEquivalent: "'", modifierMask: [.command, .shift]))
+        submenu.addItem(jsMenuItem(title: "Previous Suggestion", js: "MU.previousSuggestion()", keyEquivalent: "\"", modifierMask: .command))
         submenu.addItem(.separator())
         submenu.addItem(jsMenuItem(title: "Accept All Suggestions", js: "MU.acceptAllSuggestions()", modifierMask: []))
         submenu.addItem(jsMenuItem(title: "Reject All Suggestions", js: "MU.rejectAllSuggestions()", modifierMask: []))

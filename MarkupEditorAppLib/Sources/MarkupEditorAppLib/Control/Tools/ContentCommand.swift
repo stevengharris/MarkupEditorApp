@@ -60,7 +60,9 @@ public struct EditBatch: Sendable, Equatable {
     }
 
     /// The editor's reply with its results moved to their call positions and the malformed edits' refusals
-    /// added, all in index order. A refusal of the whole call is returned as it is.
+    /// added, all in index order. An outcome whose index is not one of the edits sent is ignored, and an edit
+    /// the editor sent no outcome for is refused here ("no result from the editor"), so the call always comes
+    /// back with one result per edit. A refusal of the whole call is returned as it is.
     public func merged(with reply: ProposeResult) -> ProposeResult {
         guard reply.ok else { return reply }
         let judged = reply.results.compactMap { outcome -> ProposeOutcome? in
@@ -69,8 +71,12 @@ public struct EditBatch: Sendable, Equatable {
             moved.index = positions[outcome.index]
             return moved
         }
+        let answered = Set(judged.map(\.index))
+        let missing = positions.filter { !answered.contains($0) }.map {
+            ProposeOutcome(index: $0, status: "refused", reason: "no result from the editor")
+        }
         var merged = reply
-        merged.results = (judged + refusals).sorted { $0.index < $1.index }
+        merged.results = (judged + missing + refusals).sorted { $0.index < $1.index }
         return merged
     }
 

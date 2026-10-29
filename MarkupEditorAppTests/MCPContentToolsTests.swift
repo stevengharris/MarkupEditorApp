@@ -8,6 +8,7 @@
 
 import Testing
 import Foundation
+import AppKit
 import MarkupEditor
 import MarkupEditorAppLib
 import WebKit
@@ -503,6 +504,59 @@ struct MCPContentToolsTests {
         #expect(try await fixture.markdowns()[safe: 1] == "Brand new text")
     }
 
+    // MARK: The menu chords
+
+    /// A key-down for the apostrophe key (key code 39) with `modifiers`, as the keyboard sends it: with Shift
+    /// the characters are the shifted ones, and AppKit matches a key equivalent against those.
+    private static func apostrophe(_ modifiers: NSEvent.ModifierFlags) throws -> NSEvent {
+        let characters = modifiers.contains(.shift) ? "\"" : "'"
+        return try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0, windowNumber: 0, context: nil,
+            characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: 39))
+    }
+
+    /// The text the page has selected, read from the editor's own selection.
+    private func selectedText(_ fixture: ContentFixture) async throws -> String? {
+        try await fixture.webView.evaluateJavaScript("""
+            (() => {
+              const view = document.getElementById('markupeditor').MU.activeView()
+              const { from, to } = view.state.selection
+              return view.state.doc.textBetween(from, to)
+            })()
+            """) as? String
+    }
+
+    /// Waits for the selection to become `expected`; the menu's action runs its script without waiting.
+    private func selection(_ fixture: ContentFixture, becomes expected: String) async throws -> String? {
+        var seen = try await selectedText(fixture)
+        for _ in 0..<30 where seen != expected {
+            try await Task.sleep(for: .milliseconds(100))
+            seen = try await selectedText(fixture)
+        }
+        return seen
+    }
+
+    // Cmd-' and Cmd-Shift-' run through the real menu's key-equivalent matching, which the menu tests only
+    // check for collisions. Here because it sets the app's selected web view, which only this suite shares safely.
+    @Test func cmdApostropheAndCmdShiftApostropheReachNextAndPreviousSuggestionThroughTheMenu() async throws {
+        let fixture = try await ContentFixture.start("# Title\n\nThe cat sat on the mat. The dog ran.")
+        defer { fixture.stop() }
+        try await keepEditorSelected(fixture)
+        let proposed = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(1, "cat", "dog"), (1, "mat", "rug")]))
+        #expect(proposed.json?["results"]?[0]?["status"] == "proposed" && proposed.json?["results"]?[1]?["status"] == "proposed", Comment(rawValue: proposed.text))
+
+        let menu = AppDelegate().buildMenu()
+        let next = try Self.apostrophe(.command)
+        let previous = try Self.apostrophe([.command, .shift])
+
+        #expect(menu.performKeyEquivalent(with: next), "Cmd-' was not delivered to a menu item")
+        #expect(try await selection(fixture, becomes: "cat") == "cat")
+        #expect(menu.performKeyEquivalent(with: next))
+        #expect(try await selection(fixture, becomes: "mat") == "mat")
+        #expect(menu.performKeyEquivalent(with: previous), "Cmd-Shift-' was not delivered to a menu item")
+        #expect(try await selection(fixture, becomes: "cat") == "cat", "Cmd-Shift-' must go back, not forward")
+    }
+
     // MARK: Suggestions end to end
 
     /// The `list_suggestions` array as the assistant reads it.
@@ -534,8 +588,34 @@ struct MCPContentToolsTests {
         MarkupEditor.selectedWebView = fixture.webView
     }
 
-    /// Waits long enough for the editor's asynchronous report of an edit to its host to have arrived.
-    private func settle() async throws { try await Task.sleep(for: .milliseconds(700)) }
+    /// Waits until everything the page reported before now has reached the host. The page posts a marker after a
+    /// short timer, so it goes behind the editor's own reports (some of them sent from a zero-delay timer), and
+    /// messages from one page arrive in the order they were posted. A check that nothing was reported, made
+    /// after this, cannot pass for want of waiting. Fails when the marker never arrives.
+    private func settle(_ fixture: ContentFixture) async throws {
+        let before = fixture.page.barrierCount
+        _ = try await fixture.webView.evaluateJavaScript("""
+            (() => { setTimeout(() => window.webkit.messageHandlers.markup.postMessage('inputbarrier'), 100) })()
+            """)
+        for _ in 0..<50 where fixture.page.barrierCount == before { try await Task.sleep(for: .milliseconds(100)) }
+        try #require(fixture.page.barrierCount > before, "the settle marker never reached the host")
+    }
+
+    @Test func settleWaitsForAReportThePageIsAboutToSend() async throws {
+        let fixture = try await ContentFixture.start("one\n\ntwo")
+        defer { fixture.stop() }
+        #expect(!fixture.document.hasChanges)
+        // A report that goes out from a timer shortly after, as the editor's cut and delete reports do.
+        _ = try await fixture.webView.evaluateJavaScript("""
+            (() => {
+              const view = document.getElementById('markupeditor').MU.activeView()
+              setTimeout(() => view.dom.dispatchEvent(new Event('input', { bubbles: true })), 40)
+            })()
+            """)
+        try await settle(fixture)
+        #expect(fixture.document.hasChanges, "settle returned before the report the page had already scheduled")
+        #expect(fixture.page.inputCount == 1)
+    }
 
     /// The user's typing: `text` inserted in the page at `offset` characters into the paragraph that starts with `paragraph`.
     private func userTypes(_ fixture: ContentFixture, _ text: String, in paragraph: String, at offset: Int) async throws {
@@ -578,7 +658,7 @@ struct MCPContentToolsTests {
         let matId = try #require(results?[0]?["id"]?.stringValue, raw(proposed))
         let lastId = try #require(results?[2]?["id"]?.stringValue, raw(proposed))
         #expect(try await blockTextsOf(fixture) == original)
-        try await settle()
+        try await settle(fixture)
         #expect(!fixture.document.hasChanges, "proposing marked the document unsaved")
 
         // 2. Two pending, in the right blocks.
@@ -614,7 +694,7 @@ struct MCPContentToolsTests {
         _ = try await fixture.webView.executeJavaScript("MU.rejectAllSuggestions()")
         #expect(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == againId }?["status"] == "rejected")
         #expect(try await blockTextsOf(fixture) == beforeReject)
-        try await settle()
+        try await settle(fixture)
         #expect(!fixture.document.hasChanges, "rejecting marked the document unsaved")
 
         // 6. The user types inside the range: stale because edited, and accepting all changes nothing.

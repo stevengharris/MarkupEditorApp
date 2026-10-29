@@ -317,6 +317,25 @@ describe('planProposals, find', () => {
     expect(result.reason).toMatch(/formatting boundary/)
   })
 
+  test('a find whose last run is one character long still refuses (the final run is inside the range)', () => {
+    const { result } = planOne(doc(p('plain ', bold('x'))), { block: 0, find: 'n x', replace: 'y' })
+    expect(result.status).toBe('refused')
+    expect(result.reason).toMatch(/formatting boundary/)
+  })
+
+  test('a find whose first run is one character long refuses too', () => {
+    const { result } = planOne(doc(p(bold('x'), ' plain')), { block: 0, find: 'x p', replace: 'y' })
+    expect(result.status).toBe('refused')
+    expect(result.reason).toMatch(/formatting boundary/)
+  })
+
+  test('two adjacent links with different hrefs refuse: the marks differ in their attributes, not their type', () => {
+    const link = (text, href) => schema.text(text, [schema.marks.link.create({ href })])
+    const { result } = planOne(doc(p(link('one', 'https://a.example'), link('two', 'https://b.example'))), { block: 0, find: 'onetwo', replace: 'x' })
+    expect(result.status).toBe('refused')
+    expect(result.reason).toMatch(/formatting boundary/)
+  })
+
   test('a range wholly inside one run of formatting is proposed: plain text before inline code, inline code itself, bold, a link', () => {
     const document = parse('Basically the `queue` drains in **very good** order via [the site](https://x.org).')
     for (const find of ['Basically the ', 'queue', 'very good', 'ver', 'the site']) {
@@ -687,6 +706,28 @@ describe('suggestionsPlugin, a user edit inside the range makes it stale', () =>
   })
 })
 
+describe('suggestionsPlugin, formatting a pending range after the proposal', () => {
+  test('bolding part of the range goes stale, edited: accepting would flatten the bold', () => {
+    const state = catState()                                       // cat is 5..8
+    const after = state.apply(state.tr.addMark(5, 7, schema.marks.strong.create()))
+    expect(getSuggestions(after).pending).toEqual([])
+    expect(getSuggestions(after).resolved).toEqual([{ id: 's1', status: 'stale', reason: 'edited', find: 'cat', replace: 'dog', block: 0 }])
+  })
+
+  test('bolding the last character alone goes stale too', () => {
+    const state = catState()
+    const after = state.apply(state.tr.addMark(7, 8, schema.marks.strong.create()))
+    expect(getSuggestions(after).resolved.map(r => r.reason)).toEqual(['edited'])
+  })
+
+  test('formatting text beside the range, or all of the range, keeps it pending', () => {
+    const state = catState()
+    expect(getSuggestions(state.apply(state.tr.addMark(1, 5, schema.marks.strong.create()))).pending.length).toBe(1)
+    expect(getSuggestions(state.apply(state.tr.addMark(8, 12, schema.marks.strong.create()))).pending.length).toBe(1)
+    expect(getSuggestions(state.apply(state.tr.addMark(5, 8, schema.marks.strong.create()))).pending.length).toBe(1)
+  })
+})
+
 describe('suggestionsPlugin, replacing the whole document', () => {
   /** A real EditorView over a state with the plugin; `proposeOn` proposes through the plugin as the MU wrapper does. */
   const proposeOn = (view, ...edits) => {
@@ -917,6 +958,35 @@ describe('acceptSuggestions', () => {
     expect(getSuggestions(view.state).pending).toEqual([])
     expect(getSuggestions(view.state).resolved).toEqual([
       { id: 's1', status: 'stale', reason: 'edited', find: 'cat', replace: 'dog', block: 0 }])
+  })
+
+  test('a pending suggestion whose range now crosses a formatting boundary is skipped as stale edited, and the document is not touched', () => {
+    // The plugin would have staled this on the mark change; added directly, only the accept-time recheck stands in the way.
+    const base = withPlugin(doc(p('the ', bold('ca'), 't sat')))
+    const bogus = { block: 0, from: 5, to: 8, find: 'cat', replace: 'dog', note: undefined }
+    const state = base.apply(base.tr.setMeta(suggestionsKey, { add: [bogus] }))
+    expect(getSuggestions(state).pending.length).toBe(1)
+    const view = fakeView(state)
+    const before = view.state.doc
+    const result = acceptSuggestions(view, ['s1'])
+    expect(result.accepted).toEqual([])
+    expect(result.skipped[0].reason).toMatch(/stale/)
+    expect(view.state.doc.eq(before)).toBe(true)
+    expect(view.transactions.every(tr => !tr.docChanged)).toBe(true)
+    expect(getSuggestions(view.state).resolved).toEqual([
+      { id: 's1', status: 'stale', reason: 'edited', find: 'cat', replace: 'dog', block: 0 }])
+  })
+
+  test('the user bolds part of a pending range, then accepts: nothing is flattened and the bold stays', () => {
+    const plain = propose(withPlugin(doc(p('Basically the queue drains'))), { block: 0, find: 'Basically the queue drains', replace: 'The queue drains' })
+    const state = plain.apply(plain.tr.addMark(15, 20, schema.marks.strong.create()))   // 'queue'
+    const view = fakeView(state)
+    const result = acceptSuggestions(view, ['s1'])
+    expect(result.accepted).toEqual([])
+    expect(result.skipped[0].reason).toMatch(/stale/)
+    const runs = []
+    view.state.doc.descendants((node) => { if (node.isText) runs.push([node.text, node.marks.map(m => m.type.name)]) })
+    expect(runs).toEqual([['Basically the ', []], ['queue', ['strong']], [' drains', []]])
   })
 
   test('accepting a mixed batch applies the good suggestion and skips the one whose text changed', () => {

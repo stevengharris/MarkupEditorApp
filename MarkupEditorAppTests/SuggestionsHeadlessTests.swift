@@ -30,9 +30,16 @@ struct SuggestionsHeadlessTests {
         try await webView.getBlocks(from: nil, limit: nil).blocks
     }
 
+    /// Block `index` of the document, or a test failure (not a trap) when the document has fewer blocks.
+    private static func blockAt(_ webView: MarkupWKWebView, _ index: Int) async throws -> ContentBlock {
+        let all = try await blocks(webView)
+        try #require(all.indices.contains(index), "block \(index) wanted, but the document has \(all.count) blocks")
+        return all[index]
+    }
+
     /// An edit of `find` to `replace` in block `block`, with the hash the editor reports for it now.
     private static func edit(_ webView: MarkupWKWebView, _ block: Int, _ find: String, _ replace: String, note: String? = nil) async throws -> SuggestedEdit {
-        let hash = try await blocks(webView)[block].hash
+        let hash = try await blockAt(webView, block).hash
         return SuggestedEdit(block: block, expected: hash, find: find, replace: replace, note: note)
     }
 
@@ -87,7 +94,7 @@ struct SuggestionsHeadlessTests {
         let good = try await Self.edit(webView, 1, "cat", "dog")
         let missing = try await Self.edit(webView, 1, "Cat", "dog")                      // case-sensitive
         let stale = SuggestedEdit(block: 1, expected: "not-the-hash", find: "mat", replace: "rug")
-        let heading = SuggestedEdit(block: 0, expected: try await Self.blocks(webView)[0].hash, find: "Title", replace: "Name")
+        let heading = SuggestedEdit(block: 0, expected: try await Self.blockAt(webView, 0).hash, find: "Title", replace: "Name")
         let result = try await webView.proposeEdits([good, missing, stale, heading])
         #expect(result.ok)
         #expect(result.results.map(\.status) == ["proposed", "refused", "refused", "proposed"])
@@ -119,7 +126,7 @@ struct SuggestionsHeadlessTests {
         #expect(result.results.map(\.status) == ["refused", "proposed"])
         #expect(result.results[0].reason?.contains("formatting boundary") == true, Comment(rawValue: result.results[0].reason ?? ""))
         try await Self.userRuns(webView, "MU.acceptAllSuggestions()")
-        #expect(try await Self.blocks(webView)[0].markdown == "The `queue` drains in order.")
+        #expect(try await Self.blockAt(webView, 0).markdown == "The `queue` drains in order.")
     }
 
     @Test func aWholeCallRefusalIsAResultWithOkFalse() async throws {
@@ -132,7 +139,7 @@ struct SuggestionsHeadlessTests {
 
     @Test func textThatIsHostileToJavaScriptSurvivesTheBridge() async throws {
         let (_, webView) = try await Self.loaded("say \"hi\" and 'bye' with a back\\slash and </script> tags\n\nsecond")
-        let hash = try await Self.blocks(webView)[0].hash
+        let hash = try await Self.blockAt(webView, 0).hash
         let find = "say \"hi\" and 'bye' with a back\\slash"
         let replace = "back\\slash `${1+1}` \u{1F600} x"
         let result = try await webView.proposeEdits([SuggestedEdit(block: 0, expected: hash, find: find, replace: replace, note: "a \"quoted\" </script> note")])
@@ -146,7 +153,7 @@ struct SuggestionsHeadlessTests {
 
     @Test func lineBreaksAndControlCharactersInReplaceOrNoteAreRefusedPerEdit() async throws {
         let (_, webView) = try await Self.loaded()
-        let hash = try await Self.blocks(webView)[1].hash
+        let hash = try await Self.blockAt(webView, 1).hash
         let result = try await webView.proposeEdits([
             SuggestedEdit(block: 1, expected: hash, find: "cat", replace: "two\nlines"),
             SuggestedEdit(block: 1, expected: hash, find: "cat", replace: "sep\u{2028}arator"),
@@ -172,7 +179,7 @@ struct SuggestionsHeadlessTests {
         #expect(page.inputCount == 0)
         let reply = try await Self.userRuns(webView, "MU.acceptAllSuggestions()")
         #expect(reply?.contains("\"count\":2") == true, Comment(rawValue: reply ?? "nil"))
-        #expect(try await Self.blocks(webView)[1].markdown == "The fox sat on the . The dog ran.")
+        #expect(try await Self.blockAt(webView, 1).markdown == "The fox sat on the . The dog ran.")
         #expect(try await webView.listSuggestions().suggestions.map(\.status) == ["accepted", "accepted"])
         // The host hears about the edit once, as one change.
         for _ in 0..<30 where page.inputCount == 0 { try await Task.sleep(for: .milliseconds(100)) }
@@ -229,9 +236,9 @@ struct SuggestionsHeadlessTests {
         let (_, webView) = try await Self.loaded()
         _ = try await webView.proposeEdits([try await Self.edit(webView, 1, "cat", "fox")])
         try await Self.userRuns(webView, "MU.acceptAllSuggestions()")
-        #expect(try await Self.blocks(webView)[1].markdown.hasPrefix("The fox"))
+        #expect(try await Self.blockAt(webView, 1).markdown.hasPrefix("The fox"))
         await webView.undo()
-        #expect(try await Self.blocks(webView)[1].markdown.hasPrefix("The cat"))
+        #expect(try await Self.blockAt(webView, 1).markdown.hasPrefix("The cat"))
         #expect(try await webView.listSuggestions().suggestions.map(\.status) == ["accepted"])
     }
 }

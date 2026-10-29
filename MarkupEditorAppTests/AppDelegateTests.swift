@@ -135,6 +135,7 @@ import Foundation
         let submenu = try #require(suggestionsSubmenu(of: delegate))
         #expect(submenu.items.filter { !$0.isSeparatorItem }.map(\.title)
                 == ["Next Suggestion", "Previous Suggestion", "Accept All Suggestions", "Reject All Suggestions"])
+        try #require(submenu.items.count > 2, "Suggestions items: \(submenu.items.map(\.title))")
         #expect(submenu.items[2].isSeparatorItem, "a separator sets the all-at-once commands apart")
         for item in submenu.items where !item.isSeparatorItem {
             #expect(item.representedObject as? String == Self.expectedJS[item.title], "\(item.title): \(String(describing: item.representedObject))")

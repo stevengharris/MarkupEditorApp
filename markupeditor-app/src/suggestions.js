@@ -208,8 +208,13 @@ export const suggestionsKey = new PluginKey('suggestions')
  */
 const textOfRange = (doc, from, to) => doc.textBetween(from, to, LEAF, LEAF)
 
-/** Is `s` still over exactly the text it was proposed for in `doc`? */
-const holdsFind = (doc, s) => s.from < s.to && s.to <= doc.content.size && textOfRange(doc, s.from, s.to) === s.find
+/**
+ * Is `s` still over exactly the text it was proposed for in `doc`, in one run of formatting? A range that has
+ * since picked up a formatting boundary (the user bolded part of it) would be flattened by accepting, which
+ * is what the propose-time refusal prevents, so it no longer holds.
+ */
+const holdsFind = (doc, s) => s.from < s.to && s.to <= doc.content.size
+  && textOfRange(doc, s.from, s.to) === s.find && !crossesFormatting(doc, s.from, s.to)
 
 const emptyState = () => ({ pending: [], resolved: [], nextId: 1 })
 
@@ -243,7 +248,8 @@ function replacesWholeDocument(tr) {
  *
  * A pending range is mapped with `from` sticking to the text after it (assoc 1) and `to` to the text before
  * it (assoc -1), so an insertion exactly at either boundary lands outside the range. It goes stale, with
- * reason 'edited', when it collapses or its text is no longer `find`; a whole-document replacement makes every
+ * reason 'edited', when it collapses, its text is no longer `find`, or it crosses a formatting boundary (a
+ * mark change over part of the range); a whole-document replacement makes every
  * pending suggestion stale with reason 'document-replaced'. Stale suggestions are kept as resolved records.
  * Ids named by `accepted`, `rejected` or `stale` meta move to resolved without being mapped (`stale` records
  * reason 'edited'). The `block` of a
@@ -341,8 +347,8 @@ function sortIds(state, ids) {
  * Accept the pending suggestions named by `ids`: each range gets its replacement text, in ONE transaction and
  * so one undo step. A replacement carries the marks of the first character it replaces (read from the
  * document as it is now); an empty replacement deletes. Ids that are unknown, already resolved or stale are
- * skipped and reported, and change nothing. A pending one whose range no longer holds its `find` text is
- * recorded as stale ('edited') and skipped too. The caret ends after the last replacement.
+ * skipped and reported, and change nothing. A pending one whose range no longer holds its `find` text, or now
+ * crosses a formatting boundary, is recorded as stale ('edited') and skipped too. The caret ends after the last replacement.
  *
  * The change carries closeHistory$, and a second transaction closes the undo event after it, so typing next to
  * it does not join it. The host marks the document edited on DOM input events, which a dispatched

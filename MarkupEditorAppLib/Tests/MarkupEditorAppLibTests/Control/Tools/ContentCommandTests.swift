@@ -224,6 +224,7 @@ struct ContentCommandTests {
         let parsed = try batch(["edits": [edit(), edit(["find": ""]), edit(["find": "mat"]), edit(["block": -1]), edit(["find": "rug"])]])
         #expect(parsed.edits.map(\.find) == ["cat", "mat", "rug"])
         #expect(parsed.refusals.map(\.index) == [1, 3])
+        try #require(parsed.refusals.count == 2)
         #expect(parsed.refusals[0].reason?.hasPrefix("edits[1].find ") == true)
         #expect(parsed.refusals[1].reason?.hasPrefix("edits[3].block ") == true)
     }
@@ -244,12 +245,52 @@ struct ContentCommandTests {
         ])
         let merged = parsed.merged(with: editor)
         #expect(merged.ok)
+        try #require(merged.results.count == 5)
         #expect(merged.results.map(\.index) == [0, 1, 2, 3, 4])
         #expect(merged.results.map(\.status) == ["refused", "proposed", "refused", "refused", "proposed"])
         #expect(merged.results[1].id == "s1" && merged.results[4].id == "s2")
         #expect(merged.results[2].reason == "find not found in block 1")
         #expect(merged.results[0].reason?.hasPrefix("edits[0].find ") == true)
         #expect(merged.results[3].reason?.hasPrefix("edits[3].block ") == true)
+    }
+
+    @Test func mergingRefusesAnEditTheEditorSentNoResultFor() throws {
+        // Positions 1 and 3 are bad; the editor was sent edits 0, 2 and 4 as its own 0, 1 and 2, and answered only 0 and 2.
+        let parsed = try batch(["edits": [edit(), edit(["find": ""]), edit(["find": "mat"]), edit(["block": -1]), edit(["find": "rug"])]])
+        let editor = ProposeResult(ok: true, results: [
+            ProposeOutcome(index: 0, status: "proposed", id: "s1", block: 1),
+            ProposeOutcome(index: 2, status: "proposed", id: "s2", block: 1),
+        ])
+        let merged = parsed.merged(with: editor)
+        #expect(merged.ok)
+        try #require(merged.results.count == 5)
+        #expect(merged.results.map(\.index) == [0, 1, 2, 3, 4])
+        #expect(merged.results.map(\.status) == ["proposed", "refused", "refused", "refused", "proposed"])
+        #expect(merged.results[2].id == nil && merged.results[2].reason == "no result from the editor")
+        #expect(merged.results[0].id == "s1" && merged.results[4].id == "s2")
+        #expect(merged.results[1].reason?.hasPrefix("edits[1].find ") == true)
+    }
+
+    @Test func mergingRefusesEveryEditWhenTheEditorAnsweredNothing() throws {
+        let parsed = try batch(["edits": [edit(), edit(["find": "mat"])]])
+        let merged = parsed.merged(with: ProposeResult(ok: true, results: []))
+        try #require(merged.results.count == 2)
+        #expect(merged.results.map(\.index) == [0, 1])
+        #expect(merged.results.allSatisfy { $0.status == "refused" && $0.reason == "no result from the editor" })
+    }
+
+    @Test func mergingIgnoresAnOutcomeOutsideTheEditsSentAndStillCoversEveryPosition() throws {
+        let parsed = try batch(["edits": [edit(), edit(["find": ""]), edit(["find": "mat"])]])
+        let editor = ProposeResult(ok: true, results: [
+            ProposeOutcome(index: 0, status: "proposed", id: "s1", block: 1),
+            ProposeOutcome(index: 7, status: "proposed", id: "s9", block: 1),
+            ProposeOutcome(index: -1, status: "proposed", id: "s8", block: 1),
+        ])
+        let merged = parsed.merged(with: editor)
+        try #require(merged.results.count == 3)
+        #expect(merged.results.map(\.index) == [0, 1, 2])
+        #expect(merged.results.map(\.id) == ["s1", nil, nil])
+        #expect(merged.results[2].reason == "no result from the editor")
     }
 
     @Test func mergingLeavesAWholeCallRefusalAlone() throws {
