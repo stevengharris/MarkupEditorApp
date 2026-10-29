@@ -133,6 +133,88 @@ struct ContentCommandTests {
         #expect(refusal("replace_blocks", .object(fields))?.contains(name) == true)
     }
 
+    // MARK: propose_edits and list_suggestions
+
+    func edit(_ fields: [String: JSONValue] = [:]) -> JSONValue {
+        var base: [String: JSONValue] = ["block": 1, "expected": "abc", "find": "cat", "replace": "dog"]
+        for (key, value) in fields { base[key] = value }
+        return .object(base)
+    }
+
+    @Test func proposeEditsReadsEverything() throws {
+        let args: JSONValue = ["edits": [
+            ["block": 1, "expected": "abc", "find": "cat", "replace": "dog", "note": "prefer dogs"],
+            ["block": 0, "expected": "h", "find": "mat", "replace": ""],
+        ]]
+        #expect(try parse("propose_edits", args) == .proposeEdits([
+            SuggestedEdit(block: 1, expected: "abc", find: "cat", replace: "dog", note: "prefer dogs"),
+            SuggestedEdit(block: 0, expected: "h", find: "mat", replace: "", note: nil),
+        ]))
+    }
+
+    @Test func proposeEditsAcceptsOneAndTwoHundredEditsAndANullNote() throws {
+        #expect(try parse("propose_edits", ["edits": [edit()]]) != nil)
+        #expect(try parse("propose_edits", ["edits": .array(Array(repeating: edit(), count: 200))]) != nil)
+        let withNull = try parse("propose_edits", ["edits": [edit(["note": .null])]])
+        #expect(withNull == .proposeEdits([SuggestedEdit(block: 1, expected: "abc", find: "cat", replace: "dog", note: nil)]))
+    }
+
+    @Test func aSuggestedEditEncodesWithoutANullNote() throws {
+        let json = try SuggestedEdit(block: 1, expected: "abc", find: "cat", replace: "dog", note: nil).jsonValue()
+        #expect(json == ["block": 1, "expected": "abc", "find": "cat", "replace": "dog"])
+    }
+
+    @Test func proposeEditsNeedsAnEditsArray() {
+        #expect(refusal("propose_edits", [:])?.contains("edits") == true)
+        #expect(refusal("propose_edits", ["edits": "x"])?.contains("edits") == true)
+        #expect(refusal("propose_edits", ["edits": [:]])?.contains("edits") == true)
+        #expect(refusal("propose_edits", ["edits": []])?.contains("1 to 200") == true)
+        #expect(refusal("propose_edits", ["edits": .array(Array(repeating: edit(), count: 201))])?.contains("1 to 200") == true)
+    }
+
+    @Test(arguments: [
+        ("block", JSONValue.number(-1), "edits[1].block"),
+        ("block", JSONValue.number(1.5), "edits[1].block"),
+        ("block", JSONValue.string("1"), "edits[1].block"),
+        ("block", JSONValue.null, "edits[1].block"),
+        ("expected", JSONValue.string(""), "edits[1].expected"),
+        ("expected", JSONValue.number(5), "edits[1].expected"),
+        ("find", JSONValue.string(""), "edits[1].find"),
+        ("find", JSONValue.bool(true), "edits[1].find"),
+        ("replace", JSONValue.number(2), "edits[1].replace"),
+        ("replace", JSONValue.null, "edits[1].replace"),
+        ("replace", JSONValue.array([]), "edits[1].replace"),
+        ("note", JSONValue.number(2), "edits[1].note"),
+        ("note", JSONValue.array([]), "edits[1].note"),
+    ])
+    func proposeEditsRefusesABadEditNamingItsPath(name: String, value: JSONValue, path: String) {
+        let reason = refusal("propose_edits", ["edits": [edit(), edit([name: value])]])
+        #expect(reason?.hasPrefix("propose_edits: \(path) ") == true, Comment(rawValue: reason ?? "no refusal"))
+    }
+
+    @Test(arguments: ["block", "expected", "find", "replace"])
+    func proposeEditsRequiresEachEditField(missing: String) {
+        var fields: [String: JSONValue] = ["block": 1, "expected": "abc", "find": "cat", "replace": "dog"]
+        fields[missing] = nil
+        let reason = refusal("propose_edits", ["edits": [.object(fields)]])
+        #expect(reason?.contains("edits[0].\(missing)") == true, Comment(rawValue: reason ?? "no refusal"))
+    }
+
+    @Test func proposeEditsRefusesAnEditThatIsNotAnObject() {
+        #expect(refusal("propose_edits", ["edits": ["cat"]])?.contains("edits[0]") == true)
+        #expect(refusal("propose_edits", ["edits": [edit(), .null]])?.contains("edits[1]") == true)
+    }
+
+    @Test func theFirstBadEditIsTheOneNamed() {
+        let reason = refusal("propose_edits", ["edits": [edit(), edit(["find": ""]), edit(["block": -1])]])
+        #expect(reason?.contains("edits[1].find") == true)
+    }
+
+    @Test func listSuggestionsNeedsNoArguments() throws {
+        #expect(try parse("list_suggestions") == .listSuggestions)
+        #expect(try parse("list_suggestions", ["anything": 1]) == .listSuggestions)
+    }
+
     // MARK: tools without arguments, and tools that are not content tools
 
     @Test func argumentlessTools() throws {
@@ -159,6 +241,17 @@ struct ContentCommandTests {
         #expect(schema["properties"]?["names"] == ["type": "array", "items": ["type": "string"], "description": "some names"])
         #expect(schema["properties"]?["s"] == ["type": "string", "description": "text"])
         #expect(schema["required"] == ["n"])
+    }
+
+    @Test func schemaEmitsAnObjectArrayProperty() {
+        let schema = ControlTool.schema([
+            "edits": .objectArray("some edits", item: ["a": .integer("an int"), "b": .string("text")], required: ["a"]),
+        ], required: ["edits"])
+        #expect(schema["properties"]?["edits"] == [
+            "type": "array",
+            "items": ["type": "object", "properties": ["a": ["type": "integer", "description": "an int"], "b": ["type": "string", "description": "text"]], "required": ["a"]],
+            "description": "some edits",
+        ])
     }
 
     @Test func existingTupleSchemaStillWorks() {

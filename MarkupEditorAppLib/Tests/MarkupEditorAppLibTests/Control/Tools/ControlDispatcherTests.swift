@@ -13,6 +13,8 @@ final class FakeControlFacade: DeveloperControlFacade {
     var failure: ControlError?
     var replaceResult = ReplaceResult(ok: true, range: .init(index: 1, count: 1), blocks: [ContentBlock(index: 1, kind: "paragraph", hash: "h2", markdown: "new")])
     var selectResult = SelectionResult(found: true, blockIndex: 2)
+    var proposeResult = ProposeResult(ok: true, results: [ProposeOutcome(index: 0, status: "proposed", id: "s1", block: 1), ProposeOutcome(index: 1, status: "refused", reason: "find not found in block 1")])
+    var suggestionList = SuggestionList(ok: true, suggestions: [Suggestion(id: "s1", status: "pending", block: 1, find: "cat", replace: "dog", note: "prefer dogs")])
 
     private func record(_ call: String) throws {
         calls.append(call)
@@ -32,6 +34,11 @@ final class FakeControlFacade: DeveloperControlFacade {
         try record("replaceBlocks:\(index):\(count):\(markdown):\(expected.joined(separator: ",")):\(allowLoss)")
         return replaceResult
     }
+    func proposeEdits(_ edits: [SuggestedEdit]) async throws -> ProposeResult {
+        try record("proposeEdits:" + edits.map { "\($0.block)/\($0.expected)/\($0.find)/\($0.replace)/\($0.note ?? "-")" }.joined(separator: ","))
+        return proposeResult
+    }
+    func listSuggestions() async throws -> SuggestionList { try record("listSuggestions"); return suggestionList }
     func undo() async throws { try record("undo") }
     func redo() async throws { try record("redo") }
     func saveDocument() async throws -> URL { try record("saveDocument"); return URL(fileURLWithPath: "/tmp/doc.md") }
@@ -136,7 +143,8 @@ struct ControlDispatcherTests {
 
     @Test func theToolsThatOnlyReadAreMarkedReadOnly() {
         let readOnly = Set(ControlTools.all.filter(\.annotations.readOnly).map(\.name))
-        #expect(readOnly == ["app_state", "get_markdown", "get_html", "screenshot_editor", "get_document", "get_selection"])
+        #expect(readOnly == ["app_state", "get_markdown", "get_html", "screenshot_editor", "get_document", "get_selection", "list_suggestions"])
+        #expect(ControlTools.named("propose_edits")?.annotations == .additive)
         #expect(ControlTools.named("save_document")?.annotations.destructive == true)
         #expect(ControlTools.named("eval_js")?.annotations.destructive == true)
         #expect(ControlTools.named("type_text")?.annotations == .additive)
@@ -152,6 +160,7 @@ struct ControlDispatcherTests {
     /// Arguments that satisfy the tool's schema: a value of the right type for each required property.
     static func sampleArguments(for tool: ControlTool) -> JSONValue {
         if tool.name == "select" { return ["block": 0] }
+        if tool.name == "propose_edits" { return ["edits": [["block": 0, "expected": "x", "find": "x", "replace": "y"]]] }
         var args: [String: JSONValue] = [:]
         guard case .array(let required)? = tool.inputSchema["required"] else { return .object(args) }
         for name in required.compactMap(\.stringValue) {
@@ -183,7 +192,7 @@ struct ControlToolsCatalogTests {
     }
 
     @Test func theEndUserSetIsExactlyTheDocumentTools() {
-        #expect(ControlTools.endUser.map(\.name) == ["get_document", "get_selection", "select", "replace_blocks", "undo", "redo", "save_document"])
+        #expect(ControlTools.endUser.map(\.name) == ["get_document", "get_selection", "select", "replace_blocks", "propose_edits", "list_suggestions", "undo", "redo", "save_document"])
         #expect(ControlTools.endUser.allSatisfy { $0.scope == .endUser })
         #expect(ControlTools.developer.allSatisfy { $0.scope == .developer })
         #expect(ControlTools.all.count == ControlTools.endUser.count + ControlTools.developer.count)
@@ -291,6 +300,39 @@ struct ControlDispatcherAccessTests {
         #expect(blocks.first?["hash"] == "now")
     }
 
+    @Test func proposeEditsReachesTheFacadeAndReturnsItsResult() async throws {
+        let args: JSONValue = ["edits": [
+            ["block": 1, "expected": "h2", "find": "cat", "replace": "dog", "note": "why"],
+            ["block": 1, "expected": "h2", "find": "mat", "replace": ""],
+        ]]
+        let response = try await send("propose_edits", args, access: .readWrite)
+        #expect(response.ok)
+        #expect(response.result == [
+            "ok": true,
+            "results": [
+                ["index": 0, "status": "proposed", "id": "s1", "block": 1],
+                ["index": 1, "status": "refused", "reason": "find not found in block 1"],
+            ],
+        ])
+        #expect(facade.calls == ["proposeEdits:1/h2/cat/dog/why,1/h2/mat//-"])
+    }
+
+    @Test func aWholeCallRefusalFromProposeEditsIsAReplyNotAnError() async throws {
+        facade.proposeResult = ProposeResult(ok: false, reason: "No active view")
+        let response = try await send("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "x", "replace": "y"]]], access: .readWrite)
+        #expect(response.ok)
+        #expect(response.result == ["ok": false, "reason": "No active view", "results": []])
+    }
+
+    @Test func listSuggestionsReachesTheFacadeAndReturnsItsList() async throws {
+        let response = try await send("list_suggestions", access: .read)
+        #expect(response.result == [
+            "ok": true,
+            "suggestions": [["id": "s1", "status": "pending", "block": 1, "find": "cat", "replace": "dog", "note": "prefer dogs"]],
+        ])
+        #expect(facade.calls == ["listSuggestions"])
+    }
+
     @Test func undoRedoAndSaveReachTheFacade() async throws {
         #expect(try await send("undo", access: .readWrite).result == ["undone": true])
         #expect(try await send("redo", access: .readWrite).result == ["redone": true])
@@ -309,6 +351,10 @@ struct ControlDispatcherAccessTests {
             ("replace_blocks", ["index": 0, "count": 1.5, "markdown": "x", "expected": ["h"]]),
             ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": "h"]),
             ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"], "allowLoss": "yes"]),
+            ("propose_edits", [:]),
+            ("propose_edits", ["edits": []]),
+            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "", "replace": "y"]]]),
+            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "x"]]]),
         ]
         for (tool, args) in bad {
             let response = try await send(tool, args, access: .readWrite)
@@ -329,8 +375,10 @@ struct ControlDispatcherAccessTests {
         #expect(try await send("get_document", access: .read).ok)
         #expect(try await send("get_selection", access: .read).ok)
         #expect(try await send("select", ["block": 0], access: .read).ok)
+        #expect(try await send("list_suggestions", access: .read).ok)
         let writes: [(String, JSONValue)] = [
             ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"]]),
+            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "x", "replace": "y"]]]),
             ("undo", [:]), ("redo", [:]), ("save_document", [:]),
         ]
         for (tool, args) in writes {
@@ -338,7 +386,7 @@ struct ControlDispatcherAccessTests {
             #expect(!refused.ok, Comment(rawValue: tool))
             #expect(refused.error?.contains("read-only access") == true, Comment(rawValue: tool))
         }
-        #expect(facade.calls == ["documentContent:markdown:-:-", "selectionContent", "select:block(0)"])
+        #expect(facade.calls == ["documentContent:markdown:-:-", "selectionContent", "select:block(0)", "listSuggestions"])
     }
 
     @Test func aReadWriteClientCanChange() async throws {
@@ -387,13 +435,13 @@ struct ControlDispatcherAccessTests {
     }
 
     @Test func listingOffersEverythingBeforeADecisionAndNothingWhenDenied() async throws {
-        #expect(try await listed(.undecided) == ["get_document", "get_selection", "select", "replace_blocks", "undo", "redo", "save_document"])
+        #expect(try await listed(.undecided) == ["get_document", "get_selection", "select", "replace_blocks", "propose_edits", "list_suggestions", "undo", "redo", "save_document"])
         #expect(try await listed(.denied) == [])
     }
 
     @Test func listingOffersOnlyReadToolsToAReadOnlyClient() async throws {
-        #expect(try await listed(.read) == ["get_document", "get_selection", "select"])
-        #expect(try await listed(.readWrite) == ["get_document", "get_selection", "select", "replace_blocks", "undo", "redo", "save_document"])
+        #expect(try await listed(.read) == ["get_document", "get_selection", "select", "list_suggestions"])
+        #expect(try await listed(.readWrite) == ["get_document", "get_selection", "select", "replace_blocks", "propose_edits", "list_suggestions", "undo", "redo", "save_document"])
     }
 
     @Test func authorizeOpenAllowsAReadClientAndReportsTheAppBundle() async throws {
@@ -417,6 +465,8 @@ final class EndUserOnlyFacade: ControlFacade {
     func selectionContent() async throws -> SelectionContent { calls.append("selectionContent"); return SelectionContent(text: "") }
     func select(_ target: SelectionTarget) async throws -> SelectionResult { calls.append("select"); return SelectionResult(found: false) }
     func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult { calls.append("replaceBlocks"); return ReplaceResult(ok: true) }
+    func proposeEdits(_ edits: [SuggestedEdit]) async throws -> ProposeResult { calls.append("proposeEdits"); return ProposeResult(ok: true) }
+    func listSuggestions() async throws -> SuggestionList { calls.append("listSuggestions"); return SuggestionList(ok: true) }
     func undo() async throws { calls.append("undo") }
     func redo() async throws { calls.append("redo") }
     func saveDocument() async throws -> URL { calls.append("saveDocument"); return URL(fileURLWithPath: "/tmp/x.md") }

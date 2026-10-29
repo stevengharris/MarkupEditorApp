@@ -19,6 +19,24 @@ public enum SelectionTarget: Sendable, Equatable {
     case text(String, occurrence: Int)
 }
 
+/// One suggestion `propose_edits` is asked to make: `find` in block `block` becomes `replace`.
+public struct SuggestedEdit: Sendable, Equatable, Codable {
+    public var block: Int
+    /// The block's hash from `get_document`.
+    public var expected: String
+    public var find: String
+    public var replace: String
+    public var note: String?
+
+    public init(block: Int, expected: String, find: String, replace: String, note: String? = nil) {
+        self.block = block
+        self.expected = expected
+        self.find = find
+        self.replace = replace
+        self.note = note
+    }
+}
+
 /// A content tool's validated arguments. Built from a request before the app sees it, so nothing
 /// malformed reaches the facade and nothing is clamped or defaulted to a different meaning.
 public enum ContentCommand: Sendable, Equatable {
@@ -26,9 +44,14 @@ public enum ContentCommand: Sendable, Equatable {
     case getSelection
     case select(SelectionTarget)
     case replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool)
+    case proposeEdits([SuggestedEdit])
+    case listSuggestions
     case undo
     case redo
     case saveDocument
+
+    /// The most edits one `propose_edits` call may carry.
+    static let maxEdits = 200
 
     /// The command for `tool` with `args`, `nil` when `tool` is not a content tool.
     /// - Throws: `ControlError` naming the argument that is missing or invalid.
@@ -69,6 +92,10 @@ public enum ContentCommand: Sendable, Equatable {
                 markdown: try reader.string("markdown"),
                 expected: try reader.stringArray("expected"),
                 allowLoss: try reader.optionalBool("allowLoss") ?? false)
+        case ControlTools.proposeEdits:
+            self = .proposeEdits(try reader.suggestedEdits("edits", maximum: ContentCommand.maxEdits))
+        case ControlTools.listSuggestions:
+            self = .listSuggestions
         case ControlTools.undo:
             self = .undo
         case ControlTools.redo:
@@ -123,6 +150,31 @@ struct ArgumentReader {
         guard let value = value(name) else { return nil }
         guard case .bool(let flag) = value else { throw fail(name, "must be true or false") }
         return flag
+    }
+
+    /// The `propose_edits` array: 1 to `maximum` objects, each checked and named by its path, as in `edits[2].find`.
+    func suggestedEdits(_ name: String, maximum: Int) throws -> [SuggestedEdit] {
+        guard let value = value(name) else { throw fail(name, "is required") }
+        guard case .array(let items) = value else { throw fail(name, "must be an array of edits") }
+        guard (1...maximum).contains(items.count) else { throw fail(name, "must hold 1 to \(maximum) edits, not \(items.count)") }
+        return try items.enumerated().map { index, item in
+            let path = "\(name)[\(index)]"
+            func refuse(_ field: String, _ problem: String) -> ControlError {
+                ControlError("\(tool): \(path).\(field) \(problem)")
+            }
+            guard case .object = item else { throw ControlError("\(tool): \(path) must be an object with block, expected, find and replace") }
+            guard let block = item["block"]?.intValue else { throw refuse("block", "must be an integer, 0 or more") }
+            guard block >= 0 else { throw refuse("block", "must be an integer, 0 or more") }
+            guard let expected = item["expected"]?.stringValue, !expected.isEmpty else { throw refuse("expected", "must be a non-empty string (the block's hash from get_document)") }
+            guard let find = item["find"]?.stringValue, !find.isEmpty else { throw refuse("find", "must be a non-empty string") }
+            guard let replace = item["replace"]?.stringValue else { throw refuse("replace", "must be a string (empty to delete the text)") }
+            var note: String?
+            if let raw = item["note"], raw != .null {
+                guard let text = raw.stringValue else { throw refuse("note", "must be a string when given") }
+                note = text
+            }
+            return SuggestedEdit(block: block, expected: expected, find: find, replace: replace, note: note)
+        }
     }
 
     func stringArray(_ name: String) throws -> [String] {

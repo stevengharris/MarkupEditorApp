@@ -21,6 +21,8 @@ public enum ControlTools {
     public static let getSelection = "get_selection"
     public static let select = "select"
     public static let replaceBlocks = "replace_blocks"
+    public static let proposeEdits = "propose_edits"
+    public static let listSuggestions = "list_suggestions"
     public static let undo = "undo"
     public static let redo = "redo"
 
@@ -62,6 +64,21 @@ public enum ControlTools {
                 "expected": .stringArray("Hashes that must match the current blocks."),
                 "allowLoss": .boolean("Allow replacing a block whose Markdown cannot carry everything it holds. Default false."),
             ], required: ["index", "count", "markdown", "expected"])),
+        ControlTool(
+            name: proposeEdits, title: "Propose edits", scope: .endUser, access: .readWrite, annotations: .additive,
+            description: "Suggest edits for the user to review, the way track changes shows them. Nothing in the document changes: each suggestion is shown in place, with the original text struck out and the replacement beside it, and only the user accepts or rejects it. Each edit names block (an index from get_document), expected (that block's hash from get_document), find (the text to replace) and replace (the text to put there). find is the rendered text of one paragraph, heading, list item or table cell, without Markdown syntax, and must occur exactly once in the block; it is exact and case-sensitive. replace is plain text, with no formatting and no line breaks, and may be empty to suggest a deletion. A note, if given, tells the user why. An edit that cannot be suggested is refused with a reason and the others still go through; if a block's hash no longer matches, read the document again. Suggestions are not saved: they are lost when the document is reloaded or the view is switched, and saving the document writes the original text of any suggestion still pending. Use list_suggestions to see what the user did with them. Refused in the source view.",
+            inputSchema: ControlTool.schema([
+                "edits": .objectArray("The edits to suggest, 1 to 200.", item: [
+                    "block": .integer("Index of the block that holds the text."),
+                    "expected": .string("The block's hash as get_document returned it."),
+                    "find": .string("The visible text to replace; must occur exactly once in the block, exact and case-sensitive, without Markdown syntax."),
+                    "replace": .string("Plain text to put in its place; empty to suggest deleting the text."),
+                    "note": .string("Why, shown to the user with the suggestion. Optional."),
+                ], required: ["block", "expected", "find", "replace"]),
+            ], required: ["edits"])),
+        ControlTool(
+            name: listSuggestions, title: "List suggestions", scope: .endUser, access: .read, annotations: .readOnly,
+            description: "Return the suggestions made with propose_edits this session, with the status of each: pending (waiting for the user), accepted, rejected, or stale (the user edited the text it covers, or the document was replaced). Each has its id, block, find, replace and note. Match them on id and find: a resolved suggestion's block is the block it was in when the user resolved it and can be out of date. Suggestions are not saved and are lost when the document is reloaded or the view is switched. Refused in the source view."),
         ControlTool(
             name: undo, title: "Undo", scope: .endUser, access: .readWrite, annotations: .destructive,
             description: "Run the user's own Undo in the editor. It uses the user's undo stack, so it can remove the user's typing as well as an earlier change. Refused in the source view."),

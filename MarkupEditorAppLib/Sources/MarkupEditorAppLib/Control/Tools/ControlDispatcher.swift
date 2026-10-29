@@ -88,6 +88,10 @@ public struct ControlDispatcher {
             return try await facade.select(target).jsonValue()
         case .replaceBlocks(let index, let count, let markdown, let expected, let allowLoss):
             return try await facade.replaceBlocks(index: index, count: count, markdown: markdown, expected: expected, allowLoss: allowLoss).jsonValue()
+        case .proposeEdits(let edits):
+            return try await facade.proposeEdits(edits).jsonValue()
+        case .listSuggestions:
+            return try await facade.listSuggestions().jsonValue()
         case .undo:
             try await facade.undo()
             return ["undone": true]
