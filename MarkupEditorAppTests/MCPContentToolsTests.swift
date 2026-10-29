@@ -29,7 +29,7 @@ final class ContentFixture {
 
     /// An editor holding `markdown` (with a leading metadata block when `metadataYAML` is given),
     /// selected as the app's current web view, and a connection to it.
-    static func start(_ markdown: String, html htmlOverride: String? = nil, metadataYAML: String? = nil, url: URL? = nil, access: ClientAccess = .readWrite) async throws -> ContentFixture {
+    static func start(_ markdown: String, html htmlOverride: String? = nil, metadataYAML: String? = nil, url: URL? = nil, access: ClientAccess = .readWrite, tools: [ControlTool] = ControlTools.endUser) async throws -> ContentFixture {
         let page = HeadlessTestPage()
         await page.start()
         let webView = try #require(page.webView)
@@ -45,7 +45,7 @@ final class ContentFixture {
         control.sourceText = ""
         control.requestSave = {}   // never reach the hosting app's real save panel
         MarkupEditor.selectedWebView = webView
-        let harness = try await MCPHarness.start(facade: AppControlFacade(control: control), access: access)
+        let harness = try await MCPHarness.start(facade: AppControlFacade(control: control), access: access, tools: tools)
         let fixture = ContentFixture(page: page, webView: webView, harness: harness, document: document)
         fixture.document.hasChanges = false
         return fixture
@@ -385,6 +385,155 @@ struct MCPContentToolsTests {
             #expect(listed == [])
         }
         #expect(try await fixture.markdowns()[1] == "Brand new text")
+    }
+
+    // MARK: Suggestions end to end
+
+    /// The `list_suggestions` array as the assistant reads it.
+    private func listedSuggestions(_ fixture: ContentFixture) async throws -> [JSONValue] {
+        let outcome = try await fixture.harness.call("list_suggestions")
+        guard case .array(let items)? = outcome.json?["suggestions"] else { throw HarnessError("list_suggestions replied: \(outcome.text)") }
+        return items
+    }
+
+    /// A `propose_edits` argument for several edits `(block, find, replace)`, with every hash read just now.
+    private func proposals(_ fixture: ContentFixture, _ specs: [(Int, String, String)]) async throws -> JSONValue {
+        let blocks = try await fixture.read().blocks
+        let edits: [JSONValue] = specs.map { block, find, replace in
+            .object(["block": .number(Double(block)), "expected": .string(blocks.indices.contains(block) ? blocks[block]["hash"]?.stringValue ?? "" : ""), "find": .string(find), "replace": .string(replace)])
+        }
+        return ["edits": .array(edits)]
+    }
+
+    /// The markdown of every block by block index; the metadata block has none and reads as "".
+    private func blockTextsOf(_ fixture: ContentFixture) async throws -> [Int: String] {
+        let blocks = try await fixture.read().blocks
+        return Dictionary(uniqueKeysWithValues: blocks.indices.map { ($0, blocks[$0]["markdown"]?.stringValue ?? "") })
+    }
+
+    /// The test host is the app, and its own window's editor can become the selected web view a moment after
+    /// launch; the tools act on the selected one. Waits for that to happen (or not) and selects the fixture's again.
+    private func keepEditorSelected(_ fixture: ContentFixture) async throws {
+        for _ in 0..<20 where MarkupEditor.selectedWebView === fixture.webView { try await Task.sleep(for: .milliseconds(100)) }
+        MarkupEditor.selectedWebView = fixture.webView
+    }
+
+    /// Waits long enough for the editor's asynchronous report of an edit to its host to have arrived.
+    private func settle() async throws { try await Task.sleep(for: .milliseconds(700)) }
+
+    /// The user's typing: `text` inserted in the page at `offset` characters into the paragraph that starts with `paragraph`.
+    private func userTypes(_ fixture: ContentFixture, _ text: String, in paragraph: String, at offset: Int) async throws {
+        _ = try await fixture.webView.evaluateJavaScript("""
+            (() => {
+              const view = document.getElementById('markupeditor').MU.activeView()
+              let pos = -1
+              view.state.doc.descendants((node, p) => { if (node.isText && node.text.startsWith('\(paragraph)')) pos = p + \(offset) })
+              view.dispatch(view.state.tr.insertText('\(text)', pos))
+            })()
+            """)
+    }
+
+    @Test func theSuggestionScenarioEndToEnd() async throws {
+        let fixture = try await ContentFixture.start("Alpha one\n\nThe cat sat on the mat.\n\nThe dog ran far, far away.\n\nOmega last",
+                                                     metadataYAML: "title: Doc", tools: ControlTools.all)
+        defer { fixture.stop() }
+        func raw(_ outcome: ToolOutcome) -> Comment { Comment(rawValue: outcome.text) }
+        try await keepEditorSelected(fixture)
+
+        // 1. Propose three edits, one ambiguous: two ids, one reason, and the document did not move.
+        let start = try await fixture.read()
+        #expect(start.blocks.map { $0["kind"]?.stringValue } == ["metadata", "paragraph", "paragraph", "paragraph", "paragraph"])
+        let original = try await blockTextsOf(fixture)
+        let originalMarkdown = try await fixture.harness.call("get_markdown")
+        #expect(originalMarkdown.text.contains("title: Doc") && originalMarkdown.text.contains("Omega last"), raw(originalMarkdown))
+        // The fixture put the metadata block in the page only; the first sync taught the document model about it, which
+        // marks it unsaved. Opening a real file does that before the user sees it, so start clean.
+        #expect(fixture.document.hasChanges)
+        fixture.document.hasChanges = false
+        let proposed = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(2, "mat", "rug"), (3, "far", "near"), (4, "last", "final")]))
+        #expect(proposed.isError == false, raw(proposed))
+        let results = proposed.json?["results"]
+        #expect(results?[0]?["status"] == "proposed" && results?[2]?["status"] == "proposed", raw(proposed))
+        #expect(results?[1]?["status"] == "refused", raw(proposed))
+        #expect(results?[1]?["reason"]?.stringValue?.contains("occurs 2 times") == true, raw(proposed))
+        let matId = try #require(results?[0]?["id"]?.stringValue, raw(proposed))
+        let lastId = try #require(results?[2]?["id"]?.stringValue, raw(proposed))
+        #expect(try await blockTextsOf(fixture) == original)
+        try await settle()
+        #expect(!fixture.document.hasChanges, "proposing marked the document unsaved")
+
+        // 2. Two pending, in the right blocks.
+        let pending = try await listedSuggestions(fixture)
+        #expect(pending.map { $0["status"]?.stringValue } == ["pending", "pending"], Comment(rawValue: "\(pending)"))
+        #expect(pending.map { $0["id"]?.stringValue } == [matId, lastId])
+        #expect(pending.map { $0["block"]?.intValue } == [2, 4])
+        #expect(pending.map { $0["find"]?.stringValue } == ["mat", "last"])
+
+        // 3. The user types right after "last", then accepts everything, all within one undo window. History joins two
+        //    changes that come close in time and touch, and accept-all starts with the last range, so that is the spot
+        //    that tells whether the accept keeps its own undo event.
+        try await userTypes(fixture, "!", in: "Omega", at: "Omega last".count)
+        _ = try await fixture.webView.executeJavaScript("MU.acceptAllSuggestions()")
+        let accepted = try await blockTextsOf(fixture)
+        #expect(accepted[2] == "The cat sat on the rug." && accepted[4] == "Omega final!", Comment(rawValue: "\(accepted)"))
+        for _ in 0..<30 where !fixture.document.hasChanges { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(fixture.document.hasChanges)
+        let acceptedList = try await listedSuggestions(fixture)
+        #expect(acceptedList.map { $0["status"]?.stringValue } == ["accepted", "accepted"], Comment(rawValue: "\(acceptedList)"))
+
+        // 4. One undo takes both replacements back and leaves what the user typed (a second would take that too).
+        let undone = try await fixture.harness.call("undo")
+        #expect(undone.isError == false, raw(undone))
+        let afterUndo = try await blockTextsOf(fixture)
+        #expect(afterUndo[2] == "The cat sat on the mat." && afterUndo[4] == "Omega last!", Comment(rawValue: "\(afterUndo)"))
+
+        // 5. Propose again; the user rejects it. The document does not move and nothing becomes unsaved.
+        let beforeReject = try await blockTextsOf(fixture)
+        fixture.document.hasChanges = false
+        let again = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(4, "last", "final")]))
+        let againId = try #require(again.json?["results"]?[0]?["id"]?.stringValue, raw(again))
+        _ = try await fixture.webView.executeJavaScript("MU.rejectAllSuggestions()")
+        #expect(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == againId }?["status"] == "rejected")
+        #expect(try await blockTextsOf(fixture) == beforeReject)
+        try await settle()
+        #expect(!fixture.document.hasChanges, "rejecting marked the document unsaved")
+
+        // 6. The user types inside the range: stale because edited, and accepting all changes nothing.
+        let edited = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(2, "mat", "rug")]))
+        let editedId = try #require(edited.json?["results"]?[0]?["id"]?.stringValue, raw(edited))
+        #expect(try await fixture.harness.call("select", ["text": "mat"]).json?["found"] == true)
+        await withCheckedContinuation { continuation in fixture.webView.pasteText("X") { continuation.resume() } }
+        let staleEdited = try #require(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == editedId })
+        #expect(staleEdited["status"] == "stale" && staleEdited["reason"] == "edited", Comment(rawValue: "\(staleEdited)"))
+        let afterTyping = try await blockTextsOf(fixture)
+        #expect(afterTyping[2] == "The cat sat on the X.", Comment(rawValue: "\(afterTyping)"))
+        _ = try await fixture.webView.executeJavaScript("MU.acceptAllSuggestions()")
+        #expect(try await blockTextsOf(fixture) == afterTyping)
+
+        // 7. replace_blocks over a block with a pending suggestion makes it stale.
+        let over = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(4, "last", "final")]))
+        let overId = try #require(over.json?["results"]?[0]?["id"]?.stringValue, raw(over))
+        let replaced = try await fixture.replace(4, 1, "Brand new last")
+        #expect(replaced.json?["ok"] == true, raw(replaced))
+        let staleOver = try #require(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == overId })
+        #expect(staleOver["status"] == "stale", Comment(rawValue: "\(staleOver)"))
+
+        // 8. Save pipeline: with a suggestion pending, the text the save would write is the document's, not the proposal's.
+        let beforeProposal = try await fixture.harness.call("get_markdown")
+        let kept = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(3, "ran", "walked")]))
+        let keptId = try #require(kept.json?["results"]?[0]?["id"]?.stringValue, raw(kept))
+        let saveText = try await fixture.harness.call("get_markdown")
+        #expect(saveText.text == beforeProposal.text, raw(saveText))
+        #expect(saveText.isError == false, raw(saveText))
+        #expect(saveText.text.contains("The dog ran far, far away.") && !saveText.text.contains("walked"), raw(saveText))
+        #expect(saveText.text.contains("title: Doc"), raw(saveText))
+        #expect(!saveText.text.contains("suggestion"), raw(saveText))
+        #expect(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == keptId }?["status"] == "pending")
+
+        // 9. The whole document replaced: the pending suggestion goes stale, and is still listed.
+        await withCheckedContinuation { continuation in fixture.webView.setHtml("<p>A different document.</p>") { continuation.resume() } }
+        let gone = try #require(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == keptId })
+        #expect(gone["status"] == "stale" && gone["reason"] == "document-replaced" && gone["find"] == "ran", Comment(rawValue: "\(gone)"))
     }
 
     // MARK: Source view
