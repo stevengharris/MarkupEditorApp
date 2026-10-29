@@ -1,12 +1,14 @@
 import { describe, test, expect } from 'vitest'
-import { MU, EditorState, AllSelection, TextSelection } from 'markupeditor'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { MU, EditorState, EditorView, AllSelection, TextSelection } from 'markupeditor'
 import { history, undo, redo, undoDepth } from 'prosemirror-history'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 import { describeBlocks } from '../src/doc-blocks.js'
 import {
   findInBlock, planProposals, suggestionsKey, suggestionsPlugin, getSuggestions,
-  acceptSuggestions, rejectSuggestions, nextSuggestionTarget, goToSuggestion,
+  acceptSuggestions, rejectSuggestions, nextSuggestionTarget, goToSuggestion, buildWidget,
 } from '../src/suggestions.js'
 
 const { schema } = MU
@@ -809,5 +811,174 @@ describe('next and previous', () => {
     const view = fakeView(three())
     rejectSuggestions(view, ['s2'])
     expect(goToSuggestion(view, 'next').id).toBe('s3')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// decorations and widgets
+// ---------------------------------------------------------------------------
+
+/** The decorations the plugin gives for `state`, split into the inline ones and the widgets. */
+function decorationsOf(state) {
+  const plugin = suggestionsKey.get(state)
+  const set = plugin.props.decorations.call(plugin, state)
+  const found = set ? set.find() : []
+  return { inline: found.filter(d => d.from !== d.to || d.type.attrs), widgets: found.filter(d => d.type.toDOM) }
+}
+
+describe('decorations', () => {
+  test('one inline decoration over the range and one widget at its end per pending suggestion', () => {
+    const state = threeInOne()
+    const { inline, widgets } = decorationsOf(state)
+    const pending = getSuggestions(state).pending
+    expect(inline.map(d => [d.from, d.to])).toEqual(pending.map(s => [s.from, s.to]))
+    expect(widgets.map(d => d.from)).toEqual(pending.map(s => s.to))
+    expect(inline.map(d => d.type.attrs['data-suggestion-id'])).toEqual(['s1', 's2', 's3'])
+    expect(inline.every(d => d.type.attrs.class === 'suggestion-old')).toBe(true)
+  })
+
+  test('none for resolved suggestions, and none without a plugin value to show', () => {
+    let state = threeInOne()
+    state = state.apply(state.tr.setMeta(suggestionsKey, { rejected: ['s1', 's2', 's3'] }))
+    const { inline, widgets } = decorationsOf(state)
+    expect(inline).toEqual([])
+    expect(widgets).toEqual([])
+  })
+
+  test('they follow edits: after text is inserted before the range the decorations moved with it', () => {
+    let state = catState()
+    state = state.apply(state.tr.insertText('XX', 1))
+    const { inline, widgets } = decorationsOf(state)
+    expect([inline[0].from, inline[0].to]).toEqual([7, 10])
+    expect(widgets[0].from).toBe(10)
+  })
+
+  test('the note becomes the title of the inline decoration, and no title without one', () => {
+    const noted = propose(withPlugin(doc(p('one two'))), { block: 0, find: 'one', replace: '1', note: 'why: "quoted" <b>' })
+    expect(decorationsOf(noted).inline[0].type.attrs.title).toBe('why: "quoted" <b>')
+    const plain = propose(withPlugin(doc(p('one two'))), { block: 0, find: 'one', replace: '1' })
+    expect('title' in decorationsOf(plain).inline[0].type.attrs).toBe(false)
+  })
+
+  test('the widget is not editable content and stops editor events', () => {
+    const { widgets } = decorationsOf(catState())
+    expect(widgets[0].spec.side).toBe(1)
+    expect(widgets[0].spec.stopEvent()).toBe(true)
+    expect(widgets[0].spec.ignoreSelection).toBe(true)
+    expect(widgets[0].spec.key).toMatch(/^suggestion-s1:/)
+  })
+
+  test('the widget key changes with the replacement text', () => {
+    const a = decorationsOf(propose(withPlugin(doc(p('one'))), { block: 0, find: 'one', replace: 'A' })).widgets[0].spec.key
+    const b = decorationsOf(propose(withPlugin(doc(p('one'))), { block: 0, find: 'one', replace: 'B' })).widgets[0].spec.key
+    expect(a).not.toBe(b)
+  })
+})
+
+describe('buildWidget', () => {
+  const suggestion = (replace, note) => ({ id: 's1', find: 'old', replace, note })
+
+  test('shows the replacement and two labelled buttons', () => {
+    const el = buildWidget(suggestion('new text'), fakeView(catState()))
+    expect(el.tagName).toBe('SPAN')
+    expect(el.classList.contains('suggestion-new')).toBe(true)
+    expect(el.getAttribute('contenteditable')).toBe('false')
+    const buttons = [...el.querySelectorAll('button')]
+    expect(buttons.map(b => b.textContent)).toEqual(['Accept', 'Reject'])
+    expect(buttons.map(b => b.getAttribute('type'))).toEqual(['button', 'button'])
+    expect(buttons.map(b => b.getAttribute('aria-label'))).toEqual(['Accept suggestion', 'Reject suggestion'])
+    expect(el.firstChild.textContent).toBe('new text')
+  })
+
+  test('hostile replacement and note text stay literal: no elements beyond the span and two buttons', () => {
+    const html = '<img src=x onerror=alert(1)>'
+    const note = '"><script>alert(2)</script>'
+    const el = buildWidget(suggestion(html, note), fakeView(catState()))
+    expect([...el.querySelectorAll('*')].map(e => e.tagName)).toEqual(['BUTTON', 'BUTTON'])
+    expect(el.firstChild.nodeType).toBe(3)
+    expect(el.firstChild.textContent).toBe(html)
+    expect(el.getAttribute('title')).toBe(note)
+    expect(el.innerHTML).not.toContain('<img')
+    expect(el.innerHTML).not.toContain('<script')
+  })
+
+  test('hostile text in the deletion case and in labels cannot add elements either', () => {
+    const el = buildWidget(suggestion('', '<b onmouseover=1>'), fakeView(catState()))
+    expect(el.querySelector('b')).toBeNull()
+    expect(el.getAttribute('title')).toBe('<b onmouseover=1>')
+  })
+
+  test('an empty replacement shows a muted "(delete)" marker instead of empty text', () => {
+    const el = buildWidget(suggestion(''), fakeView(catState()))
+    const marker = el.querySelector('.suggestion-delete')
+    expect(marker.textContent).toBe('(delete)')
+  })
+
+  test('a widget with no note has no title', () => {
+    expect(buildWidget(suggestion('x'), fakeView(catState())).hasAttribute('title')).toBe(false)
+  })
+
+  test('clicking Accept accepts that suggestion; clicking Reject rejects it', () => {
+    const accepting = fakeView(catState())
+    buildWidget(getSuggestions(accepting.state).pending[0], accepting).querySelector('button:first-of-type').click()
+    expect(accepting.state.doc.textContent).toBe('the dog sat')
+    expect(getSuggestions(accepting.state).resolved[0].status).toBe('accepted')
+
+    const rejecting = fakeView(catState())
+    const buttons = buildWidget(getSuggestions(rejecting.state).pending[0], rejecting).querySelectorAll('button')
+    buttons[1].click()
+    expect(rejecting.state.doc.textContent).toBe('the cat sat')
+    expect(getSuggestions(rejecting.state).resolved[0].status).toBe('rejected')
+  })
+
+  test('mousedown on a button is default-prevented, so the editor keeps its selection', () => {
+    const el = buildWidget(suggestion('x'), fakeView(catState()))
+    for (const button of el.querySelectorAll('button')) {
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+      button.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+    }
+  })
+})
+
+describe('in a real EditorView', () => {
+  test('the old text is struck inside span.suggestion-old and the widget follows it', () => {
+    const host = document.createElement('div')
+    const view = new EditorView(host, { state: catState() })
+    try {
+      const old = host.querySelector('span.suggestion-old')
+      expect(old).not.toBeNull()
+      expect(old.textContent).toBe('cat')
+      expect(old.getAttribute('data-suggestion-id')).toBe('s1')
+      const widget = host.querySelector('span.suggestion-new')
+      expect(widget).not.toBeNull()
+      expect(widget.textContent).toContain('dog')
+      expect(old.nextSibling).toBe(widget)
+      // Accepting through the widget's own button resolves it and removes both.
+      widget.querySelector('button').click()
+      expect(host.querySelector('span.suggestion-old')).toBeNull()
+      expect(host.querySelector('span.suggestion-new')).toBeNull()
+      expect(host.textContent).toContain('the dog sat')
+    } finally {
+      view.destroy()
+    }
+  })
+})
+
+describe('the stylesheet', () => {
+  const css = readFileSync(path.resolve(import.meta.dirname, '../../MarkupEditorApp/Resources/markupeditor-app.css'), 'utf8')
+
+  test('hides the replacement widget and the strike while exporting, so a PDF shows the original text', () => {
+    const hideNew = css.match(/#editor\.Markup-exporting\s+\.suggestion-new\s*\{[^}]*display:\s*none/g) ?? []
+    const plainOld = css.match(/#editor\.Markup-exporting\s+\.suggestion-old\s*\{[^}]*text-decoration:\s*none[^}]*background:\s*none/g) ?? []
+    expect(hideNew.length).toBe(1)
+    expect(plainOld.length).toBe(1)
+  })
+
+  test('styles the old text, the new text and the buttons, with a dark-mode variant', () => {
+    expect(css).toMatch(/\.suggestion-old\s*\{[^}]*line-through/)
+    expect(css).toMatch(/\.suggestion-new\s*\{/)
+    expect(css).toMatch(/\.suggestion-new button\s*\{/)
+    expect(css).toMatch(/prefers-color-scheme: dark\)\s*\{\s*\.suggestion-old\s*\{[^}]*\}\s*\.suggestion-new\s*\{/)
   })
 })

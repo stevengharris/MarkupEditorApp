@@ -1,5 +1,5 @@
-import { Plugin, PluginKey, TextSelection } from 'markupeditor'
-import { describeBlocks, firstEditableOf } from './doc-blocks.js'
+import { Plugin, PluginKey, TextSelection, Decoration, DecorationSet } from 'markupeditor'
+import { describeBlocks, firstEditableOf, hashMarkdown } from './doc-blocks.js'
 import { blockIndexForPos } from './blocks.js'
 
 // Stands in for each non-text inline node (image, line break) so string offsets stay equal to positions.
@@ -228,6 +228,11 @@ export function suggestionsPlugin() {
       init: emptyState,
       apply: applySuggestions,
     },
+    props: {
+      decorations(state) {
+        return suggestionDecorations(state)
+      },
+    },
   })
 }
 
@@ -360,4 +365,70 @@ export function goToSuggestion(view, direction) {
   const selection = TextSelection.create(view.state.doc, target.from, target.to)
   view.dispatch(view.state.tr.setSelection(selection).scrollIntoView())
   return { found: true, id: target.id, block: target.block }
+}
+
+// ---------------------------------------------------------------------------
+// Decorations and widgets
+// ---------------------------------------------------------------------------
+
+/**
+ * The widget that sits after a struck-out range: the replacement text and Accept and Reject buttons.
+ *
+ * The replacement and the note come from an assistant and may be hostile, so every piece of text reaches the
+ * DOM through textContent or setAttribute, never as markup. The widget is not editable. A mousedown on a
+ * button is default-prevented so the editor keeps its selection; a click accepts or rejects that one
+ * suggestion through `view`.
+ *
+ * @param {{id: string, replace: string, note?: string}} suggestion
+ * @param {object} view - EditorView
+ * @returns {HTMLElement}
+ */
+export function buildWidget(suggestion, view) {
+  const widget = document.createElement('span')
+  widget.className = 'suggestion-new'
+  widget.setAttribute('contenteditable', 'false')
+  if (suggestion.note) widget.setAttribute('title', suggestion.note)
+  if (suggestion.replace === '') {
+    const marker = document.createElement('span')
+    marker.className = 'suggestion-delete'
+    marker.textContent = '(delete)'
+    widget.appendChild(marker)
+  } else {
+    widget.appendChild(document.createTextNode(suggestion.replace))
+  }
+  const button = (label, className, act) => {
+    const element = document.createElement('button')
+    element.setAttribute('type', 'button')
+    element.className = className
+    element.setAttribute('aria-label', `${label} suggestion`)
+    element.textContent = label
+    element.addEventListener('mousedown', (event) => event.preventDefault())
+    element.addEventListener('click', (event) => {
+      event.preventDefault()
+      act(view, [suggestion.id])
+    })
+    return element
+  }
+  widget.appendChild(button('Accept', 'suggestion-accept', acceptSuggestions))
+  widget.appendChild(button('Reject', 'suggestion-reject', rejectSuggestions))
+  return widget
+}
+
+/** The decorations for the pending suggestions: the old text struck through, the widget after it. */
+function suggestionDecorations(state) {
+  const { pending } = suggestionsKey.getState(state) ?? emptyState()
+  if (pending.length === 0) return DecorationSet.empty
+  const decorations = []
+  for (const s of pending) {
+    const attrs = { class: 'suggestion-old', 'data-suggestion-id': s.id }
+    if (s.note) attrs.title = s.note
+    decorations.push(Decoration.inline(s.from, s.to, attrs))
+    decorations.push(Decoration.widget(s.to, (view) => buildWidget(s, view), {
+      side: 1,
+      key: `suggestion-${s.id}:${hashMarkdown(s.replace)}`,
+      stopEvent: () => true,
+      ignoreSelection: true,
+    }))
+  }
+  return DecorationSet.create(state.doc, decorations)
 }
