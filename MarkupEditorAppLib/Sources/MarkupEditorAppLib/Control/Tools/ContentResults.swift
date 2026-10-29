@@ -118,6 +118,90 @@ public struct ReplaceResult: Codable, Sendable, Equatable {
     }
 }
 
+/// What one edit in a `propose_edits` call came to.
+public struct ProposeOutcome: Codable, Sendable, Equatable {
+    /// Position of the edit in the call.
+    public var index: Int
+    /// `"proposed"` or `"refused"`.
+    public var status: String
+    public var id: String?
+    public var block: Int?
+    /// Why the edit was refused.
+    public var reason: String?
+
+    public init(index: Int, status: String, id: String? = nil, block: Int? = nil, reason: String? = nil) {
+        self.index = index
+        self.status = status
+        self.id = id
+        self.block = block
+        self.reason = reason
+    }
+}
+
+/// What `propose_edits` returns: one outcome per edit, or a refusal of the whole call (`ok` false, with a reason).
+public struct ProposeResult: Codable, Sendable, Equatable {
+    public var ok: Bool
+    public var reason: String?
+    public var results: [ProposeOutcome]
+
+    public init(ok: Bool, reason: String? = nil, results: [ProposeOutcome] = []) {
+        self.ok = ok
+        self.reason = reason
+        self.results = results
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ok = try container.decode(Bool.self, forKey: .ok)
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        results = try container.decodeIfPresent([ProposeOutcome].self, forKey: .results) ?? []
+    }
+}
+
+/// One suggestion as `list_suggestions` reports it.
+public struct Suggestion: Codable, Sendable, Equatable {
+    public var id: String
+    /// `"pending"`, `"accepted"`, `"rejected"` or `"stale"`.
+    public var status: String
+    /// The block it was in; for a resolved suggestion, the block when it was resolved, which later edits can leave out of date.
+    public var block: Int
+    public var find: String
+    public var replace: String
+    public var note: String?
+    /// For a stale suggestion, `"edited"` or `"document-replaced"`.
+    public var reason: String?
+
+    public init(id: String, status: String, block: Int, find: String, replace: String, note: String? = nil, reason: String? = nil) {
+        self.id = id
+        self.status = status
+        self.block = block
+        self.find = find
+        self.replace = replace
+        self.note = note
+        self.reason = reason
+    }
+}
+
+/// What `list_suggestions` returns.
+public struct SuggestionList: Codable, Sendable, Equatable {
+    public var ok: Bool
+    public var reason: String?
+    public var suggestions: [Suggestion]
+
+    public init(ok: Bool, reason: String? = nil, suggestions: [Suggestion] = []) {
+        self.ok = ok
+        self.reason = reason
+        self.suggestions = suggestions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ok = try container.decode(Bool.self, forKey: .ok)
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        suggestions = try container.decodeIfPresent([Suggestion].self, forKey: .suggestions) ?? []
+    }
+}
+
 extension Encodable {
     /// This value as a `JSONValue`, for a tool reply.
     func jsonValue() throws -> JSONValue {

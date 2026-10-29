@@ -54,6 +54,20 @@ extension ReplaceResult {
     }
 }
 
+extension ProposeResult {
+    /// Decodes the JSON `MU.proposeEdits` returned.
+    public static func decode(_ raw: Any?, function: String = "proposeEdits") throws(ContentBridgeError) -> ProposeResult {
+        try decodeReply(raw, function: function)
+    }
+}
+
+extension SuggestionList {
+    /// Decodes the JSON `MU.listSuggestions` returned.
+    public static func decode(_ raw: Any?, function: String = "listSuggestions") throws(ContentBridgeError) -> SuggestionList {
+        try decodeReply(raw, function: function)
+    }
+}
+
 private func decodeReply<T: Decodable>(_ raw: Any?, function: String) throws(ContentBridgeError) -> T {
     guard let text = raw as? String else { throw .noResult(function) }
     do {
