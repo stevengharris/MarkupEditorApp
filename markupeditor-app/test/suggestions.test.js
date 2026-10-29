@@ -1,10 +1,10 @@
 import { describe, test, expect } from 'vitest'
-import { MU, EditorState } from 'markupeditor'
-import { history } from 'prosemirror-history'
+import { MU, EditorState, AllSelection } from 'markupeditor'
+import { history, undo, redo } from 'prosemirror-history'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 import { describeBlocks } from '../src/doc-blocks.js'
-import { findInBlock, planProposals } from '../src/suggestions.js'
+import { findInBlock, planProposals, suggestionsKey, suggestionsPlugin, getSuggestions } from '../src/suggestions.js'
 
 const { schema } = MU
 
@@ -371,5 +371,201 @@ describe('planProposals never throws', () => {
     expect(planProposals(state, 'nope', []).results).toEqual([])
     const odd = planProposals(state, [{}], null)
     expect(odd.results[0].status).toBe('refused')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// plugin state: mapping, stale handling, resolved records
+// ---------------------------------------------------------------------------
+
+const withPlugin = (document) => EditorState.create({ doc: document, plugins: [history(), suggestionsPlugin()] })
+
+/** Propose edits (hash filled in) on a state that has the plugin, as the MU wrapper will. */
+function propose(state, ...edits) {
+  const full = edits.map(e => ({ expected: hashOf(state.doc, e.block), ...e }))
+  const plan = planProposals(state, full, getSuggestions(state).pending)
+  const refused = plan.results.filter(r => r.status === 'refused')
+  expect(refused, JSON.stringify(refused)).toEqual([])
+  return state.apply(state.tr.setMeta(suggestionsKey, { add: plan.proposals }))
+}
+
+// 'the cat sat' is one paragraph starting at position 0, so its text starts at 1: cat is 5..8.
+const catState = () => propose(withPlugin(doc(p('the cat sat'))), { block: 0, find: 'cat', replace: 'dog' })
+const onlyPending = (state) => getSuggestions(state).pending[0]
+const textOf = (state, s) => state.doc.textBetween(s.from, s.to)
+
+describe('suggestionsPlugin, adding and reading', () => {
+  test('a proposal becomes pending with an id, and getSuggestions returns {pending, resolved}', () => {
+    const state = catState()
+    const { pending, resolved } = getSuggestions(state)
+    expect(resolved).toEqual([])
+    expect(pending.length).toBe(1)
+    expect(pending[0]).toMatchObject({ id: 's1', find: 'cat', replace: 'dog', block: 0 })
+    expect(textOf(state, pending[0])).toBe('cat')
+  })
+
+  test('ids are monotonic across add batches, and not reused after a resolution', () => {
+    let state = withPlugin(doc(p('one two three four')))
+    state = propose(state, { block: 0, find: 'one', replace: '1' }, { block: 0, find: 'two', replace: '2' })
+    state = state.apply(state.tr.setMeta(suggestionsKey, { rejected: ['s2'] }))
+    state = propose(state, { block: 0, find: 'three', replace: '3' })
+    expect(getSuggestions(state).pending.map(s => s.id)).toEqual(['s1', 's3'])
+  })
+
+  test('getSuggestions on a state without the plugin is empty', () => {
+    expect(getSuggestions(stateOf(doc(p('x'))))).toEqual({ pending: [], resolved: [] })
+  })
+
+  test('a transaction carrying only suggestions meta does not change the doc', () => {
+    const state = catState()
+    const after = state.apply(state.tr.setMeta(suggestionsKey, { rejected: ['s1'] }))
+    expect(after.doc.eq(state.doc)).toBe(true)
+    const tr = state.tr.setMeta(suggestionsKey, { add: [] })
+    expect(tr.docChanged).toBe(false)
+  })
+
+  test('accepted and rejected ids move to resolved with that status; unknown ids are ignored', () => {
+    let state = withPlugin(doc(p('one two')))
+    state = propose(state, { block: 0, find: 'one', replace: '1', note: 'n1' }, { block: 0, find: 'two', replace: '2' })
+    state = state.apply(state.tr.setMeta(suggestionsKey, { accepted: ['s1', 's99'], rejected: ['s2'] }))
+    const { pending, resolved } = getSuggestions(state)
+    expect(pending).toEqual([])
+    expect(resolved).toEqual([
+      { id: 's1', status: 'accepted', find: 'one', replace: '1', note: 'n1', block: 0 },
+      { id: 's2', status: 'rejected', find: 'two', replace: '2', block: 0 },
+    ])
+  })
+})
+
+describe('suggestionsPlugin, mapping through edits (assoc pinned at the boundaries)', () => {
+  test('an insert before the range shifts it', () => {
+    const state = catState()
+    const after = state.apply(state.tr.insertText('XX', 1))
+    const s = onlyPending(after)
+    expect([s.from, s.to]).toEqual([7, 10])
+    expect(textOf(after, s)).toBe('cat')
+  })
+
+  test('an insert after the range leaves it', () => {
+    const state = catState()
+    const after = state.apply(state.tr.insertText('XX', 10))
+    const s = onlyPending(after)
+    expect([s.from, s.to]).toEqual([5, 8])
+  })
+
+  test('an insert exactly at from stays outside the range', () => {
+    const state = catState()
+    const after = state.apply(state.tr.insertText('XX', 5))
+    const s = onlyPending(after)
+    expect(s).toBeDefined()
+    expect(textOf(after, s)).toBe('cat')
+    expect([s.from, s.to]).toEqual([7, 10])
+  })
+
+  test('an insert exactly at to stays outside the range', () => {
+    const state = catState()
+    const after = state.apply(state.tr.insertText('XX', 8))
+    const s = onlyPending(after)
+    expect(s).toBeDefined()
+    expect(textOf(after, s)).toBe('cat')
+    expect([s.from, s.to]).toEqual([5, 8])
+  })
+
+  test('two suggestions in one paragraph both stay right after an edit between them', () => {
+    let state = withPlugin(doc(p('alpha beta gamma delta')))
+    state = propose(state, { block: 0, find: 'alpha', replace: 'A' }, { block: 0, find: 'delta', replace: 'D' })
+    state = state.apply(state.tr.insertText('INSERTED ', 8))   // between 'alpha ' and 'beta'
+    const pending = getSuggestions(state).pending
+    expect(pending.map(s => textOf(state, s))).toEqual(['alpha', 'delta'])
+    expect(pending.map(s => s.id)).toEqual(['s1', 's2'])
+  })
+
+  test('undoing the user\'s typing elsewhere keeps ranges correct', () => {
+    let state = catState()
+    state = state.apply(state.tr.insertText('XX', 1))
+    expect(textOf(state, onlyPending(state))).toBe('cat')
+    let undone
+    expect(undo(state, (tr) => { undone = state.apply(tr) })).toBe(true)
+    const s = onlyPending(undone)
+    expect([s.from, s.to]).toEqual([5, 8])
+    expect(textOf(undone, s)).toBe('cat')
+    let redone
+    expect(redo(undone, (tr) => { redone = undone.apply(tr) })).toBe(true)
+    expect(textOf(redone, onlyPending(redone))).toBe('cat')
+  })
+
+  test('the block index follows the range when a block is inserted before it', () => {
+    let state = propose(withPlugin(doc(p('one'), p('the cat'))), { block: 1, find: 'cat', replace: 'dog' })
+    state = state.apply(state.tr.insert(0, p('new first')))
+    expect(onlyPending(state).block).toBe(2)
+  })
+})
+
+describe('suggestionsPlugin, a user edit inside the range makes it stale', () => {
+  const staleWith = (change) => {
+    const state = catState()
+    return state.apply(change(state.tr))
+  }
+  const expectEdited = (after) => {
+    const { pending, resolved } = getSuggestions(after)
+    expect(pending).toEqual([])
+    expect(resolved).toEqual([{ id: 's1', status: 'stale', reason: 'edited', find: 'cat', replace: 'dog', block: 0 }])
+  }
+
+  test('typing inside it', () => expectEdited(staleWith(tr => tr.insertText('Z', 6))))
+  test('deleting part of it', () => expectEdited(staleWith(tr => tr.delete(5, 6))))
+  test('deleting across its start', () => expectEdited(staleWith(tr => tr.delete(3, 6))))
+  test('deleting across its end', () => expectEdited(staleWith(tr => tr.delete(7, 10))))
+  test('deleting all of it', () => expectEdited(staleWith(tr => tr.delete(5, 8))))
+  test('replacing it with other text', () => expectEdited(staleWith(tr => tr.insertText('hen', 5, 8))))
+
+  test('replacing it with the very same text changes nothing, so it stays pending', () => {
+    const state = catState()
+    const after = state.apply(state.tr.insertText('cat', 5, 8))
+    expect(getSuggestions(after).pending.length).toBe(1)
+  })
+
+  test('a mark change over the text is not an edit', () => {
+    const state = catState()
+    const after = state.apply(state.tr.addMark(5, 8, schema.marks.strong.create()))
+    expect(getSuggestions(after).pending.length).toBe(1)
+  })
+})
+
+describe('suggestionsPlugin, replacing the whole document', () => {
+  /** What markupeditor-base's setHTML dispatches: AllSelection, replaceSelectionWith, no history. */
+  const setHTMLShape = (state, node) => state.tr
+    .setSelection(new AllSelection(state.doc))
+    .replaceSelectionWith(node, false)
+    .setMeta('addToHistory', false)
+
+  test('marks every pending suggestion stale with reason document-replaced, and keeps the records', () => {
+    let state = withPlugin(doc(p('one two'), p('three')))
+    state = propose(state, { block: 0, find: 'one', replace: '1' }, { block: 1, find: 'three', replace: '3' })
+    const after = state.apply(setHTMLShape(state, doc(p('one two'), p('three'))))
+    const { pending, resolved } = getSuggestions(after)
+    expect(pending).toEqual([])
+    expect(resolved.map(r => [r.id, r.status, r.reason])).toEqual([
+      ['s1', 'stale', 'document-replaced'], ['s2', 'stale', 'document-replaced']])
+  })
+
+  test('even when the new document has the very same text', () => {
+    const document = doc(p('the cat sat'))
+    const state = propose(withPlugin(document), { block: 0, find: 'cat', replace: 'dog' })
+    const after = state.apply(setHTMLShape(state, document.copy(document.content)))
+    expect(getSuggestions(after).resolved[0].reason).toBe('document-replaced')
+  })
+
+  test('a user who selects everything and types is an edit, not a replaced document', () => {
+    const state = catState()
+    const tr = state.tr.setSelection(new AllSelection(state.doc)).replaceSelectionWith(schema.text('new'), true)
+    const after = state.apply(tr)
+    expect(getSuggestions(after).resolved[0].reason).toBe('edited')
+  })
+
+  test('a suggestions-only transaction is never read as a replacement', () => {
+    const state = catState()
+    const after = state.apply(state.tr.setMeta('addToHistory', false).setMeta(suggestionsKey, { add: [] }))
+    expect(getSuggestions(after).pending.length).toBe(1)
   })
 })
