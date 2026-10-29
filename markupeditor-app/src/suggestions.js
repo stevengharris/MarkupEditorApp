@@ -1,9 +1,13 @@
-import { Plugin, PluginKey } from 'markupeditor'
+import { Plugin, PluginKey, TextSelection } from 'markupeditor'
 import { describeBlocks, firstEditableOf } from './doc-blocks.js'
 import { blockIndexForPos } from './blocks.js'
 
 // Stands in for each non-text inline node (image, line break) so string offsets stay equal to positions.
 const LEAF = '￼'
+
+// The meta key prosemirror-history reads to end the current undo event, so an accept is not undone together
+// with the user's typing before it, nor typing right after it with the accept (see replace-blocks.js).
+const CLOSE_HISTORY = 'closeHistory$'
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -240,4 +244,120 @@ export function getSuggestions(state) {
     pending: value.pending.map(s => ({ ...s, block: blockIndexForPos(state.doc, s.from) })),
     resolved: value.resolved,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Accept, reject, navigate
+// ---------------------------------------------------------------------------
+
+/**
+ * Sort `ids` (an array, possibly with repeats) into the pending suggestions of `view`'s state and those that
+ * cannot be acted on, each skipped one with the reason.
+ */
+function sortIds(state, ids) {
+  const { pending, resolved } = getSuggestions(state)
+  const chosen = []
+  const skipped = []
+  const seen = new Set()
+  for (const id of Array.isArray(ids) ? ids : []) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    const live = pending.find(s => s.id === id)
+    if (live) { chosen.push(live); continue }
+    const done = resolved.find(r => r.id === id)
+    skipped.push({ id, reason: done ? `suggestion ${id} is ${done.status}` : `unknown suggestion ${id}` })
+  }
+  return { chosen, skipped }
+}
+
+/**
+ * Accept the pending suggestions named by `ids`: each range gets its replacement text, in ONE transaction and
+ * so one undo step. A replacement carries the marks of the first character it replaces (read from the
+ * document as it is now); an empty replacement deletes. Ids that are unknown, already resolved or stale are
+ * skipped and reported, and change nothing. The caret ends after the last replacement.
+ *
+ * The change carries closeHistory$, and a second transaction closes the undo event after it, so typing next to
+ * it does not join it. The host marks the document edited on DOM input events, which a dispatched
+ * transaction does not raise, so one is dispatched, as replaceBlocks does.
+ *
+ * Undoing the accept restores the text; the record stays 'accepted'.
+ *
+ * @param {object} view - EditorView
+ * @param {string[]} ids
+ * @returns {{accepted: string[], skipped: {id: string, reason: string}[]}}
+ */
+export function acceptSuggestions(view, ids) {
+  const state = view.state
+  const { chosen, skipped } = sortIds(state, ids)
+  if (chosen.length === 0) return { accepted: [], skipped }
+
+  const byPosition = [...chosen].sort((a, b) => a.from - b.from)
+  const tr = state.tr
+  // From the last range to the first, so each replacement leaves the positions of those before it alone.
+  for (const s of [...byPosition].reverse()) {
+    if (s.replace === '') tr.delete(s.from, s.to)
+    else tr.replaceWith(s.from, s.to, state.schema.text(s.replace, state.doc.nodeAt(s.from)?.marks ?? []))
+  }
+  const last = byPosition[byPosition.length - 1]
+  // Just after the last range's replacement: where step 0 left it, moved by the steps for the ranges before it.
+  const caret = tr.mapping.slice(1).map(last.from + last.replace.length, 1)
+  tr.setSelection(TextSelection.near(tr.doc.resolve(caret), -1))
+  tr.setMeta(CLOSE_HISTORY, true)
+  tr.setMeta(suggestionsKey, { accepted: chosen.map(s => s.id) })
+  view.dispatch(tr)
+  view.dispatch(view.state.tr.setMeta(CLOSE_HISTORY, true))
+  view.dom.dispatchEvent(new Event('input', { bubbles: true }))
+  return { accepted: chosen.map(s => s.id), skipped }
+}
+
+/**
+ * Reject the pending suggestions named by `ids`: they are recorded as rejected and nothing else changes. The
+ * transaction carries only meta and stays out of the undo history, and no input event is raised, because
+ * rejecting does not edit the document.
+ *
+ * @param {object} view - EditorView
+ * @param {string[]} ids
+ * @returns {{rejected: string[], skipped: {id: string, reason: string}[]}}
+ */
+export function rejectSuggestions(view, ids) {
+  const { chosen, skipped } = sortIds(view.state, ids)
+  if (chosen.length === 0) return { rejected: [], skipped }
+  const rejected = chosen.map(s => s.id)
+  view.dispatch(view.state.tr.setMeta('addToHistory', false).setMeta(suggestionsKey, { rejected }))
+  return { rejected, skipped }
+}
+
+/**
+ * The pending suggestion to visit from the selection: for 'next' the first whose start is after the start of
+ * the selection, for 'previous' the last whose start is before it, wrapping round when there is none. Null
+ * when nothing is pending. (The start, not the head: after a visit the selection covers the range, and
+ * 'previous' must not answer with the range just visited.)
+ *
+ * @param {object} state - EditorState
+ * @param {'next'|'previous'} direction
+ * @returns {object|null} a pending suggestion
+ */
+export function nextSuggestionTarget(state, direction) {
+  const pending = [...getSuggestions(state).pending].sort((a, b) => a.from - b.from)
+  if (pending.length === 0) return null
+  const at = state.selection.from
+  if (direction === 'previous') {
+    return [...pending].reverse().find(s => s.from < at) ?? pending[pending.length - 1]
+  }
+  return pending.find(s => s.from > at) ?? pending[0]
+}
+
+/**
+ * Select the range of the next or previous pending suggestion and scroll it into view.
+ *
+ * @param {object} view - EditorView
+ * @param {'next'|'previous'} direction
+ * @returns {{found: boolean, id?: string, block?: number}}
+ */
+export function goToSuggestion(view, direction) {
+  const target = nextSuggestionTarget(view.state, direction)
+  if (!target) return { found: false }
+  const selection = TextSelection.create(view.state.doc, target.from, target.to)
+  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView())
+  return { found: true, id: target.id, block: target.block }
 }

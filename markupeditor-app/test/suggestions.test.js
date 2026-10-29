@@ -1,10 +1,13 @@
 import { describe, test, expect } from 'vitest'
-import { MU, EditorState, AllSelection } from 'markupeditor'
-import { history, undo, redo } from 'prosemirror-history'
+import { MU, EditorState, AllSelection, TextSelection } from 'markupeditor'
+import { history, undo, redo, undoDepth } from 'prosemirror-history'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 import { describeBlocks } from '../src/doc-blocks.js'
-import { findInBlock, planProposals, suggestionsKey, suggestionsPlugin, getSuggestions } from '../src/suggestions.js'
+import {
+  findInBlock, planProposals, suggestionsKey, suggestionsPlugin, getSuggestions,
+  acceptSuggestions, rejectSuggestions, nextSuggestionTarget, goToSuggestion,
+} from '../src/suggestions.js'
 
 const { schema } = MU
 
@@ -567,5 +570,244 @@ describe('suggestionsPlugin, replacing the whole document', () => {
     const state = catState()
     const after = state.apply(state.tr.setMeta('addToHistory', false).setMeta(suggestionsKey, { add: [] }))
     expect(getSuggestions(after).pending.length).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// accept, reject, navigate
+// ---------------------------------------------------------------------------
+
+/** A stand-in for an EditorView: state, dispatch (recorded), and the DOM events dispatched on it. */
+function fakeView(state) {
+  const view = {
+    state,
+    transactions: [],
+    events: [],
+    dom: { dispatchEvent(event) { view.events.push(event.type) } },
+    dispatch(tr) { view.transactions.push(tr); view.state = view.state.apply(tr) },
+    updateState(next) { view.state = next },
+  }
+  return view
+}
+
+const threeInOne = () => propose(withPlugin(doc(p('alpha beta gamma delta'))),
+  { block: 0, find: 'alpha', replace: 'A' }, { block: 0, find: 'gamma', replace: 'GG' }, { block: 0, find: 'delta', replace: '' })
+const undoOnce = (state) => { let next; expect(undo(state, (tr) => { next = state.apply(tr) })).toBe(true); return next }
+const redoOnce = (state) => { let next; expect(redo(state, (tr) => { next = state.apply(tr) })).toBe(true); return next }
+
+describe('acceptSuggestions', () => {
+  test('puts the replacement in the document and records the suggestion as accepted', () => {
+    const view = fakeView(catState())
+    const result = acceptSuggestions(view, ['s1'])
+    expect(result).toEqual({ accepted: ['s1'], skipped: [] })
+    expect(view.state.doc.textContent).toBe('the dog sat')
+    expect(getSuggestions(view.state).pending).toEqual([])
+    expect(getSuggestions(view.state).resolved).toEqual([{ id: 's1', status: 'accepted', find: 'cat', replace: 'dog', block: 0 }])
+  })
+
+  test('the replacement inherits the marks of the first character of the range', () => {
+    const view = fakeView(propose(withPlugin(doc(p('plain ', bold('bold'), ' plain'))), { block: 0, find: 'bold', replace: 'strong' }))
+    acceptSuggestions(view, ['s1'])
+    const marked = []
+    view.state.doc.descendants((node) => { if (node.isText && node.marks.length) marked.push([node.text, node.marks.map(m => m.type.name)]) })
+    expect(marked).toEqual([['strong', ['strong']]])
+  })
+
+  test('an empty replacement deletes the text', () => {
+    const view = fakeView(propose(withPlugin(doc(p('very good'))), { block: 0, find: 'very ', replace: '' }))
+    acceptSuggestions(view, ['s1'])
+    expect(view.state.doc.textContent).toBe('good')
+  })
+
+  test('a later pending suggestion in the same paragraph is still correct after an accept', () => {
+    const view = fakeView(propose(withPlugin(doc(p('alpha beta gamma'))),
+      { block: 0, find: 'alpha', replace: 'a much longer replacement' }, { block: 0, find: 'gamma', replace: 'g' }))
+    acceptSuggestions(view, ['s1'])
+    const rest = getSuggestions(view.state).pending
+    expect(rest.map(s => s.id)).toEqual(['s2'])
+    expect(textOf(view.state, rest[0])).toBe('gamma')
+  })
+
+  test('the caret ends after the last replacement', () => {
+    const view = fakeView(catState())
+    acceptSuggestions(view, ['s1'])
+    expect(view.state.selection.empty).toBe(true)
+    expect(view.state.selection.from).toBe(8)
+  })
+
+  test('is one transaction, tells the host the document changed once, and one undo restores the original exactly', () => {
+    const original = catState()
+    const view = fakeView(original)
+    acceptSuggestions(view, ['s1'])
+    expect(view.transactions.filter(tr => tr.docChanged).length).toBe(1)
+    expect(view.events).toEqual(['input'])
+    const changed = view.state
+    const undone = undoOnce(changed)
+    expect(undone.doc.eq(original.doc)).toBe(true)
+    expect(redoOnce(undone).doc.eq(changed.doc)).toBe(true)
+  })
+
+  test('the change carries closeHistory$, and a second transaction closes the event after it', () => {
+    const view = fakeView(catState())
+    acceptSuggestions(view, ['s1'])
+    expect(view.transactions.length).toBe(2)
+    expect(view.transactions[0].docChanged).toBe(true)
+    expect(view.transactions[0].getMeta('closeHistory$')).toBe(true)
+    expect(view.transactions[1].docChanged).toBe(false)
+    expect(view.transactions[1].getMeta('closeHistory$')).toBe(true)
+  })
+
+  // History joins two changes into one undo event when they come close in time and touch, so these type right
+  // beside the range: at its end before the accept, and at the end of the replacement after it.
+  test('the accept is its own undo event even straight after typing beside the range', () => {
+    let state = catState()
+    state = state.apply(state.tr.insertText('X', 8))
+    const typed = state.doc
+    expect(typed.textContent).toBe('the catX sat')
+    const view = fakeView(state)
+    acceptSuggestions(view, ['s1'])
+    expect(view.state.doc.textContent).toBe('the dogX sat')
+    expect(undoOnce(view.state).doc.eq(typed)).toBe(true)
+  })
+
+  test('typing right after an accept is its own undo event', () => {
+    const view = fakeView(catState())
+    acceptSuggestions(view, ['s1'])
+    const accepted = view.state.doc
+    view.dispatch(view.state.tr.insertText('Y', 8))
+    expect(view.state.doc.textContent).toBe('the dogY sat')
+    expect(undoOnce(view.state).doc.eq(accepted)).toBe(true)
+  })
+
+  test('undoing an accept restores the text but leaves the record accepted', () => {
+    const view = fakeView(catState())
+    acceptSuggestions(view, ['s1'])
+    const undone = undoOnce(view.state)
+    expect(undone.doc.textContent).toBe('the cat sat')
+    const { pending, resolved } = getSuggestions(undone)
+    expect(pending).toEqual([])
+    expect(resolved.map(r => [r.id, r.status])).toEqual([['s1', 'accepted']])
+  })
+
+  test('a stale or unknown id leaves the document alone and says so', () => {
+    let state = catState()
+    state = state.apply(state.tr.insertText('Z', 6))              // typing inside makes s1 stale
+    const view = fakeView(state)
+    const before = view.state.doc
+    const result = acceptSuggestions(view, ['s1', 's42'])
+    expect(result.accepted).toEqual([])
+    expect(result.skipped.map(x => x.id)).toEqual(['s1', 's42'])
+    expect(result.skipped[0].reason).toMatch(/stale/)
+    expect(result.skipped[1].reason).toMatch(/unknown/)
+    expect(view.state.doc.eq(before)).toBe(true)
+    expect(view.transactions).toEqual([])
+    expect(view.events).toEqual([])
+  })
+
+  test('accepting some and skipping others applies the ones that can be', () => {
+    const view = fakeView(threeInOne())
+    const result = acceptSuggestions(view, ['s2', 's99'])
+    expect(result.accepted).toEqual(['s2'])
+    expect(result.skipped.map(x => x.id)).toEqual(['s99'])
+    expect(view.state.doc.textContent).toBe('alpha beta GG delta')
+  })
+
+  test('accepting all three in one paragraph is one transaction and one undo step', () => {
+    const original = threeInOne()
+    const view = fakeView(original)
+    const result = acceptSuggestions(view, ['s1', 's2', 's3'])
+    expect(result.accepted).toEqual(['s1', 's2', 's3'])
+    expect(view.state.doc.textContent).toBe('A beta GG ')
+    expect(view.transactions.filter(tr => tr.docChanged).length).toBe(1)
+    expect(view.events).toEqual(['input'])
+    expect(getSuggestions(view.state).resolved.map(r => r.status)).toEqual(['accepted', 'accepted', 'accepted'])
+    expect(undoDepth(view.state)).toBe(1)
+    expect(undoOnce(view.state).doc.eq(original.doc)).toBe(true)
+  })
+
+  test('the ids given in any order, or twice, give the same result', () => {
+    const view = fakeView(threeInOne())
+    acceptSuggestions(view, ['s3', 's1', 's1'])
+    expect(view.state.doc.textContent).toBe('A beta gamma ')
+  })
+
+  test('no ids, or ids that are not an array, change nothing', () => {
+    const view = fakeView(threeInOne())
+    expect(acceptSuggestions(view, [])).toEqual({ accepted: [], skipped: [] })
+    expect(acceptSuggestions(view, undefined).accepted).toEqual([])
+    expect(view.transactions).toEqual([])
+  })
+})
+
+describe('rejectSuggestions', () => {
+  test('records the suggestion as rejected and changes neither the document nor the undo history', () => {
+    const view = fakeView(catState())
+    const before = view.state.doc
+    const depth = undoDepth(view.state)
+    const result = rejectSuggestions(view, ['s1'])
+    expect(result).toEqual({ rejected: ['s1'], skipped: [] })
+    expect(view.state.doc.eq(before)).toBe(true)
+    expect(undoDepth(view.state)).toBe(depth)
+    expect(view.events).toEqual([])                                // rejecting does not dirty the document
+    expect(getSuggestions(view.state).resolved.map(r => [r.id, r.status])).toEqual([['s1', 'rejected']])
+    expect(view.transactions.length).toBe(1)
+    expect(view.transactions[0].getMeta('addToHistory')).toBe(false)
+  })
+
+  test('reject of several, a stale one, and an unknown one', () => {
+    let state = threeInOne()
+    state = state.apply(state.tr.insertText('Z', 3))               // inside alpha: s1 goes stale
+    const view = fakeView(state)
+    const result = rejectSuggestions(view, ['s1', 's2', 's77'])
+    expect(result.rejected).toEqual(['s2'])
+    expect(result.skipped.map(x => x.id)).toEqual(['s1', 's77'])
+    expect(getSuggestions(view.state).pending.map(s => s.id)).toEqual(['s3'])
+  })
+})
+
+describe('next and previous', () => {
+  // 'a1 b2 c3' : three suggestions in one paragraph, text starting at position 1
+  const three = () => propose(withPlugin(doc(p('a1 b2 c3'))),
+    { block: 0, find: 'a1', replace: 'A' }, { block: 0, find: 'b2', replace: 'B' }, { block: 0, find: 'c3', replace: 'C' })
+
+  test('nextSuggestionTarget is the first suggestion after the caret, wrapping, and null when there is none', () => {
+    const state = three()
+    expect(state.selection.from).toBe(1)
+    expect(nextSuggestionTarget(state, 'next').id).toBe('s2')       // s1 starts at the caret, not after it
+    const atEnd = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 9)))
+    expect(nextSuggestionTarget(atEnd, 'next').id).toBe('s1')       // wraps
+    expect(nextSuggestionTarget(withPlugin(doc(p('x'))), 'next')).toBeNull()
+  })
+
+  test('previousSuggestionTarget is the last suggestion before the caret, wrapping', () => {
+    const state = three()
+    expect(nextSuggestionTarget(state, 'previous').id).toBe('s3')   // nothing before the start: wraps
+    const mid = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 6)))
+    expect(nextSuggestionTarget(mid, 'previous').id).toBe('s2')
+  })
+
+  test('goToSuggestion selects the range, and next then previous round-trips', () => {
+    const view = fakeView(three())
+    const first = goToSuggestion(view, 'next')
+    expect(first).toEqual({ found: true, id: 's2', block: 0 })
+    expect([view.state.selection.from, view.state.selection.to]).toEqual([4, 6])
+    expect(goToSuggestion(view, 'next').id).toBe('s3')
+    expect(goToSuggestion(view, 'next').id).toBe('s1')              // wraps
+    expect(goToSuggestion(view, 'next').id).toBe('s2')
+    expect(goToSuggestion(view, 'previous').id).toBe('s1')
+    expect(goToSuggestion(view, 'previous').id).toBe('s3')          // wraps backwards
+    expect(view.events).toEqual([])
+  })
+
+  test('goToSuggestion with nothing pending finds nothing and dispatches nothing', () => {
+    const view = fakeView(withPlugin(doc(p('x'))))
+    expect(goToSuggestion(view, 'next')).toEqual({ found: false })
+    expect(view.transactions).toEqual([])
+  })
+
+  test('resolved suggestions are skipped', () => {
+    const view = fakeView(three())
+    rejectSuggestions(view, ['s2'])
+    expect(goToSuggestion(view, 'next').id).toBe('s3')
   })
 })
