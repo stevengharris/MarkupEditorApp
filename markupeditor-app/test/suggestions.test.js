@@ -348,6 +348,15 @@ describe('planProposals, replace and note', () => {
     }
   })
 
+  test('U+009F, the last C1 control character, is refused in replace and in note', () => {
+    const inReplace = planOne(doc(p('one')), { block: 0, find: 'one', replace: 'a\u009fb' })
+    expect(inReplace.result.status).toBe('refused')
+    expect(inReplace.result.reason).toMatch(/replace must not contain line breaks or other control characters/)
+    const inNote = planOne(doc(p('one')), { block: 0, find: 'one', replace: '1', note: 'a\u009fb' })
+    expect(inNote.result.status).toBe('refused')
+    expect(inNote.result.reason).toMatch(/note must not contain line breaks or other control characters/)
+  })
+
   test('ordinary punctuation, accents, emoji and spaces are not control characters', () => {
     const { result } = planOne(doc(p('one')), { block: 0, find: 'one', replace: 'café 😀 "q" \u00a0x', note: 'ok: yes, é' })
     expect(result.status).toBe('proposed')
@@ -603,6 +612,16 @@ describe('suggestionsPlugin, a user edit inside the range makes it stale', () =>
     expect(getSuggestions(after).resolved.map(r => r.reason)).toEqual(['edited'])
     const typedElsewhere = state.apply(state.tr.insertText('Z', 1).setMeta('addToHistory', false))
     expect(getSuggestions(typedElsewhere).pending.length).toBe(1)
+  })
+
+  test('a non-spanning edit that starts at position 0 and stays out of history is still an edit', () => {
+    // The step's range begins at the document start but ends well before its end, so it is not a replaced document.
+    const state = catState()
+    const tr = state.tr.delete(0, 8).setMeta('addToHistory', false)
+    expect(tr.docChanged).toBe(true)
+    expect(tr.mapping.maps[0].ranges[0]).toBe(0)
+    expect(tr.mapping.maps[0].ranges[0] + tr.mapping.maps[0].ranges[1]).toBeLessThan(state.doc.content.size)
+    expectEdited(state.apply(tr))
   })
 
   test('a resolved record takes its block from the document before the transaction', () => {
