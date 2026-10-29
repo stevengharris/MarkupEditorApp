@@ -13,6 +13,9 @@ import { getSelectionBlockIndex, selectBlockIndex, blockIndexAtOffset, offsetFor
 import { getBlocks } from "./doc-blocks.js"
 import { selectText } from "./select-text.js"
 import { replaceBlocks } from "./replace-blocks.js"
+import {
+  proposeEdits, listSuggestions, nextSuggestion, previousSuggestion, acceptAllSuggestions, rejectAllSuggestions,
+} from "./suggestions.js"
 
 // Register the delegate so it can be looked up by name when the MarkupEditor instance is created.
 MU.registerDelegate(new MarkupEditorDelegate())
@@ -27,6 +30,12 @@ MU.offsetForBlockIndex = offsetForBlockIndex
 MU.getBlocks = getBlocks
 MU.replaceBlocks = replaceBlocks
 MU.selectText = selectText
+MU.proposeEdits = proposeEdits
+MU.listSuggestions = listSuggestions
+MU.nextSuggestion = nextSuggestion
+MU.previousSuggestion = previousSuggestion
+MU.acceptAllSuggestions = acceptAllSuggestions
+MU.rejectAllSuggestions = rejectAllSuggestions
 // Override markupeditor-base MU.insertTable to force a header in Markdown
 MU.insertTable = makeInsertTableWithHeader(MU.insertTable, () => MU.activeView())
 

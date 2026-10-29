@@ -1,14 +1,17 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { MU, EditorState, EditorView, AllSelection, TextSelection } from 'markupeditor'
+import { MU, EditorState, EditorView, AllSelection, TextSelection, DOMSerializer } from 'markupeditor'
 import { history, undo, redo, undoDepth } from 'prosemirror-history'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
+import { makeSerializer } from '../src/serializer.js'
+import { planReplace } from '../src/replace-blocks.js'
 import { describeBlocks } from '../src/doc-blocks.js'
 import {
   findInBlock, planProposals, suggestionsKey, suggestionsPlugin, getSuggestions,
   acceptSuggestions, rejectSuggestions, nextSuggestionTarget, goToSuggestion, buildWidget,
+  ensureInstalled, proposeEdits, listSuggestions, nextSuggestion, previousSuggestion, acceptAllSuggestions, rejectAllSuggestions,
 } from '../src/suggestions.js'
 
 const { schema } = MU
@@ -980,5 +983,256 @@ describe('the stylesheet', () => {
     expect(css).toMatch(/\.suggestion-new\s*\{/)
     expect(css).toMatch(/\.suggestion-new button\s*\{/)
     expect(css).toMatch(/prefers-color-scheme: dark\)\s*\{\s*\.suggestion-old\s*\{[^}]*\}\s*\.suggestion-new\s*\{/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// the MU surface
+// ---------------------------------------------------------------------------
+
+afterEach(() => vi.restoreAllMocks())
+
+/** A fake view over a state WITHOUT the suggestions plugin, as the editor is before the first proposal. */
+const plainView = (document) => fakeView(stateOf(document))
+const active = (view) => vi.spyOn(MU, 'activeView').mockReturnValue(view)
+const hashesOfDoc = (document) => describeBlocks(document, {}).blocks.map(b => b.hash)
+const plugins = (state) => state.plugins.filter(pl => pl.spec.key === suggestionsKey)
+const edit = (document, block, find, replace, extra = {}) => ({ block, expected: hashOf(document, block), find, replace, ...extra })
+
+describe('ensureInstalled', () => {
+  test('adds the plugin once, however many times it is called', () => {
+    const view = plainView(doc(p('one')))
+    expect(plugins(view.state).length).toBe(0)
+    ensureInstalled(view)
+    ensureInstalled(view)
+    expect(plugins(view.state).length).toBe(1)
+  })
+
+  test('history and the user\'s earlier edits survive the reconfigure', () => {
+    const view = plainView(doc(p('one')))
+    view.dispatch(view.state.tr.insertText('X', 1))
+    expect(undoDepth(view.state)).toBe(1)
+    ensureInstalled(view)
+    expect(undoDepth(view.state)).toBe(1)
+    expect(undoOnce(view.state).doc.textContent).toBe('one')
+  })
+})
+
+describe('proposeEdits', () => {
+  test('with no active view it says so instead of throwing', () => {
+    active(undefined)
+    expect(JSON.parse(proposeEdits([]))).toEqual({ ok: false, reason: 'No active view' })
+  })
+
+  test('an exception inside becomes a refusal, never an exception across the bridge', () => {
+    active({ get state() { throw new Error('boom') } })
+    const result = JSON.parse(proposeEdits([{}]))
+    expect(result.ok).toBe(false)
+    expect(result.reason).toMatch(/boom/)
+  })
+
+  test('edits must be an array of 1 to 200', () => {
+    active(plainView(doc(p('one'))))
+    for (const bad of [undefined, null, 'x', {}, []]) {
+      const result = JSON.parse(proposeEdits(bad))
+      expect(result.ok).toBe(false)
+      expect(result.reason).toMatch(/edits must be an array of 1 to 200/)
+    }
+    expect(JSON.parse(proposeEdits(new Array(201).fill({}))).ok).toBe(false)
+  })
+
+  test('returns a result per edit, with ids and blocks for those proposed and a reason for the others', () => {
+    const document = doc(p('one two'), p('three'))
+    active(plainView(document))
+    const result = JSON.parse(proposeEdits([
+      edit(document, 0, 'one', '1'), edit(document, 1, 'nope', 'x'), edit(document, 1, 'three', '3', { note: 'n' }),
+    ]))
+    expect(result.ok).toBe(true)
+    expect(result.results[0]).toEqual({ index: 0, status: 'proposed', id: 's1', block: 0 })
+    expect(result.results[1]).toMatchObject({ index: 1, status: 'refused' })
+    expect(result.results[1].reason).toMatch(/not found/)
+    expect(result.results[2]).toEqual({ index: 2, status: 'proposed', id: 's2', block: 1 })
+  })
+
+  test('installs the plugin once, leaves the document and every block hash alone, and raises no input event', () => {
+    const document = doc(p('one two'), p('three four'))
+    const view = plainView(document)
+    active(view)
+    const hashes = hashesOfDoc(document)
+    proposeEdits([edit(document, 0, 'one', '1')])
+    proposeEdits([edit(document, 1, 'four', '4')])
+    expect(plugins(view.state).length).toBe(1)
+    expect(view.state.doc.eq(document)).toBe(true)
+    expect(hashesOfDoc(view.state.doc)).toEqual(hashes)
+    expect(view.events).toEqual([])
+    expect(view.transactions.every(tr => !tr.docChanged)).toBe(true)
+    expect(undoDepth(view.state)).toBe(0)
+    expect(getSuggestions(view.state).pending.map(s => s.id)).toEqual(['s1', 's2'])
+  })
+
+  test('a batch where every edit is refused dispatches nothing and installs nothing', () => {
+    const document = doc(p('one'))
+    const view = plainView(document)
+    active(view)
+    const result = JSON.parse(proposeEdits([edit(document, 0, 'missing', 'x')]))
+    expect(result.results[0].status).toBe('refused')
+    expect(view.transactions).toEqual([])
+    expect(plugins(view.state).length).toBe(0)
+  })
+
+  test('a second proposal that overlaps a pending one is refused', () => {
+    const document = doc(p('the quick fox'))
+    active(plainView(document))
+    proposeEdits([edit(document, 0, 'quick', 'slow')])
+    const result = JSON.parse(proposeEdits([edit(document, 0, 'quick fox', 'x')]))
+    expect(result.results[0].reason).toMatch(/overlap/)
+  })
+})
+
+describe('what a save and an export write', () => {
+  test('is the original text: the document holds no suggestion markup while suggestions are pending', () => {
+    const source = parse('# Title\n\nThe cat sat on the mat.\n\n* one\n* two')
+    const view = plainView(source)
+    active(view)
+    const html = () => {
+      const holder = globalThis.document.createElement('div')
+      holder.appendChild(DOMSerializer.fromSchema(schema).serializeFragment(view.state.doc.content))
+      return holder.innerHTML
+    }
+    const markdown = () => makeSerializer(makeWarnings()).serialize(view.state.doc, { escapeExtraCharacters: /</g })
+    const htmlBefore = html()
+    const markdownBefore = markdown()
+    const result = JSON.parse(proposeEdits([edit(source, 1, 'cat', 'dog', { note: 'prefer dogs' }), edit(source, 2, 'one', '1')]))
+    expect(result.results.map(r => r.status)).toEqual(['proposed', 'proposed'])
+    expect(getSuggestions(view.state).pending.length).toBe(2)
+    expect(html()).toBe(htmlBefore)                       // what MU.getHTML serializes: state.doc, not the DOM
+    expect(markdown()).toBe(markdownBefore)               // what an export serializes
+    for (const out of [html(), markdown()]) {
+      expect(out).not.toMatch(/suggestion/)
+      expect(out).toContain('cat')
+      expect(out).not.toContain('dog')
+    }
+  })
+})
+
+describe('listSuggestions', () => {
+  const setup = () => {
+    const document = doc(p('alpha beta gamma delta'))
+    const view = plainView(document)
+    active(view)
+    proposeEdits([edit(document, 0, 'alpha', 'A', { note: 'first' }), edit(document, 0, 'beta', 'B'), edit(document, 0, 'gamma', 'G'), edit(document, 0, 'delta', 'D')])
+    return view
+  }
+  const list = () => JSON.parse(listSuggestions())
+
+  test('with no active view it says so; with no plugin installed it is an empty list', () => {
+    active(undefined)
+    expect(JSON.parse(listSuggestions())).toEqual({ ok: false, reason: 'No active view' })
+    active(plainView(doc(p('x'))))
+    expect(list()).toEqual({ ok: true, suggestions: [] })
+  })
+
+  test('shows pending, then accepted, rejected and stale after those events, in creation order', () => {
+    const view = setup()
+    expect(list().suggestions).toEqual([
+      { id: 's1', status: 'pending', block: 0, find: 'alpha', replace: 'A', note: 'first' },
+      { id: 's2', status: 'pending', block: 0, find: 'beta', replace: 'B' },
+      { id: 's3', status: 'pending', block: 0, find: 'gamma', replace: 'G' },
+      { id: 's4', status: 'pending', block: 0, find: 'delta', replace: 'D' },
+    ])
+    acceptSuggestions(view, ['s3'])
+    rejectSuggestions(view, ['s2'])
+    view.dispatch(view.state.tr.insertText('Z', 2))                // inside alpha
+    expect(list().suggestions.map(x => [x.id, x.status, x.reason])).toEqual([
+      ['s1', 'stale', 'edited'], ['s2', 'rejected', undefined], ['s3', 'accepted', undefined], ['s4', 'pending', undefined]])
+    expect(list().suggestions[0]).toEqual({ id: 's1', status: 'stale', reason: 'edited', block: 0, find: 'alpha', replace: 'A', note: 'first' })
+  })
+
+  test('a replaced document leaves the records, reason document-replaced', () => {
+    const view = setup()
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc))
+      .replaceSelectionWith(doc(p('fresh')), false).setMeta('addToHistory', false))
+    const out = list().suggestions
+    expect(out.length).toBe(4)
+    expect(out.every(x => x.status === 'stale' && x.reason === 'document-replaced')).toBe(true)
+  })
+
+  test('ids keep counting after resolutions', () => {
+    const view = setup()
+    rejectAllSuggestions()
+    const document = view.state.doc
+    const more = JSON.parse(proposeEdits([edit(document, 0, 'alpha', 'A2')]))
+    expect(more.results[0].id).toBe('s5')
+  })
+})
+
+describe('navigation and bulk', () => {
+  const setup = () => {
+    const document = doc(p('a1 b2 c3'))
+    const view = plainView(document)
+    active(view)
+    proposeEdits([edit(document, 0, 'a1', 'A'), edit(document, 0, 'b2', 'B'), edit(document, 0, 'c3', 'C')])
+    return view
+  }
+
+  test('next and previous answer with the suggestion visited, or found false', () => {
+    setup()
+    expect(JSON.parse(nextSuggestion())).toEqual({ ok: true, found: true, id: 's2', block: 0 })
+    expect(JSON.parse(previousSuggestion())).toEqual({ ok: true, found: true, id: 's1', block: 0 })
+    active(plainView(doc(p('x'))))
+    expect(JSON.parse(nextSuggestion())).toEqual({ ok: true, found: false })
+    active(undefined)
+    expect(JSON.parse(previousSuggestion())).toEqual({ ok: false, reason: 'No active view' })
+  })
+
+  test('accept all raises exactly one input event and is one undo step; reject all raises none', () => {
+    const view = setup()
+    expect(JSON.parse(acceptAllSuggestions())).toEqual({ ok: true, count: 3 })
+    expect(view.state.doc.textContent).toBe('A B C')
+    expect(view.events).toEqual(['input'])
+    expect(undoDepth(view.state)).toBe(1)
+
+    const second = setup()
+    expect(JSON.parse(rejectAllSuggestions())).toEqual({ ok: true, count: 3 })
+    expect(second.state.doc.textContent).toBe('a1 b2 c3')
+    expect(second.events).toEqual([])
+    expect(listSuggestionsOf(second)).toEqual(['rejected', 'rejected', 'rejected'])
+  })
+
+  test('with nothing pending both bulk commands count zero and change nothing', () => {
+    const view = plainView(doc(p('x')))
+    active(view)
+    expect(JSON.parse(acceptAllSuggestions())).toEqual({ ok: true, count: 0 })
+    expect(JSON.parse(rejectAllSuggestions())).toEqual({ ok: true, count: 0 })
+    expect(view.transactions).toEqual([])
+    expect(view.events).toEqual([])
+  })
+
+  function listSuggestionsOf(view) {
+    active(view)
+    return JSON.parse(listSuggestions()).suggestions.map(x => x.status)
+  }
+})
+
+describe('interaction with replace_blocks', () => {
+  test('replacing a block that holds a pending suggestion makes it stale, reason edited', () => {
+    const document = doc(p('first'), p('the cat sat'), p('last'))
+    const view = plainView(document)
+    active(view)
+    proposeEdits([edit(document, 1, 'cat', 'dog')])
+    const plan = planReplace(view.state, { index: 1, count: 1, markdown: 'brand new text', expected: [hashOf(document, 1)], allowLoss: false })
+    expect(plan.ok, plan.reason).toBe(true)
+    view.dispatch(plan.tr)
+    const out = JSON.parse(listSuggestions()).suggestions
+    expect(out).toEqual([{ id: 's1', status: 'stale', reason: 'edited', block: 1, find: 'cat', replace: 'dog' }])
+  })
+})
+
+describe('app.js wiring', () => {
+  test('puts the six functions on MU', async () => {
+    await import('../src/app.js')
+    for (const name of ['proposeEdits', 'listSuggestions', 'nextSuggestion', 'previousSuggestion', 'acceptAllSuggestions', 'rejectAllSuggestions']) {
+      expect(typeof MU[name], name).toBe('function')
+    }
   })
 })

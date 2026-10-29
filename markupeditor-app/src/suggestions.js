@@ -1,4 +1,4 @@
-import { Plugin, PluginKey, TextSelection, Decoration, DecorationSet } from 'markupeditor'
+import { MU, Plugin, PluginKey, TextSelection, Decoration, DecorationSet } from 'markupeditor'
 import { describeBlocks, firstEditableOf, hashMarkdown } from './doc-blocks.js'
 import { blockIndexForPos } from './blocks.js'
 
@@ -432,3 +432,98 @@ function suggestionDecorations(state) {
   }
   return DecorationSet.create(state.doc, decorations)
 }
+
+// ---------------------------------------------------------------------------
+// The MU surface
+// ---------------------------------------------------------------------------
+
+const MAX_EDITS = 200
+
+/**
+ * Add the suggestions plugin to `view` if it does not have it. Safe to call repeatedly. Reconfiguring keeps the
+ * state of the plugins already there, history included.
+ *
+ * @param {object} view - EditorView
+ */
+export function ensureInstalled(view) {
+  if (suggestionsKey.get(view.state)) return
+  view.updateState(view.state.reconfigure({ plugins: [...view.state.plugins, suggestionsPlugin()] }))
+}
+
+/**
+ * Wrap `run(view, ...args)` as an MU-facing function: it finds the active view, answers JSON, and turns a
+ * missing view or any exception into `{ok: false, reason}`, so nothing throws across the JS/Swift bridge.
+ */
+function bridge(name, run) {
+  return (...args) => {
+    const view = MU.activeView()
+    if (!view) return JSON.stringify({ ok: false, reason: 'No active view' })
+    try {
+      return JSON.stringify(run(view, ...args))
+    } catch (error) {
+      return JSON.stringify({ ok: false, reason: `${name} failed: ${error.message}` })
+    }
+  }
+}
+
+/**
+ * Propose edits as suggestions in the active editor: see planProposals for the edit shape and the refusals.
+ * Nothing in the document changes, nothing enters the undo history, and the host is not told the document was
+ * edited. Installs the plugin when the first suggestion is proposed.
+ *
+ * @param {object[]} edits - 1 to 200 `{block, expected, find, replace, note?}`
+ * @returns {string} JSON: `{ok: true, results}` where a result is `{index, status: 'proposed', id, block}` or
+ *   `{index, status: 'refused', reason}`; or `{ok: false, reason}`
+ */
+export const proposeEdits = bridge('proposeEdits', (view, edits) => {
+  if (!Array.isArray(edits) || edits.length < 1 || edits.length > MAX_EDITS) {
+    return { ok: false, reason: `edits must be an array of 1 to ${MAX_EDITS} edits` }
+  }
+  const { results, proposals } = planProposals(view.state, edits, getSuggestions(view.state).pending)
+  if (proposals.length > 0) {
+    ensureInstalled(view)
+    // Ids are handed out in order, so the proposed results take them in the same order.
+    let nextId = suggestionsKey.getState(view.state).nextId
+    for (const result of results) if (result.status === 'proposed') result.id = `s${nextId++}`
+    view.dispatch(view.state.tr.setMeta('addToHistory', false).setMeta(suggestionsKey, { add: proposals }))
+  }
+  return { ok: true, results }
+})
+
+/**
+ * Every suggestion, pending and resolved, in creation order.
+ *
+ * @returns {string} JSON: `{ok: true, suggestions: [{id, status, block, find, replace, note?, reason?}]}` where
+ *   status is 'pending', 'accepted', 'rejected' or 'stale' and reason ('edited' or 'document-replaced') is
+ *   given for stale ones; or `{ok: false, reason}`
+ */
+export const listSuggestions = bridge('listSuggestions', (view) => {
+  const { pending, resolved } = getSuggestions(view.state)
+  const entry = (s, status) => {
+    const out = { id: s.id, status: s.status ?? status, block: s.block, find: s.find, replace: s.replace }
+    if (s.note !== undefined) out.note = s.note
+    if (s.reason) out.reason = s.reason
+    return out
+  }
+  const all = [...pending.map(s => entry(s, 'pending')), ...resolved.map(r => entry(r))]
+  all.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
+  return { ok: true, suggestions: all }
+})
+
+/** Select the next pending suggestion. @returns {string} JSON: `{ok: true, found, id?, block?}` */
+export const nextSuggestion = bridge('nextSuggestion', (view) => ({ ok: true, ...goToSuggestion(view, 'next') }))
+
+/** Select the previous pending suggestion. @returns {string} JSON: `{ok: true, found, id?, block?}` */
+export const previousSuggestion = bridge('previousSuggestion', (view) => ({ ok: true, ...goToSuggestion(view, 'previous') }))
+
+/** Accept every pending suggestion in one undo step. @returns {string} JSON: `{ok: true, count}` */
+export const acceptAllSuggestions = bridge('acceptAllSuggestions', (view) => {
+  const ids = getSuggestions(view.state).pending.map(s => s.id)
+  return { ok: true, count: acceptSuggestions(view, ids).accepted.length }
+})
+
+/** Reject every pending suggestion. @returns {string} JSON: `{ok: true, count}` */
+export const rejectAllSuggestions = bridge('rejectAllSuggestions', (view) => {
+  const ids = getSuggestions(view.state).pending.map(s => s.id)
+  return { ok: true, count: rejectSuggestions(view, ids).rejected.length }
+})
