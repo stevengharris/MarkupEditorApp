@@ -3,7 +3,7 @@ import { describeBlocks, firstEditableOf, hashMarkdown } from './doc-blocks.js'
 import { blockIndexForPos } from './blocks.js'
 
 // Stands in for each non-text inline node (image, line break) so string offsets stay equal to positions.
-const LEAF = '￼'
+const LEAF = '\uFFFC'
 
 // The meta key prosemirror-history reads to end the current undo event, so an accept is not undone together
 // with the user's typing before it, nor typing right after it with the accept (see replace-blocks.js).
@@ -23,7 +23,8 @@ function blockStarts(doc) {
  *
  * Matching is exact and case-sensitive (an edit must be precise; select-text.js's findText is
  * case-insensitive and is not reused). A match lies inside one textblock, so it never spans two list items
- * or two table cells. Descendants of a list, quote or table count. Matches within a textblock do not
+ * or two table cells. Descendants of a list, quote or table count, except code blocks (also those nested in a
+ * list or quote), which suggestions never touch unless `includeCode` is set. Matches within a textblock do not
  * overlap. Positions are absolute in `doc`, and offsets after an inline image or hard break stay positions.
  *
  * Pure: reads `doc` and nothing else. A bad block index or an empty or non-string needle finds nothing.
@@ -31,9 +32,10 @@ function blockStarts(doc) {
  * @param {object} doc - ProseMirror doc Node
  * @param {number} blockIndex - index of a top-level block
  * @param {string} find
+ * @param {{includeCode?: boolean}} [options] - `includeCode` also searches code blocks
  * @returns {{matches: {from: number, to: number}[]}}
  */
-export function findInBlock(doc, blockIndex, find) {
+export function findInBlock(doc, blockIndex, find, { includeCode = false } = {}) {
   const matches = []
   if (typeof find !== 'string' || find === '') return { matches }
   if (!Number.isInteger(blockIndex) || blockIndex < 0 || blockIndex >= doc.childCount) return { matches }
@@ -41,6 +43,7 @@ export function findInBlock(doc, blockIndex, find) {
   const block = doc.child(blockIndex)
   doc.nodesBetween(start, start + block.nodeSize, (node, pos) => {
     if (!node.isTextblock) return true
+    if (node.type.name === 'code_block' && !includeCode) return false
     const text = node.textBetween(0, node.content.size, '', LEAF)
     let at = text.indexOf(find)
     while (at !== -1) {
@@ -51,6 +54,10 @@ export function findInBlock(doc, blockIndex, find) {
   })
   return { matches }
 }
+
+// Line breaks and the other control characters (C0, DEL, C1, and the Unicode line and paragraph separators).
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029]/
+const MAX_TEXT_LENGTH = 2000
 
 const overlaps = (a, b) => a.from < b.to && b.from < a.to
 
@@ -82,9 +89,24 @@ function judge(state, edit, taken) {
   if (typeof find !== 'string' || find === '') return { reason: 'find must be a non-empty string' }
   if (typeof replace !== 'string') return { reason: 'replace must be a string (an empty string deletes the text)' }
   if (note !== undefined && typeof note !== 'string') return { reason: 'note must be a string when present' }
+  for (const [name, text] of [['replace', replace], ['note', note]]) {
+    if (text === undefined) continue
+    if (CONTROL_CHARACTERS.test(text)) {
+      return { reason: `${name} must not contain line breaks or other control characters; it is one run of text inside a paragraph` }
+    }
+    if (text.length > MAX_TEXT_LENGTH) return { reason: `${name} must be at most ${MAX_TEXT_LENGTH} characters` }
+  }
 
   const { matches } = findInBlock(doc, block, find)
-  if (matches.length === 0) return { reason: `find not found in block ${block}; matching is exact and case-sensitive within one paragraph, list item or table cell` }
+  if (matches.length === 0) {
+    if (findInBlock(doc, block, find, { includeCode: true }).matches.length > 0) {
+      return { reason: `find occurs in block ${block} only inside a code block; suggestions are for prose` }
+    }
+    return {
+      reason: `find not found in block ${block}; matching is exact and case-sensitive against the visible text of one paragraph, `
+        + 'list item or table cell, without Markdown syntax (leave out ** _ [ ]( ) and backslash escapes)',
+    }
+  }
   if (matches.length > 1) return { reason: `find occurs ${matches.length} times in block ${block}; include more surrounding text so it matches once` }
   if (replace === find) return { reason: 'replace is the same as find; that edit is a no-op' }
 
@@ -96,8 +118,7 @@ function judge(state, edit, taken) {
   const clash = taken.some(other => overlaps({ from, to }, other))
   if (clash) return { reason: 'the range overlaps a pending suggestion; resolve that one first' }
 
-  const marks = doc.nodeAt(from)?.marks ?? []
-  return { proposal: { block, from, to, find, replace, note, marks } }
+  return { proposal: { block, from, to, find, replace, note } }
 }
 
 /**
@@ -110,8 +131,8 @@ function judge(state, edit, taken) {
  * ranges that only touch are allowed.
  *
  * Pure and never throws: bad input becomes a refusal. The returned `proposals` are what the plugin adds
- * (with their ids), in the order of the `proposed` results; each `marks` is the marks of the range's first
- * character, which a replacement inherits.
+ * (with their ids), in the order of the `proposed` results. They carry no marks: a replacement inherits the
+ * marks of the range's first character, read from the document when it is accepted.
  *
  * @param {object} state - EditorState
  * @param {object[]} edits
@@ -148,9 +169,19 @@ export function planProposals(state, edits, pending) {
 
 /**
  * Key of the suggestions plugin. A transaction steers the plugin with meta under this key:
- * `{add: proposals}`, `{accepted: ids}` or `{rejected: ids}`.
+ * `{add: proposals}`, `{accepted: ids}`, `{rejected: ids}` or `{stale: ids}`.
  */
 export const suggestionsKey = new PluginKey('suggestions')
+
+/**
+ * The rendered text of `doc` between `from` and `to`, as findInBlock sees it: a non-text inline node and a
+ * boundary between two textblocks both read as LEAF. The block separator must not be empty: a paragraph split
+ * inside a range would otherwise leave its text equal to `find`.
+ */
+const textOfRange = (doc, from, to) => doc.textBetween(from, to, LEAF, LEAF)
+
+/** Is `s` still over exactly the text it was proposed for in `doc`? */
+const holdsFind = (doc, s) => s.from < s.to && s.to <= doc.content.size && textOfRange(doc, s.from, s.to) === s.find
 
 const emptyState = () => ({ pending: [], resolved: [], nextId: 1 })
 
@@ -186,15 +217,17 @@ function replacesWholeDocument(tr) {
  * it (assoc -1), so an insertion exactly at either boundary lands outside the range. It goes stale, with
  * reason 'edited', when it collapses or its text is no longer `find`; a whole-document replacement makes every
  * pending suggestion stale with reason 'document-replaced'. Stale suggestions are kept as resolved records.
- * Ids named by `accepted` or `rejected` meta move to resolved without being mapped. The `block` of a
+ * Ids named by `accepted`, `rejected` or `stale` meta move to resolved without being mapped (`stale` records
+ * reason 'edited'). The `block` of a
  * resolved record is the block the range was in just before the transaction.
  */
 function applySuggestions(tr, value, oldState, newState) {
   const meta = tr.getMeta(suggestionsKey) ?? {}
   const accepted = new Set(meta.accepted ?? [])
   const rejected = new Set(meta.rejected ?? [])
+  const staled = new Set(meta.stale ?? [])
   const add = meta.add ?? []
-  if (!tr.docChanged && add.length === 0 && accepted.size === 0 && rejected.size === 0) return value
+  if (!tr.docChanged && add.length === 0 && accepted.size === 0 && rejected.size === 0 && staled.size === 0) return value
 
   const wholesale = replacesWholeDocument(tr)
   const pending = []
@@ -203,11 +236,12 @@ function applySuggestions(tr, value, oldState, newState) {
     const resolve = (status, reason) => resolved.push(resolvedRecord(s, blockIndexForPos(oldState.doc, s.from), status, reason))
     if (accepted.has(s.id)) { resolve('accepted'); continue }
     if (rejected.has(s.id)) { resolve('rejected'); continue }
+    if (staled.has(s.id)) { resolve('stale', 'edited'); continue }
     if (!tr.docChanged) { pending.push(s); continue }
     if (wholesale) { resolve('stale', 'document-replaced'); continue }
     const from = tr.mapping.map(s.from, 1)
     const to = tr.mapping.map(s.to, -1)
-    if (from >= to || newState.doc.textBetween(from, to, '', LEAF) !== s.find) { resolve('stale', 'edited'); continue }
+    if (!holdsFind(newState.doc, { ...s, from, to })) { resolve('stale', 'edited'); continue }
     pending.push({ ...s, from, to })
   }
   let nextId = value.nextId
@@ -238,7 +272,7 @@ export function suggestionsPlugin() {
 
 /**
  * The suggestions held by `state`'s plugin: `{pending, resolved}`. A pending suggestion is
- * `{id, from, to, find, replace, note, block, marks}` with `block` recomputed from where its range now is; a
+ * `{id, from, to, find, replace, note, block}` with `block` recomputed from where its range now is; a
  * resolved one is `{id, status, find, replace, note?, block, reason?}`. Empty when the plugin is absent.
  *
  * @param {object} state - EditorState
@@ -279,7 +313,8 @@ function sortIds(state, ids) {
  * Accept the pending suggestions named by `ids`: each range gets its replacement text, in ONE transaction and
  * so one undo step. A replacement carries the marks of the first character it replaces (read from the
  * document as it is now); an empty replacement deletes. Ids that are unknown, already resolved or stale are
- * skipped and reported, and change nothing. The caret ends after the last replacement.
+ * skipped and reported, and change nothing. A pending one whose range no longer holds its `find` text is
+ * recorded as stale ('edited') and skipped too. The caret ends after the last replacement.
  *
  * The change carries closeHistory$, and a second transaction closes the undo event after it, so typing next to
  * it does not join it. The host marks the document edited on DOM input events, which a dispatched
@@ -292,10 +327,19 @@ function sortIds(state, ids) {
  * @returns {{accepted: string[], skipped: {id: string, reason: string}[]}}
  */
 export function acceptSuggestions(view, ids) {
-  const state = view.state
-  const { chosen, skipped } = sortIds(state, ids)
+  const sorted = sortIds(view.state, ids)
+  const skipped = sorted.skipped
+  // Belt and braces: the plugin already makes an edited range stale, but a range whose text is not `find`
+  // must never be replaced, so it is recorded as stale ('edited') and skipped.
+  const chosen = sorted.chosen.filter(s => holdsFind(view.state.doc, s))
+  const changed = sorted.chosen.filter(s => !chosen.includes(s))
+  for (const s of changed) skipped.push({ id: s.id, reason: `suggestion ${s.id} is stale: the text in its range is no longer what it replaces` })
+  if (changed.length > 0) {
+    view.dispatch(view.state.tr.setMeta('addToHistory', false).setMeta(suggestionsKey, { stale: changed.map(s => s.id) }))
+  }
   if (chosen.length === 0) return { accepted: [], skipped }
 
+  const state = view.state
   const byPosition = [...chosen].sort((a, b) => a.from - b.from)
   const tr = state.tr
   // From the last range to the first, so each replacement leaves the positions of those before it alone.
@@ -333,10 +377,10 @@ export function rejectSuggestions(view, ids) {
 }
 
 /**
- * The pending suggestion to visit from the selection: for 'next' the first whose start is after the start of
- * the selection, for 'previous' the last whose start is before it, wrapping round when there is none. Null
- * when nothing is pending. (The start, not the head: after a visit the selection covers the range, and
- * 'previous' must not answer with the range just visited.)
+ * The pending suggestion to visit from the selection: for 'next' the first whose start is at or after the start
+ * of the selection, for 'previous' the last whose start is at or before it, wrapping round when there is none.
+ * Null when nothing is pending. The one suggestion skipped is the one whose range the selection exactly covers,
+ * which is the one just visited; a suggestion starting at a collapsed caret is not skipped.
  *
  * @param {object} state - EditorState
  * @param {'next'|'previous'} direction
@@ -345,11 +389,14 @@ export function rejectSuggestions(view, ids) {
 export function nextSuggestionTarget(state, direction) {
   const pending = [...getSuggestions(state).pending].sort((a, b) => a.from - b.from)
   if (pending.length === 0) return null
-  const at = state.selection.from
+  const { from: at, to: selectedTo } = state.selection
+  // The suggestion just visited has the selection exactly over its range; any other one starting at the
+  // selection's start, a collapsed caret included, has not been visited.
+  const visited = (s) => s.from === at && s.to === selectedTo
   if (direction === 'previous') {
-    return [...pending].reverse().find(s => s.from < at) ?? pending[pending.length - 1]
+    return [...pending].reverse().find(s => s.from <= at && !visited(s)) ?? pending[pending.length - 1]
   }
-  return pending.find(s => s.from > at) ?? pending[0]
+  return pending.find(s => s.from >= at && !visited(s)) ?? pending[0]
 }
 
 /**

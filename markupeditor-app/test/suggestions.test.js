@@ -89,6 +89,19 @@ describe('findInBlock', () => {
     expect(document.textBetween(matches[0].from, matches[0].to)).toBe('cat')
   })
 
+  test('skips code blocks, also when nested in a quote or a list item', () => {
+    const quote = schema.nodes.blockquote.create(null, [p('a cat'), codeBlock('js', 'let cat = 1')])
+    const listItem = schema.nodes.list_item.create(null, [p('a cat'), codeBlock('js', 'let cat = 1')])
+    const list = schema.nodes.bullet_list.create(null, [listItem])
+    for (const block of [quote, list]) {
+      const document = doc(block)
+      const { matches } = findInBlock(document, 0, 'cat')
+      expect(matches.length).toBe(1)
+      expect(document.resolve(matches[0].from).parent.type.name).toBe('paragraph')
+      expect(findInBlock(document, 0, 'let cat').matches).toEqual([])
+    }
+  })
+
   test('an empty or non-string needle, or a bad block index, finds nothing', () => {
     const document = doc(p('abc'))
     expect(findInBlock(document, 0, '').matches).toEqual([])
@@ -242,6 +255,36 @@ describe('planProposals, find', () => {
     expect(result.reason).toMatch(/not found/)
   })
 
+  test('not found says find matches the visible text, without Markdown syntax', () => {
+    const { result } = planOne(doc(p('the ', bold('bold cat'))), { block: 0, find: '**bold cat**', replace: 'x' })
+    expect(result.status).toBe('refused')
+    expect(result.reason).toMatch(/not found/)
+    expect(result.reason).toMatch(/visible text/)
+    expect(result.reason).toMatch(/without Markdown/)
+    expect(result.reason).toMatch(/\*\* _ \[ \]\( \)/)
+    expect(result.reason).toMatch(/backslash escapes/)
+  })
+
+  test('a code block nested in a quote or a list item is refused when it holds the only match', () => {
+    const quote = schema.nodes.blockquote.create(null, [p('intro'), codeBlock('js', 'let cat = 1')])
+    const item = schema.nodes.list_item.create(null, [p('intro'), codeBlock('js', 'let cat = 1')])
+    for (const block of [quote, schema.nodes.bullet_list.create(null, [item])]) {
+      const { plan, result } = planOne(doc(block), { block: 0, find: 'cat', replace: 'dog' })
+      expect(result.status).toBe('refused')
+      expect(result.reason).toMatch(/code block/)
+      expect(result.reason).toMatch(/prose/)
+      expect(plan.proposals).toEqual([])
+    }
+  })
+
+  test('a match in prose is proposed even when the same text also sits in a nested code block', () => {
+    const quote = schema.nodes.blockquote.create(null, [p('a cat'), codeBlock('js', 'let cat = 1')])
+    const document = doc(quote)
+    const { plan, result } = planOne(document, { block: 0, find: 'cat', replace: 'dog' })
+    expect(result.status).toBe('proposed')
+    expect(document.resolve(plan.proposals[0].from).parent.type.name).toBe('paragraph')
+  })
+
   test('ambiguous: the reason carries the count', () => {
     const { result } = planOne(doc(p('cat and cat and cat')), { block: 0, find: 'cat', replace: 'dog' })
     expect(result.status).toBe('refused')
@@ -291,6 +334,34 @@ describe('planProposals, replace and note', () => {
       expect(result.status).toBe('refused')
       expect(result.reason).toMatch(/replace must be a string/)
     }
+  })
+
+  test('replace or note with a line break or another control character is refused, with a reason that says so', () => {
+    for (const bad of ['dog\n\n# Heading', 'dog\ndog', 'dog\rx', 'a\u0000b', 'a\tb', 'a\u001fb', 'a\u007fb', 'a\u0085b', 'a\u2028b', 'a\u2029b']) {
+      const inReplace = planOne(doc(p('one')), { block: 0, find: 'one', replace: bad })
+      expect(inReplace.result.status, JSON.stringify(bad)).toBe('refused')
+      expect(inReplace.result.reason).toMatch(/replace must not contain line breaks or other control characters/)
+      expect(inReplace.plan.proposals).toEqual([])
+      const inNote = planOne(doc(p('one')), { block: 0, find: 'one', replace: '1', note: bad })
+      expect(inNote.result.status, JSON.stringify(bad)).toBe('refused')
+      expect(inNote.result.reason).toMatch(/note must not contain line breaks or other control characters/)
+    }
+  })
+
+  test('ordinary punctuation, accents, emoji and spaces are not control characters', () => {
+    const { result } = planOne(doc(p('one')), { block: 0, find: 'one', replace: 'café 😀 "q" \u00a0x', note: 'ok: yes, é' })
+    expect(result.status).toBe('proposed')
+  })
+
+  test('replace or note longer than 2000 characters is refused; exactly 2000 is allowed', () => {
+    const long = 'x'.repeat(2001)
+    const inReplace = planOne(doc(p('one')), { block: 0, find: 'one', replace: long })
+    expect(inReplace.result.status).toBe('refused')
+    expect(inReplace.result.reason).toMatch(/replace must be at most 2000 characters/)
+    const inNote = planOne(doc(p('one')), { block: 0, find: 'one', replace: '1', note: long })
+    expect(inNote.result.status).toBe('refused')
+    expect(inNote.result.reason).toMatch(/note must be at most 2000 characters/)
+    expect(planOne(doc(p('one')), { block: 0, find: 'one', replace: 'x'.repeat(2000), note: 'y'.repeat(2000) }).result.status).toBe('proposed')
   })
 
   test('replace equal to find is a no-op and is refused', () => {
@@ -358,17 +429,13 @@ describe('planProposals, overlap', () => {
   })
 })
 
-describe('planProposals, marks', () => {
-  test('carries the marks of the first character of the range', () => {
+describe('planProposals, no marks are planned', () => {
+  test('a proposal carries no marks: they are read from the document when the suggestion is accepted', () => {
     const document = doc(p('plain ', bold('bold'), ' plain'))
     const { plan } = planOne(document, { block: 0, find: 'bold', replace: 'strong' })
-    expect(plan.proposals[0].marks.map(m => m.type.name)).toEqual(['strong'])
-  })
-
-  test('a range that starts plain has no marks, whatever follows', () => {
-    const document = doc(p('plain ', bold('bold')))
-    const { plan } = planOne(document, { block: 0, find: 'plain bold', replace: 'x' })
-    expect(plan.proposals[0].marks).toEqual([])
+    expect(Object.keys(plan.proposals[0]).sort()).toEqual(['block', 'find', 'from', 'note', 'replace', 'to'])
+    const state = propose(withPlugin(document), { block: 0, find: 'bold', replace: 'strong' })
+    expect('marks' in onlyPending(state)).toBe(false)
   })
 })
 
@@ -527,6 +594,27 @@ describe('suggestionsPlugin, a user edit inside the range makes it stale', () =>
   test('deleting all of it', () => expectEdited(staleWith(tr => tr.delete(5, 8))))
   test('replacing it with other text', () => expectEdited(staleWith(tr => tr.insertText('hen', 5, 8))))
 
+  test('splitting a paragraph inside it (Enter)', () => expectEdited(staleWith(tr => tr.split(6))))
+  test('splitting a paragraph inside it with a split that also carries addToHistory', () => expectEdited(staleWith(tr => tr.split(7).setMeta('addToHistory', true))))
+
+  test('a non-spanning edit that stays out of history is still an edit, not a replaced document', () => {
+    const state = catState()
+    const after = state.apply(state.tr.insertText('Z', 6).setMeta('addToHistory', false))
+    expect(getSuggestions(after).resolved.map(r => r.reason)).toEqual(['edited'])
+    const typedElsewhere = state.apply(state.tr.insertText('Z', 1).setMeta('addToHistory', false))
+    expect(getSuggestions(typedElsewhere).pending.length).toBe(1)
+  })
+
+  test('a resolved record takes its block from the document before the transaction', () => {
+    const state = propose(withPlugin(doc(p('one'), p('the cat'))), { block: 1, find: 'cat', replace: 'dog' })
+    expect(onlyPending(state).block).toBe(1)
+    const tr = state.tr.insert(0, p('new first'))
+    tr.delete(tr.mapping.map(onlyPending(state).from, 1), tr.mapping.map(onlyPending(state).to, -1))
+    const after = state.apply(tr)
+    expect(getSuggestions(after).resolved).toEqual([
+      { id: 's1', status: 'stale', reason: 'edited', find: 'cat', replace: 'dog', block: 1 }])
+  })
+
   test('replacing it with the very same text changes nothing, so it stays pending', () => {
     const state = catState()
     const after = state.apply(state.tr.insertText('cat', 5, 8))
@@ -541,27 +629,40 @@ describe('suggestionsPlugin, a user edit inside the range makes it stale', () =>
 })
 
 describe('suggestionsPlugin, replacing the whole document', () => {
-  /** What markupeditor-base's setHTML dispatches: AllSelection, replaceSelectionWith, no history. */
-  const setHTMLShape = (state, node) => state.tr
-    .setSelection(new AllSelection(state.doc))
-    .replaceSelectionWith(node, false)
-    .setMeta('addToHistory', false)
+  /** A real EditorView over a state with the plugin; `proposeOn` proposes through the plugin as the MU wrapper does. */
+  const proposeOn = (view, ...edits) => {
+    const full = edits.map(e => ({ expected: hashOf(view.state.doc, e.block), ...e }))
+    const plan = planProposals(view.state, full, getSuggestions(view.state).pending)
+    expect(plan.results.map(r => r.status)).toEqual(full.map(() => 'proposed'))
+    view.dispatch(view.state.tr.setMeta('addToHistory', false).setMeta(suggestionsKey, { add: plan.proposals }))
+  }
 
-  test('marks every pending suggestion stale with reason document-replaced, and keeps the records', () => {
-    let state = withPlugin(doc(p('one two'), p('three')))
-    state = propose(state, { block: 0, find: 'one', replace: '1' }, { block: 1, find: 'three', replace: '3' })
-    const after = state.apply(setHTMLShape(state, doc(p('one two'), p('three'))))
-    const { pending, resolved } = getSuggestions(after)
-    expect(pending).toEqual([])
-    expect(resolved.map(r => [r.id, r.status, r.reason])).toEqual([
-      ['s1', 'stale', 'document-replaced'], ['s2', 'stale', 'document-replaced']])
+  test('the real MU.setHTML makes every pending suggestion stale, document-replaced, and keeps the records', () => {
+    const host = document.createElement('div')
+    const view = new EditorView(host, { state: withPlugin(doc(p('one two'), p('three'))) })
+    try {
+      proposeOn(view, { block: 0, find: 'one', replace: '1' }, { block: 1, find: 'three', replace: '3' })
+      MU.setHTML('<p>Brand new.</p>', false, undefined, view)
+      expect(view.state.doc.textContent).toBe('Brand new.')
+      const { pending, resolved } = getSuggestions(view.state)
+      expect(pending).toEqual([])
+      expect(resolved.map(r => [r.id, r.status, r.reason])).toEqual([
+        ['s1', 'stale', 'document-replaced'], ['s2', 'stale', 'document-replaced']])
+    } finally {
+      view.destroy()
+    }
   })
 
-  test('even when the new document has the very same text', () => {
-    const document = doc(p('the cat sat'))
-    const state = propose(withPlugin(document), { block: 0, find: 'cat', replace: 'dog' })
-    const after = state.apply(setHTMLShape(state, document.copy(document.content)))
-    expect(getSuggestions(after).resolved[0].reason).toBe('document-replaced')
+  test('the real MU.setHTML with the very same content is still a replaced document', () => {
+    const host = document.createElement('div')
+    const view = new EditorView(host, { state: withPlugin(doc(p('Brand new.'))) })
+    try {
+      proposeOn(view, { block: 0, find: 'Brand', replace: 'Old' })
+      MU.setHTML('<p>Brand new.</p>', false, undefined, view)
+      expect(getSuggestions(view.state).resolved.map(r => [r.id, r.reason])).toEqual([['s1', 'document-replaced']])
+    } finally {
+      view.destroy()
+    }
   })
 
   test('a user who selects everything and types is an edit, not a replaced document', () => {
@@ -709,6 +810,51 @@ describe('acceptSuggestions', () => {
     expect(view.events).toEqual([])
   })
 
+  test('a paragraph split inside the range makes it stale: accept skips it and the split survives', () => {
+    let state = catState()
+    state = state.apply(state.tr.split(6))                         // Enter inside "cat"
+    expect(state.doc.childCount).toBe(2)
+    const view = fakeView(state)
+    const before = view.state.doc
+    const result = acceptSuggestions(view, ['s1'])
+    expect(result.accepted).toEqual([])
+    expect(result.skipped[0].reason).toMatch(/stale/)
+    expect(view.state.doc.eq(before)).toBe(true)
+    expect(view.state.doc.childCount).toBe(2)
+    expect(view.transactions).toEqual([])
+  })
+
+  test('a pending suggestion whose text is no longer find is skipped as stale edited, and the document is not touched', () => {
+    // Positions 1..4 now hold "the", not the "cat" find recorded for them.
+    const base = withPlugin(doc(p('the cat sat')))
+    const bogus = { block: 0, from: 1, to: 4, find: 'cat', replace: 'dog', note: undefined }
+    const state = base.apply(base.tr.setMeta(suggestionsKey, { add: [bogus] }))
+    expect(getSuggestions(state).pending.length).toBe(1)
+    const view = fakeView(state)
+    const before = view.state.doc
+    const result = acceptSuggestions(view, ['s1'])
+    expect(result.accepted).toEqual([])
+    expect(result.skipped.length).toBe(1)
+    expect(result.skipped[0].reason).toMatch(/stale/)
+    expect(view.state.doc.eq(before)).toBe(true)
+    expect(view.transactions.every(tr => !tr.docChanged)).toBe(true)
+    expect(view.events).toEqual([])
+    expect(getSuggestions(view.state).pending).toEqual([])
+    expect(getSuggestions(view.state).resolved).toEqual([
+      { id: 's1', status: 'stale', reason: 'edited', find: 'cat', replace: 'dog', block: 0 }])
+  })
+
+  test('accepting a mixed batch applies the good suggestion and skips the one whose text changed', () => {
+    const base = withPlugin(doc(p('the cat sat')))
+    const good = { block: 0, from: 5, to: 8, find: 'cat', replace: 'dog' }
+    const bad = { block: 0, from: 1, to: 4, find: 'cat', replace: 'dog' }
+    const view = fakeView(base.apply(base.tr.setMeta(suggestionsKey, { add: [bad, good] })))
+    const result = acceptSuggestions(view, ['s1', 's2'])
+    expect(result.accepted).toEqual(['s2'])
+    expect(result.skipped.map(x => x.id)).toEqual(['s1'])
+    expect(view.state.doc.textContent).toBe('the dog sat')
+  })
+
   test('accepting some and skipping others applies the ones that can be', () => {
     const view = fakeView(threeInOne())
     const result = acceptSuggestions(view, ['s2', 's99'])
@@ -775,18 +921,44 @@ describe('next and previous', () => {
   const three = () => propose(withPlugin(doc(p('a1 b2 c3'))),
     { block: 0, find: 'a1', replace: 'A' }, { block: 0, find: 'b2', replace: 'B' }, { block: 0, find: 'c3', replace: 'C' })
 
-  test('nextSuggestionTarget is the first suggestion after the caret, wrapping, and null when there is none', () => {
+  test('nextSuggestionTarget is the first suggestion at or after the caret, wrapping, and null when there is none', () => {
     const state = three()
     expect(state.selection.from).toBe(1)
-    expect(nextSuggestionTarget(state, 'next').id).toBe('s2')       // s1 starts at the caret, not after it
+    expect(state.selection.empty).toBe(true)
+    expect(nextSuggestionTarget(state, 'next').id).toBe('s1')       // s1 starts exactly at the collapsed caret: not skipped
+    const mid = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 4)))
+    expect(nextSuggestionTarget(mid, 'next').id).toBe('s2')         // caret at the start of s2
+    const inside = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 5)))
+    expect(nextSuggestionTarget(inside, 'next').id).toBe('s3')
     const atEnd = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 9)))
     expect(nextSuggestionTarget(atEnd, 'next').id).toBe('s1')       // wraps
     expect(nextSuggestionTarget(withPlugin(doc(p('x'))), 'next')).toBeNull()
   })
 
-  test('previousSuggestionTarget is the last suggestion before the caret, wrapping', () => {
+  test('a selection that exactly equals a suggestion\'s range does not answer with that suggestion', () => {
     const state = three()
-    expect(nextSuggestionTarget(state, 'previous').id).toBe('s3')   // nothing before the start: wraps
+    const onS2 = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 4, 6)))
+    expect(nextSuggestionTarget(onS2, 'next').id).toBe('s3')
+    expect(nextSuggestionTarget(onS2, 'previous').id).toBe('s1')
+    const onS1 = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 3)))
+    expect(nextSuggestionTarget(onS1, 'previous').id).toBe('s3')    // wraps backwards
+    const onS3 = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 7, 9)))
+    expect(nextSuggestionTarget(onS3, 'next').id).toBe('s1')        // wraps forwards
+    // A selection that starts at s2 but is not exactly its range still finds s2.
+    const longer = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 4, 9)))
+    expect(nextSuggestionTarget(longer, 'next').id).toBe('s2')
+  })
+
+  test('a lone suggestion that is already selected is answered again', () => {
+    const state = propose(withPlugin(doc(p('a1 b2'))), { block: 0, find: 'b2', replace: 'B' })
+    const selected = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 4, 6)))
+    expect(nextSuggestionTarget(selected, 'next').id).toBe('s1')
+    expect(nextSuggestionTarget(selected, 'previous').id).toBe('s1')
+  })
+
+  test('previousSuggestionTarget is the last suggestion at or before the caret, wrapping', () => {
+    const state = three()
+    expect(nextSuggestionTarget(state, 'previous').id).toBe('s1')   // s1 starts exactly at the caret: not skipped
     const mid = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 6)))
     expect(nextSuggestionTarget(mid, 'previous').id).toBe('s2')
   })
@@ -794,7 +966,9 @@ describe('next and previous', () => {
   test('goToSuggestion selects the range, and next then previous round-trips', () => {
     const view = fakeView(three())
     const first = goToSuggestion(view, 'next')
-    expect(first).toEqual({ found: true, id: 's2', block: 0 })
+    expect(first).toEqual({ found: true, id: 's1', block: 0 })      // the caret sits at the start of s1
+    expect([view.state.selection.from, view.state.selection.to]).toEqual([1, 3])
+    expect(goToSuggestion(view, 'next').id).toBe('s2')
     expect([view.state.selection.from, view.state.selection.to]).toEqual([4, 6])
     expect(goToSuggestion(view, 'next').id).toBe('s3')
     expect(goToSuggestion(view, 'next').id).toBe('s1')              // wraps
@@ -813,6 +987,7 @@ describe('next and previous', () => {
   test('resolved suggestions are skipped', () => {
     const view = fakeView(three())
     rejectSuggestions(view, ['s2'])
+    expect(goToSuggestion(view, 'next').id).toBe('s1')
     expect(goToSuggestion(view, 'next').id).toBe('s3')
   })
 })
@@ -1018,6 +1193,30 @@ describe('ensureInstalled', () => {
   })
 })
 
+describe('lazy install in a real EditorView', () => {
+  test('a view without the plugin gets it on the first proposal, and the decorations reach the DOM', () => {
+    const document_ = doc(p('the cat sat'))
+    const host = document.createElement('div')
+    const view = new EditorView(host, { state: stateOf(document_) })
+    try {
+      active(view)
+      expect(plugins(view.state).length).toBe(0)
+      expect(host.querySelector('span.suggestion-old')).toBeNull()
+      const result = JSON.parse(proposeEdits([edit(document_, 0, 'cat', 'dog')]))
+      expect(result.results[0]).toEqual({ index: 0, status: 'proposed', id: 's1', block: 0 })
+      expect(plugins(view.state).length).toBe(1)
+      const old = host.querySelector('span.suggestion-old')
+      expect(old).not.toBeNull()
+      expect(old.textContent).toBe('cat')
+      expect(host.querySelector('span.suggestion-new').textContent).toContain('dog')
+      expect(view.state.doc.eq(document_)).toBe(true)
+      expect(undoDepth(view.state)).toBe(0)
+    } finally {
+      view.destroy()
+    }
+  })
+})
+
 describe('proposeEdits', () => {
   test('with no active view it says so instead of throwing', () => {
     active(undefined)
@@ -1177,6 +1376,7 @@ describe('navigation and bulk', () => {
 
   test('next and previous answer with the suggestion visited, or found false', () => {
     setup()
+    expect(JSON.parse(nextSuggestion())).toEqual({ ok: true, found: true, id: 's1', block: 0 })
     expect(JSON.parse(nextSuggestion())).toEqual({ ok: true, found: true, id: 's2', block: 0 })
     expect(JSON.parse(previousSuggestion())).toEqual({ ok: true, found: true, id: 's1', block: 0 })
     active(plainView(doc(p('x'))))
@@ -1229,10 +1429,19 @@ describe('interaction with replace_blocks', () => {
 })
 
 describe('app.js wiring', () => {
-  test('puts the six functions on MU', async () => {
+  test('puts the six functions from suggestions.js on MU, not wrappers or look-alikes', async () => {
     await import('../src/app.js')
-    for (const name of ['proposeEdits', 'listSuggestions', 'nextSuggestion', 'previousSuggestion', 'acceptAllSuggestions', 'rejectAllSuggestions']) {
-      expect(typeof MU[name], name).toBe('function')
+    const wired = { proposeEdits, listSuggestions, nextSuggestion, previousSuggestion, acceptAllSuggestions, rejectAllSuggestions }
+    for (const [name, fn] of Object.entries(wired)) {
+      expect(MU[name], name).toBe(fn)
     }
+  })
+})
+
+describe('the source file', () => {
+  test('writes the object-replacement character as an escape, not as an invisible literal', () => {
+    const source = readFileSync(path.resolve(import.meta.dirname, '../src/suggestions.js'), 'utf8')
+    expect(source).not.toContain('\uFFFC')
+    expect(source).toContain('\\uFFFC')
   })
 })
