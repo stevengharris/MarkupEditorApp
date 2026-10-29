@@ -146,17 +146,17 @@ struct ContentCommandTests {
             ["block": 1, "expected": "abc", "find": "cat", "replace": "dog", "note": "prefer dogs"],
             ["block": 0, "expected": "h", "find": "mat", "replace": ""],
         ]]
-        #expect(try parse("propose_edits", args) == .proposeEdits([
+        #expect(try parse("propose_edits", args) == .proposeEdits(EditBatch(edits: [
             SuggestedEdit(block: 1, expected: "abc", find: "cat", replace: "dog", note: "prefer dogs"),
             SuggestedEdit(block: 0, expected: "h", find: "mat", replace: "", note: nil),
-        ]))
+        ])))
     }
 
     @Test func proposeEditsAcceptsOneAndTwoHundredEditsAndANullNote() throws {
         #expect(try parse("propose_edits", ["edits": [edit()]]) != nil)
         #expect(try parse("propose_edits", ["edits": .array(Array(repeating: edit(), count: 200))]) != nil)
         let withNull = try parse("propose_edits", ["edits": [edit(["note": .null])]])
-        #expect(withNull == .proposeEdits([SuggestedEdit(block: 1, expected: "abc", find: "cat", replace: "dog", note: nil)]))
+        #expect(withNull == .proposeEdits(EditBatch(edits: [SuggestedEdit(block: 1, expected: "abc", find: "cat", replace: "dog", note: nil)])))
     }
 
     @Test func aSuggestedEditEncodesWithoutANullNote() throws {
@@ -165,11 +165,18 @@ struct ContentCommandTests {
     }
 
     @Test func proposeEditsNeedsAnEditsArray() {
-        #expect(refusal("propose_edits", [:])?.contains("edits") == true)
-        #expect(refusal("propose_edits", ["edits": "x"])?.contains("edits") == true)
-        #expect(refusal("propose_edits", ["edits": [:]])?.contains("edits") == true)
-        #expect(refusal("propose_edits", ["edits": []])?.contains("1 to 200") == true)
-        #expect(refusal("propose_edits", ["edits": .array(Array(repeating: edit(), count: 201))])?.contains("1 to 200") == true)
+        // The argument is named in quotes; the tool name's own "propose_edits:" prefix would satisfy a bare contains("edits").
+        #expect(refusal("propose_edits", [:])?.hasPrefix("propose_edits: 'edits' ") == true)
+        #expect(refusal("propose_edits", ["edits": "x"])?.hasPrefix("propose_edits: 'edits' ") == true)
+        #expect(refusal("propose_edits", ["edits": [:]])?.hasPrefix("propose_edits: 'edits' ") == true)
+        #expect(refusal("propose_edits", ["edits": []])?.hasPrefix("propose_edits: 'edits' must hold 1 to 200 edits") == true)
+        #expect(refusal("propose_edits", ["edits": .array(Array(repeating: edit(), count: 201))])?.hasPrefix("propose_edits: 'edits' must hold 1 to 200 edits") == true)
+    }
+
+    /// The one `propose_edits` batch `args` parses to.
+    func batch(_ args: JSONValue) throws -> EditBatch {
+        guard case .proposeEdits(let batch)? = try parse("propose_edits", args) else { throw ControlError("not a propose_edits command") }
+        return batch
     }
 
     @Test(arguments: [
@@ -187,27 +194,68 @@ struct ContentCommandTests {
         ("note", JSONValue.number(2), "edits[1].note"),
         ("note", JSONValue.array([]), "edits[1].note"),
     ])
-    func proposeEditsRefusesABadEditNamingItsPath(name: String, value: JSONValue, path: String) {
-        let reason = refusal("propose_edits", ["edits": [edit(), edit([name: value])]])
-        #expect(reason?.hasPrefix("propose_edits: \(path) ") == true, Comment(rawValue: reason ?? "no refusal"))
+    func aBadEditIsRefusedAloneNamingItsPathAndTheOthersStay(name: String, value: JSONValue, path: String) throws {
+        let parsed = try batch(["edits": [edit(), edit([name: value]), edit(["find": "mat"])]])
+        #expect(parsed.edits.map(\.find) == ["cat", "mat"])
+        #expect(parsed.refusals.count == 1)
+        let refused = try #require(parsed.refusals.first)
+        #expect(refused.index == 1 && refused.status == "refused" && refused.id == nil)
+        #expect(refused.reason?.hasPrefix("\(path) ") == true, Comment(rawValue: refused.reason ?? "no reason"))
     }
 
     @Test(arguments: ["block", "expected", "find", "replace"])
-    func proposeEditsRequiresEachEditField(missing: String) {
+    func proposeEditsRefusesAnEditMissingAFieldAlone(missing: String) throws {
         var fields: [String: JSONValue] = ["block": 1, "expected": "abc", "find": "cat", "replace": "dog"]
         fields[missing] = nil
-        let reason = refusal("propose_edits", ["edits": [.object(fields)]])
-        #expect(reason?.contains("edits[0].\(missing)") == true, Comment(rawValue: reason ?? "no refusal"))
+        let parsed = try batch(["edits": [.object(fields), edit()]])
+        #expect(parsed.edits.count == 1)
+        #expect(parsed.refusals.map(\.index) == [0])
+        #expect(parsed.refusals.first?.reason?.hasPrefix("edits[0].\(missing) ") == true, Comment(rawValue: parsed.refusals.first?.reason ?? "no reason"))
     }
 
-    @Test func proposeEditsRefusesAnEditThatIsNotAnObject() {
-        #expect(refusal("propose_edits", ["edits": ["cat"]])?.contains("edits[0]") == true)
-        #expect(refusal("propose_edits", ["edits": [edit(), .null]])?.contains("edits[1]") == true)
+    @Test func anEditThatIsNotAnObjectIsRefusedAlone() throws {
+        let parsed = try batch(["edits": ["cat", edit(), .null]])
+        #expect(parsed.edits.count == 1)
+        #expect(parsed.refusals.map(\.index) == [0, 2])
+        #expect(parsed.refusals.allSatisfy { $0.reason?.hasPrefix("edits[") == true && $0.status == "refused" })
     }
 
-    @Test func theFirstBadEditIsTheOneNamed() {
-        let reason = refusal("propose_edits", ["edits": [edit(), edit(["find": ""]), edit(["block": -1])]])
-        #expect(reason?.contains("edits[1].find") == true)
+    @Test func everyBadEditIsRefusedWithItsOwnZeroBasedIndex() throws {
+        let parsed = try batch(["edits": [edit(), edit(["find": ""]), edit(["find": "mat"]), edit(["block": -1]), edit(["find": "rug"])]])
+        #expect(parsed.edits.map(\.find) == ["cat", "mat", "rug"])
+        #expect(parsed.refusals.map(\.index) == [1, 3])
+        #expect(parsed.refusals[0].reason?.hasPrefix("edits[1].find ") == true)
+        #expect(parsed.refusals[1].reason?.hasPrefix("edits[3].block ") == true)
+    }
+
+    @Test func aCallOfOnlyBadEditsParsesToRefusalsAndNothingToSend() throws {
+        let parsed = try batch(["edits": [edit(["find": ""]), edit(["replace": .null])]])
+        #expect(parsed.edits.isEmpty)
+        #expect(parsed.refusals.map(\.index) == [0, 1])
+    }
+
+    @Test func mergingPutsTheEditorsResultsBackAtTheirCallPositionsInIndexOrder() throws {
+        // Positions 0 and 3 are bad; the editor judged the other three as its own 0, 1 and 2.
+        let parsed = try batch(["edits": [edit(["find": ""]), edit(), edit(["find": "mat"]), edit(["block": -1]), edit(["find": "rug"])]])
+        let editor = ProposeResult(ok: true, results: [
+            ProposeOutcome(index: 0, status: "proposed", id: "s1", block: 1),
+            ProposeOutcome(index: 1, status: "refused", reason: "find not found in block 1"),
+            ProposeOutcome(index: 2, status: "proposed", id: "s2", block: 1),
+        ])
+        let merged = parsed.merged(with: editor)
+        #expect(merged.ok)
+        #expect(merged.results.map(\.index) == [0, 1, 2, 3, 4])
+        #expect(merged.results.map(\.status) == ["refused", "proposed", "refused", "refused", "proposed"])
+        #expect(merged.results[1].id == "s1" && merged.results[4].id == "s2")
+        #expect(merged.results[2].reason == "find not found in block 1")
+        #expect(merged.results[0].reason?.hasPrefix("edits[0].find ") == true)
+        #expect(merged.results[3].reason?.hasPrefix("edits[3].block ") == true)
+    }
+
+    @Test func mergingLeavesAWholeCallRefusalAlone() throws {
+        let parsed = try batch(["edits": [edit(["find": ""]), edit()]])
+        let refusal = ProposeResult(ok: false, reason: "No active view")
+        #expect(parsed.merged(with: refusal) == refusal)
     }
 
     @Test func listSuggestionsNeedsNoArguments() throws {

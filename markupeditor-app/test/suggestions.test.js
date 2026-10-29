@@ -261,7 +261,7 @@ describe('planProposals, find', () => {
     expect(result.reason).toMatch(/not found/)
     expect(result.reason).toMatch(/visible text/)
     expect(result.reason).toMatch(/without Markdown/)
-    expect(result.reason).toMatch(/\*\* _ \[ \]\( \)/)
+    expect(result.reason).toMatch(/\*\* _ ` ~~ \[ \]\( \)/)
     expect(result.reason).toMatch(/backslash escapes/)
   })
 
@@ -283,6 +283,46 @@ describe('planProposals, find', () => {
     const { plan, result } = planOne(document, { block: 0, find: 'cat', replace: 'dog' })
     expect(result.status).toBe('proposed')
     expect(document.resolve(plan.proposals[0].from).parent.type.name).toBe('paragraph')
+  })
+
+  test('not found names the syntax to leave out, and says inline code matches without its backticks', () => {
+    const { result } = planOne(doc(p('the cat')), { block: 0, find: '`dog`', replace: 'x' })
+    expect(result.reason).toMatch(/\*\* _ ` ~~ \[ \]\( \) !\[\]\( \) # list markers/)
+    expect(result.reason).toMatch(/inline code matches without its backticks/)
+  })
+
+  test('a find that crosses a formatting boundary is refused, with the remedy', () => {
+    const document = parse('Basically the `queue` drains in order.')
+    const { plan, result } = planOne(document, { block: 0, find: 'Basically the queue drains', replace: 'The queue drains' })
+    expect(result.status).toBe('refused')
+    expect(result.reason).toMatch(/crosses a formatting boundary \(bold, code, link/)
+    expect(result.reason).toMatch(/split the edit so each part lies inside one run of formatting/)
+    expect(plan.proposals).toEqual([])
+  })
+
+  test('every kind of boundary refuses: bold, emphasis, strike, link', () => {
+    for (const md of ['plain **bold** plain', 'plain _em_ plain', 'plain ~~gone~~ plain', 'plain [site](https://x.org) plain']) {
+      const document = parse(md)
+      const visible = document.textContent
+      const { result } = planOne(document, { block: 0, find: visible.slice(2, visible.length - 2), replace: 'x' })
+      expect(result.status, md).toBe('refused')
+      expect(result.reason, md).toMatch(/formatting boundary/)
+    }
+  })
+
+  test('two runs with different marks refuse even when both are formatted (bold then code)', () => {
+    const code = (text) => schema.text(text, [schema.marks.code.create()])
+    const { result } = planOne(doc(p('a ', bold('bold'), code('code'), ' z')), { block: 0, find: 'boldcode', replace: 'x' })
+    expect(result.status).toBe('refused')
+    expect(result.reason).toMatch(/formatting boundary/)
+  })
+
+  test('a range wholly inside one run of formatting is proposed: plain text before inline code, inline code itself, bold, a link', () => {
+    const document = parse('Basically the `queue` drains in **very good** order via [the site](https://x.org).')
+    for (const find of ['Basically the ', 'queue', 'very good', 'ver', 'the site']) {
+      const { result } = planOne(document, { block: 0, find, replace: 'x' })
+      expect(result.status, find).toBe('proposed')
+    }
   })
 
   test('ambiguous: the reason carries the count', () => {
@@ -736,6 +776,22 @@ describe('acceptSuggestions', () => {
     const marked = []
     view.state.doc.descendants((node) => { if (node.isText && node.marks.length) marked.push([node.text, node.marks.map(m => m.type.name)]) })
     expect(marked).toEqual([['strong', ['strong']]])
+  })
+
+  test('accepting an edit beside inline code leaves the code as code', () => {
+    const view = fakeView(propose(withPlugin(parse('Basically the `queue` drains in order.')), { block: 0, find: 'Basically the ', replace: 'The ' }))
+    acceptSuggestions(view, ['s1'])
+    const runs = []
+    view.state.doc.descendants((node) => { if (node.isText) runs.push([node.text, node.marks.map(m => m.type.name)]) })
+    expect(runs).toEqual([['The ', []], ['queue', ['code']], [' drains in order.', []]])
+  })
+
+  test('accepting an edit inside bold keeps it bold', () => {
+    const view = fakeView(propose(withPlugin(parse('plain **very good bold** plain')), { block: 0, find: 'good', replace: 'fine' }))
+    acceptSuggestions(view, ['s1'])
+    const runs = []
+    view.state.doc.descendants((node) => { if (node.isText) runs.push([node.text, node.marks.map(m => m.type.name)]) })
+    expect(runs).toEqual([['plain ', []], ['very fine bold', ['strong']], [' plain', []]])
   })
 
   test('an empty replacement deletes the text', () => {

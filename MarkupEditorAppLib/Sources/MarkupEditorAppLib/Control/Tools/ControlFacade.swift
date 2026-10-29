@@ -13,7 +13,7 @@ public protocol ControlFacade {
     func selectionContent() async throws -> SelectionContent
     func select(_ target: SelectionTarget) async throws -> SelectionResult
     func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult
-    /// Suggests edits for the user to accept or reject; the document does not change. A refusal of one edit is in the result; only a failure of the whole call throws.
+    /// Suggests edits for the user to accept or reject; the document does not change. A refusal of one edit is in the result; a failure of the whole call (no editor, the editor's own `ok: false`) throws.
     func proposeEdits(_ edits: [SuggestedEdit]) async throws -> ProposeResult
     func listSuggestions() async throws -> SuggestionList
     func undo() async throws

@@ -71,12 +71,13 @@ struct SelectionResultDecodeTests {
 
 // MARK: Suggestions
 
-/// The editor's own output for `MU.proposeEdits` and `MU.listSuggestions`, captured from the vitest run
-/// (nexus plan page plan-markupeditor-suggestions-js-output.md). Key order is the editor's, not the decoder's.
+/// Hand-written replies in the shape `MU.proposeEdits` and `MU.listSuggestions` return (see markupeditor-app/src/suggestions.js),
+/// with refusal reasons worded as that file words them today. Key order is the editor's, not the decoder's. They pin what the
+/// decoders read, not the editor's wording: the headless tests run the real editor.
 struct SuggestionReplyDecodeTests {
 
     let allProposed = #"{"ok":true,"results":[{"index":0,"status":"proposed","block":1,"id":"s1"},{"index":1,"status":"proposed","block":1,"id":"s2"}]}"#
-    let mixed = #"{"ok":true,"results":[{"index":0,"status":"proposed","block":1,"id":"s1"},{"index":1,"status":"proposed","block":1,"id":"s2"},{"index":2,"status":"refused","reason":"find not found in block 2; matching is exact and case-sensitive within one paragraph, list item or table cell"},{"index":3,"status":"refused","reason":"document changed: block 1 no longer matches the expected hash; read it again"}]}"#
+    let mixed = #"{"ok":true,"results":[{"index":0,"status":"proposed","block":1,"id":"s1"},{"index":1,"status":"proposed","block":1,"id":"s2"},{"index":2,"status":"refused","reason":"find not found in block 2; matching is exact and case-sensitive against the visible text of one paragraph, list item or table cell, without Markdown syntax (leave out ** _ ` ~~ [ ]( ) ![]( ) # list markers and backslash escapes; inline code matches without its backticks)"},{"index":3,"status":"refused","reason":"document changed: block 1 no longer matches the expected hash; read it again"}]}"#
     let pending = #"{"ok":true,"suggestions":[{"id":"s1","status":"pending","block":1,"find":"cat","replace":"dog","note":"prefer dogs"},{"id":"s2","status":"pending","block":1,"find":"mat","replace":""}]}"#
     let resolved = #"{"ok":true,"suggestions":[{"id":"s1","status":"pending","block":1,"find":"cat","replace":"dog","note":"prefer dogs"},{"id":"s2","status":"accepted","block":1,"find":"mat","replace":""},{"id":"s3","status":"stale","block":2,"find":"dog","replace":"fox","reason":"edited"},{"id":"s4","status":"stale","block":0,"find":"ran","replace":"walked","note":"tense","reason":"document-replaced"},{"id":"s5","status":"rejected","block":1,"find":"sat","replace":"stood"}]}"#
 
@@ -92,10 +93,11 @@ struct SuggestionReplyDecodeTests {
 
     @Test func aMixedReplyKeepsEachRefusalWithItsReason() throws {
         let result = try ProposeResult.decode(mixed)
+        try #require(result.results.count == 4, "one result per edit")
         #expect(result.results.map(\.status) == ["proposed", "proposed", "refused", "refused"])
         #expect(result.results[2].id == nil)
         #expect(result.results[2].block == nil)
-        #expect(result.results[2].reason?.hasPrefix("find not found in block 2") == true)
+        #expect(result.results[2].reason?.hasPrefix("find not found in block 2; matching is exact and case-sensitive against the visible text") == true)
         #expect(result.results[3].reason?.hasPrefix("document changed") == true)
     }
 
@@ -123,6 +125,7 @@ struct SuggestionReplyDecodeTests {
 
     @Test func everyStatusDecodesAndAStaleOneKeepsItsReason() throws {
         let list = try SuggestionList.decode(resolved)
+        try #require(list.suggestions.count == 5, "one entry per suggestion")
         #expect(list.suggestions.map(\.status) == ["pending", "accepted", "stale", "stale", "rejected"])
         #expect(list.suggestions.map(\.reason) == [nil, nil, "edited", "document-replaced", nil])
         #expect(list.suggestions[3].note == "tense")

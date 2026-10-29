@@ -91,6 +91,7 @@ struct SuggestionsHeadlessTests {
         let result = try await webView.proposeEdits([good, missing, stale, heading])
         #expect(result.ok)
         #expect(result.results.map(\.status) == ["proposed", "refused", "refused", "proposed"])
+        try #require(result.results.count == 4, "one result per edit")
         #expect(result.results[1].reason?.contains("find not found") == true, Comment(rawValue: result.results[1].reason ?? ""))
         #expect(result.results[2].reason?.hasPrefix("document changed") == true, Comment(rawValue: result.results[2].reason ?? ""))
         #expect(result.results[1].id == nil)
@@ -104,8 +105,21 @@ struct SuggestionsHeadlessTests {
         let overlap = try await Self.edit(webView, 0, "one two", "x")
         let result = try await webView.proposeEdits([twice, first, overlap])
         #expect(result.results.map(\.status) == ["refused", "proposed", "refused"])
+        try #require(result.results.count == 3, "one result per edit")
         #expect(result.results[0].reason?.contains("2 times") == true, Comment(rawValue: result.results[0].reason ?? ""))
         #expect(result.results[2].reason?.contains("overlaps") == true, Comment(rawValue: result.results[2].reason ?? ""))
+    }
+
+    @Test func anEditAcrossAFormattingBoundaryIsRefusedAndOneBesideItLeavesTheCodeAsCode() async throws {
+        let (_, webView) = try await Self.loaded("Basically the `queue` drains in order.\n\nsecond")
+        let crossing = try await Self.edit(webView, 0, "Basically the queue drains", "The queue drains")
+        let beside = try await Self.edit(webView, 0, "Basically the ", "The ")
+        let result = try await webView.proposeEdits([crossing, beside])
+        try #require(result.results.count == 2, "one result per edit")
+        #expect(result.results.map(\.status) == ["refused", "proposed"])
+        #expect(result.results[0].reason?.contains("formatting boundary") == true, Comment(rawValue: result.results[0].reason ?? ""))
+        try await Self.userRuns(webView, "MU.acceptAllSuggestions()")
+        #expect(try await Self.blocks(webView)[0].markdown == "The `queue` drains in order.")
     }
 
     @Test func aWholeCallRefusalIsAResultWithOkFalse() async throws {
@@ -141,6 +155,7 @@ struct SuggestionsHeadlessTests {
         ])
         #expect(result.ok)
         #expect(result.results.map(\.status) == ["refused", "refused", "refused", "refused"])
+        try #require(result.results.count == 4, "one result per edit")
         #expect(result.results[0].reason?.contains("line breaks") == true, Comment(rawValue: result.results[0].reason ?? ""))
         #expect(result.results[3].reason?.contains("2000") == true, Comment(rawValue: result.results[3].reason ?? ""))
         #expect(try await webView.listSuggestions().suggestions.isEmpty)

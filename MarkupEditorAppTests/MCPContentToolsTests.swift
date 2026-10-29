@@ -77,7 +77,7 @@ final class ContentFixture {
 
     func hashes(_ range: Range<Int>) async throws -> [String] {
         let blocks = try await read().blocks
-        return range.compactMap { blocks[$0]["hash"]?.stringValue }
+        return range.compactMap { blocks.indices.contains($0) ? blocks[$0]["hash"]?.stringValue : nil }
     }
 
     /// `replace_blocks` with the hashes read just now.
@@ -86,9 +86,9 @@ final class ContentFixture {
         let blocks = try await read().blocks
         let expected: [String]
         if count > 0 {
-            expected = (index..<(index + count)).compactMap { blocks[$0]["hash"]?.stringValue }
+            expected = (index..<(index + count)).compactMap { blocks.indices.contains($0) ? blocks[$0]["hash"]?.stringValue : nil }
         } else {
-            expected = index == 0 || (blocks.first?["kind"]?.stringValue == "metadata" && index == 1) ? [] : [blocks[index - 1]["hash"]?.stringValue ?? ""]
+            expected = index == 0 || (blocks.first?["kind"]?.stringValue == "metadata" && index == 1) ? [] : [blocks.indices.contains(index - 1) ? blocks[index - 1]["hash"]?.stringValue ?? "" : ""]
         }
         return try await harness.call("replace_blocks", [
             "index": .number(Double(index)), "count": .number(Double(count)), "markdown": .string(markdown),
@@ -288,7 +288,7 @@ struct MCPContentToolsTests {
 
     /// A `propose_edits` argument for one edit, with the block's hash read just now.
     private func proposal(_ fixture: ContentFixture, block: Int, find: String, replace: String, note: String? = nil) async throws -> JSONValue {
-        let hash = try await fixture.hashes(block..<(block + 1))[0]
+        let hash = try #require(try await fixture.hashes(block..<(block + 1)).first, "no block \(block)")
         var edit: [String: JSONValue] = ["block": .number(Double(block)), "expected": .string(hash), "find": .string(find), "replace": .string(replace)]
         if let note { edit["note"] = .string(note) }
         return ["edits": [.object(edit)]]
@@ -323,14 +323,129 @@ struct MCPContentToolsTests {
         #expect(outcome.json?["results"]?[0]?["reason"]?.stringValue?.contains("find not found") == true)
     }
 
-    @Test func badProposeArgumentsAreRefusedBeforeAnythingRuns() async throws {
+    @Test func aMalformedEditIsRefusedAloneWithItsIndexAndTheOthersAreProposed() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat on the mat.", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        try await keepEditorSelected(fixture)
+        let hash = try #require(try await fixture.hashes(1..<2).first)
+        let edits: [JSONValue] = [
+            ["block": 1, "expected": .string(hash), "find": "cat", "replace": "dog"],
+            ["block": 1, "expected": .string(hash), "find": "", "replace": "x"],
+            ["block": 1, "expected": .string(hash), "find": "mat"],
+            ["block": "one", "expected": .string(hash), "find": "sat", "replace": "stood"],
+            ["block": 1, "expected": .string(hash), "find": "mat", "replace": "rug"],
+        ]
+        let outcome = try await fixture.harness.call("propose_edits", ["edits": .array(edits)])
+        #expect(outcome.isError == false, Comment(rawValue: outcome.text))
+        guard case .array(let results)? = outcome.json?["results"] else { throw HarnessError("propose_edits replied: \(outcome.text)") }
+        try #require(results.count == 5, Comment(rawValue: outcome.text))
+        #expect(results.map { $0["index"]?.intValue } == [0, 1, 2, 3, 4])
+        #expect(results.map { $0["status"]?.stringValue } == ["proposed", "refused", "refused", "refused", "proposed"])
+        #expect(results[safe: 1]?["reason"]?.stringValue?.hasPrefix("edits[1].find ") == true, Comment(rawValue: outcome.text))
+        #expect(results[safe: 2]?["reason"]?.stringValue?.hasPrefix("edits[2].replace ") == true, Comment(rawValue: outcome.text))
+        #expect(results[safe: 3]?["reason"]?.stringValue?.hasPrefix("edits[3].block ") == true, Comment(rawValue: outcome.text))
+        let listed = try await listedSuggestions(fixture)
+        #expect(listed.map { $0["find"]?.stringValue } == ["cat", "mat"])
+        #expect(listed.map { $0["id"]?.stringValue } == [results[safe: 0]?["id"]?.stringValue, results[safe: 4]?["id"]?.stringValue])
+    }
+
+    @Test func aWholeCallFailureInTheEditorIsAToolError() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat.", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        try await keepEditorSelected(fixture)
+        let args = try await proposal(fixture, block: 1, find: "cat", replace: "dog")
+        // With no active editor view in the page the editor answers {ok: false, reason: "No active view"}.
+        let mu = "document.getElementById('markupeditor').MU"
+        _ = try await fixture.webView.evaluateJavaScript("window.__activeView = \(mu).activeView; \(mu).activeView = () => null; true")
+        let result = await Result { try await fixture.harness.call("propose_edits", args) }
+        _ = try await fixture.webView.evaluateJavaScript("\(mu).activeView = window.__activeView; true")
+        let outcome = try result.get()
+        #expect(outcome.isError, Comment(rawValue: outcome.text))
+        #expect(outcome.text.contains("No active view"), Comment(rawValue: outcome.text))
+        #expect(try await fixture.harness.call("list_suggestions").json?["suggestions"] == [])
+    }
+
+    // MARK: propose_edits waits its turn on the edit queue
+
+    /// Holds the app's edit queue until released, so a call made meanwhile can be seen waiting behind it.
+    @MainActor private final class QueueGate {
+        private var continuation: CheckedContinuation<Void, Never>?
+        private var released = false
+        private(set) var isHeld = false
+
+        func wait() async {
+            if released { return }
+            isHeld = true
+            await withCheckedContinuation { continuation = $0 }
+        }
+
+        func release() {
+            released = true
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
+    @MainActor private final class Completion {
+        var done = false
+    }
+
+    private func holdQueue(_ gate: QueueGate) async throws -> Task<Void, Error> {
+        let holder = AppControl.shared.edits.enqueue { await gate.wait() }
+        for _ in 0..<50 where !gate.isHeld { try await Task.sleep(for: .milliseconds(20)) }
+        try #require(gate.isHeld, "the gate task never started")
+        return holder
+    }
+
+    @Test func proposeEditsWaitsForTheOperationAlreadyOnTheEditQueue() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat.", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        try await keepEditorSelected(fixture)
+        let args = try await proposal(fixture, block: 1, find: "cat", replace: "dog")
+        let gate = QueueGate()
+        let holder = try await holdQueue(gate)
+        let completion = Completion()
+        let call = Task { @MainActor in
+            let outcome = try await fixture.harness.call("propose_edits", args)
+            completion.done = true
+            return outcome
+        }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(!completion.done, "propose_edits finished while an earlier edit still held the queue")
+        // list_suggestions does not queue, so it shows whether the editor was reached.
+        #expect(try await listedSuggestions(fixture).isEmpty, "propose_edits reached the editor while the queue was held")
+        gate.release()
+        try await holder.value
+        let outcome = try await call.value
+        #expect(outcome.json?["results"]?[0]?["status"] == "proposed", Comment(rawValue: outcome.text))
+        #expect(try await listedSuggestions(fixture).count == 1)
+    }
+
+    @Test func proposeEditsChecksTheViewAgainWhenItsTurnComes() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nThe cat sat.", url: URL(fileURLWithPath: "/tmp/x.md"))
+        defer { fixture.stop() }
+        try await keepEditorSelected(fixture)
+        let args = try await proposal(fixture, block: 1, find: "cat", replace: "dog")
+        let gate = QueueGate()
+        let holder = try await holdQueue(gate)
+        let call = Task { @MainActor in try await fixture.harness.call("propose_edits", args) }
+        try await Task.sleep(for: .milliseconds(400))
+        // The user switches to the source view while the call waits its turn.
+        AppControl.shared.sourceShowing = true
+        gate.release()
+        try await holder.value
+        let outcome = try await call.value
+        #expect(outcome.isError, Comment(rawValue: outcome.text))
+        #expect(outcome.text.contains("source view"), Comment(rawValue: outcome.text))
+        AppControl.shared.sourceShowing = false
+        #expect(try await listedSuggestions(fixture).isEmpty, "the suggestion was made in spite of the source view")
+    }
+
+    @Test func aBadEditsArgumentIsAToolErrorBeforeAnythingRuns() async throws {
         let fixture = try await ContentFixture.start("one\n\ntwo")
         defer { fixture.stop() }
         let bad: [JSONValue] = [
-            [:], ["edits": []],
-            ["edits": [["block": 0, "expected": "h", "find": "", "replace": "x"]]],
-            ["edits": [["block": -1, "expected": "h", "find": "one", "replace": "x"]]],
-            ["edits": [["block": 0, "expected": "h", "find": "one"]]],
+            [:], ["edits": []], ["edits": "one"], ["edits": .array(Array(repeating: ["block": 0, "expected": "h", "find": "one", "replace": "x"], count: 201))],
         ]
         for args in bad {
             let outcome = try await fixture.harness.call("propose_edits", args)
@@ -351,7 +466,7 @@ struct MCPContentToolsTests {
         #expect(suggestion["replace"] == "It's a \"grand\" day")
         // The user accepts in the page.
         _ = try await fixture.webView.executeJavaScript("MU.acceptAllSuggestions()")
-        #expect(try await fixture.markdowns()[1] == "It's a \"grand\" day.")
+        #expect(try await fixture.markdowns()[safe: 1] == "It's a \"grand\" day.")
     }
 
     @Test func aStraightQuoteFindDoesNotMatchACurlyQuoteInTheDocument() async throws {
@@ -367,7 +482,8 @@ struct MCPContentToolsTests {
         let fixture = try await ContentFixture.start("Intro\n\nThe cat sat.\n\nThird", url: URL(fileURLWithPath: "/tmp/x.md"))
         defer { fixture.stop() }
         let hashes = try await fixture.hashes(1..<2)
-        let proposeArgs: JSONValue = ["edits": [["block": 1, "expected": .string(hashes[0]), "find": "cat", "replace": "dog"]]]
+        let firstHash = try #require(hashes.first)
+        let proposeArgs: JSONValue = ["edits": [["block": 1, "expected": .string(firstHash), "find": "cat", "replace": "dog"]]]
         let replaceArgs: JSONValue = ["index": 1, "count": 1, "markdown": "Brand new text", "expected": .array(hashes.map { .string($0) })]
         async let proposed = fixture.harness.call("propose_edits", proposeArgs)
         async let replaced = fixture.harness.call("replace_blocks", replaceArgs)
@@ -384,7 +500,7 @@ struct MCPContentToolsTests {
             #expect(propose.json?["results"]?[0]?["reason"]?.stringValue?.hasPrefix("document changed") == true, Comment(rawValue: propose.text))
             #expect(listed == [])
         }
-        #expect(try await fixture.markdowns()[1] == "Brand new text")
+        #expect(try await fixture.markdowns()[safe: 1] == "Brand new text")
     }
 
     // MARK: Suggestions end to end
@@ -453,6 +569,9 @@ struct MCPContentToolsTests {
         let proposed = try await fixture.harness.call("propose_edits", try await proposals(fixture, [(2, "mat", "rug"), (3, "far", "near"), (4, "last", "final")]))
         #expect(proposed.isError == false, raw(proposed))
         let results = proposed.json?["results"]
+        // A short array must fail the test, not trap the host on an index.
+        guard case .array(let resultItems)? = results else { throw HarnessError("propose_edits replied: \(proposed.text)") }
+        try #require(resultItems.count == 3, raw(proposed))
         #expect(results?[0]?["status"] == "proposed" && results?[2]?["status"] == "proposed", raw(proposed))
         #expect(results?[1]?["status"] == "refused", raw(proposed))
         #expect(results?[1]?["reason"]?.stringValue?.contains("occurs 2 times") == true, raw(proposed))
@@ -676,6 +795,11 @@ struct MCPContentToolsTests {
         #expect(fullTime < .seconds(30))
         #expect(replaceTime < .seconds(30))
     }
+}
+
+private extension Array {
+    /// The element at `index`, or nil when there is none, so a short array fails an expectation and does not trap the host.
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
 private extension JSONValue {

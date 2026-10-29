@@ -317,11 +317,47 @@ struct ControlDispatcherAccessTests {
         #expect(facade.calls == ["proposeEdits:1/h2/cat/dog/why,1/h2/mat//-"])
     }
 
-    @Test func aWholeCallRefusalFromProposeEditsIsAReplyNotAnError() async throws {
-        facade.proposeResult = ProposeResult(ok: false, reason: "No active view")
+    // The app's facade throws when the editor refuses the whole call (`ok: false`), so the dispatcher sees an error, not a reply.
+    @Test func aFailureOfTheWholeProposeCallIsAnErrorNotAReply() async throws {
+        facade.failure = ControlError("No active view")
         let response = try await send("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "x", "replace": "y"]]], access: .readWrite)
+        #expect(!response.ok)
+        #expect(response.error == "No active view")
+        #expect(response.result == nil)
+    }
+
+    @Test func aMalformedEditIsRefusedAloneAndTheWellFormedOnesReachTheFacade() async throws {
+        let args: JSONValue = ["edits": [
+            ["block": 1, "expected": "h2", "find": "", "replace": "x"],
+            ["block": 1, "expected": "h2", "find": "cat", "replace": "dog"],
+            ["block": 1, "expected": "h2", "find": "mat"],
+            ["block": 1, "expected": "h2", "find": "sat", "replace": "stood"],
+        ]]
+        facade.proposeResult = ProposeResult(ok: true, results: [
+            ProposeOutcome(index: 0, status: "proposed", id: "s1", block: 1),
+            ProposeOutcome(index: 1, status: "refused", reason: "find not found in block 1"),
+        ])
+        let response = try await send("propose_edits", args, access: .readWrite)
+        #expect(response.ok, Comment(rawValue: response.error ?? ""))
+        #expect(facade.calls == ["proposeEdits:1/h2/cat/dog/-,1/h2/sat/stood/-"])
+        guard case .array(let results)? = response.result?["results"] else { Issue.record("no results"); return }
+        #expect(results.count == 4)
+        #expect(results.compactMap { $0["index"]?.intValue } == [0, 1, 2, 3])
+        #expect(results.compactMap { $0["status"]?.stringValue } == ["refused", "proposed", "refused", "refused"])
+        #expect(results.first?["reason"]?.stringValue?.hasPrefix("edits[0].find ") == true)
+        #expect(results.dropFirst().first?["id"] == "s1")
+        #expect(results.dropFirst(2).first?["reason"]?.stringValue?.hasPrefix("edits[2].replace ") == true)
+        #expect(results.last?["reason"] == "find not found in block 1")
+    }
+
+    @Test func aCallOfOnlyMalformedEditsIsAllRefusalsAndNeverReachesTheFacade() async throws {
+        let response = try await send("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "", "replace": "y"], ["block": 0, "expected": "h", "find": "x"]]], access: .readWrite)
         #expect(response.ok)
-        #expect(response.result == ["ok": false, "reason": "No active view", "results": []])
+        #expect(response.result?["ok"] == true)
+        guard case .array(let results)? = response.result?["results"] else { Issue.record("no results"); return }
+        #expect(results.compactMap { $0["index"]?.intValue } == [0, 1])
+        #expect(results.allSatisfy { $0["status"] == "refused" && $0["reason"]?.stringValue?.isEmpty == false })
+        #expect(facade.calls.isEmpty)
     }
 
     @Test func listSuggestionsReachesTheFacadeAndReturnsItsList() async throws {
@@ -353,8 +389,8 @@ struct ControlDispatcherAccessTests {
             ("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": ["h"], "allowLoss": "yes"]),
             ("propose_edits", [:]),
             ("propose_edits", ["edits": []]),
-            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "", "replace": "y"]]]),
-            ("propose_edits", ["edits": [["block": 0, "expected": "h", "find": "x"]]]),
+            ("propose_edits", ["edits": "x"]),
+            ("propose_edits", ["edits": .array(Array(repeating: ["block": 0, "expected": "h", "find": "x", "replace": "y"], count: 201))]),
         ]
         for (tool, args) in bad {
             let response = try await send(tool, args, access: .readWrite)

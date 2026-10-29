@@ -61,6 +61,24 @@ const MAX_TEXT_LENGTH = 2000
 
 const overlaps = (a, b) => a.from < b.to && b.from < a.to
 
+const sameMarks = (a, b) => a.length === b.length && a.every(mark => mark.isInSet(b))
+
+/**
+ * Does the range hold text with differing mark sets? Accepting gives the replacement the marks of the range's
+ * first character, so a range across a formatting boundary would silently flatten the rest.
+ */
+function crossesFormatting(doc, from, to) {
+  let first = null
+  let crosses = false
+  doc.nodesBetween(from, to, (node) => {
+    if (!node.isText) return true
+    if (first === null) first = node.marks
+    else if (!sameMarks(first, node.marks)) crosses = true
+    return false
+  })
+  return crosses
+}
+
 /**
  * Judge one edit against `state`'s document. Returns `{reason}` for a refusal, or `{proposal}`.
  */
@@ -104,7 +122,8 @@ function judge(state, edit, taken) {
     }
     return {
       reason: `find not found in block ${block}; matching is exact and case-sensitive against the visible text of one paragraph, `
-        + 'list item or table cell, without Markdown syntax (leave out ** _ [ ]( ) and backslash escapes)',
+        + 'list item or table cell, without Markdown syntax (leave out ** _ ` ~~ [ ]( ) ![]( ) # list markers and backslash escapes; '
+        + 'inline code matches without its backticks)',
     }
   }
   if (matches.length > 1) return { reason: `find occurs ${matches.length} times in block ${block}; include more surrounding text so it matches once` }
@@ -114,6 +133,12 @@ function judge(state, edit, taken) {
   let leaf = false
   doc.nodesBetween(from, to, (node) => { if (node.isInline && !node.isText) leaf = true })
   if (leaf) return { reason: 'the range contains an image or hard break, which the edit would delete; choose text that excludes it' }
+
+  if (crossesFormatting(doc, from, to)) {
+    return {
+      reason: 'find crosses a formatting boundary (bold, code, link...); split the edit so each part lies inside one run of formatting',
+    }
+  }
 
   const clash = taken.some(other => overlaps({ from, to }, other))
   if (clash) return { reason: 'the range overlaps a pending suggestion; resolve that one first' }
@@ -129,6 +154,9 @@ function judge(state, edit, taken) {
  * returned). Each edit is judged alone, so some may be proposed while others are refused. An edit is also
  * refused when its range overlaps a suggestion in `pending` or one proposed earlier in the same batch;
  * ranges that only touch are allowed.
+ *
+ * A `find` must lie in one run of formatting (the same marks throughout): the replacement takes that run's
+ * marks, so a range across a boundary is refused rather than flattened.
  *
  * Pure and never throws: bad input becomes a refusal. The returned `proposals` are what the plugin adds
  * (with their ids), in the order of the `proposed` results. They carry no marks: a replacement inherits the
