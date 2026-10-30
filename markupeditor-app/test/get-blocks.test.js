@@ -25,14 +25,15 @@ const doc = (...children) => schema.nodes.doc.create(null, children)
 
 /**
  * The document's Markdown must be the blocks' Markdown in order with nothing but newlines between
- * and around them. Blocks with empty Markdown (the metadata block) are skipped.
+ * and around them. The metadata block is skipped: the document's Markdown leaves it out, and the app writes
+ * it as front matter.
  */
 function expectBlocksTileTheDocument(document) {
   const whole = documentMarkdown(document)
   const { blocks } = describeBlocks(document, {})
   let position = 0
   for (const block of blocks) {
-    if (block.markdown === '') continue
+    if (block.kind === 'metadata') continue
     const at = whole.indexOf(block.markdown, position)
     expect(at, `block ${block.index} not found after position ${position}`).toBeGreaterThanOrEqual(0)
     expect(whole.slice(position, at), `text between blocks before ${block.index}`).toMatch(/^\n*$/)
@@ -133,10 +134,10 @@ describe('describeBlocks: blocks tile the document Markdown', () => {
 // ---------------------------------------------------------------------------
 
 describe('describeBlocks: metadata and HTML-preamble blocks', () => {
-  test('a metadata block at index 0 has empty Markdown and counts in the indexes', () => {
+  test('a metadata block at index 0 is its front matter and counts in the indexes', () => {
     const document = doc(codeBlock('metadata', 'title: x'), p('body'))
     const { blocks, firstEditable } = describeBlocks(document, {})
-    expect(blocks.map(b => [b.index, b.kind, b.markdown])).toEqual([[0, 'metadata', ''], [1, 'paragraph', 'body']])
+    expect(blocks.map(b => [b.index, b.kind, b.markdown])).toEqual([[0, 'metadata', '---\ntitle: x\n---'], [1, 'paragraph', 'body']])
     expect(firstEditable).toBe(1)
     expectBlocksTileTheDocument(document)
   })
@@ -154,6 +155,12 @@ describe('describeBlocks: metadata and HTML-preamble blocks', () => {
     const { blocks, firstEditable } = describeBlocks(document, {})
     expect(blocks.map(b => b.kind)).toEqual(['metadata', 'html-preamble', 'paragraph'])
     expect(firstEditable).toBe(2)
+  })
+
+  test('a metadata block keeps every line of its YAML, and an empty one is two rules', () => {
+    expect(describeBlocks(doc(codeBlock('metadata', 'a: 1\nb: [x, y]'), p('z')), {}).blocks[0].markdown).toBe('---\na: 1\nb: [x, y]\n---')
+    expect(describeBlocks(doc(codeBlock('metadata', ''), p('z')), {}).blocks[0].markdown).toBe('---\n---')
+    expect(describeBlocks(doc(codeBlock('metadata', '  \n'), p('z')), {}).blocks[0].markdown).toBe('---\n---')
   })
 
   test('with no special blocks firstEditable is 0', () => {

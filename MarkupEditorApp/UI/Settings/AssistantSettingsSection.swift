@@ -13,7 +13,7 @@ struct AssistantSettingsSection: View {
 
     @Bindable private var control = AppControl.shared
     @State private var showingImageInfo = false
-    @State private var showingConnectInfo = false
+    @State private var showingRegisterInfo = false
     @State private var copiedTitle: String?
 
     /// More programs than this are shown in a scrolling list of `maxListHeight`.
@@ -24,11 +24,21 @@ struct AssistantSettingsSection: View {
         AppControl.bundledToolURL?.path(percentEncoded: false)
     }
 
+    /// Turning it on goes through the privacy notice; turning it off is immediate.
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { control.isEnabled },
+            set: { newValue in
+                if newValue { control.enableAfterAcknowledging() } else { control.isEnabled = false }
+            }
+        )
+    }
+
     var body: some View {
         Group {
             LabeledContent("Assistants:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Allow assistants to connect", isOn: $control.isEnabled)
+                    Toggle("Allow assistants to connect", isOn: enabledBinding)
                     Text("Lets an AI assistant you set up, such as Claude, work with the document you have open. You are asked before each program gets any access.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -70,7 +80,7 @@ struct AssistantSettingsSection: View {
                     allowedPrograms
                 }
                 if let toolPath {
-                    LabeledContent("Connect:") {
+                    LabeledContent("Register:") {
                         registration(toolPath: toolPath)
                     }
                     .padding(.top, 2)
@@ -143,10 +153,10 @@ struct AssistantSettingsSection: View {
             HStack {
                 copyButton("Copy Claude Code Command", text: MCPRegistration.claudeCodeCommand(toolPath: toolPath))
                 copyButton("Copy JSON Config", text: MCPRegistration.jsonConfig(toolPath: toolPath))
-                Button("About registering", systemImage: "info.circle") { showingConnectInfo.toggle() }
+                Button("About registering", systemImage: "info.circle") { showingRegisterInfo.toggle() }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .popover(isPresented: $showingConnectInfo, arrowEdge: .bottom) {
+                    .popover(isPresented: $showingRegisterInfo, arrowEdge: .bottom) {
                         Text("Registering tells an AI assistant how to start MarkupEditor's tool, so it can work with your open document. Claude Code: paste the copied command into a terminal. Other assistants that support MCP servers: add the copied JSON to their MCP configuration. Each program still asks for your approval the first time it connects.")
                             .padding()
                             .frame(width: 300)

@@ -99,13 +99,16 @@ public struct ReplaceResult: Codable, Sendable, Equatable {
     public var range: Range?
     public var blocks: [ContentBlock]
     public var warnings: [String]
+    /// True when the change removed the metadata block, which the app needs to know to drop the front matter.
+    public var metadataRemoved: Bool?
 
-    public init(ok: Bool, reason: String? = nil, range: Range? = nil, blocks: [ContentBlock] = [], warnings: [String] = []) {
+    public init(ok: Bool, reason: String? = nil, range: Range? = nil, blocks: [ContentBlock] = [], warnings: [String] = [], metadataRemoved: Bool? = nil) {
         self.ok = ok
         self.reason = reason
         self.range = range
         self.blocks = blocks
         self.warnings = warnings
+        self.metadataRemoved = metadataRemoved
     }
 
     public init(from decoder: Decoder) throws {
@@ -115,6 +118,7 @@ public struct ReplaceResult: Codable, Sendable, Equatable {
         range = try container.decodeIfPresent(Range.self, forKey: .range)
         blocks = try container.decodeIfPresent([ContentBlock].self, forKey: .blocks) ?? []
         warnings = try container.decodeIfPresent([String].self, forKey: .warnings) ?? []
+        metadataRemoved = try container.decodeIfPresent(Bool.self, forKey: .metadataRemoved)
     }
 }
 

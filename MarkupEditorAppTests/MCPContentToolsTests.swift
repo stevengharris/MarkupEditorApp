@@ -19,8 +19,11 @@ final class ContentFixture {
     let webView: MarkupWKWebView
     let harness: MCPHarness
     let document: MarkupDocument
+    /// The user's setting for restricting images, which a test runs with on and puts back.
+    private let restrictImagesBefore: Bool
 
-    private init(page: HeadlessTestPage, webView: MarkupWKWebView, harness: MCPHarness, document: MarkupDocument) {
+    private init(page: HeadlessTestPage, webView: MarkupWKWebView, harness: MCPHarness, document: MarkupDocument, restrictImagesBefore: Bool) {
+        self.restrictImagesBefore = restrictImagesBefore
         self.document = document
         self.page = page
         self.webView = webView
@@ -38,6 +41,8 @@ final class ContentFixture {
         let html = metadataYAML.map { "<pre><code class=\"language-metadata\">\($0)</code></pre>" + body } ?? body
         await withCheckedContinuation { continuation in webView.setHtml(html) { continuation.resume() } }
         let control = AppControl.shared
+        let restrictImagesBefore = control.restrictImages
+        control.restrictImages = true
         let document = MarkupDocument()
         document.url = url
         control.document = document
@@ -46,12 +51,22 @@ final class ContentFixture {
         control.requestSave = {}   // never reach the hosting app's real save panel
         MarkupEditor.selectedWebView = webView
         let harness = try await MCPHarness.start(facade: AppControlFacade(control: control), access: access)
-        let fixture = ContentFixture(page: page, webView: webView, harness: harness, document: document)
+        let fixture = ContentFixture(page: page, webView: webView, harness: harness, document: document, restrictImagesBefore: restrictImagesBefore)
+        // The first test in a new test process has been seen to read the editor's initial empty paragraph before
+        // the page has applied the HTML it was given.
+        if !markdown.isEmpty || htmlOverride != nil {
+            for _ in 0..<100 {
+                let blocks = try await fixture.read().blocks
+                if !(blocks.count == 1 && blocks[0]["markdown"]?.stringValue == "" && blocks[0]["kind"]?.stringValue == "paragraph") { break }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        }
         fixture.document.hasChanges = false
         return fixture
     }
 
     func stop() {
+        AppControl.shared.restrictImages = restrictImagesBefore
         AppControl.shared.requestSave = {}
         harness.stop()
         AppControl.shared.document = nil
@@ -77,18 +92,21 @@ final class ContentFixture {
 
     func hashes(_ range: Range<Int>) async throws -> [String] {
         let blocks = try await read().blocks
-        return range.compactMap { blocks[$0]["hash"]?.stringValue }
+        return range.compactMap { blocks.indices.contains($0) ? blocks[$0]["hash"]?.stringValue : nil }
     }
 
     /// `replace_blocks` with the hashes read just now.
     @discardableResult
     func replace(_ index: Int, _ count: Int, _ markdown: String, allowLoss: Bool = false) async throws -> ToolOutcome {
-        let blocks = try await read().blocks
+        let reply = try await read()
+        let blocks = reply.blocks
+        let needed = count > 0 ? index + count : index
+        try #require(blocks.count >= needed, Comment(rawValue: "get_document returned \(blocks.count) blocks, \(needed) are needed: \(reply.json)"))
         let expected: [String]
         if count > 0 {
             expected = (index..<(index + count)).compactMap { blocks[$0]["hash"]?.stringValue }
         } else {
-            expected = index == 0 || (blocks.first?["kind"]?.stringValue == "metadata" && index == 1) ? [] : [blocks[index - 1]["hash"]?.stringValue ?? ""]
+            expected = index == 0 ? [] : [blocks[index - 1]["hash"]?.stringValue ?? ""]
         }
         return try await harness.call("replace_blocks", [
             "index": .number(Double(index)), "count": .number(Double(count)), "markdown": .string(markdown),
@@ -145,10 +163,12 @@ struct MCPContentToolsTests {
         #expect(try await fixture.markdowns() != beforeUndo)
         #expect(try await fixture.markdowns().last == "Appended")
 
-        // the metadata block is protected
-        let metadataHash = try await fixture.hashes(0..<1)[0]
-        let metadata = try await fixture.harness.call("replace_blocks", ["index": 0, "count": 1, "markdown": "x", "expected": [.string(metadataHash)]])
-        #expect(metadata.isError || metadata.json?["ok"] == false)
+        // the metadata block reads as its front matter and is replaced like any other block
+        #expect(try await fixture.markdowns().first == "---\ntitle: Doc\n---")
+        let retitled = try await fixture.replace(0, 1, "---\ntitle: New\n---")
+        #expect(retitled.json?["ok"] == true, Comment(rawValue: retitled.text))
+        #expect(try await fixture.markdowns().first == "---\ntitle: New\n---")
+        // an insert that would push the metadata block out of the first place is refused
         let beforeStart = try await fixture.harness.call("replace_blocks", ["index": 0, "count": 0, "markdown": "x", "expected": []])
         #expect(beforeStart.isError || beforeStart.json?["ok"] == false)
 
@@ -156,6 +176,77 @@ struct MCPContentToolsTests {
         let html = try await fixture.replace(1, 1, "Text\n\n<div>raw</div>\n\nmore")
         #expect(html.json?["ok"] == true)
         #expect(html.json?["warnings"]?[0]?.stringValue?.contains("Raw HTML") == true, Comment(rawValue: html.text))
+    }
+
+    // MARK: Front matter and the HTML header
+
+    @Test func removingTheMetadataBlockDropsTheDocumentsFrontMatter() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        fixture.document.metadata = [MetadataTuple(key: "title", value: .scalar("Doc"))]
+        let removed = try await fixture.replace(0, 1, "")
+        #expect(removed.json?["ok"] == true, Comment(rawValue: removed.text))
+        #expect(removed.json?["metadataRemoved"] == true)
+        #expect(fixture.document.metadata.isEmpty)
+        #expect(try await fixture.read().blocks.map { $0["kind"]?.stringValue } == ["paragraph", "paragraph"])
+    }
+
+    @Test func aChangeThatLeavesTheMetadataBlockAloneKeepsTheFrontMatter() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        fixture.document.metadata = [MetadataTuple(key: "title", value: .scalar("Doc"))]
+        #expect(try await fixture.replace(2, 1, "Changed").json?["ok"] == true)
+        #expect(fixture.document.metadata.count == 1)
+    }
+
+    @Test func frontMatterTheAppCannotKeepIsReportedToTheAssistant() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        let written = try await fixture.replace(0, 1, "---\ntitle: |\n  two lines\n---")
+        #expect(written.json?["ok"] == true, Comment(rawValue: written.text))
+        #expect(written.json?["warnings"]?[0]?.stringValue?.hasPrefix("Front matter:") == true, Comment(rawValue: written.text))
+    }
+
+    @Test func commentsAndNestedKeysInFrontMatterAreReported() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        let written = try await fixture.replace(0, 1, "---\n# a note\nauthor:\n  name: x\nid: &anchor 1\n---")
+        #expect(written.json?["ok"] == true, Comment(rawValue: written.text))
+        #expect(written.text.contains("comment on line 1"), Comment(rawValue: written.text))
+        #expect(written.text.contains("indented line 3"), Comment(rawValue: written.text))
+        #expect(written.text.contains("line 4 uses an anchor"), Comment(rawValue: written.text))
+    }
+
+    @Test func aDocumentThatDoesNotKeepFrontMatterRefusesToCreateIt() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", url: URL(fileURLWithPath: "/tmp/MarkupEditorTestDocument.html"))
+        defer { fixture.stop() }
+        let blocks = try await fixture.read().blocks
+        let refused = try await fixture.harness.call("replace_blocks", ["index": 0, "count": 0, "markdown": "---\ntitle: x\n---", "expected": []])
+        #expect(refused.isError || refused.json?["ok"] == false, Comment(rawValue: refused.text))
+        #expect(refused.text.contains("does not keep"), Comment(rawValue: refused.text))
+        #expect(try await fixture.read().blocks.count == blocks.count)
+    }
+
+    @Test func anHTMLHeaderThatLoadsFromTheWebIsRefusedWhileImagesAreRestricted() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody")
+        defer { fixture.stop() }
+        let refused = try await fixture.harness.call("replace_blocks", ["index": 0, "count": 0, "markdown": "<p align=\"center\"><img src=\"https://example.invalid/logo.svg\"></p>", "expected": []])
+        #expect(refused.isError || refused.json?["ok"] == false, Comment(rawValue: refused.text))
+        #expect(refused.text.contains("Settings"), Comment(rawValue: refused.text))
+        AppControl.shared.restrictImages = false
+        let allowed = try await fixture.harness.call("replace_blocks", ["index": 0, "count": 0, "markdown": "<p align=\"center\"><img src=\"https://example.invalid/logo.svg\"></p>", "expected": []])
+        #expect(allowed.json?["ok"] == true, Comment(rawValue: allowed.text))
+    }
+
+    @Test func anHTMLHeaderIsWrittenAfterTheFrontMatterAndRemoved() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        let header = try await fixture.replace(1, 0, "<p align=\"center\">\n  <img src=\"logo.svg\" width=\"96\">\n</p>")
+        #expect(header.json?["ok"] == true, Comment(rawValue: header.text))
+        #expect(try await fixture.read().blocks.map { $0["kind"]?.stringValue } == ["metadata", "html-preamble", "paragraph", "paragraph"])
+        #expect(try await fixture.markdowns()[1].hasPrefix("<p align=\"center\">"))
+        #expect(try await fixture.replace(1, 1, "").json?["ok"] == true)
+        #expect(try await fixture.read().blocks.map { $0["kind"]?.stringValue } == ["metadata", "paragraph", "paragraph"])
     }
 
     // MARK: Reading and selecting

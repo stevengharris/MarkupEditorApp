@@ -70,3 +70,56 @@ function mapHeadings(node, assign) {
   })
   return changed ? node.copy(content) : node
 }
+
+/**
+ * The ids to give id-less headings of a whole document that a same-document link ("#slug") targets and no
+ * heading already claims. The first heading with a matching candidate id takes it.
+ *
+ * @returns {{pos: number, id: string}[]}
+ */
+export function headingIdAssignments(doc, schema) {
+  const linkType = schema.marks.link
+  if (!linkType) return []
+  const targets = new Set()
+  const claimed = new Set()
+  doc.descendants(node => {
+    if (node.type.name === 'heading' && node.attrs.id) claimed.add(node.attrs.id)
+    node.marks.forEach(mark => {
+      if (mark.type === linkType && typeof mark.attrs.href === 'string' && mark.attrs.href.length > 1 && mark.attrs.href.startsWith('#')) {
+        targets.add(mark.attrs.href.slice(1))
+      }
+    })
+  })
+  const assignments = []
+  if (targets.size === 0) return assignments
+  doc.descendants((node, pos) => {
+    if (node.type.name !== 'heading' || node.attrs.id) return
+    const candidate = candidateId(node.textContent)
+    if (targets.has(candidate) && !claimed.has(candidate)) {
+      claimed.add(candidate)
+      assignments.push({ pos, id: candidate })
+    }
+  })
+  return assignments
+}
+
+/**
+ * The targets of same-document links in `fragment` that no heading of `doc` carries as its id.
+ *
+ * @returns {string[]}
+ */
+export function unmatchedLinkTargets(fragment, doc, schema) {
+  const linkType = schema.marks.link
+  if (!linkType) return []
+  const ids = new Set()
+  doc.descendants(node => { if (node.type.name === 'heading' && node.attrs.id) ids.add(node.attrs.id) })
+  const missing = new Set()
+  fragment.descendants(node => {
+    node.marks.forEach(mark => {
+      if (mark.type !== linkType || typeof mark.attrs.href !== 'string' || mark.attrs.href.length < 2 || !mark.attrs.href.startsWith('#')) return
+      const target = mark.attrs.href.slice(1)
+      if (!ids.has(target)) missing.add(target)
+    })
+  })
+  return [...missing]
+}
