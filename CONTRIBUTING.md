@@ -1,6 +1,8 @@
 # Contributing
 
-Contributions - including bug fixes, enhancements, and plugins - are welcome.
+Contributions - including bug fixes, enhancements, and plugins - are welcome. 
+
+Accepted contributions and pull requests will be provided in this project under its MIT license. Contributions that introduce dependencies or code that prevents licensing under the MIT license will be rejected.
 
 This project should be a welcoming, harassment-free space for everyone, regardless of background or identity. You should expect me to behave in a friendly, open, and respectful manner, and I expect people interacting on issues and other areas to do likewise. I may formally adopt a [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) at some point if I feel it is needed.
 
@@ -10,7 +12,7 @@ Below you will find some [discussion](#about-ai) about how I used AI-assisted co
 
 * You, a human, are responsible for the code you produce, whether you produce it using AI assistance or not. Do *not* submit a pull request with Claude or some other agent as a committer.
 
-* I, a human, will review PRs that you submit. Do not waste my time submitting AI-generated pull requests. Write them yourself. You can even use the MarkupEditor MCP server to collaborate with an AI assistant on writing content for the PR. Be prepared to answer questions about it yourself. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it.
+* I, a human, will review PRs that you submit. Do not waste my time submitting AI-generated pull requests that you cannot discuss and answer questions about. You can even use the MarkupEditor MCP server to collaborate with an AI assistant on writing content for the PR. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it.
 
 If you are using AI to work on this project, be sure to review the [AI Skills](#ai-skills) section below. The skills are designed to help you navigate the multi-tiered dependencies between Swift and JavaScript and to make plugin development simpler.
 
