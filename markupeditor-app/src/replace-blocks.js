@@ -4,6 +4,7 @@ import frontMatterPlugin from 'markdown-it-front-matter'
 import { makeParser } from './parser.js'
 import { makeWarnings } from './warnings.js'
 import { describeBlocks, firstEditableOf, kindOf } from './doc-blocks.js'
+import { headingIdAssignments, unmatchedLinkTargets } from './heading-ids.js'
 import { applyImagePolicy, isRelativeImageSrc } from './image-policy.js'
 
 // The meta key prosemirror-history reads to end the current undo event, so the change is not undone together
@@ -238,6 +239,14 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
   if (deleting) tr.delete(from, to)
   else tr.replaceWith(from, to, fragment.content)
   tr.setMeta(CLOSE_HISTORY, true)
+  if (!deleting) {
+    for (const { pos, id } of headingIdAssignments(tr.doc, state.schema)) {
+      tr.setNodeMarkup(pos, null, { ...tr.doc.nodeAt(pos).attrs, id })
+    }
+    for (const target of unmatchedLinkTargets(fragment, tr.doc, state.schema)) {
+      importWarnings.push(`Internal link target "#${target}" does not match any heading`)
+    }
+  }
 
   const newCount = deleting ? 0 : fragment.childCount
 

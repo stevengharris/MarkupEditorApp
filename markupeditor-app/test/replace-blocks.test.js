@@ -568,9 +568,51 @@ describe('what the import says', () => {
   })
 
   test('no warning about an internal link whose heading is elsewhere in the document', () => {
-    const { result } = run(doc(p('a'), p('b')), 1, 1, 'see [the intro](#intro)')
+    const { result } = run(parse('# Intro\n\nb'), 1, 1, 'see [the intro](#intro)')
     expect(result.ok, result.reason).toBe(true)
     expect(result.warnings).toEqual([])
+  })
+
+  test('a new internal link that matches no heading is reported', () => {
+    const { result } = run(doc(p('a'), p('b')), 1, 1, 'see [the intro](#intro)')
+    expect(result.ok, result.reason).toBe(true)
+    expect(result.warnings).toEqual(['Internal link target "#intro" does not match any heading'])
+  })
+
+  test('a link to # alone is neither reported nor given to a heading', () => {
+    const empty = schema.nodes.heading.create({ level: 2 })
+    const { result, doc: after } = run(doc(p('a'), empty), 0, 1, '[top](#)')
+    expect(result.ok, result.reason).toBe(true)
+    expect(result.warnings).toEqual([])
+    expect(after.child(1).attrs.id ?? null).toBe(null)
+  })
+
+  describe('heading ids for internal links', () => {
+    const idsOf = (document) => { const ids = []; document.descendants(n => { if (n.type.name === 'heading') ids.push(n.attrs.id ?? null) }); return ids }
+
+    test('a new link gives the heading it targets an id', () => {
+      const { result, doc: after } = run(parse('# Title\n\n## Features\n\nbody'), 3, 0, '[Features](#features)')
+      expect(result.ok, result.reason).toBe(true)
+      expect(idsOf(after)).toEqual([null, 'features'])
+    })
+
+    test('a new heading that an existing link targets gets its id', () => {
+      const { result, doc: after } = run(parse('# Title\n\n[Setup](#setup)'), 2, 0, '## Setup')
+      expect(result.ok, result.reason).toBe(true)
+      expect(idsOf(after)).toEqual([null, 'setup'])
+    })
+
+    test('headings nothing links to stay without an id', () => {
+      const { doc: after } = run(parse('# Title\n\n## Features'), 2, 0, 'plain')
+      expect(idsOf(after)).toEqual([null, null])
+    })
+
+    test('a heading that already has the id keeps it and no other heading takes it', () => {
+      const before = doc(schema.nodes.heading.create({ level: 2, id: 'features' }, schema.text('Features')),
+        schema.nodes.heading.create({ level: 2 }, schema.text('Features')))
+      const { doc: after } = run(before, 2, 0, '[Features](#features)')
+      expect(idsOf(after)).toEqual(['features', null])
+    })
   })
 
   test('Windows line endings are accepted', () => {
