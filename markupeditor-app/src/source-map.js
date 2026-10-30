@@ -1,4 +1,4 @@
-import { MU } from 'markupeditor'
+import { MU, DOMSerializer, DOMParser } from 'markupeditor'
 import { MarkdownSerializerState } from 'prosemirror-markdown'
 import { makeSerializer } from './serializer.js'
 import { makeParser } from './parser.js'
@@ -15,6 +15,20 @@ let current = null
  */
 export function getSourceMap() {
   return current
+}
+
+/**
+ * The document the editor holds for `doc`: the editor loads a file as HTML, and parsing that HTML
+ * normalizes some content (runs of whitespace collapse), so baselines must be taken from this form.
+ *
+ * @param {object} doc - ProseMirror doc Node
+ * @param {object} schema - ProseMirror schema
+ * @returns {object} ProseMirror doc Node
+ */
+export function editorDocument(doc, schema) {
+  const container = document.createElement('div')
+  container.appendChild(DOMSerializer.fromSchema(schema).serializeFragment(doc.content))
+  return DOMParser.fromSchema(schema).parse(container)
 }
 
 const renderBlock = (state, doc, index, renderIndex = index) => {
@@ -37,7 +51,7 @@ const renderBlock = (state, doc, index, renderIndex = index) => {
 export function standaloneMarkdown(text, schema, isPreamble, parserFactory = makeParser) {
   const warnings = makeWarnings()
   const source = isPreamble ? prepareImport(text, warnings).modified : text
-  const doc = parserFactory(schema, warnings).parse(source)
+  const doc = editorDocument(parserFactory(schema, warnings).parse(source), schema)
   if (doc.childCount !== 1) return null
   const serializer = makeSerializer(makeWarnings())
   const state = new MarkdownSerializerState(serializer.nodes, serializer.marks, { escapeExtraCharacters: /</g })
@@ -64,7 +78,7 @@ export function buildSourceMap(baseText, schema, parserFactory = makeParser) {
   const prepared = prepareImport(baseText, warnings)
   const recorder = []
   const parser = parserFactory(schema, warnings, recorder)
-  const doc = assignHeadingIds(parser.parse(prepared.modified), schema, warnings)
+  const doc = editorDocument(assignHeadingIds(parser.parse(prepared.modified), schema, warnings), schema)
 
   if (recorder.length === 0) return none('empty body')
   if (recorder.length !== doc.childCount) {
@@ -96,7 +110,9 @@ export function buildSourceMap(baseText, schema, parserFactory = makeParser) {
   const blocks = recorder.map((token, index) => {
     const baseline = hashMarkdown(renderBlock(state, doc, index))
     const startLine = startOf(token.map[0])
-    const endLine = endOf(token.map[1])
+    // List token maps run over the blank lines after the list; those lines belong to the gap.
+    let endLine = endOf(token.map[1])
+    while (endLine - 1 > startLine && !lines[endLine - 1].trim()) endLine--
     const node = doc.child(index)
     const isPreamble = index === 0 && node.type.name === 'code_block' && node.attrs.language === 'html'
     const own = standaloneMarkdown(lines.slice(startLine, endLine).join(''), schema, isPreamble, parserFactory)
@@ -123,11 +139,20 @@ export function buildSourceMap(baseText, schema, parserFactory = makeParser) {
  */
 export function rebaseSource(baseText) {
   current = null
+  if (typeof baseText !== 'string') {
+    return JSON.stringify({ tag: null, frontMatter: null, lineEnding: null, warnings: ['Source text is not a string'] })
+  }
   const view = MU.activeView()
   if (!view) {
     return JSON.stringify({ tag: null, frontMatter: null, lineEnding: null, warnings: ['No active view'] })
   }
-  const { map, reason, warnings } = buildSourceMap(baseText, view.state.schema)
+  let built
+  try {
+    built = buildSourceMap(baseText, view.state.schema)
+  } catch (error) {
+    built = { map: null, reason: `unexpected error: ${error.message}`, warnings: [] }
+  }
+  const { map, reason, warnings } = built
   if (!map) {
     console.warn(`Source map not recorded: ${reason}`)
     return JSON.stringify({ tag: null, frontMatter: null, lineEnding: null, warnings })

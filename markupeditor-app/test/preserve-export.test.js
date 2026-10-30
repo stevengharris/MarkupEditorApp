@@ -1,13 +1,15 @@
 import { beforeAll, describe, test, expect, vi } from 'vitest'
 import { MU } from 'markupeditor'
 import { exportMarkdown, getMarkdown } from '../src/markdown.js'
-import { rebaseSource } from '../src/source-map.js'
+import { rebaseSource, getSourceMap, editorDocument } from '../src/source-map.js'
+import { matchBlocks } from '../src/preserve.js'
 import { makeParser } from '../src/parser.js'
 import { makeWarnings } from '../src/warnings.js'
 
 const { schema } = MU
 
-const parse = (text) => makeParser(schema, makeWarnings()).parse(text.replace(/\r\n/g, '\n'))
+// The document the editor holds: parsed, then through HTML like a loaded file.
+const parse = (text) => editorDocument(makeParser(schema, makeWarnings()).parse(text.replace(/\r\n/g, '\n')), schema)
 const show = (doc) => MU.activeView.mockReturnValue({ state: { doc, schema } })
 
 // Record `base` as the source, show `edited` in the editor, and export with preservation.
@@ -221,5 +223,89 @@ describe('save warnings', () => {
     const long = `<div>${'x'.repeat(100)}</div>`
     const out = exported(`_a_\n\n${long}\n\n_b_\n`, 'changed\n\n*b*\n')
     expect(out.warnings[0]).toBe(`Raw HTML next to an edited block was not saved: ${long.slice(0, 60)}`)
+  })
+})
+
+describe('review findings', () => {
+  test.each([
+    ['LF', '\n'],
+    ['CRLF', '\r\n'],
+  ])('a preserved list before an edited block does not gain a blank line: %s', (_, eol) => {
+    const base = ['Intro', '', '* a', '* b', '', 'Tail text', ''].join(eol)
+    const out = preserved(base, 'Intro\n\n* a\n* b\n\nEnd text\n')
+    expect(out).toBe(['Intro', '', '* a', '* b', '', 'End text', ''].join(eol))
+  })
+
+  test('a preserved ordered list followed by extra blank lines gets one blank line before an edited block', () => {
+    const base = '1. a\n2. b\n\n\nz\n'
+    expect(preserved(base, '1. a\n2. b\n\nchanged\n')).toBe('1. a\n2. b\n\nchanged\n')
+  })
+
+  test('serializer warnings for an edited block are reported', () => {
+    const base = 'hello world\n\nz\n'
+    show(parse(base))
+    const { tag } = JSON.parse(rebaseSource(base))
+    const doc = parse(base)
+    const marked = doc.type.create(null, [
+      schema.nodes.paragraph.create(null, [schema.text('hello', [schema.marks.u.create()]), schema.text(' world')]),
+      doc.child(1),
+    ])
+    show(marked)
+    const out = JSON.parse(exportMarkdown({ preserve: true, tag }))
+    expect(out.warnings).toEqual(JSON.parse(exportMarkdown()).warnings)
+    expect(out.warnings.length).toBe(1)
+  })
+
+  test.each([
+    ['LF', '\n'],
+    ['CRLF', '\r\n'],
+  ])('a single edited block keeps the line ending and final newline: %s', (_, eol) => {
+    expect(preserved(`Hello world${eol}`, 'Howdy world\n')).toBe(`Howdy world${eol}`)
+    expect(preserved(`one${eol}${eol}two${eol}`, 'uno\n\ndos\n')).toBe(`uno${eol}${eol}dos${eol}`)
+  })
+
+  test('a very large middle is not matched, only the prefix and suffix', () => {
+    const shared = Array.from({ length: 6000 }, (_, i) => `x${i}`)
+    const base = ['f', ...shared, 'l'].map(baseline => ({ baseline, preservable: true }))
+    const current = ['F', ...shared, 'L'].map(hash => ({ hash }))
+    expect(matchBlocks(base, current).size).toBe(0)
+    expect(matchBlocks(base.slice(0, 50), current.slice(0, 50)).size).toBe(49)
+  })
+})
+
+describe('review follow-ups', () => {
+  test('one changed block in the middle of a long list is matched on both sides', () => {
+    const shared = Array.from({ length: 12000 }, (_, i) => `x${i}`)
+    const base = shared.map(baseline => ({ baseline, preservable: true }))
+    const current = shared.map((hash, i) => ({ hash: i === 6000 ? 'changed' : hash }))
+    expect(matchBlocks(base, current).size).toBe(11999)
+  })
+
+  test('a multi-line edited block uses the dominant line ending on every line', () => {
+    const out = preserved('_a_\r\n\r\n* x\r\n* y\r\n', '*a*\n\n* x\n* z\n')
+    expect(out.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
+  test('a failure while assembling falls back to the whole-document export', () => {
+    const base = '_a_\n\n_b_\n'
+    show(parse(base))
+    const { tag } = JSON.parse(rebaseSource(base))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    getSourceMap().blocks = null
+    const out = JSON.parse(exportMarkdown({ preserve: true, tag }))
+    expect(out.result).toBe(JSON.parse(exportMarkdown()).result)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Preserving export failed'))
+    warn.mockRestore()
+  })
+
+  test('text before the first block is dropped with a warning when that block is edited', () => {
+    const out = exported('[x]: http://example.com\n\n_a_\n\n_b_\n', 'changed\n\n*b*\n')
+    expect(out.warnings).toEqual(['Text before the first block was dropped because that block was edited'])
+  })
+
+  test('non-string source records no map', () => {
+    const out = JSON.parse(rebaseSource(123))
+    expect(out.tag).toBeNull()
+    expect(out.warnings).toEqual(['Source text is not a string'])
   })
 })

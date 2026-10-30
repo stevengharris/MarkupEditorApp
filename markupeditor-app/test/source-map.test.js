@@ -206,6 +206,10 @@ describe('rebaseSource', () => {
     warn.mockRestore()
   })
 
+  test('equal CRLF and LF line counts report LF', () => {
+    expect(build('a\r\n\r\nb\n\n').map.lineEnding).toBe('LF')
+  })
+
   test('a lone carriage return records no map', () => {
     expect(build('a\r\rb\n').map).toBeNull()
   })

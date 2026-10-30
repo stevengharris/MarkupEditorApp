@@ -146,11 +146,18 @@ describe('edit shapes', () => {
     const saved = save(first.tag).result
     const second = JSON.parse(rebaseSource(saved))
     edit('Closing', 'Final')
-    const out = save(second.tag).result
-    const before = blocksOf(saved)
-    const after = blocksOf(out)
-    after.forEach((block, i) => { if (i !== after.length - 1) expect(block).toBe(before[i]) })
-    expect(after[after.length - 1]).toContain('Final')
+    expect(save(second.tag).result).toBe(saved.replace('Closing', 'Final'))
+  })
+})
+
+describe('whitespace the editor normalizes', () => {
+  test.each([
+    ['a double space', 'Intro.  Two spaces.\n\n- a\n'],
+    ['a tab', 'a\tb\n'],
+    ['spaces inside a code span', 'Use `a  b` here.\n\n* x\n'],
+  ])('a save with no edit keeps %s', (_, text) => {
+    const { tag } = load(text)
+    expect(save(tag).result).toBe(text)
   })
 })
 
@@ -184,6 +191,11 @@ describe('edge scenarios', () => {
     expect(save(tag).result).toBe(JSON.parse(exportMarkdown()).result)
   })
 
+  test('a document that breaks the source map arithmetic records no map instead of throwing', () => {
+    expect(() => load('<div>x</div>\n```')).not.toThrow()
+    expect(JSON.parse(rebaseSource('<div>x</div>\n```')).tag).toBeNull()
+  })
+
   test('replace_blocks changes only the replaced blocks', () => {
     const text = '_a_\n\n_b_\n\n_c_\n'
     const { tag } = load(text)
@@ -194,17 +206,14 @@ describe('edge scenarios', () => {
     expect(save(tag).result).toBe('_a_\n\nreplaced\n\n_c_\n')
   })
 
-  test('a stale map and a null tag both export today\'s output', () => {
-    const a = load('_a_\r\n\r\n_b_\r\n\r\n\r\n')
-    const stale = '*x*\n\ny\n'
-    const html = JSON.parse(importMarkdown(stale)).result
+  test('after a document is replaced without a rebase, a null tag exports today\'s output', () => {
+    load('_a_\r\n\r\n_b_\r\n\r\n\r\n')
+    const html = JSON.parse(importMarkdown('*x*\n\ny\n')).result
     const div = document.createElement('div')
     div.innerHTML = html
     current = EditorState.create({ doc: DOMParser.fromSchema(schema).parse(div) })
-    const today = JSON.parse(exportMarkdown()).result
-    const out = save(a.tag).result
-    expect(out).toBe(today)
+    const out = save(null).result
+    expect(out).toBe(JSON.parse(exportMarkdown()).result)
     expect(out).not.toContain('\r')
-    expect(save(null).result).toBe(today)
   })
 })

@@ -3,6 +3,9 @@ import { makeSerializer } from './serializer.js'
 import { makeWarnings } from './warnings.js'
 import { describeBlocks } from './doc-blocks.js'
 
+// Beyond this many table cells the middle is not matched; the unmatched blocks are written from the editor.
+const MAX_MIDDLE = 2.5e7
+
 const terminatorOf = (text) => text.match(/\r?\n$/)?.[0] ?? ''
 
 /**
@@ -23,7 +26,7 @@ export function matchBlocks(base, current) {
   while (bi > lo && ci > lo && same(bi - 1, ci - 1)) { bi--; ci--; pairs.set(ci, bi) }
 
   const n = bi - lo, m = ci - lo
-  if (n === 0 || m === 0) return pairs
+  if (n === 0 || m === 0 || n * m > MAX_MIDDLE) return pairs
   // Score a match as one point of weight K minus its distance, so the count dominates and distance breaks ties.
   const K = n * m + 1
   const width = m + 1
@@ -57,18 +60,19 @@ export function matchBlocks(base, current) {
  * @param {object} doc - ProseMirror doc Node
  * @param {object} map - the recorded source map
  * @param {object} warnings - warnings collector from makeWarnings()
- * @returns {string|null} null when no block matches, which means the map belongs to some other content
+ * @returns {string}
  */
 export function preserveMarkdown(doc, map, warnings) {
   const described = describeBlocks(doc)
   const first = described.blocks[0]?.kind === 'metadata' ? 1 : 0
   const current = described.blocks.slice(first)
   const pairs = matchBlocks(map.blocks, current)
-  if (pairs.size === 0) return null
   const eol = map.lineEnding === 'CRLF' ? '\r\n' : '\n'
 
   const parts = current.map((block, j) => {
     const i = pairs.get(j)
+    // Matched blocks are written from the source, but content the serializer cannot represent still warns.
+    block.warnings.forEach(w => warnings.add(w))
     if (i === undefined) return { text: block.markdown.replace(/\n/g, eol), term: eol, base: -1 }
     const raw = map.lines.slice(map.blocks[i].startLine, map.blocks[i].endLine).join('')
     const term = terminatorOf(raw)

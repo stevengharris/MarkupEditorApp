@@ -34,8 +34,13 @@ export function exportMarkdown(options) {
   const map = getSourceMap()
   const opts = options && typeof options === 'object' ? options : {}
   if (opts.preserve === true && map && opts.tag === map.tag) {
-    const result = preserveMarkdown(doc, map, warnings)
-    if (result !== null) return JSON.stringify({ result, warnings: warnings.get() })
+    try {
+      const preserveWarnings = makeWarnings()
+      const result = preserveMarkdown(doc, map, preserveWarnings)
+      return JSON.stringify({ result, warnings: preserveWarnings.get() })
+    } catch (error) {
+      console.warn(`Preserving export failed: ${error.message}`)
+    }
   }
   const serializer = makeSerializer(warnings)
   // Escape bare < in text so re-import treats them as escaped characters, not html_inline
