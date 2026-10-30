@@ -94,6 +94,7 @@ struct SourceView: View {
             // is not valid against another.
             attributedSource = highlighter.highlight(source)
             discardUndoHistory()
+            disableQuoteAndDashSubstitution()
             applyPendingOffsetIfNeeded()
             // Focus after the selection is set: unlike the WKWebView/ProseMirror side
             // (MarkupWKWebView.focus() -> setSelection(), which can reset the selection),
@@ -227,6 +228,19 @@ struct SourceView: View {
             guard let y = Self.scrollOriginY(for: action, blockTop: startRect.minY, blockBottom: endRect.maxY, visibleHeight: visibleBottom - visibleTop, maxOrigin: maxOrigin + inset.top) else { return }
             scrollView.contentView.scroll(to: NSPoint(x: bounds.minX, y: max(y - inset.top, -inset.top)))
             scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+
+    /// Keeps the text view from replacing typed quotes and dashes with curly quotes and em dashes,
+    /// which would otherwise follow the system keyboard setting. The TextEditor offers no API for it,
+    /// so this reaches its NSTextView.
+    private func disableQuoteAndDashSubstitution() {
+        let box = windowBox
+        let expectedLength = String(attributedSource.characters).utf16.count
+        Task { @MainActor in
+            guard let textView = await Self.textViewWhenReady(in: box, length: expectedLength) else { return }
+            textView.isAutomaticQuoteSubstitutionEnabled = false
+            textView.isAutomaticDashSubstitutionEnabled = false
         }
     }
 
