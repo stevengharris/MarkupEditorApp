@@ -25,6 +25,8 @@ final class AppControl {
     static let enabledKey = "ControlEnabled"
     /// UserDefaults key for limiting the images an assistant adds to relative paths.
     static let restrictImagesKey = "ControlRestrictImages"
+    /// UserDefaults key recording that the user has accepted the privacy notice shown when Assistants is first turned on.
+    static let privacyAcknowledgedKey = "ControlPrivacyAcknowledged"
     private static let enabledByDefault = false
 #if DEBUG
     /// Debug builds ask like every other build, unless this key is "allow", which allows every client without asking.
@@ -78,6 +80,31 @@ final class AppControl {
     /// Starts or stops the listener to match the setting.
     func reconcile() {
         if isEnabled { startListening() } else { stopListening() }
+    }
+
+    /// Turns assistant access on. The first time, the user must accept the privacy notice; Cancel is the default
+    /// button, so a stray Return leaves it off. Returns whether access is now on.
+    @discardableResult
+    func enableAfterAcknowledging() -> Bool {
+        if !UserDefaults.standard.bool(forKey: Self.privacyAcknowledgedKey) {
+            guard Self.acknowledgesPrivacy() else { return false }
+            UserDefaults.standard.set(true, forKey: Self.privacyAcknowledgedKey)
+        }
+        isEnabled = true
+        return true
+    }
+
+    private static func acknowledgesPrivacy() -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Privacy and AI Assistance"
+        alert.informativeText = "When you connect MarkupEditor to an AI assistant, the AI assistant will have access to the document you are editing. Depending on what AI assistant you connect with, your document might be shared with an external service, and will therefore be subject to the privacy policies of that service. By pressing OK below, you are acknowledging that you understand and agree."
+        let cancel = alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "OK")
+        // A button titled Cancel is given Escape and no default; Return makes it the default button.
+        cancel.keyEquivalent = "\r"
+        alert.alertStyle = .informational
+        return alert.runModal() == .alertSecondButtonReturn
     }
 
     func refreshApprovals() {

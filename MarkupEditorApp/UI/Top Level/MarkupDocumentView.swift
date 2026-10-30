@@ -187,6 +187,7 @@ struct MarkupDocumentView: View {
                 ud.removeObject(forKey: ConfigKeys.app)
                 ud.removeObject(forKey: AppControl.enabledKey)
                 ud.removeObject(forKey: AppControl.restrictImagesKey)
+                ud.removeObject(forKey: AppControl.privacyAcknowledgedKey)
                 ud.removeObject(forKey: AppControl.consentKey)
                 ud.removeObject(forKey: UserDefaultsApprovalStore.defaultsKey)
                 ud.removeObject(forKey: SubscriptionModel.lastEmailKey)

@@ -24,11 +24,21 @@ struct AssistantSettingsSection: View {
         AppControl.bundledToolURL?.path(percentEncoded: false)
     }
 
+    /// Turning it on goes through the privacy notice; turning it off is immediate.
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { control.isEnabled },
+            set: { newValue in
+                if newValue { control.enableAfterAcknowledging() } else { control.isEnabled = false }
+            }
+        )
+    }
+
     var body: some View {
         Group {
             LabeledContent("Assistants:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Allow assistants to connect", isOn: $control.isEnabled)
+                    Toggle("Allow assistants to connect", isOn: enabledBinding)
                     Text("Lets an AI assistant you set up, such as Claude, work with the document you have open. You are asked before each program gets any access.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
