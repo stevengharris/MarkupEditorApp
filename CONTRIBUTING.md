@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions - including bug fixes, enhancements, and plugins - are welcome. 
+Contributions - including bug fixes, enhancements, and plugins - are welcome.
 
 Accepted contributions and pull requests will be provided in this project under its MIT license. Contributions that introduce dependencies or code that prevents licensing under the MIT license will be rejected.
 
@@ -78,7 +78,7 @@ The part of this repository related to the Swift app proper probably has a famil
 
 The part that will seem unusual for many Swift developers is the mixture of Swift and JavaScript. This is in large part because the MarkupEditorApp is built on top of the MarkupEditor, a Swift package that wraps calls to an API exposed in the markupeditor-base JavaScript package. The markupeditor-base package in turn depends on ProseMirror to help with the WYSIWYG editing. Here's a diagram to show how it fits together.
 
-<img src="architecture-diagram.svg" alt="Architecture diagram: MarkupEditorApp, MarkupEditorAppLib, and MarkupEditorCLI in Swift depend on the MarkupEditor package, which hosts a WKWebView loading the JavaScript markupeditor-app, markupeditor-base, and plugins, built with plugin-kit and ProseMirror." width="760" height="972">
+> <img src="images/architecture-diagram.svg" alt="Architecture diagram" width="601" height="769">
 
 The plugins to support exporters and codeviews (e.g., Mermaid and GeoJSON) are also written in JavaScript, and these dependencies have to be brought in to the MarkupEditorApp package. The document you are editing when using the app is, ultimately, a `contentEditable` div inside of a WKWebView, and all of the JavaScript is loaded as ES modules into that view.
 
