@@ -64,7 +64,11 @@ export function importMarkdown(content) {
   let yamlContent = null
   const md = new MarkdownIt({ html: true })
   md.use(frontMatterPlugin, (yaml) => { yamlContent = yaml })
-  const tokens = md.parse(normalized, {})
+  const env = {}
+  const tokens = md.parse(normalized, env)
+  if (env.references && Object.keys(env.references).length > 0) {
+    warnings.add('Link reference definitions are saved as inline links.')
+  }
 
   // Locate YAML frontmatter token (map holds [startLine, endLine] inclusive/exclusive)
   let yamlStartLine = -1, yamlEndLine = -1
