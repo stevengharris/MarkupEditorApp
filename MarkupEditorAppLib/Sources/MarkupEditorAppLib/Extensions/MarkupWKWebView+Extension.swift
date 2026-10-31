@@ -19,14 +19,23 @@ extension MarkupWKWebView {
         }
     }
 
-    public func exportMarkdown(content: String?) async -> String? {
+    /// Exports the live document. Without `options` the call is the positional-string form, which the editor
+    /// treats as no options.
+    public func exportMarkdown(content: String?, options: MarkdownExportOptions? = nil) async -> String? {
         guard let content else { return nil }
+        let argument = options.map { Self.jsLiteral($0) } ?? "'\(content.escaped)'"
         return await withCheckedContinuation { continuation in
-            executeJavaScript("MU.exportMarkdown('\(content.escaped)')") { result, error in
+            executeJavaScript("MU.exportMarkdown(\(argument))") { result, error in
                 if let error { Logger.webview.error("Error exporting Markdown: \(error)") }
                 continuation.resume(returning: error == nil ? result as? String : nil)
             }
         }
+    }
+
+    /// Records a source map for `baseText` in the editor and returns its JSON envelope (see `RebaseResult`),
+    /// or `nil` when the call fails.
+    public func rebaseSource(_ baseText: String) async -> String? {
+        await runBlockFunction("MU.rebaseSource(\(Self.jsLiteral(baseText)))", name: "rebaseSource")
     }
 
     /// The top-level block index (0-based) containing the active editor's current selection,

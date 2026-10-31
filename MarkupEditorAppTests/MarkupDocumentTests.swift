@@ -181,3 +181,107 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
     }
 }
 
+
+// MARK: - base text and source map tag
+
+@MainActor
+private func documentWithBase(_ baseText: String = "# Old\n") -> MarkupDocument {
+    let doc = MarkupDocument()
+    doc.baseText = baseText
+    doc.sourceMapTag = "oldtag"
+    doc.recordFrontMatter("---\ntitle: Old\n---\n\n")
+    return doc
+}
+
+@MainActor struct MarkupDocumentBaseTextTests {
+
+    @Test func baseTextClearedByReset() {
+        let doc = documentWithBase()
+        doc.reset()
+        #expect(doc.baseText == nil)
+        #expect(doc.sourceMapTag == nil)
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: true) == "Body\n")
+    }
+
+    @Test func baseTextClearedByOpenUntitled() {
+        let doc = documentWithBase()
+        doc.openUntitled(markdown: "# Welcome", metadata: [])
+        #expect(doc.baseText == nil)
+        #expect(doc.sourceMapTag == nil)
+    }
+
+    @Test func baseTextClearedByOpenHtml() throws {
+        let fm = FileManager.default
+        let dir = try makeTempDir()
+        let baseUrl = try makeTempDir()
+        defer { try? fm.removeItem(at: dir); try? fm.removeItem(at: baseUrl) }
+        let fileURL = dir.appendingPathComponent("test.html")
+        try "<p>Hello</p>".write(to: fileURL, atomically: true, encoding: .utf8)
+        let doc = documentWithBase()
+        _ = try doc.openHtml(at: fileURL, baseUrl: baseUrl)
+        #expect(doc.baseText == nil)
+        #expect(doc.sourceMapTag == nil)
+    }
+
+    @Test func baseTextSetByOpenMd() throws {
+        let fm = FileManager.default
+        let dir = try makeTempDir()
+        let baseUrl = try makeTempDir()
+        defer { try? fm.removeItem(at: dir); try? fm.removeItem(at: baseUrl) }
+        let fileURL = dir.appendingPathComponent("test.md")
+        let text = "---\ntitle: New\n---\n\n# New\n"
+        try text.write(to: fileURL, atomically: true, encoding: .utf8)
+        let doc = documentWithBase()
+        try doc.openMd(at: fileURL, baseUrl: baseUrl, markdown: text, metadata: [makeMetadata("title", "New")])
+        #expect(doc.baseText == text)
+        // The old document's tag and front matter record must not survive into the new one.
+        #expect(doc.sourceMapTag == nil)
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: true) == "---\ntitle: New\n---\n\nBody\n")
+    }
+
+    @Test func baseTextSetBySaveMd() throws {
+        let fm = FileManager.default
+        let dir = try makeTempDir()
+        let baseUrl = try makeTempDir()
+        defer { try? fm.removeItem(at: dir); try? fm.removeItem(at: baseUrl) }
+        let doc = documentWithBase()
+        let saved = "# Saved\n"
+        try doc.saveMd(markdown: saved, to: dir.appendingPathComponent("saved.md"), srcs: [], baseUrl: baseUrl)
+        #expect(doc.baseText == saved)
+        #expect(doc.sourceMapTag == nil)
+    }
+
+    @Test func saveHtmlLeavesTheBaseText() throws {
+        let fm = FileManager.default
+        let dir = try makeTempDir()
+        let baseUrl = try makeTempDir()
+        defer { try? fm.removeItem(at: dir); try? fm.removeItem(at: baseUrl) }
+        let doc = documentWithBase()
+        try doc.saveHtml(html: "<p>x</p>", to: dir.appendingPathComponent("saved.html"), srcs: [], baseUrl: baseUrl)
+        #expect(doc.baseText == "# Old\n")
+    }
+
+    @Test func applyingARebaseStoresTheTagAndFrontMatter() {
+        let doc = MarkupDocument()
+        doc.metadata = [makeMetadata("title", "Hi")]
+        doc.applyRebase(tag: "abc", frontMatter: "---\ntitle: \"Hi\"\n---\n\n")
+        #expect(doc.sourceMapTag == "abc")
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: true) == "---\ntitle: \"Hi\"\n---\n\nBody\n")
+    }
+
+    @Test func aRebaseWithoutATagClearsBothRecords() {
+        let doc = documentWithBase()
+        doc.metadata = [makeMetadata("title", "Old")]
+        // Quoted, so a surviving record would write the quotes back.
+        doc.applyRebase(tag: nil, frontMatter: "---\ntitle: \"Old\"\n---\n\n")
+        #expect(doc.sourceMapTag == nil)
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: true) == "---\ntitle: Old\n---\n\nBody\n")
+    }
+
+    @Test func baseTextAndTagDoNotMarkTheDocumentChanged() {
+        let doc = MarkupDocument()
+        doc.baseText = "x"
+        doc.applyRebase(tag: "abc", frontMatter: nil)
+        #expect(doc.hasChanges == false)
+    }
+}

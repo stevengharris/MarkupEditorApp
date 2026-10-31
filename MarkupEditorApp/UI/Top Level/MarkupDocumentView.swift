@@ -611,8 +611,8 @@ struct MarkupDocumentView: View {
             do {
                 // Source view shows the complete document, frontmatter included, not just
                 // the body -- document.metadata stays the source of truth; this renders it.
-                let bodyMarkdown = try await getMarkdown(from: html)
-                let markdown = document.injectYAMLFrontMatter(into: bodyMarkdown)
+                let bodyMarkdown = try await getMarkdown(from: html, preserve: true)
+                let markdown = document.injectYAMLFrontMatter(into: bodyMarkdown, preserve: true)
                 document.setSource(markdown)
                 currentSource = markdown
             } catch {
@@ -626,6 +626,8 @@ struct MarkupDocumentView: View {
         if document.isHTMLish {
             currentHtml = currentSource
         } else {
+            // The source text is what the editor content is about to be loaded from.
+            document.setBaseText(currentSource)
             do {
                 currentHtml = try await getHTML(from: currentSource)
             } catch {
@@ -742,6 +744,17 @@ struct MarkupDocumentView: View {
         try setHTML(document.seedMetadataBlock(in: html))
         currentSource = markdown
         track(url: url)
+        await rebase(on: webView)
+    }
+
+    /// Records a source map for the document's base text on `webView`, the view that holds the document, and
+    /// keeps the answer. Does nothing for a document with no base text.
+    private func rebase(on webView: MarkupWKWebView) async {
+        guard !document.isHTMLish, let baseText = document.baseText else { return }
+        let result = await MarkupConverter.rebaseSourceDecoded(webView, baseText: baseText)
+        // A new document or a newer base text may have arrived while the call ran.
+        guard document.baseText == baseText else { return }
+        document.applyRebase(tag: result.tag, frontMatter: result.frontMatter)
     }
 
     /// Open the welcome document bundled with the app as an untitled document, so saving it asks for a
@@ -814,18 +827,20 @@ struct MarkupDocumentView: View {
             document.syncMetadata(fromHTML: htmlContents, warnings: &metadataWarnings)
             editLog.warnings(metadataWarnings)
             if !document.isHTMLish {
-                markdown = (try? await getMarkdown(from: htmlContents)).map { document.injectYAMLFrontMatter(into: $0) }
+                markdown = (try? await getMarkdown(from: htmlContents, preserve: true)).map { document.injectYAMLFrontMatter(into: $0, preserve: true) }
             }
         }
         return (html: html, markdown: markdown)
     }
 
-    /// Return Markdown that is imported from the `html` string.
-    func getMarkdown(from html: String) async throws -> String {
+    /// Return Markdown that is exported from the editor. With `preserve`, blocks unchanged since the
+    /// document's base text keep their original lines.
+    func getMarkdown(from html: String, preserve: Bool = false) async throws -> String {
         guard let webView = MarkupEditor.selectedWebView else {
             throw MarkupDocumentError.noWebViewAvailable
         }
-        let converted = try await MarkupConverter.exportMarkdownDecoded(webView, content: html)
+        let options = preserve ? MarkdownExportOptions.preserving(tag: document.sourceMapTag) : nil
+        let converted = try await MarkupConverter.exportMarkdownDecoded(webView, content: html, options: options)
         editLog.warnings(converted.warnings)
         return converted.result
     }
@@ -882,6 +897,9 @@ struct MarkupDocumentView: View {
                 try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
             }
             track(url: url)
+            // While the source view shows, the selected web view is the one that was replaced; the editor
+            // that comes back rebases from markupDidLoad.
+            if document.documentType == .md && !sourceShowing { await rebase(on: webView) }
         } catch {
             // The write may never have happened (e.g. noHTMLSource/noMarkdownSource thrown
             // before reaching it) -- clear the flag so a later external change to this url
@@ -974,7 +992,13 @@ extension MarkupDocumentView: MarkupDelegate {
         view.applyColumnWidth()
         // Consumed here even when a Finder open wins, so it can't carry over to a later window.
         let showWelcomeDocument = AppDelegate.consumePendingWelcomeDocument()
-        if let url = AppDelegate.consumePendingURL() {
+        let pendingURL = AppDelegate.consumePendingURL()
+        // Opening a file or the welcome document sets the base text itself; any other new view holds the
+        // document that is already loaded, so its source map is recorded here.
+        if pendingURL == nil && !showWelcomeDocument {
+            Task { await rebase(on: view) }
+        }
+        if let url = pendingURL {
             // A freshly-opened document invalidates any stale restore target left over
             // from whatever toggle/document preceded it.
             pendingBlockIndex = nil
