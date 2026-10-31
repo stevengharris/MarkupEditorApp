@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
+import { beforeAll, beforeEach, describe, test, expect, vi } from 'vitest'
 import { MU } from 'markupeditor'
 const { schema } = MU
+import { importMarkdown } from '../src/markdown.js'
 import { makeSerializer } from '../src/serializer.js'
 import { makeWarnings } from '../src/warnings.js'
 
@@ -200,5 +201,36 @@ describe('table class attribute warning', () => {
     expect(warnings.some(w => w.toLowerCase().includes('class'))).toBe(true)
     expect(md).toContain('Col A')
     expect(md).toContain('Col B')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Link reference definitions
+// ---------------------------------------------------------------------------
+
+describe('importMarkdown link reference definitions', () => {
+  const REF_WARNING = 'Link reference definitions are saved as inline links.'
+  const importWarnings = (md) => JSON.parse(importMarkdown(md)).warnings
+
+  beforeAll(() => { vi.spyOn(MU, 'activeView') })
+  beforeEach(() => { MU.activeView.mockReturnValue({ state: { schema } }) })
+
+  test('a definition with a use warns and resolves to an inline link', () => {
+    const out = JSON.parse(importMarkdown('[a][x]\n\n[x]: http://example.com\n'))
+    expect(out.warnings).toContain(REF_WARNING)
+    expect(out.result).toContain('href="http://example.com"')
+  })
+
+  test('a file without definitions does not warn', () => {
+    expect(importWarnings('# Title\n\nPlain [inline](http://e.com) link.\n')).not.toContain(REF_WARNING)
+  })
+
+  test('an unused definition still warns', () => {
+    expect(importWarnings('Text\n\n[unused]: http://example.com\n')).toContain(REF_WARNING)
+  })
+
+  test('several definitions warn once', () => {
+    const md = '[a][x] [b][y]\n\n[x]: http://e.com/1\n[y]: http://e.com/2\n'
+    expect(importWarnings(md).filter(w => w === REF_WARNING).length).toBe(1)
   })
 })

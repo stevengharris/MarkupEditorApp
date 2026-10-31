@@ -34,8 +34,14 @@ public enum MarkupConverter {
         return DecodedConversion(result: html, warnings: importValue.warnings, metadata: importValue.metadata)
     }
 
-    public static func exportMarkdownDecoded(_ webView: MarkupWKWebView, content: String) async throws(MarkupConversionError) -> DecodedConversion {
-        let raw = await webView.exportMarkdown(content: content)
+    /// Records a source map for `baseText` on `webView` and returns the decoded answer. Never throws: a failed
+    /// call is reported as `RebaseResult.unrecorded`, which makes the next save regenerate the whole document.
+    public static func rebaseSourceDecoded(_ webView: MarkupWKWebView, baseText: String) async -> RebaseResult {
+        RebaseResult.decode(from: await webView.rebaseSource(baseText)) ?? .unrecorded
+    }
+
+    public static func exportMarkdownDecoded(_ webView: MarkupWKWebView, content: String, options: MarkdownExportOptions? = nil) async throws(MarkupConversionError) -> DecodedConversion {
+        let raw = await webView.exportMarkdown(content: content, options: options)
         guard let exportValue = ImportExportValue.decode(from: raw) else {
             throw .unexpectedExport
         }

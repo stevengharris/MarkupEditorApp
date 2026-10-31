@@ -8,6 +8,7 @@
 import { MU } from "markupeditor"
 import { MarkupEditorDelegate } from "./delegate.js"
 import { getMarkdown, exportMarkdown, importMarkdown } from "./markdown.js"
+import { rebaseSource } from "./source-map.js"
 import { makeInsertTableWithHeader } from "./tables.js"
 import { getSelectionBlockIndex, selectBlockIndex, blockIndexAtOffset, offsetForBlockIndex } from "./blocks.js"
 import { getBlocks } from "./doc-blocks.js"
@@ -20,6 +21,7 @@ MU.registerDelegate(new MarkupEditorDelegate())
 MU.getMarkdown = getMarkdown
 MU.exportMarkdown = exportMarkdown
 MU.importMarkdown = importMarkdown
+MU.rebaseSource = rebaseSource
 MU.getSelectionBlockIndex = getSelectionBlockIndex
 MU.selectBlockIndex = selectBlockIndex
 MU.blockIndexAtOffset = blockIndexAtOffset

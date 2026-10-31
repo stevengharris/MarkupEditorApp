@@ -17,10 +17,6 @@ A native macOS Markdown viewer and WYSIWYG editor.
 
 Markdown was designed as a plain text formatting syntax that is as readable as possible while being easily converted to HTML. You still need a tool to render the HTML, often leading to an edit-preview cycle that seems ridiculous when we've had WYSIWYG editors for 40 years. The MarkupEditor presents the HTML as you write, providing immediate feedback while letting you continue to use the Markdown muscle memory you already have. It is customizable and extensible. Built-in extensions let you export to different formats and view/edit diagrams and Markdown front-matter right in your document.
 
-## Demo
-
-<img src="https://github.com/user-attachments/assets/ec3f9340-1007-48ce-a9e6-3369e6ba0e63" alt="MarkupEditor Demo" width="1280" height="1116">
-
 ## Features
 
 * Native macOS app, open source from top to bottom.
@@ -39,6 +35,8 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 * Open from the command line using the `markup <filename>` command.
 
+* Opt-in support for a MarkupEditor MCP server, so you can collaborate with the AI assistant of your choice while editing a document.
+
 * Extend MarkupEditor functionality using JavaScript-based *plugins*.
 
 * Export to HTML and PDF out-of-the-box. Install exporters for DocX and EPUB from the plugin catalog, or add your own.
@@ -46,6 +44,15 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 * View Mermaid diagrams and GeoJSON by installing their plugins from the catalog. Add plugins for additional capabilities.
 
 * Discover hosted plugins and contribute to a community of MarkupEditor users.
+
+## Demos
+
+Select a thumbnail to watch the video.
+
+| Editing Overview | AI Assistance |
+| --- | --- |
+| A five minute demonstration of what it's like to edit using the MarkupEditor. | A quick look at collaborative editing with an AI assistant using the MCP server. |
+| [<img src="editing1.png" width="2784" height="2436">](https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8) | [<img src="mcp1.png" width="2784" height="2788">](https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d) |
 
 ## Installation Options
 
@@ -105,6 +112,8 @@ Installation of the Evaluation or Unlimited version package also installs a comm
 
 opens `<filename>` in the MarkupEditor, the same as double-clicking it in Finder. `markup` is installed as a symlink into the app bundle, so removing the app leaves the command pointing at nothing until you reinstall. To remove manually: delete `/usr/local/bin/markup`.
 
+Refer to the README in the MarkupEditorCLI for more information, including details on the MCP server that is bundled with it. The commands/config to register the MCP server with Claude Code and other AI assistants are available within the MarkupEditor app itself, in Settings.
+
 ## Plugins
 
 Plugins extend the functionality of the MarkupEditor. HTML and PDF export are built in. Plugins from the catalog support DocX and EPUB exporting and let you edit and display Mermaid diagrams and GeoJSON on OpenStreetMap-based maps. You can install, update, add from a file, and uninstall plugins in the Plugins tab of the app's right side panel. The catalog of public plugins on the web site is synced with the app. You can create your own plugins and install them locally, and you can contribute a public plugin using a pull request.
@@ -117,15 +126,21 @@ Refer to the separate [CONTRIBUTING.md](CONTRIBUTING.md) file for more informati
 
 ## Privacy
 
-The MarkupEditor does not require network access to run at any time. You own your documents locally, and the app doesn't track anything about you. You can build it, use it, and extend it yourself.
+You own your documents locally, and the app does not track anything about you. You can build the MarkupEditor from source, use it, and extend it yourself. The Evaluation and Unlimited versions provided from [this repository](https://github.com/stevengharris/MarkupEditorApp/releases) and from <https://markupeditor.app/downloads> are built from exactly the same source provided here.
 
-The app uses the network only for things you ask it to do: images you insert by URL, map tiles for GeoJSON maps, the plugin catalog when you open it and plugins you install from it, and, if you connect your markupeditor.app account in Settings, confirming your subscription and checking for and downloading updates. Account requests and update checks go only to markupeditor.app. The site redirects update downloads to its file storage (storage.ghost.io), which receives no account information. Account and update requests stop when you disconnect.
+The MarkupEditor itself does not require network access to run at any time. However, documents you edit or load into the MarkupEditor may connect to the network as they serve remote images. Plugins, like the GeoJSON plugin, may also connect to other sites - for example, to serve map tiles.
 
-When you subscribe to get access to the Unlimited Version, you need to identify yourself with an email address. See the [Privacy Policy](https://markupeditor.app/privacy) and [Terms of Use](https://markupeditor.app/terms) on the [web site](https://markupeditor.app).
+The plugin catalog presented in the MarkupEditor app is hosted as part of this repository. Accessing the catalog to browse and install plugins requires the app to connect to GitHub. They may track this activity, but the MarkupEditor does not.
+
+The MarkupEditor CLI includes an MCP server that allows an AI assistant to connect to the running MarkupEditor app. *AI-assisted editing is an opt-in feature*. When you opt-in in Settings, MarkupEditor requires you to acknowledge the privacy implications, since the AI assistant you use may expose the document you are editing to a remote service. If you opt-in, you will be subject to the privacy policy of the AI assistant when you connect it to the MarkupEditor. The MarkupEditor will prompt you to approve the connection when your AI assistant tries to connect.
+
+When you subscribe to get access to the Unlimited Version, you need to identify yourself with an email address. Account activity to check your subscription status and download app updates interacts with the [MarkupEditor web site](https://markupeditor.app). The site redirects update downloads to its file storage (storage.ghost.io), which receives no account information. Account and update requests stop when you disconnect.
+
+See the [Privacy Policy](https://markupeditor.app/privacy) and [Terms of Use](https://markupeditor.app/terms) on the [web site](https://markupeditor.app).
 
 ## License
 
-The MarkupEditorApp is available under the [MIT License](https://github.com/stevengharris/MarkupEditorApp/blob/main/LICENSE).
+The MarkupEditor is available under the [MIT License](https://github.com/stevengharris/MarkupEditorApp/blob/main/LICENSE).
 
 The source licensing covers the *code*, not the MarkupEditor *name or logo*. "MarkupEditor" and the MarkupEditor logo are trademarks/copyrighted material of Steven G. Harris. You may not use the MarkupEditor name or logo without permission. In short, do not represent the MarkupEditor as your own work or associate the MarkupEditor name or logo with a work derived from it.
 

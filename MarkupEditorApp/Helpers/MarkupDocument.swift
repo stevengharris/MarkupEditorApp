@@ -37,6 +37,40 @@ internal import UniformTypeIdentifiers
         didSet { if metadata != oldValue { hasChanges = true } }
     }
     var isHTMLish: Bool { documentType == .html }
+
+    /// The front matter text as the file had it, with the serialization of its parsed values.
+    private struct FrontMatterRecord {
+        let text: String
+        let serialization: String
+    }
+    private var frontMatterRecord: FrontMatterRecord?
+
+    /// The Markdown the editor content was last loaded from or saved as, and the tag the editor reported for
+    /// the source map it recorded from that text. Nil for HTML and untitled documents, and whenever no map
+    /// is recorded. Separate from `source`, which the source view overwrites on every toggle.
+    var baseText: String?
+    var sourceMapTag: String?
+
+    /// Stores the editor's answer to a rebase. Without a tag there is no source map, so the front matter
+    /// record is dropped too and saving regenerates everything.
+    func applyRebase(tag: String?, frontMatter: String?) {
+        sourceMapTag = tag
+        recordFrontMatter(tag == nil ? nil : frontMatter)
+    }
+
+    /// Makes `text` the base text. The tag and front matter record that belonged to the previous base are
+    /// dropped until the next rebase supplies new ones.
+    func setBaseText(_ text: String) {
+        baseText = text
+        sourceMapTag = nil
+        frontMatterRecord = nil
+    }
+
+    private func clearBase() {
+        baseText = nil
+        sourceMapTag = nil
+        frontMatterRecord = nil
+    }
     
     func setSource(_ source: String, documentType: DocumentType? = nil) {
         self.source = source
@@ -68,6 +102,7 @@ internal import UniformTypeIdentifiers
         } else {
             setOpenResult(source: html, url: url, metadata: [])
         }
+        clearBase()
         return html
     }
 
@@ -89,12 +124,14 @@ internal import UniformTypeIdentifiers
         } else {
             setOpenResult(source: markdown, url: url, metadata: metadata)
         }
+        setBaseText(markdown)
     }
 
     /// Loads `markdown` as an untitled document with no file behind it. Saving it asks for a location
     /// instead of writing to a `url`.
     func openUntitled(markdown: String, metadata: [MetadataTuple]) {
         url = nil                   // Sets documentType to .md
+        clearBase()
         source = markdown
         self.metadata = metadata    // triggers didSet → hasChanges = true
         hasChanges = false          // override didSet — must be last
@@ -147,6 +184,8 @@ internal import UniformTypeIdentifiers
     func saveMd(markdown: String, to url: URL, srcs: [String], baseUrl: URL) throws {
         try markdown.write(to: url, atomically: true, encoding: .utf8)
         try copyImageAssets(srcs: srcs, from: baseUrl, to: url.deletingLastPathComponent(), skipMissing: true, replaceExisting: false)
+        // The file now holds `markdown`; the tag for it comes from the next rebase.
+        setBaseText(markdown)
         self.url = url
         hasChanges = false
     }
@@ -155,6 +194,7 @@ internal import UniformTypeIdentifiers
     func reset() {
         url = nil
         metadata = []           // triggers didSet → hasChanges = true
+        clearBase()
         hasChanges = false      // override didSet — must be last
     }
 
@@ -320,8 +360,25 @@ internal import UniformTypeIdentifiers
 
     // MARK: - Metadata
 
-    // TODO: why
-    func injectYAMLFrontMatter(into output: String) -> String {
+    /// Records the front matter exactly as the file had it: the fences, everything between them, and the
+    /// gap after the closing fence. Pass nil to clear. Text without a closing fence records nothing.
+    func recordFrontMatter(_ text: String?) {
+        frontMatterRecord = nil
+        guard let text else { return }
+        let lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\r")) }
+        guard lines.first == "---", let closing = lines.dropFirst().firstIndex(of: "---") else { return }
+        var warnings: [String] = []
+        let values = YAMLMetadata.parse(lines[1..<closing].joined(separator: "\n"), warnings: &warnings)
+        frontMatterRecord = FrontMatterRecord(text: text, serialization: YAMLMetadata.serialize(values))
+    }
+
+    /// Prefixes `output` with the front matter. With `preserve`, a recorded original is written as it was
+    /// when the current values still serialize the same as the recorded ones; otherwise the front matter
+    /// is regenerated from `metadata`.
+    func injectYAMLFrontMatter(into output: String, preserve: Bool = false) -> String {
+        if preserve, let record = frontMatterRecord, YAMLMetadata.serialize(metadata) == record.serialization {
+            return record.text + output
+        }
         guard !metadata.isEmpty else { return output }
         let yaml = YAMLMetadata.serialize(metadata)
         return "---\n\(yaml)---\n\n\(output)"

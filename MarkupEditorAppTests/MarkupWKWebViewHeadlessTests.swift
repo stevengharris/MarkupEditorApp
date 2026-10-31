@@ -67,6 +67,67 @@ struct MarkupWKWebViewHeadlessTests {
         return webView
     }
 
+    @Test func rebaseSourceReturnsTagForRealDocument() async throws {
+        let markdown = "---\ntitle: T\n---\n\n# Heading\n\nBody text.\r\n"
+        let webView = try await Self.loadedPage(markdown)
+        let result = await MarkupConverter.rebaseSourceDecoded(webView, baseText: markdown)
+        let tag = try #require(result.tag)
+        #expect(!tag.isEmpty)
+        #expect(result.frontMatter == "---\ntitle: T\n---\n\n")
+        #expect(result.lineEnding == "LF")
+        // The tag comes from the editor, so the same text gives the same tag.
+        let again = await MarkupConverter.rebaseSourceDecoded(webView, baseText: markdown)
+        #expect(again.tag == tag)
+    }
+
+    @Test func rebaseSourceReturnsNullTagForEmptyBody() async throws {
+        let webView = try await Self.loadedPage("")
+        let empty = await MarkupConverter.rebaseSourceDecoded(webView, baseText: "")
+        #expect(empty.tag == nil)
+        let onlyFrontMatter = await MarkupConverter.rebaseSourceDecoded(webView, baseText: "---\ntitle: T\n---\n")
+        #expect(onlyFrontMatter.tag == nil)
+        // A nil tag must come from the editor declining, not from a failed call.
+        let real = await MarkupConverter.rebaseSourceDecoded(webView, baseText: "# Heading\n")
+        #expect(real.tag != nil)
+    }
+
+    @Test func rebaseSourceCarriesTextWithQuotesAndBackslashes() async throws {
+        let markdown = "She said \"hi\" and it\\'s a \\ path.\n"
+        let webView = try await Self.loadedPage(markdown)
+        let result = await MarkupConverter.rebaseSourceDecoded(webView, baseText: markdown)
+        #expect(result.tag != nil)
+    }
+
+    private static let styledBody = "Title\n=====\n\nA hard wrapped\nparagraph here.\n\n* one\n* two\n"
+
+    @Test func preservingExportWritesOriginalLinesForUnchangedBlocks() async throws {
+        let webView = try await Self.loadedPage(Self.styledBody)
+        let tag = try #require(await MarkupConverter.rebaseSourceDecoded(webView, baseText: Self.styledBody).tag)
+        let html = try #require(await webView.getHtml())
+        let exported = try await MarkupConverter.exportMarkdownDecoded(webView, content: html, options: .preserving(tag: tag))
+        #expect(exported.result == Self.styledBody)
+    }
+
+    @Test func preservingExportWithWrongTagGivesTodaysOutput() async throws {
+        let webView = try await Self.loadedPage(Self.styledBody)
+        _ = await MarkupConverter.rebaseSourceDecoded(webView, baseText: Self.styledBody)
+        let html = try #require(await webView.getHtml())
+        let today = try await MarkupConverter.exportMarkdownDecoded(webView, content: html)
+        let wrong = try await MarkupConverter.exportMarkdownDecoded(webView, content: html, options: .preserving(tag: "not-the-tag"))
+        let none = try await MarkupConverter.exportMarkdownDecoded(webView, content: html, options: .preserving(tag: nil))
+        #expect(wrong.result == today.result)
+        #expect(none.result == today.result)
+        #expect(today.result != Self.styledBody)
+    }
+
+    @Test func defaultExportIgnoresTheRecordedMap() async throws {
+        let webView = try await Self.loadedPage(Self.styledBody)
+        let before = try await MarkupConverter.exportMarkdownDecoded(webView, content: "")
+        _ = await MarkupConverter.rebaseSourceDecoded(webView, baseText: Self.styledBody)
+        let after = try await MarkupConverter.exportMarkdownDecoded(webView, content: "")
+        #expect(after.result == before.result)
+    }
+
     @Test func importMarkdownDecodedProducesRealHtmlFromTheRealTestDocument() async throws {
         let page = HeadlessTestPage()
         await page.start()

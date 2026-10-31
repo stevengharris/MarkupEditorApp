@@ -7,9 +7,10 @@ import MarkdownIt from 'markdown-it'
  *
  * @param {object} schema   - ProseMirror Schema instance
  * @param {object} warnings - warnings collector from makeWarnings()
+ * @param {Array} [recorder] - if given, receives the level-0 block tokens that produced a top-level node
  * @returns {MarkdownParser}
  */
-export function makeParser(schema, warnings) {
+export function makeParser(schema, warnings, recorder) {
   // Use markdown-it in 'default' mode (includes table support) with html disabled.
   // The 'default' mode includes GFM tables; commonmark does not.
   const tokenizer = new MarkdownIt({ html: true })
@@ -128,9 +129,11 @@ export function makeParser(schema, warnings) {
   // html_block: standalone <img> on its own line becomes a paragraph containing
   // an image node. image is inline:true — adding it directly to doc context
   // silently drops it, so the paragraph wrapper is required.
+  let htmlBlockProduced = false
   parser.tokenHandlers['html_block'] = (state, tok) => {
     const img = parseImgTag(tok.content.trim())
-    if (img && img.src) {
+    htmlBlockProduced = !!(img && img.src)
+    if (htmlBlockProduced) {
       state.openNode(schema.nodes.paragraph, null)
       state.addNode(schema.nodes.image, img)
       state.closeNode()
@@ -163,6 +166,20 @@ export function makeParser(schema, warnings) {
       state.addNode(schema.nodes.image, img)
     } else {
       warnings.add(`Raw HTML inline stripped (not supported in MarkupEditor): ${tok.content.trim()}`)
+    }
+  }
+
+  // Report each level-0 block token that starts a top-level node, in document order.
+  // Closing tokens and nested tokens are skipped; an html_block counts only if its
+  // handler produced a node.
+  if (recorder) {
+    for (const [name, handler] of Object.entries(parser.tokenHandlers)) {
+      parser.tokenHandlers[name] = (state, tok, ...rest) => {
+        handler(state, tok, ...rest)
+        if (tok.level !== 0 || tok.nesting < 0 || !tok.map) return
+        if (tok.type === 'html_block' && !htmlBlockProduced) return
+        recorder.push(tok)
+      }
     }
   }
 

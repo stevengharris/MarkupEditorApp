@@ -2,6 +2,8 @@
 
 Contributions - including bug fixes, enhancements, and plugins - are welcome.
 
+Accepted contributions and pull requests will be provided in this project under its MIT license. Contributions that introduce dependencies or code that prevents licensing under the MIT license will be rejected.
+
 This project should be a welcoming, harassment-free space for everyone, regardless of background or identity. You should expect me to behave in a friendly, open, and respectful manner, and I expect people interacting on issues and other areas to do likewise. I may formally adopt a [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) at some point if I feel it is needed.
 
 ## AI Policy
@@ -10,7 +12,7 @@ Below you will find some [discussion](#about-ai) about how I used AI-assisted co
 
 * You, a human, are responsible for the code you produce, whether you produce it using AI assistance or not. Do *not* submit a pull request with Claude or some other agent as a committer.
 
-* I, a human, will review PRs that you submit. Do not waste my time submitting AI-generated pull requests. Write them yourself. You can even use the MarkupEditor MCP server to collaborate with an AI assistant on writing content for the PR. Be prepared to answer questions about it yourself. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it.
+* I, a human, will review PRs that you submit. Do not waste my time submitting AI-generated pull requests that you cannot discuss and answer questions about. You can even use the MarkupEditor MCP server to collaborate with an AI assistant on writing content for the PR. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it.
 
 If you are using AI to work on this project, be sure to review the [AI Skills](#ai-skills) section below. The skills are designed to help you navigate the multi-tiered dependencies between Swift and JavaScript and to make plugin development simpler.
 
@@ -76,7 +78,7 @@ The part of this repository related to the Swift app proper probably has a famil
 
 The part that will seem unusual for many Swift developers is the mixture of Swift and JavaScript. This is in large part because the MarkupEditorApp is built on top of the MarkupEditor, a Swift package that wraps calls to an API exposed in the markupeditor-base JavaScript package. The markupeditor-base package in turn depends on ProseMirror to help with the WYSIWYG editing. Here's a diagram to show how it fits together.
 
-<img src="architecture-diagram.svg" alt="Architecture diagram: MarkupEditorApp, MarkupEditorAppLib, and MarkupEditorCLI in Swift depend on the MarkupEditor package, which hosts a WKWebView loading the JavaScript markupeditor-app, markupeditor-base, and plugins, built with plugin-kit and ProseMirror." width="760" height="972">
+<img src="architecture-diagram.svg" alt="Architecture diagram" width="720" height="920">
 
 The plugins to support exporters and codeviews (e.g., Mermaid and GeoJSON) are also written in JavaScript, and these dependencies have to be brought in to the MarkupEditorApp package. The document you are editing when using the app is, ultimately, a `contentEditable` div inside of a WKWebView, and all of the JavaScript is loaded as ES modules into that view.
 
