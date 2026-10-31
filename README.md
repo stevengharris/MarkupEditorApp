@@ -45,15 +45,14 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 * Discover hosted plugins and contribute to a community of MarkupEditor users.
 
-## Demo
+## Demos
 
-A five minute demonstration of what it's like to edit using the MarkupEditor.
+Select a thumbnail to watch the video.
 
-<img src="https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8" alt="Editing Demo" width="1280" height="1106">
-
-And a quick look at collaborative editing with an AI assistant using the MCP server.
-
-<img src="https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d" alt="AI Assistant Demo" width="1280" height="1106">
+| Editing Overview | AI Assistance |
+| --- | --- |
+| A five minute demonstration of what it's like to edit using the MarkupEditor. | A quick look at collaborative editing with an AI assistant using the MCP server. |
+| [<img src="B2A8F53B-B466-4EEB-953C-77830296CFC0.png" width="2784" height="2436">](https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8) | [<img src="92F70DCE-C852-403F-87A1-9E94FA613A49.png" width="2784" height="2788">](https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d) |
 
 ## Installation Options
 
