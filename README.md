@@ -49,11 +49,11 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 A five minute demonstration of what it's like to edit using the MarkupEditor.
 
-![Editing Demo](https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8)
+<img src="https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8" alt="Editing Demo" width="1280" height="1106">
 
 And a quick look at collaborative editing with an AI assistant using the MCP server.
 
-![AI Assistant Demo](https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d)
+<img src="https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d" alt="AI Assistant Demo" width="1280" height="1106">
 
 ## Installation Options
 
