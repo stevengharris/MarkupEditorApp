@@ -262,6 +262,7 @@ extension AppControlFacade: DeveloperControlFacade {
         return .object(state)
     }
 
+    /// The regenerated Markdown, not the preserved text a save would write.
     func markdown() async throws -> String {
         let webView = try webView()
         guard let html = await webView.getHtml() else { throw ControlError("The editor returned no HTML") }
