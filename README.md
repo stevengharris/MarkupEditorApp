@@ -49,11 +49,11 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 A five minute demonstration of what it's like to edit using the MarkupEditor.
 
-[![Editing Demo](images/editing1.png)](https://github.com/user-attachments/assets/d6ecea62-a224-4888-b3f9-2e68e3ab125f)
+<img src="https://storage.ghost.io/c/2f/c4/2fc40fad-901f-42f0-af44-0b89a10cdbe0/content/files/2026/10/editing1.mp4" alt="Editing Demo" width="1280" height="1106">
 
 And a quick look at collaborative editing with an AI assistant using the MCP server.
 
-[![AI Assistance Demo](images/mcp1.png)](https://github.com/user-attachments/assets/1453a770-1ffa-461d-9d80-6e65b43b3c1f)
+<img src="https://storage.ghost.io/c/2f/c4/2fc40fad-901f-42f0-af44-0b89a10cdbe0/content/files/2026/10/mcp1.mp4" alt="AI Assistance Demo" width="1280" height="1282">
 
 ## Installation Options
 

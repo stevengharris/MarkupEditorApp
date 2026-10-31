@@ -59,6 +59,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA26E910308FC18600AEFE4B /* architecture-diagram.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "architecture-diagram.svg"; sourceTree = "<group>"; };
 		AA26E911308FC18600AEFE4B /* CONTRIBUTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CONTRIBUTING.md; sourceTree = "<group>"; };
 		AA3F963C302A516B00FB96C9 /* markup */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = markup; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,11 +96,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AA26F308309556DB00AEFE4B /* images */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = images;
-			sourceTree = "<group>";
-		};
 		AA27464A303E395300AD8E61 /* templates */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = templates;
@@ -196,11 +192,11 @@
 				AA26E911308FC18600AEFE4B /* CONTRIBUTING.md */,
 				AAA4188D3030C877007C44C3 /* package.json */,
 				AAA4188E3030C877007C44C3 /* package-lock.json */,
+				AA26E910308FC18600AEFE4B /* architecture-diagram.svg */,
 				AA7B99992F9290DF0085425B /* MarkupEditorApp */,
 				AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */,
 				AA7B99A72F9290E00085425B /* MarkupEditorAppTests */,
 				AA83FACE302E516F0034CD46 /* markupeditor-app */,
-				AA26F308309556DB00AEFE4B /* images */,
 				AA8327AF302E47F80034CD46 /* plugins */,
 				AAE62565304B3BCD00692635 /* skills */,
 				AA27464A303E395300AD8E61 /* templates */,
