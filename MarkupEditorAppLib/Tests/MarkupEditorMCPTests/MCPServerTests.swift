@@ -192,14 +192,16 @@ final class MCPServerTests: Sendable {
     }
 
     @Test func garbageIsAParseError() async throws {
-        let out = try parse(await run(server(), script: [Self.initialize(), Self.initialized, "not json"]))
+        let out = try parse(await runAwaiting(server(), script: [Self.initialize(), Self.initialized, "not json"]) { received in
+            await received.wait(for: "-32700", timeout: .seconds(5))
+        })
         #expect(out.contains { $0["error"]?["code"] == -32700 })
     }
 
     @Test func theLoopAnswersEachRequestAndStopsAtEndOfInput() async throws {
         let ping1 = #"{"jsonrpc":"2.0","id":2,"method":"ping"}"#
         let ping2 = #"{"jsonrpc":"2.0","id":3,"method":"ping"}"#
-        let out = try parse(await run(server(), script: [Self.initialize(), Self.initialized, ping1, ping2]))
+        let out = try parse(await runAwaitingReply(server(), script: [Self.initialize(), Self.initialized, ping1, ping2], id: 3))
         #expect(out.compactMap { $0["id"]?.intValue }.sorted() == [1, 2, 3])
     }
 
