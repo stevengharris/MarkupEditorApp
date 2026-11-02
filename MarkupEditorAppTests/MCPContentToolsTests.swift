@@ -449,7 +449,12 @@ struct MCPContentToolsTests {
         // With no active editor view in the page the editor answers {ok: false, reason: "No active view"}.
         let mu = "document.getElementById('markupeditor').MU"
         _ = try await fixture.webView.evaluateJavaScript("window.__activeView = \(mu).activeView; \(mu).activeView = () => null; true")
-        let result = await Result { try await fixture.harness.call("propose_edits", args) }
+        let result: Result<ToolOutcome, Error>
+        do {
+            result = .success(try await fixture.harness.call("propose_edits", args))
+        } catch {
+            result = .failure(error)
+        }
         _ = try await fixture.webView.evaluateJavaScript("\(mu).activeView = window.__activeView; true")
         let outcome = try result.get()
         #expect(outcome.isError, Comment(rawValue: outcome.text))
