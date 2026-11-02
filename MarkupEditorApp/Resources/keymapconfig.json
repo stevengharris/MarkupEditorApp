@@ -23,5 +23,11 @@
     "code": "Mod-`",
     "subscript": "",
     "superscript": "",
-    "search": "Ctrl-f"
+    "search": "Ctrl-f",
+    "suggestionNext": "Mod-'",
+    "suggestionPrevious": "Mod-\"",
+    "suggestionAcceptNext": "Mod-Alt-'",
+    "suggestionAcceptPrevious": "Mod-Alt-\"",
+    "suggestionRejectNext": "Mod-Ctrl-'",
+    "suggestionRejectPrevious": "Mod-Ctrl-\""
 }

@@ -88,6 +88,51 @@ struct ConfigDecodingTests {
         #expect(result.bindings["bold"]?.first?.spec == "Mod-b")
     }
 
+    // MARK: - Defaults merged into a saved keymap
+
+    @Test func aSavedKeymapWithoutTheSuggestionActionsGetsTheirDefaults() throws {
+        let saved = try #require(MarkupDocumentView.decodeConfig(KeymapConfig.self, from: #"{"bold":"Ctrl-b"}"#))
+        let merged = KeymapConfig.merging(saved, into: KeymapConfig())
+        #expect(merged.bindings["bold"]?.first?.spec == "Ctrl-b", "a saved binding is kept")
+        #expect(merged.bindings["suggestionNext"]?.first?.spec == "Mod-'")
+        #expect(merged.bindings["suggestionRejectPrevious"]?.first?.spec == "Mod-Ctrl-\"")
+    }
+
+    @Test func aBindingTheUserClearedStaysCleared() throws {
+        let saved = try #require(MarkupDocumentView.decodeConfig(KeymapConfig.self, from: #"{"bold":"","suggestionNext":""}"#))
+        let merged = KeymapConfig.merging(saved, into: KeymapConfig())
+        #expect(merged.bindings["bold"]?.first?.spec == "", "an empty binding is a choice, not a missing one")
+        #expect(merged.bindings["suggestionNext"]?.first?.spec == "")
+    }
+
+    @Test func fromDefaultsAddsTheSuggestionActionsToAKeymapSavedBeforeTheyExisted() {
+        let key = AppConfig.ConfigKey.keymap
+        let before = UserDefaults.standard.string(forKey: key)
+        defer { if let before { UserDefaults.standard.set(before, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) } }
+        UserDefaults.standard.set(#"{"bold":"Ctrl-b"}"#, forKey: key)
+        let config = KeymapConfig.fromDefaults()
+        #expect(config.bindings["bold"]?.first?.spec == "Ctrl-b")
+        #expect(config.bindings["suggestionAcceptNext"]?.first?.spec == "Mod-Alt-'")
+    }
+
+    @Test func theBundledKeymapHasTheSuggestionChords() {
+        let bindings = KeymapConfig().bindings
+        let expected = [
+            "suggestionNext": "Mod-'", "suggestionPrevious": "Mod-\"",
+            "suggestionAcceptNext": "Mod-Alt-'", "suggestionAcceptPrevious": "Mod-Alt-\"",
+            "suggestionRejectNext": "Mod-Ctrl-'", "suggestionRejectPrevious": "Mod-Ctrl-\"",
+        ]
+        for (action, spec) in expected { #expect(bindings[action]?.first?.spec == spec, Comment(rawValue: action)) }
+    }
+
+    @Test func everySuggestionActionTheSettingsListsIsInTheBundledKeymap() {
+        let bindings = KeymapConfig().bindings
+        for action in KeymapSettingsView.Action.Suggestions.allCases {
+            #expect(bindings[action.rawValue] != nil, Comment(rawValue: action.rawValue))
+        }
+        #expect(KeymapSettingsView.Action.Suggestions.allCases.count == 6)
+    }
+
     // MARK: - Nil contract (no empty-struct fallback)
 
     @Test func nilOnFailureNotEmptyStruct() {

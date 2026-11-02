@@ -10,6 +10,8 @@ extension Notification.Name {
     static let menuNewDocument = Notification.Name("menuNewDocument")
     static let menuOpenDocument = Notification.Name("menuOpenDocument")
     static let menuSaveDocument = Notification.Name("menuSaveDocument")
+    /// Posted after the keymap is saved in Settings, so the menu can pick up the new shortcuts.
+    static let keymapDidChange = Notification.Name("keymapDidChange")
     static let menuSaveAsDocument = Notification.Name("menuSaveAsDocument")
     static let menuToggleSource = Notification.Name("menuToggleSource")
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")

@@ -38,8 +38,15 @@ final class AppControl {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
             reconcile()
+            if isEnabled { Task { await refreshPendingSuggestions() } } else { pendingSuggestions = 0; suggestionSelected = false }
         }
     }
+
+    /// How many suggestions are pending in the selected editor. Menu validation is synchronous and cannot ask the
+    /// editor, so the Edit > Suggestions commands read this.
+    private(set) var pendingSuggestions = 0
+    /// Whether the selection is exactly one pending suggestion, which Accept+Next and Reject+Next act on.
+    private(set) var suggestionSelected = false
 
     /// Whether images an assistant adds must have a relative path; any other source is turned into a link.
     var restrictImages: Bool {
@@ -70,6 +77,92 @@ final class AppControl {
         isEnabled = UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? Self.enabledByDefault
         restrictImages = UserDefaults.standard.object(forKey: Self.restrictImagesKey) as? Bool ?? true
         approvals = store.approvals()
+    }
+
+    /// The pending count and selection state of `view`'s suggestions; empty when there is no editor or it cannot say.
+    static func suggestionStatus(in view: MarkupWKWebView?) async -> SuggestionStatus {
+        guard let view, let status = try? await view.suggestionStatus(), status.ok else { return SuggestionStatus(ok: true) }
+        return status
+    }
+
+    /// The number of pending suggestions in `view`, zero when there is no editor or it cannot say.
+    static func pendingSuggestionCount(in view: MarkupWKWebView?) async -> Int {
+        await suggestionStatus(in: view).pending
+    }
+
+    /// The pending suggestions in `view`, none when there is no editor or it cannot say.
+    static func pendingSuggestions(in view: MarkupWKWebView?) async -> [Suggestion] {
+        guard let view, let list = try? await view.listSuggestions(), list.ok else { return [] }
+        return list.suggestions.filter { $0.status == "pending" }
+    }
+
+    /// Proposes `saved` again in `view`, an editor holding the document they were made against, and returns how many
+    /// could not be restored. They get new ids; their text, replacements and notes are as before.
+    static func restoreSuggestions(_ saved: [Suggestion], in view: MarkupWKWebView) async -> Int {
+        guard !saved.isEmpty else { return 0 }
+        guard let blocks = try? await view.getBlocks(from: nil, limit: nil).blocks else { return saved.count }
+        let edits = saved.compactMap { suggestion -> SuggestedEdit? in
+            guard blocks.indices.contains(suggestion.block) else { return nil }
+            return SuggestedEdit(block: suggestion.block, expected: blocks[suggestion.block].hash, find: suggestion.find,
+                                 replace: suggestion.replace, note: suggestion.note)
+        }
+        guard !edits.isEmpty, let result = try? await view.proposeEdits(edits), result.ok else { return saved.count }
+        return saved.count - result.results.filter { $0.status == "proposed" }.count
+    }
+
+    /// What to tell the user when some pending suggestions could not be put back after the editor reloaded, or nil
+    /// when none were lost.
+    static func restoreLossWarning(lost: Int, of total: Int) -> (message: String, detail: String)? {
+        guard lost > 0 else { return nil }
+        return ("Some suggestions could not be restored", "\(lost) of \(total) pending suggestions could not be put back after the editor reloaded, and are discarded.")
+    }
+
+    /// Re-reads the suggestion state from the selected editor. With `ifPending`, does nothing when none are pending:
+    /// only a proposal, which always refreshes, can add one.
+    func refreshPendingSuggestions(ifPending: Bool = false, in view: MarkupWKWebView? = nil) async {
+        guard isEnabled else { pendingSuggestions = 0; suggestionSelected = false; return }
+        if ifPending && pendingSuggestions == 0 { return }
+        let status = await Self.suggestionStatus(in: view ?? MarkupEditor.selectedWebView)
+        pendingSuggestions = status.pending
+        suggestionSelected = status.selected
+    }
+
+    /// What to tell the user before the source view replaces the editor, or nil when no suggestion would be lost.
+    static func sourceSwitchWarning(pending: Int) -> (message: String, detail: String)? {
+        guard pending > 0 else { return nil }
+        let count = pending == 1 ? "1 pending suggestion" : "\(pending) pending suggestions"
+        return ("Switch to the source view?", "\(count) from an assistant will be discarded. The source view cannot show suggestions, and they are not restored when you return to the document.")
+    }
+
+    /// What to tell the user before the document and its editor are replaced or closed, or nil when no suggestion would be lost.
+    static func discardWarning(pending: Int) -> (message: String, detail: String)? {
+        guard pending > 0 else { return nil }
+        let count = pending == 1 ? "1 pending suggestion" : "\(pending) pending suggestions"
+        return ("Discard the pending suggestions?", "\(count) from an assistant will be discarded when the document is closed or replaced. Suggestions are not saved.")
+    }
+
+    /// The alert to show before the source view replaces the editor, with Cancel as the default button, or nil
+    /// when no suggestion would be lost.
+    static func sourceSwitchAlert(pending: Int) -> NSAlert? {
+        sourceSwitchWarning(pending: pending).map { alert($0, confirm: "Switch") }
+    }
+
+    /// The alert to show before the document is closed or replaced, with Cancel as the default button, or nil
+    /// when no suggestion would be lost.
+    static func discardAlert(pending: Int) -> NSAlert? {
+        discardWarning(pending: pending).map { alert($0, confirm: "Discard") }
+    }
+
+    private static func alert(_ warning: (message: String, detail: String), confirm: String) -> NSAlert {
+        let alert = NSAlert()
+        alert.messageText = warning.message
+        alert.informativeText = warning.detail
+        alert.alertStyle = .warning
+        let cancel = alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: confirm)
+        // A button titled Cancel is given Escape and no default; Return makes it the default button.
+        cancel.keyEquivalent = "\r"
+        return alert
     }
 
     /// The path of the bundled command line tool, which is also the only program allowed to connect.

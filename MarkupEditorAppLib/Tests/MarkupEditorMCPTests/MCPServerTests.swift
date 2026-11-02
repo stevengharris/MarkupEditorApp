@@ -158,7 +158,28 @@ final class MCPServerTests: Sendable {
         #expect(byName["save_document"]?["annotations"]?["readOnlyHint"] == false)
         #expect(byName["save_document"]?["annotations"]?["destructiveHint"] == true)
         #expect(byName["type_text"]?["annotations"]?["destructiveHint"] == false)
+        #expect(byName["list_suggestions"]?["annotations"]?["readOnlyHint"] == true)
+        #expect(byName["list_suggestions"]?["annotations"]?["destructiveHint"] == nil)
+        #expect(byName["propose_edits"]?["annotations"]?["readOnlyHint"] == false)
+        #expect(byName["propose_edits"]?["annotations"]?["destructiveHint"] == false)
         #expect(tools.allSatisfy { $0["annotations"]?["openWorldHint"] == false })
+    }
+
+    @Test func proposeEditsDescribesItsEditsAsAnArrayOfObjects() async throws {
+        let tools = try await toolsList()
+        let propose = try #require(tools.first { $0["name"]?.stringValue == "propose_edits" })
+        let edits = try #require(propose["inputSchema"]?["properties"]?["edits"])
+        #expect(edits["type"] == "array")
+        #expect(edits["items"]?["type"] == "object")
+        #expect(propose["inputSchema"]?["required"] == ["edits"])
+        #expect(edits["items"]?["required"] == ["block", "expected", "find", "replace"])
+        for name in ["block", "expected", "find", "replace", "note"] {
+            #expect(edits["items"]?["properties"]?[name]?["description"]?.stringValue?.isEmpty == false, Comment(rawValue: name))
+        }
+        #expect(edits["items"]?["properties"]?["block"]?["type"] == "integer")
+        #expect(edits["items"]?["properties"]?["find"]?["type"] == "string")
+        let list = try #require(tools.first { $0["name"]?.stringValue == "list_suggestions" })
+        #expect(list["inputSchema"]?["type"] == "object")
     }
 
     @Test func toolsCallRunsTheToolAndShapesTheResult() async throws {

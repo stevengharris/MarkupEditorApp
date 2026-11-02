@@ -18,6 +18,7 @@ struct KeymapSettingsView: View {
         case insert = "Insert"
         case style = "Style"
         case format = "Format"
+        case suggestions = "Suggest"     // Segments share the longest label's width, so keep it short
         var id: Self { self }
     }
 
@@ -64,6 +65,21 @@ struct KeymapSettingsView: View {
             }
             var id: String { rawValue }
         }
+        enum Suggestions: String, CaseIterable, Identifiable {
+            case suggestionNext, suggestionPrevious, suggestionAcceptNext, suggestionAcceptPrevious,
+                 suggestionRejectNext, suggestionRejectPrevious
+            var label: String {
+                switch self {
+                case .suggestionNext: "Next:"
+                case .suggestionPrevious: "Previous:"
+                case .suggestionAcceptNext: "Accept+Next:"
+                case .suggestionAcceptPrevious: "Accept+Previous:"
+                case .suggestionRejectNext: "Reject+Next:"
+                case .suggestionRejectPrevious: "Reject+Previous:"
+                }
+            }
+            var id: String { rawValue }
+        }
         enum Format: String, CaseIterable, Identifiable {
             case bold, italic, underline, strikethrough, code, `subscript`, superscript
             var label: String {
@@ -87,6 +103,16 @@ struct KeymapSettingsView: View {
     @State private var actions: [String] = []
     @State private var loaded = false
     @AppStorage(Self.settingGroupKey) private var settingGroup: SettingGroup = .general
+
+    /// The segments to offer: Suggestions only while assistants are on, as in the Edit menu.
+    private var visibleGroups: [SettingGroup] {
+        SettingGroup.allCases.filter { $0 != .suggestions || AppControl.shared.isEnabled }
+    }
+
+    /// The selected segment, or General when the stored one is not offered now.
+    private var shownGroup: SettingGroup {
+        visibleGroups.contains(settingGroup) ? settingGroup : .general
+    }
 
     private var conflicts: Set<String> {
         var actionForSpec: [String: String] = [:]
@@ -116,8 +142,8 @@ struct KeymapSettingsView: View {
                 }
                 .padding()
             }
-            Picker("", selection: $settingGroup) {
-                ForEach(SettingGroup.allCases) { info in
+            Picker("", selection: Binding(get: { shownGroup }, set: { settingGroup = $0 })) {
+                ForEach(visibleGroups) { info in
                     Text(info.rawValue)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -126,12 +152,12 @@ struct KeymapSettingsView: View {
             }
             .pickerStyle(.segmented)
 
-            Text("Bindings consist of a modifier and keys, separated by a dash. Modifiers are Ctrl(⌃), Alt(⌥), Mod(⌘), and Shift. Separate multiple bindings by a space. The first binding appears in menus. Press Return to apply changes.")
+            Text("Bindings consist of a modifier and keys, separated by a dash. Modifiers are Ctrl(⌃), Alt(⌥), Mod(⌘), and Shift. Separate multiple bindings by a space. The first binding appears in menus. Press Return to apply changes. A shifted character stands for Shift, so Mod-\" is Mod-Shift-' on a US keyboard.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding()
 
-            switch settingGroup {
+            switch shownGroup {
             case .general:
                 Form {
                     ForEach(Action.General.allCases) { action in
@@ -156,6 +182,13 @@ struct KeymapSettingsView: View {
             case .format:
                 Form {
                     ForEach(Action.Format.allCases) { action in
+                        actionRow(key: action.rawValue, label: action.label)
+                    }
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+            case .suggestions:
+                Form {
+                    ForEach(Action.Suggestions.allCases) { action in
                         actionRow(key: action.rawValue, label: action.label)
                     }
                 }
@@ -186,7 +219,8 @@ struct KeymapSettingsView: View {
             Action.General.allCases.map(\.rawValue) +
             Action.Insert.allCases.map(\.rawValue) +
             Action.Style.allCases.map(\.rawValue) +
-            Action.Format.allCases.map(\.rawValue)
+            Action.Format.allCases.map(\.rawValue) +
+            Action.Suggestions.allCases.map(\.rawValue)
         config = KeymapConfig.fromDefaults()
         for action in actions {
             let rawSpecs = (config.bindings[action] ?? []).map { $0.spec }
@@ -210,6 +244,7 @@ struct KeymapSettingsView: View {
         config.bindings = newBindings
         if let json = config.asJSON(), keymapConfigJSON != json {
             keymapConfigJSON = json
+            NotificationCenter.default.post(name: .keymapDidChange, object: nil)
         } else {
             assertionFailure("KeymapConfig encoding failed unexpectedly")
         }

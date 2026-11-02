@@ -66,6 +66,22 @@ claude mcp add --scope user markupeditor -- markup mcp
 
 Then start (or restart) `claude`, and run `/mcp` to check that `markupeditor` is connected. Open a document with `markup <filename.md>` and ask Claude to work with it. If `markup` is not on the PATH that Claude Code sees, use the full path to the binary in the command above.
 
+#### Claude Code's limit on MCP instructions
+
+Claude Code sends the model only the first part of an MCP server's instructions and of each tool description: 4,096 characters by default in current versions, and fewer in older ones. The MarkupEditor server keeps its instructions and every tool description within 4,096 characters, with the rules that matter most first, so no configuration is needed.
+
+If you use an older Claude Code with a lower limit and want the later detail too, set `CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` in the `env` section of `~/.claude/settings.json`, or of a project's `.claude/settings.json`. The setting applies to every MCP server Claude Code uses and needs Claude Code 2.1.280 or later:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH": "8192"
+  }
+}
+```
+
+Claude Code reads the instructions when the server connects, so reconnect with `/mcp` (or restart `claude`) after updating MarkupEditor.
+
 ### Connecting to Claude Desktop
 
 Add the server to `claude_desktop_config.json` (Settings > Developer > Edit Config), then restart Claude Desktop:

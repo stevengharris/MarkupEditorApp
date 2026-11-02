@@ -12,7 +12,25 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
-    private var keymap: KeymapConfig?
+    var keymap: KeymapConfig?
+    /// Whether assistants are on, whether the source view is showing, how many suggestions are pending in the
+    /// selected editor, and whether the selection is exactly one of them. A property so tests can supply them.
+    var suggestionsState: () -> (enabled: Bool, sourceShowing: Bool, pending: Int, selected: Bool) = {
+        (enabled: AppControl.shared.isEnabled, sourceShowing: AppControl.shared.sourceShowing,
+         pending: AppControl.shared.pendingSuggestions, selected: AppControl.shared.suggestionSelected)
+    }
+    /// The JavaScript of the Edit > Suggestions commands.
+    private static let suggestionCommands: Set<String> = [
+        "MU.nextSuggestion()", "MU.previousSuggestion()",
+        "MU.acceptAndNextSuggestion()", "MU.acceptAndPreviousSuggestion()",
+        "MU.rejectAndNextSuggestion()", "MU.rejectAndPreviousSuggestion()",
+        "MU.acceptAllSuggestions()", "MU.rejectAllSuggestions()",
+    ]
+    /// The commands that act on the selected suggestion, so need the selection to be on one.
+    private static let selectedSuggestionCommands: Set<String> = [
+        "MU.acceptAndNextSuggestion()", "MU.acceptAndPreviousSuggestion()",
+        "MU.rejectAndNextSuggestion()", "MU.rejectAndPreviousSuggestion()",
+    ]
     private var openRecentMenu = NSMenu(title: "Open Recent")
     /// Direct accessor for the running AppDelegate instance, set in applicationWillFinishLaunching.
     /// `NSApplication.shared.delegate as? AppDelegate` is the more usual way to reach it, and works
@@ -115,6 +133,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .keymapDidChange) {
+                self?.applyKeymap(KeymapConfig.fromDefaults())
+            }
+        }
         // Rebuild and reassign the full menu after SwiftUI has finished its
         // mutation pass. A fresh NSMenu is required because SwiftUI removed
         // items from the original — those NSMenuItems can't simply be re-added
@@ -347,6 +370,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let findItem = jsMenuItem(title: "Find", js: "MU.toggleSearch()", keyEquivalent: "f", modifierMask: .command)
         findItem.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Find")
         editMenu.addItem(findItem)
+        editMenu.addItem(buildSuggestionsSubmenuItem())
+        editMenu.delegate = self
         editMenuItem.submenu = editMenu
 
         // Format menu driven by app's toolbarconfig.json
@@ -420,12 +445,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// Create an NSMenuItem with key binding from the keymap config.
     private func menuItem(title: String, action: Selector, keymapAction: String) -> NSMenuItem {
-        if let binding = keymap?.binding(for: keymapAction) {
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: binding.keyEquivalent)
-            item.keyEquivalentModifierMask = binding.modifierMask
-            return item
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.identifier = Self.keymapIdentifier(for: keymapAction)
+        apply(keymap?.binding(for: keymapAction), to: item)
+        return item
+    }
+
+    private static let keymapIdentifierPrefix = "keymap."
+
+    /// Marks a menu item as driven by the keymap action, so `applyKeymap` can find it again.
+    private static func keymapIdentifier(for action: String) -> NSUserInterfaceItemIdentifier {
+        NSUserInterfaceItemIdentifier(keymapIdentifierPrefix + action)
+    }
+
+    private func apply(_ binding: KeyBinding?, to item: NSMenuItem) {
+        item.keyEquivalent = binding?.keyEquivalent ?? ""
+        item.keyEquivalentModifierMask = binding?.modifierMask ?? []
+    }
+
+    /// Makes `newKeymap` current and gives every keymap-driven item in `menu` its binding, so a change in Settings
+    /// shows in the menu without a relaunch. An action with no binding leaves its item without a shortcut.
+    func applyKeymap(_ newKeymap: KeymapConfig, to menu: NSMenu? = NSApplication.shared.mainMenu) {
+        keymap = newKeymap
+        func update(_ menu: NSMenu) {
+            for item in menu.items {
+                if let id = item.identifier?.rawValue, id.hasPrefix(Self.keymapIdentifierPrefix) {
+                    apply(newKeymap.binding(for: String(id.dropFirst(Self.keymapIdentifierPrefix.count))), to: item)
+                }
+                if let submenu = item.submenu { update(submenu) }
+            }
         }
-        return NSMenuItem(title: title, action: action, keyEquivalent: "")
+        if let menu { update(menu) }
     }
 
     private func buildFormatMenu(from config: ToolbarConfig) -> NSMenu? {
@@ -513,6 +563,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             if let textView = focusedTextView { return textView.undoManager?.canRedo ?? false }
             return MarkupEditor.selectedWebView?.validateMenuItem(NSMenuItem(title: "", action: #selector(MarkupWKWebView.redoFromMenu(_:)), keyEquivalent: "")) ?? false
         default:
+            if menuItem.action == #selector(executeMenuJS(_:)), let js = menuItem.representedObject as? String, Self.suggestionCommands.contains(js) {
+                let state = suggestionsState()
+                guard state.enabled && !state.sourceShowing && state.pending > 0 else { return false }
+                return state.selected || !Self.selectedSuggestionCommands.contains(js)
+            }
             return true
         }
     }
@@ -523,7 +578,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// Menu items store their JS command string in representedObject.
     @objc private func executeMenuJS(_ sender: NSMenuItem) {
         guard let js = sender.representedObject as? String else { return }
-        MarkupEditor.selectedWebView?.executeJavaScript(js)
+        MarkupEditor.selectedWebView?.executeJavaScript(js) { _, _ in
+            Task { await AppControl.shared.refreshPendingSuggestions(ifPending: true) }
+        }
     }
 
     /// Create an NSMenuItem whose action calls executeJavaScript with the given JS command.
@@ -537,16 +594,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// Create a JS menu item with key binding from the keymap config.
     private func jsMenuItem(title: String, js: String, keymapAction: String) -> NSMenuItem {
-        if let binding = keymap?.binding(for: keymapAction) {
-            let item = NSMenuItem(title: title, action: #selector(executeMenuJS(_:)), keyEquivalent: binding.keyEquivalent)
-            item.keyEquivalentModifierMask = binding.modifierMask
-            item.representedObject = js
-            item.target = self
-            return item
-        }
         let item = NSMenuItem(title: title, action: #selector(executeMenuJS(_:)), keyEquivalent: "")
+        item.identifier = Self.keymapIdentifier(for: keymapAction)
         item.representedObject = js
         item.target = self
+        apply(keymap?.binding(for: keymapAction), to: item)
+        return item
+    }
+
+    /// Edit > Suggestions: step through, or settle all at once, the proposals an assistant made.
+    /// The item is hidden while assistants are off, and its commands are enabled only while some suggestion is
+    /// pending and the editor, not the source view, is showing; the accept and reject commands that move on also
+    /// need the selection to be on a suggestion (see `suggestionsState`).
+    /// The shortcuts come from keymapconfig.json. By default the `'` key moves: Cmd-' goes to the next suggestion and
+    /// Cmd-Shift-' to the previous (Xcode's next/previous issue chords), and adding Option accepts the selected
+    /// suggestion first while Control rejects it. Accept All and Reject All change text throughout, so they carry no
+    /// shortcut. Return and Shift+Return, which only the editor handles, accept and reject and go to the next one.
+    /// AppKit matches a key equivalent against the key's characters with Shift applied, so a Previous binding is
+    /// the shifted character `"` without Shift in the spec: `'` with Shift is displayed the same and is never
+    /// delivered (pinned in SuggestionsHeadlessTests).
+    private func buildSuggestionsSubmenuItem() -> NSMenuItem {
+        let bindings = keymap ?? KeymapConfig()
+        func command(_ title: String, _ js: String, _ action: String) -> NSMenuItem {
+            let item = jsMenuItem(title: title, js: js, modifierMask: [])
+            item.identifier = Self.keymapIdentifier(for: action)
+            apply(bindings.binding(for: action), to: item)
+            return item
+        }
+        let submenu = NSMenu(title: "Suggestions")
+        submenu.addItem(command("Next Suggestion", "MU.nextSuggestion()", "suggestionNext"))
+        submenu.addItem(command("Previous Suggestion", "MU.previousSuggestion()", "suggestionPrevious"))
+        submenu.addItem(.separator())
+        submenu.addItem(command("Accept+Next", "MU.acceptAndNextSuggestion()", "suggestionAcceptNext"))
+        submenu.addItem(command("Accept+Previous", "MU.acceptAndPreviousSuggestion()", "suggestionAcceptPrevious"))
+        submenu.addItem(command("Reject+Next", "MU.rejectAndNextSuggestion()", "suggestionRejectNext"))
+        submenu.addItem(command("Reject+Previous", "MU.rejectAndPreviousSuggestion()", "suggestionRejectPrevious"))
+        submenu.addItem(.separator())
+        submenu.addItem(jsMenuItem(title: "Accept All Suggestions", js: "MU.acceptAllSuggestions()", modifierMask: []))
+        submenu.addItem(jsMenuItem(title: "Reject All Suggestions", js: "MU.rejectAllSuggestions()", modifierMask: []))
+        let item = NSMenuItem(title: "Suggestions", action: nil, keyEquivalent: "")
+        item.submenu = submenu
         return item
     }
 
@@ -727,6 +814,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
 extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu.title == "Edit" {
+            menu.items.first { $0.title == "Suggestions" }?.isHidden = !suggestionsState().enabled
+            return
+        }
         guard menu === openRecentMenu else { return }
         menu.removeAllItems()
         let urls = NSDocumentController.shared.recentDocumentURLs

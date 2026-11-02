@@ -15,7 +15,7 @@
 
 A native macOS Markdown viewer and WYSIWYG editor.
 
-Markdown was designed as a plain text formatting syntax that is as readable as possible while being easily converted to HTML. You still need a tool to render the HTML, often leading to an edit-preview cycle that seems ridiculous when we've had WYSIWYG editors for 40 years. The MarkupEditor presents the HTML as you write, providing immediate feedback while letting you continue to use the Markdown muscle memory you already have. It is customizable and extensible. Built-in extensions let you export to different formats and view/edit diagrams and Markdown front-matter right in your document.
+The MarkupEditor lets you edit fully-formatted Markdown. Headers are properly sized. Tables have actual rows, columns, and a header. Links present and behave like links. Images are just, well, images. Edit them natively, knowing that what you are seeing is what will be rendered to your readers. No need to visually filter embedded Markdown markers as you write. You can use the Markdown muscle memory you already have along with the hotkey-style formatting of your favorite editor. Or use the built-in toolbar. The MarkupEditor is customizable and extensible. Built-in extensions let you export to different formats and view/edit diagrams and Markdown front-matter right in your document. Opt-in support for AI assistance lets you collaborate with the AI assistant of your choice.
 
 ## Features
 
@@ -35,7 +35,7 @@ Markdown was designed as a plain text formatting syntax that is as readable as p
 
 * Open from the command line using the `markup <filename>` command.
 
-* Opt-in support for a MarkupEditor MCP server, so you can collaborate with the AI assistant of your choice while editing a document.
+* Opt-in support for a MarkupEditor MCP server, so you can [collaborate](#ai-assistance) with the AI assistant of your choice while editing a document.
 
 * Extend MarkupEditor functionality using JavaScript-based *plugins*.
 
@@ -112,7 +112,37 @@ Installation of the Evaluation or Unlimited version package also installs a comm
 
 opens `<filename>` in the MarkupEditor, the same as double-clicking it in Finder. `markup` is installed as a symlink into the app bundle, so removing the app leaves the command pointing at nothing until you reinstall. To remove manually: delete `/usr/local/bin/markup`.
 
-Refer to the README in the MarkupEditorCLI for more information, including details on the MCP server that is bundled with it. The commands/config to register the MCP server with Claude Code and other AI assistants are available within the MarkupEditor app itself, in Settings.
+Refer to the [README](https://github.com/stevengharris/MarkupEditorApp/blob/main/MarkupEditorCLI/README.md) in the MarkupEditorCLI for more information, including details on the MCP server that is bundled with it. The commands/config to register the MCP server with Claude Code and other AI assistants are available within the MarkupEditor app itself, in Settings.
+
+## AI Assistance
+
+Markdown seems to be everywhere when you're using AI. You can connect your AI assistant to the MarkupEditor using Model Context Protocol (MCP). Start in the MarkupEditor by enabling AI assistants in Settings->General, acknowledging you understand the privacy implications of using an AI assistant. If you are using Claude Code, use the `Copy Claude Code Command` button and paste its result into the command line. You can use the `Copy JSON Config` button for the config data needed by other assistants. This operation enables the AI assistant session to connect to a running MarkupEditor, but it won't actually be connected until you ask it to do some editing. At that point, the MarkupEditor will prompt you to allow the connection. When you have AI assistance enabled, the "sparkles" button will appear in the window toolbar.
+
+The MarkupEditor supports tools for opening and saving a document, getting and replacing blocks in the document, and presenting suggestions for your review. Edits are done on the *live* document you have open, so what you are seeing on your screen is the document the AI assistant is working with. You can reference the *selection* in the document. For example, the following commands to the AI assistant should do... what you would expect:
+
+```
+Open the README so we can edit it.
+```
+
+```
+Insert a table of contents at the selection.
+Use an indented style referencing only H2 and H3 headers.
+Contents entries should link to sections.
+```
+
+```
+Suggest editing changes to eliminate passive voice.
+```
+
+```
+Review the document for broken links.
+```
+
+When you ask for *suggestions*, the AI assistent delivers them to the editor as a set. In the MarkupEditor, for each suggestion, you will see the highlighted text that would change next to the suggested test, together with `Accept` and `Reject` buttons. Typical usage is to move to the `Next` suggestion using `⌘+,` and press `Return` to accept and move to the next suggestion or `Shift+Return` to reject and move to the next selection. The Edit->Suggestions menu has additional options (like `Accept All` and `Reject All`) and hot keys. If you save the document, unaccepted changes are discarded.
+
+You can edit the document yourself and go back-and-forth with the AI assistant. Changes made by the assistant can be undone using standard Undo (⌘+z).
+
+The MCP server is part of the Command Line Interface. You can find more details in its [README](https://github.com/stevengharris/MarkupEditorApp/blob/main/MarkupEditorCLI/README.md).
 
 ## Plugins
 
@@ -136,7 +166,7 @@ The MarkupEditor CLI includes an MCP server that allows an AI assistant to conne
 
 When you subscribe to get access to the Unlimited Version, you need to identify yourself with an email address. Account activity to check your subscription status and download app updates interacts with the [MarkupEditor web site](https://markupeditor.app). The site redirects update downloads to its file storage (storage.ghost.io), which receives no account information. Account and update requests stop when you disconnect.
 
-See the [Privacy Policy](https://markupeditor.app/privacy) and [Terms of Use](https://markupeditor.app/terms) on the [web site](https://markupeditor.app).
+See the [Privacy Policy](https://markupeditor.app/privacy) and [Terms of Use](https://markupeditor.app/terms-of-use) on the [web site](https://markupeditor.app).
 
 ## License
 

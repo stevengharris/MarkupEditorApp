@@ -129,7 +129,7 @@ struct AppControlFacade: ControlFacade {
     func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult {
         _ = try editorWebView(for: "replace_blocks")
         let text = control.document?.normalizeSmartPunctuation(in: markdown) ?? markdown
-        var result = try await control.edits.run {
+        let result = try await control.edits.run {
             // The view and the document may have changed while this call waited its turn.
             let webView = try editorWebView(for: "replace_blocks")
             let document = control.document
@@ -144,6 +144,33 @@ struct AppControlFacade: ControlFacade {
         // A refusal that carries no data is an error; one that returns the current blocks is a reply.
         if !result.ok && result.blocks.isEmpty { throw ControlError(result.reason ?? "replace_blocks was refused") }
         return result
+    }
+
+    func proposeEdits(_ edits: [SuggestedEdit]) async throws -> ProposeResult {
+        _ = try editorWebView(for: "propose_edits")
+        // Only the replacement is written into the document, so only it is normalized, as replace_blocks writes are.
+        // `find` and `expected` are matched against the document as it is, curly quotes and all.
+        let normalized = edits.map { edit in
+            var edit = edit
+            edit.replace = control.document?.normalizeSmartPunctuation(in: edit.replace) ?? edit.replace
+            return edit
+        }
+        let result = try await control.edits.run {
+            // The view may have changed while this call waited its turn.
+            let webView = try editorWebView(for: "propose_edits")
+            return try await bridged { try await webView.proposeEdits(normalized) }
+        }
+        // A refusal of one edit is part of the reply; a refusal of the whole call is an error.
+        if !result.ok { throw ControlError(result.reason ?? "propose_edits was refused") }
+        await control.refreshPendingSuggestions()
+        return result
+    }
+
+    func listSuggestions() async throws -> SuggestionList {
+        let webView = try editorWebView(for: "list_suggestions")
+        let list = try await bridged { try await webView.listSuggestions() }
+        if !list.ok { throw ControlError(list.reason ?? "list_suggestions was refused") }
+        return list
     }
 
     /// A removed metadata block must also leave the document's front matter, which saving otherwise keeps when

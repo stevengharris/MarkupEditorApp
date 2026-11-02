@@ -35,6 +35,14 @@ class HeadlessTestPage: MarkupDelegate {
         AppControl.shared.document?.hasChanges = true   // as MarkupDocumentView does for a user edit
     }
 
+    /// How many settle markers reached the host. A marker is a message the page posts as an input in the
+    /// div "barrier", which the host counts here and does not read as an edit.
+    private(set) var barrierCount = 0
+
+    func markupInput(_ view: MarkupWKWebView, divId: String) {
+        if divId == "barrier" { barrierCount += 1 }
+    }
+
     func markupDidLoad(_ view: MarkupWKWebView, handler: (() -> Void)?) {
         continuation?.resume()
         continuation = nil

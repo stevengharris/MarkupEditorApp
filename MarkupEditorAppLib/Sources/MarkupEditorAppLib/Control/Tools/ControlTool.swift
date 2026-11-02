@@ -63,6 +63,19 @@ public struct ControlTool: Sendable, Equatable {
             Property(json: ["type": "array", "items": ["type": "string"], "description": .string(description)])
         }
 
+        /// An array of objects with the given properties; `required` names the ones every object must have.
+        public static func objectArray(_ description: String, item: [String: Property], required: [String]) -> Property {
+            Property(json: [
+                "type": "array",
+                "items": [
+                    "type": "object",
+                    "properties": .object(item.mapValues(\.json)),
+                    "required": .array(required.map { .string($0) }),
+                ],
+                "description": .string(description),
+            ])
+        }
+
         private static func scalar(_ type: String, _ description: String) -> Property {
             Property(json: ["type": .string(type), "description": .string(description)])
         }
