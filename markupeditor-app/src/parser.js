@@ -39,6 +39,20 @@ export function makeParser(schema, warnings, recorder) {
     // Strikethrough mark
     s:        { mark: 's' },
 
+    // markdown-it percent-encodes link targets. Decode a same-document one, so it matches
+    // the heading id it names when that id has letters beyond ASCII.
+    link: {
+      mark: 'link',
+      getAttrs: tok => {
+        const href = tok.attrGet('href')
+        let decoded = href
+        if (href.startsWith('#')) {
+          try { decoded = decodeURIComponent(href) } catch { /* malformed escape: keep as written */ }
+        }
+        return { href: decoded, title: tok.attrGet('title') || null }
+      }
+    },
+
     // fence: prosemirror-markdown's built-in default maps tok.info to a
     // `params` attr, but the code_block schema declares `language` instead
     // — the built-in default is a silent no-op against this schema.

@@ -1,3 +1,5 @@
+import { MU } from 'markupeditor'
+
 /**
  * Assign an id to any heading that a same-document internal link ("#slug") targets, so
  * the link round-trips as something that actually resolves. Markdown parsing never
@@ -5,10 +7,10 @@
  * fills that in on import, but only for headings something in the document actually
  * points at -- a heading nothing links to stays without an id.
  *
- * A heading's candidate id uses the same algorithm as idForHeader in
- * markupeditor-base/src/markup.js: lowercase, cut to 40 characters, spaces replaced with
- * hyphens. A link target that never matches any heading is reported via `warnings` --
- * that's a broken reference, not routine data loss.
+ * A heading's candidate id is its slug from MU.headingSlugs, the same one MarkupEditor gives it
+ * when a link to it is inserted: GitHub's slug, numbered -1, -2 for repeats. A link target that
+ * never matches any heading is reported via `warnings` -- that's a broken reference, not routine
+ * data loss.
  *
  * @param {Node} doc            ProseMirror document, freshly parsed
  * @param {Schema} schema
@@ -30,9 +32,11 @@ export function assignHeadingIds(doc, schema, warnings) {
   if (targets.size === 0) return doc
 
   const unclaimed = new Set(targets)
+  const slugs = headingSlugsOf(doc)
+  let position = 0
   const result = mapHeadings(doc, heading => {
-    const candidate = candidateId(heading.textContent)
-    if (unclaimed.has(candidate)) {
+    const candidate = slugs[position++]
+    if (!heading.attrs.id && unclaimed.has(candidate)) {
       unclaimed.delete(candidate)
       return candidate
     }
@@ -40,23 +44,39 @@ export function assignHeadingIds(doc, schema, warnings) {
   })
 
   for (const missing of unclaimed) {
-    warnings.add(`Internal link target "#${missing}" does not match any heading`)
+    warnings.add(`Internal link target "#${visibleTarget(missing)}" does not match any heading`)
   }
   return result
 }
 
-function candidateId(text) {
-  return text.toLowerCase().slice(0, 40).replaceAll(' ', '-')
+/**
+ * `target` with characters that do not show on screen (format characters such as a zero-width joiner,
+ * and variation selectors such as the one after many emoji) written as \u{XXXX}, so a mismatch
+ * against a heading id can be seen.
+ */
+export function visibleTarget(target) {
+  return target.replace(/[\p{Cf}\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/gu, c => `\\u{${c.codePointAt(0).toString(16).toUpperCase()}}`)
 }
 
-// Rebuild `node`, replacing each id-less heading with a copy whose id is whatever
-// `assign(heading)` returns (left alone if that's null). Builds new nodes via
-// type.create/node.copy rather than mutating attrs in place, keeping this a proper
-// immutable ProseMirror doc update.
+// The slug of every heading of `doc` in document order, numbered the way GitHub does.
+function headingSlugsOf(doc) {
+  const texts = []
+  doc.descendants(node => {
+    if (node.type.name !== 'heading') return true
+    texts.push(node.textContent)
+    return false
+  })
+  return MU.headingSlugs(texts)
+}
+
+// Rebuild `node`, replacing each heading with a copy whose id is whatever `assign(heading)`
+// returns (left alone if that's null). `assign` is called for every heading in document order,
+// including those that already have an id. Builds new nodes via type.create/node.copy rather
+// than mutating attrs in place, keeping this a proper immutable ProseMirror doc update.
 function mapHeadings(node, assign) {
-  if (node.type.name === 'heading' && !node.attrs.id) {
+  if (node.type.name === 'heading') {
     const id = assign(node)
-    if (id) return node.type.create({ ...node.attrs, id }, node.content, node.marks)
+    if (id && !node.attrs.id) return node.type.create({ ...node.attrs, id }, node.content, node.marks)
   }
   if (node.childCount === 0) return node
   let content = node.content
@@ -92,10 +112,12 @@ export function headingIdAssignments(doc, schema) {
   })
   const assignments = []
   if (targets.size === 0) return assignments
+  const slugs = headingSlugsOf(doc)
+  let position = 0
   doc.descendants((node, pos) => {
-    if (node.type.name !== 'heading' || node.attrs.id) return
-    const candidate = candidateId(node.textContent)
-    if (targets.has(candidate) && !claimed.has(candidate)) {
+    if (node.type.name !== 'heading') return
+    const candidate = slugs[position++]
+    if (!node.attrs.id && targets.has(candidate) && !claimed.has(candidate)) {
       claimed.add(candidate)
       assignments.push({ pos, id: candidate })
     }
