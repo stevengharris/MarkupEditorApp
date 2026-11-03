@@ -19,7 +19,7 @@
     "@rollup/plugin-node-resolve": "^16.0.0",
     "jsdom": "^27.0.1",
     "rollup": "^4.31.0",
-    "vitest": "^3.2.4"
+    "vitest": "^5.1.0"
   },
   "scripts": {
     "build": "rollup -c",
