@@ -1,11 +1,18 @@
 name: MarkupEditorApp
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'images/**'
+      - 'LICENSE'
   workflow_dispatch:
+
+# A newer run for the same pull request replaces an older one that is still queued or running.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
