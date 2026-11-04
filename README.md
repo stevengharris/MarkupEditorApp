@@ -52,7 +52,7 @@ Select a thumbnail to watch the video.
 | Editing Overview | AI Assistance |
 | --- | --- |
 | A five minute demonstration of what it's like to edit using the MarkupEditor. | A quick look at collaborative editing with an AI assistant using the MCP server. |
-| [<img src="editing1.png" width="2784" height="2436">](https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8) | [<img src="mcp1.png" width="2784" height="2788">](https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d) |
+| [<img src="images/editing1.png" width="2784" height="2436">](https://github.com/user-attachments/assets/4bd1139a-efc7-4b4c-a234-b6c0b85767d8) | [<img src="images/mcp1.png" width="2784" height="2788">](https://github.com/user-attachments/assets/23aaa0d6-7422-41d3-91c7-e75957cb924d) |
 
 ## Installation Options
 

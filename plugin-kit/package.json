@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "jsdom": "^27.0.1",
-    "vitest": "^3.2.4"
+    "vitest": "^5.1.0"
   },
   "scripts": {
     "test": "vitest run"

@@ -4,7 +4,7 @@ import frontMatterPlugin from 'markdown-it-front-matter'
 import { makeParser } from './parser.js'
 import { makeWarnings } from './warnings.js'
 import { describeBlocks, firstEditableOf, kindOf } from './doc-blocks.js'
-import { headingIdAssignments, unmatchedLinkTargets } from './heading-ids.js'
+import { headingIdAssignments, unmatchedLinkTargets, visibleTarget } from './heading-ids.js'
 import { applyImagePolicy, isRelativeImageSrc } from './image-policy.js'
 
 // The meta key prosemirror-history reads to end the current undo event, so the change is not undone together
@@ -244,7 +244,7 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
       tr.setNodeMarkup(pos, null, { ...tr.doc.nodeAt(pos).attrs, id })
     }
     for (const target of unmatchedLinkTargets(fragment, tr.doc, state.schema)) {
-      importWarnings.push(`Internal link target "#${target}" does not match any heading`)
+      importWarnings.push(`Internal link target "#${visibleTarget(target)}" does not match any heading`)
     }
   }
 

@@ -101,15 +101,9 @@ struct LinkInsertView: View {
         }
     }
 
-    /// The id insertInternalLink will use for `header`. If `header` already has one, use it as-is.
-    /// Otherwise, predict it: lowercase the text, cut it to 40 characters, and replace spaces with
-    /// hyphens -- e.g. "Getting Started" becomes "getting-started". Doesn't handle the rare case
-    /// where that prediction collides with an id already used elsewhere in the document, so the id
-    /// actually assigned on Save could differ from this preview then.
+    /// The id insertInternalLink will use for `header`: the one it already has, or else its slug.
     private func id(for header: HeaderInfo) -> String {
-        if let id = header.id { return id }
-        let truncated = header.text.lowercased().prefix(40)
-        return truncated.replacingOccurrences(of: " ", with: "-")
+        header.id ?? header.slug
     }
     
     // Ternary-fed .buttonStyle doesn't compile: .bordered and .borderedProminent

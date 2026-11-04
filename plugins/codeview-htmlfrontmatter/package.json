@@ -1,6 +1,6 @@
 {
   "name": "codeview-htmlfrontmatter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MarkupEditor internal - renders an HTML frontmatter block live instead of as HTML text.",
   "type": "module",
   "main": "dist/codeview-htmlfrontmatter.js",
@@ -19,7 +19,7 @@
     "markupeditor": "^0.9.28",
     "markupeditor-plugin-kit": "*",
     "rollup": "^4.31.0",
-    "vitest": "^3.2.4"
+    "vitest": "^5.1.0"
   },
   "scripts": {
     "build": "rollup -c",

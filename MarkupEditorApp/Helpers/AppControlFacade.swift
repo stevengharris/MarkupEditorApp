@@ -40,11 +40,14 @@ struct AppControlFacade: ControlFacade {
 
     let control: AppControl
 
+    /// Finds the editor web view the tools act on. The app uses the selected web view.
+    var webViewProvider: @MainActor () -> MarkupWKWebView? = { MarkupEditor.selectedWebView }
+
     /// Characters of block Markdown a read returns when the caller gives no limit; `next` says where to continue.
     static let defaultDocumentLimit = 100_000
 
     fileprivate func webView() throws -> MarkupWKWebView {
-        guard let webView = MarkupEditor.selectedWebView else { throw ControlError("No editor web view is available") }
+        guard let webView = webViewProvider() else { throw ControlError("No editor web view is available") }
         return webView
     }
 
@@ -162,7 +165,7 @@ struct AppControlFacade: ControlFacade {
         }
         // A refusal of one edit is part of the reply; a refusal of the whole call is an error.
         if !result.ok { throw ControlError(result.reason ?? "propose_edits was refused") }
-        await control.refreshPendingSuggestions()
+        await control.refreshPendingSuggestions(in: webViewProvider())
         return result
     }
 
@@ -269,7 +272,7 @@ extension AppControlFacade: DeveloperControlFacade {
             "hasChanges": .bool(document?.hasChanges ?? false),
             "documentType": document?.url.map { .string($0.pathExtension) } ?? .null,
             "sourceShowing": .bool(control.sourceShowing),
-            "hasWebView": .bool(MarkupEditor.selectedWebView != nil),
+            "hasWebView": .bool(webViewProvider() != nil),
             "bundlePath": .string(Bundle.main.bundlePath),
         ]
         state["appHidden"] = .bool(NSApp.isHidden)

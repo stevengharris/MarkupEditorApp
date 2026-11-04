@@ -314,4 +314,10 @@ describe('angle bracket escaping', () => {
     expect(exportWarnings.get()).toHaveLength(0)
     expect(md).toContain('\\<substitutions>')
   })
+
+  test('a same-document link to a non-ASCII heading is written unencoded, as GitHub resolves it', () => {
+    const { doc } = parse('[Jump](#über-cool)\n\n## Über cool\n')
+    const { md } = serialize(doc)
+    expect(md).toContain('[Jump](#über-cool)')
+  })
 })
