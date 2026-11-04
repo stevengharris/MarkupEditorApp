@@ -91,6 +91,70 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         #expect(doc.metadata == existing)
     }
 
+    private static let titleBlock = "<pre><code class=\"language-metadata\">title: Seen</code></pre><h1>Hello</h1>"
+    private static let noBlock = "<h1>Hello</h1>"
+
+    @Test func clearsMetadataWhenABlockThatWasSeenIsNoLongerFound() {
+        // Undo of a created block, or redo of a removal, takes the block out of the editor.
+        let doc = MarkupDocument()
+        var warnings: [String] = []
+        doc.syncMetadata(fromHTML: Self.titleBlock, warnings: &warnings)
+        #expect(!doc.metadata.isEmpty)
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        #expect(doc.metadata.isEmpty)
+    }
+
+    @Test func restoresMetadataWhenTheBlockComesBackAndClearsItAgain() {
+        let doc = MarkupDocument()
+        var warnings: [String] = []
+        doc.syncMetadata(fromHTML: Self.titleBlock, warnings: &warnings)
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        doc.syncMetadata(fromHTML: Self.titleBlock, warnings: &warnings)
+        #expect(doc.metadata == [MetadataTuple(key: "title", value: .scalar("Seen"))])
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        #expect(doc.metadata.isEmpty)
+    }
+
+    @Test func clearsMetadataWhenABlockTheEditorWasSeededWithIsDeletedBeforeAnySync() {
+        // Opening a document seeds the editor with its front matter, and the user can delete the block at once.
+        let doc = MarkupDocument()
+        doc.openUntitled(markdown: "# Hello", metadata: [makeMetadata("title", "Opened")])
+        _ = doc.seedMetadataBlock(in: Self.noBlock)
+        var warnings: [String] = []
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        #expect(doc.metadata.isEmpty)
+    }
+
+    @Test func seedingAnEmptyDocumentLeavesLaterMissingBlocksAlone() {
+        let doc = MarkupDocument()
+        _ = doc.seedMetadataBlock(in: Self.noBlock)
+        doc.metadata = [makeMetadata("title", "Added elsewhere")]
+        var warnings: [String] = []
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        #expect(doc.metadata == [makeMetadata("title", "Added elsewhere")])
+    }
+
+    @Test func aLoadedDocumentKeepsItsMetadataWhenTheEditorNeverShowedABlock() {
+        // A block seen in the previous document must not make the next one lose its front matter.
+        let doc = MarkupDocument()
+        var warnings: [String] = []
+        doc.syncMetadata(fromHTML: Self.titleBlock, warnings: &warnings)
+        let loaded = [makeMetadata("title", "Loaded")]
+        doc.openUntitled(markdown: "# Hello", metadata: loaded)
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        #expect(doc.metadata == loaded)
+    }
+
+    @Test func aResetDocumentForgetsThatABlockWasSeen() {
+        let doc = MarkupDocument()
+        var warnings: [String] = []
+        doc.syncMetadata(fromHTML: Self.titleBlock, warnings: &warnings)
+        doc.reset()
+        doc.metadata = [makeMetadata("title", "Typed")]
+        doc.syncMetadata(fromHTML: Self.noBlock, warnings: &warnings)
+        #expect(doc.metadata == [makeMetadata("title", "Typed")])
+    }
+
     @Test func clearsToEmptyWhenTheBlockIsFoundButEmpty() {
         // "found but empty" is a different outcome from "not found" -- it DOES overwrite, to [].
         let doc = MarkupDocument()
