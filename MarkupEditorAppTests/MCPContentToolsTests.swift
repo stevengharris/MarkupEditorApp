@@ -51,7 +51,8 @@ final class ContentFixture {
         control.sourceText = ""
         control.requestSave = {}   // never reach the hosting app's real save panel
         MarkupEditor.selectedWebView = webView
-        let harness = try await MCPHarness.start(facade: AppControlFacade(control: control), access: access, tools: tools)
+        // The tools act on this fixture's editor, whichever editor another test has since made the selected one.
+        let harness = try await MCPHarness.start(facade: AppControlFacade(control: control, webViewProvider: { webView }), access: access, tools: tools)
         let fixture = ContentFixture(page: page, webView: webView, harness: harness, document: document, restrictImagesBefore: restrictImagesBefore)
         // The first test in a new test process has been seen to read the editor's initial empty paragraph before
         // the page has applied the HTML it was given.
@@ -138,11 +139,13 @@ struct MCPContentToolsTests {
 
         // heading -> paragraph
         let headingIndex = try #require(try await fixture.read().blocks.firstIndex { $0["kind"] == "heading" })
-        #expect(try await fixture.replace(headingIndex, 1, "Plain again").json?["ok"] == true)
-        #expect(try await fixture.markdowns().contains("Plain again"))
+        let step2 = try await fixture.replace(headingIndex, 1, "Plain again")
+        #expect(step2.json?["ok"] == true, Comment(rawValue: step2.text))
+        let afterStep2 = try await fixture.markdowns()
+        #expect(afterStep2.contains("Plain again"), Comment(rawValue: "blocks now: \(afterStep2)"))
 
         // insert right after a list, then append after the last block
-        let listIndex = try #require(try await fixture.read().blocks.lastIndex { $0["kind"] == "bullet-list" })
+        let listIndex = try #require(try await fixture.read().blocks.lastIndex { $0["kind"] == "bullet-list" }, Comment(rawValue: "blocks now: \(afterStep2)"))
         #expect(try await fixture.replace(listIndex + 1, 0, "After the list").json?["ok"] == true)
         let count = try await fixture.read().blocks.count
         #expect(try await fixture.replace(count, 0, "Appended").json?["ok"] == true)
@@ -972,6 +975,7 @@ struct MCPContentToolsTests {
         #expect(defaulted.json["next"]?.intValue == defaulted.blocks.count)
         #expect(fullTime < .seconds(30))
         #expect(replaceTime < .seconds(30))
+        #expect(pagedTime < .seconds(30))
     }
 }
 
