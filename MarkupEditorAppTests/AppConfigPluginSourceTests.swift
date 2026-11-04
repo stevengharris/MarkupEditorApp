@@ -11,9 +11,9 @@ import MarkupEditor
 @MainActor
 struct AppConfigPluginSourceTests {
 
-    @Test func aConfigSavedWithoutPluginSourcesDecodesWithNone() throws {
+    @Test func aConfigSavedWithoutPluginSourcesDecodesWithNone() {
         let json = #"{"toolbarVisibility":"toggled","toggledState":"visible","exporters":[],"codeViews":[]}"#
-        let config = try #require(AppConfig.fromJSON(json) as? AppConfig)
+        let config = AppConfig.fromJSON(json)
         #expect(config.pluginVersions.isEmpty)
         #expect(config.filePlugins.isEmpty)
     }
@@ -24,7 +24,7 @@ struct AppConfigPluginSourceTests {
         config.filePlugins = ["exporter/Custom"]
         let json = try #require(config.asJSON())
 
-        let decoded = try #require(AppConfig.fromJSON(json) as? AppConfig)
+        let decoded = AppConfig.fromJSON(json)
 
         #expect(decoded.pluginVersions == ["codeview/Mermaid": "1.0.0"])
         #expect(decoded.filePlugins == ["exporter/Custom"])
