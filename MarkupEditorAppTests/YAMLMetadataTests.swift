@@ -3,6 +3,7 @@
 //  MarkupEditorAppTests
 //
 
+import Foundation
 import Testing
 @testable import MarkupEditorApp
 
@@ -265,5 +266,67 @@ struct YAMLMetadataTests {
         var warnings: [String] = []
         let reparsed = YAMLMetadata.parse(serialized, warnings: &warnings)
         #expect(reparsed[0].value == .scalar("42"))
+    }
+
+    // MARK: - Quoting survives a rewrite
+
+    private func rewritten(_ yaml: String) -> String {
+        var warnings: [String] = []
+        return YAMLMetadata.serialize(YAMLMetadata.parse(yaml, warnings: &warnings))
+    }
+
+    @Test func aQuotedDateStaysQuotedAndAnUnquotedDateStaysUnquoted() {
+        let yaml = "created: 2026-03-01\naccepted_date: \"2026-03-01\"\n"
+        #expect(rewritten(yaml) == yaml)
+    }
+
+    @Test func quotedNumbersBooleansAndNullStayQuoted() {
+        let yaml = "count: \"5\"\nflag: \"true\"\nanswer: \"yes\"\nnothing: \"null\"\n"
+        #expect(rewritten(yaml) == yaml)
+    }
+
+    @Test func unquotedNumbersBooleansAndNullStayUnquoted() {
+        let yaml = "count: 5\nflag: true\nnothing: null\nratio: 1.5\n"
+        #expect(rewritten(yaml) == yaml)
+    }
+
+    @Test func aSingleQuotedStringStaysSingleQuoted() {
+        #expect(rewritten("title: 'Plain title'\n") == "title: 'Plain title'\n")
+    }
+
+    @Test func anApostropheInASingleQuotedStringIsDoubledAgain() {
+        let yaml = "note: 'it''s fine'\n"
+        var warnings: [String] = []
+        #expect(YAMLMetadata.parse(yaml, warnings: &warnings)[0].value == .scalar("it's fine"))
+        #expect(rewritten(yaml) == yaml)
+    }
+
+    @Test func singleAndDoubleQuotesInOneSequenceKeepTheirOwnStyle() {
+        #expect(rewritten("tags: ['a', \"b\", c]\n") == "tags: ['a', \"b\", c]\n")
+    }
+
+    @Test func aQuotedEmptyStringStaysQuoted() {
+        #expect(rewritten("post_mortem: \"\"\n") == "post_mortem: \"\"\n")
+    }
+
+    @Test func quotedAndUnquotedElementsOfASequenceKeepTheirQuoting() {
+        #expect(rewritten("tags: [a, \"b\", 3, \"4\"]\n") == "tags: [a, \"b\", 3, \"4\"]\n")
+        #expect(rewritten("tags:\n  - \"x\"\n  - y\n") == "tags: [\"x\", y]\n")
+    }
+
+    @Test func aValueWithoutQuotingInformationIsQuotedOnlyWhenItsSyntaxNeedsIt() {
+        let meta = [MetadataTuple(key: "date", value: .scalar("2026-03-01")), MetadataTuple(key: "note", value: .scalar("a: b"))]
+        #expect(YAMLMetadata.serialize(meta) == "date: 2026-03-01\nnote: \"a: b\"\n")
+    }
+
+    @Test func entriesAreEqualWhateverTheirQuoting() {
+        var warnings: [String] = []
+        let parsed = YAMLMetadata.parse("title: \"Same\"\n", warnings: &warnings)
+        #expect(parsed == [MetadataTuple(key: "title", value: .scalar("Same"))])
+    }
+
+    @Test func aValueEditedInTheSourceKeepsTheQuotingYouTyped() {
+        let edited = rewritten("title: \"Old\"\n").replacingOccurrences(of: "\"Old\"", with: "New")
+        #expect(rewritten(edited) == "title: New\n")
     }
 }

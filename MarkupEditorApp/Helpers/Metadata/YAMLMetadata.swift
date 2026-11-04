@@ -45,11 +45,14 @@ struct YAMLMetadata {
             if rawValue.isEmpty {
                 // Might be block sequence: look ahead for `- item` lines
                 var items: [String] = []
+                var itemsQuoted: [QuoteStyle?] = []
                 var j = i + 1
                 while j < lines.count {
                     let next = lines[j].trimmingCharacters(in: .whitespaces)
                     if next.hasPrefix("- ") {
-                        items.append(parseScalar(String(next.dropFirst(2)).trimmingCharacters(in: .whitespaces)))
+                        let raw = String(next.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                        items.append(parseScalar(raw))
+                        itemsQuoted.append(quoteStyle(raw))
                         j += 1
                     } else if next.isEmpty {
                         j += 1
@@ -58,17 +61,18 @@ struct YAMLMetadata {
                     }
                 }
                 if !items.isEmpty {
-                    result.append(MetadataTuple(key: key, value: .array(items)))
+                    result.append(MetadataTuple(key: key, value: .array(items), quoted: itemsQuoted))
                     i = j
                 } else {
                     result.append(MetadataTuple(key: key, value: .scalar("")))
                     i += 1
                 }
             } else if rawValue.hasPrefix("[") {
-                result.append(MetadataTuple(key: key, value: .array(parseFlowSequence(rawValue))))
+                let items = parseFlowSequence(rawValue)
+                result.append(MetadataTuple(key: key, value: .array(items.map(\.text)), quoted: items.map(\.quoted)))
                 i += 1
             } else {
-                result.append(MetadataTuple(key: key, value: .scalar(parseScalar(rawValue))))
+                result.append(MetadataTuple(key: key, value: .scalar(parseScalar(rawValue)), quoted: [quoteStyle(rawValue)]))
                 i += 1
             }
         }
@@ -83,10 +87,12 @@ struct YAMLMetadata {
         for entry in metadata {
             switch entry.value {
             case .scalar(let s):
-                lines.append("\(entry.key): \(quoteIfNeeded(s))")
+                lines.append("\(entry.key): \(written(s, quotedAs: entry.quoted.first ?? nil, inSequence: false))")
             case .array(let elements):
-                let quoted = elements.map { quoteIfNeeded($0, inSequence: true) }.joined(separator: ", ")
-                lines.append("\(entry.key): [\(quoted)]")
+                let written = elements.enumerated().map { index, element in
+                    written(element, quotedAs: entry.quoted.indices.contains(index) ? entry.quoted[index] : nil, inSequence: true)
+                }.joined(separator: ", ")
+                lines.append("\(entry.key): [\(written)]")
             }
         }
         return lines.joined(separator: "\n") + (lines.isEmpty ? "" : "\n")
@@ -112,11 +118,11 @@ struct YAMLMetadata {
     // Parse a flow sequence string like `[a, "b", c]` into an array of scalar strings. A quote
     // only opens at the start of an item, so an apostrophe inside a bare word (`don't`) is
     // literal, and a backslash inside a double-quoted item escapes the next character.
-    private static func parseFlowSequence(_ s: String) -> [String] {
+    private static func parseFlowSequence(_ s: String) -> [(text: String, quoted: QuoteStyle?)] {
         var inner = s.trimmingCharacters(in: .whitespaces)
         if inner.hasPrefix("[") { inner = String(inner.dropFirst()) }
         if inner.hasSuffix("]") { inner = String(inner.dropLast()) }
-        var items: [String] = []
+        var items: [(text: String, quoted: QuoteStyle?)] = []
         var current = ""
         var quote: Character?
         var escaped = false
@@ -134,15 +140,24 @@ struct YAMLMetadata {
                 quote = ch
                 current.append(ch)
             } else if ch == "," {
-                items.append(parseScalar(current.trimmingCharacters(in: .whitespaces)))
+                let item = current.trimmingCharacters(in: .whitespaces)
+                items.append((parseScalar(item), quoteStyle(item)))
                 current = ""
             } else {
                 current.append(ch)
             }
         }
         let last = current.trimmingCharacters(in: .whitespaces)
-        if !last.isEmpty { items.append(parseScalar(last)) }
+        if !last.isEmpty { items.append((parseScalar(last), quoteStyle(last))) }
         return items
+    }
+
+    // The quotes a scalar token is wrapped in, as parseScalar strips them, or nil when it has none.
+    private static func quoteStyle(_ s: String) -> QuoteStyle? {
+        guard s.count >= 2 else { return nil }
+        if s.hasPrefix("\"") && s.hasSuffix("\"") { return .double }
+        if s.hasPrefix("'") && s.hasSuffix("'") { return .single }
+        return nil
     }
 
     // Strip quotes and handle escape sequences from a scalar token.
@@ -170,6 +185,19 @@ struct YAMLMetadata {
         if s.contains(" #") { return doubleQuote(s) }
         if s.contains("[") || s.contains("]") || s.contains("{") || s.contains("}") { return doubleQuote(s) }
         return s
+    }
+
+    // A scalar written in the quotes it had, or else quoted only where its syntax needs it.
+    private static func written(_ s: String, quotedAs style: QuoteStyle?, inSequence: Bool) -> String {
+        switch style {
+        case .double: return doubleQuote(s)
+        case .single: return singleQuote(s)
+        case nil: return quoteIfNeeded(s, inSequence: inSequence)
+        }
+    }
+
+    private static func singleQuote(_ s: String) -> String {
+        "'\(s.replacingOccurrences(of: "'", with: "''"))'"
     }
 
     private static func doubleQuote(_ s: String) -> String {

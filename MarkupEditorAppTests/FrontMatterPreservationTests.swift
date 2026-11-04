@@ -83,8 +83,8 @@ private func loadedDocument(frontMatter: String) -> MarkupDocument {
 
     @Test func preserveFalseGivesTodaysOutput() {
         let doc = loadedDocument(frontMatter: "---\ntitle: \"Hi\"\n---\n\n\n")
-        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: false) == "---\ntitle: Hi\n---\n\nBody\n")
-        #expect(doc.injectYAMLFrontMatter(into: "Body\n") == "---\ntitle: Hi\n---\n\nBody\n")
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: false) == "---\ntitle: \"Hi\"\n---\n\nBody\n")
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n") == "---\ntitle: \"Hi\"\n---\n\nBody\n")
     }
 
     @Test func resetClearsRecord() {
@@ -97,7 +97,7 @@ private func loadedDocument(frontMatter: String) -> MarkupDocument {
     @Test func recordingNilClearsRecord() {
         let doc = loadedDocument(frontMatter: "---\ntitle: \"Hi\"\n---\n\n")
         doc.recordFrontMatter(nil)
-        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: true) == "---\ntitle: Hi\n---\n\nBody\n")
+        #expect(doc.injectYAMLFrontMatter(into: "Body\n", preserve: true) == "---\ntitle: \"Hi\"\n---\n\nBody\n")
     }
 
     @Test func recordingDoesNotMarkTheDocumentChanged() {

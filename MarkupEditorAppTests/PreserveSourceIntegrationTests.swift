@@ -257,7 +257,7 @@ private final class PreserveSession {
         try await session.open(Self.withFrontMatter)
         try await session.edit(replacing: "Quoted", with: "Changed")
         let saved = String(decoding: try await session.saveAs(), as: UTF8.self)
-        let expected = Self.withFrontMatter.replacingOccurrences(of: "\"Quoted\"", with: "Changed")
+        let expected = Self.withFrontMatter.replacingOccurrences(of: "Quoted", with: "Changed")
         #expect(saved == expected)
     }
 
@@ -283,7 +283,7 @@ private final class PreserveSession {
         let session = try await PreserveSession.make()
         try await session.open(Self.withFrontMatter)
         try await session.edit(replacing: "Quoted", with: "Changed")
-        let first = Self.withFrontMatter.replacingOccurrences(of: "\"Quoted\"", with: "Changed")
+        let first = Self.withFrontMatter.replacingOccurrences(of: "Quoted", with: "Changed")
         #expect(String(decoding: try await session.saveAs("first.md"), as: UTF8.self) == first)
         try await session.edit(replacing: "Last paragraph.", with: "Last, edited.")
         let second = first.replacingOccurrences(of: "Last paragraph.", with: "Last, edited.")

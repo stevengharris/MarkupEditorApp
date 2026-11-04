@@ -41,10 +41,10 @@ internal import UniformTypeIdentifiers
     /// True once the editor has been given a metadata block, until a sync finds it gone or the document is loaded or reset.
     @ObservationIgnored private var editorShowedMetadataBlock = false
 
-    /// The front matter text as the file had it, with the serialization of its parsed values.
+    /// The front matter text as the file had it, with its parsed values.
     private struct FrontMatterRecord {
         let text: String
-        let serialization: String
+        let values: [MetadataTuple]
     }
     private var frontMatterRecord: FrontMatterRecord?
 
@@ -375,14 +375,14 @@ internal import UniformTypeIdentifiers
         guard lines.first == "---", let closing = lines.dropFirst().firstIndex(of: "---") else { return }
         var warnings: [String] = []
         let values = YAMLMetadata.parse(lines[1..<closing].joined(separator: "\n"), warnings: &warnings)
-        frontMatterRecord = FrontMatterRecord(text: text, serialization: YAMLMetadata.serialize(values))
+        frontMatterRecord = FrontMatterRecord(text: text, values: values)
     }
 
     /// Prefixes `output` with the front matter. With `preserve`, a recorded original is written as it was
     /// when the current values still serialize the same as the recorded ones; otherwise the front matter
     /// is regenerated from `metadata`.
     func injectYAMLFrontMatter(into output: String, preserve: Bool = false) -> String {
-        if preserve, let record = frontMatterRecord, YAMLMetadata.serialize(metadata) == record.serialization {
+        if preserve, let record = frontMatterRecord, metadata == record.values {
             return record.text + output
         }
         guard !metadata.isEmpty else { return output }
