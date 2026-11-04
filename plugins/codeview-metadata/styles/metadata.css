@@ -74,6 +74,10 @@
   background: var(--Markup-accent-color, blue);
 }
 
+.metadata-tabs-hidden .metadata-mode-toggle {
+  visibility: hidden;
+}
+
 .metadata-mode-toggle:hover {
   opacity: 0.9;
 }

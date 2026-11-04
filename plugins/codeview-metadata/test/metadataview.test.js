@@ -318,3 +318,70 @@ describe('MetadataView selection outline', () => {
     teardown()
   })
 })
+
+describe('MetadataView mode tabs', () => {
+  // The Table and Source buttons belong to the block while it is selected or holds the caret,
+  // as the other codeviews' tabs do. They are not offered while the selection is elsewhere.
+  // The buttons stay in the bar and are hidden, so the bar keeps its height and the document below does not move.
+  const hasTabs = (instance) => instance.bar.contains(instance.tableTab) && instance.bar.contains(instance.sourceTab) &&
+    !instance.bar.classList.contains('metadata-tabs-hidden')
+  const lacksTabs = (instance) => instance.bar.contains(instance.tableTab) && instance.bar.contains(instance.sourceTab) &&
+    instance.bar.classList.contains('metadata-tabs-hidden')
+  const moveToBody = (view) => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)))
+
+  it('has no tabs when the selection is outside the block', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+    moveToBody(view)
+    expect(lacksTabs(instance)).toBe(true)
+    teardown()
+  })
+
+  it('shows the tabs when the block is NodeSelection-selected', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+    moveToBody(view)
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)))
+    expect(hasTabs(instance)).toBe(true)
+    teardown()
+  })
+
+  it('shows the tabs when the caret is inside the block', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+    moveToBody(view)
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 3)))
+    expect(hasTabs(instance)).toBe(true)
+    teardown()
+  })
+
+  it('removes the tabs when the selection leaves the block', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)))
+    expect(hasTabs(instance)).toBe(true)
+    moveToBody(view)
+    expect(lacksTabs(instance)).toBe(true)
+    teardown()
+  })
+
+  it('has the tabs from the start when the document opens with the block selected', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+    expect(view.state.selection.from).toBeLessThanOrEqual(1)
+    expect(hasTabs(instance)).toBe(true)
+    teardown()
+  })
+
+  it('keeps the tabs after a tab click, and the click still expands a collapsed block', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)))
+    view.dispatch(view.state.tr.setMeta(metadataPluginKey, { collapsed: true }))
+    instance.sourceTab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    expect(metadataPluginKey.getState(view.state).collapsed).toBe(false)
+    expect(instance.mode).toBe('source')
+    expect(hasTabs(instance)).toBe(true)
+    teardown()
+  })
+})
