@@ -50,6 +50,40 @@ function withListTightness(rule) {
 }
 
 /**
+ * Drop escapes that prosemirror-markdown's `esc` adds to `~` and brackets but that cannot change what the text
+ * reads back as. A tilde can strike text through only as one of a pair, so a lone tilde in a paragraph needs
+ * no escape. Brackets can start a link or reference only as `](` or `][`, a task box as `[ ]` or `[x]`, and a
+ * footnote as `[^`; text with none of those is read back as it is.
+ *
+ * @param {string} escaped    `raw` as `esc` escaped it
+ * @param {string} raw        the text that was escaped
+ * @param {string} paragraph  the text of the whole textblock `raw` is in
+ * @returns {string}
+ */
+function relaxEscapes(escaped, raw, paragraph) {
+  if (paragraph.split('~').length - 1 < 2) escaped = escaped.replace(/\\~/g, '~')
+  if (!/\]\(|\]\[|\[[ xX]\]|\[\^/.test(raw)) escaped = escaped.replace(/\\([\[\]])/g, '$1')
+  return escaped
+}
+
+/**
+ * Wrap the text node rule so its text is escaped by `esc` with the escapes `relaxEscapes` finds unnecessary
+ * dropped. Only text is relaxed; an image description still gets every escape.
+ */
+function withRelaxedEscapes(rule) {
+  return (state, node, parent, index) => {
+    const paragraph = parent?.textContent ?? node.text
+    const esc = state.esc
+    state.esc = (str, startOfLine) => relaxEscapes(esc.call(state, str, startOfLine), str, paragraph)
+    try {
+      rule(state, node, parent, index)
+    } finally {
+      delete state.esc
+    }
+  }
+}
+
+/**
  * Sanitize a code_block's language attribute for use as a Markdown fence
  * info string. Strips any character outside a safe identifier set; if
  * nothing survives, returns '' so the fence is emitted bare (no info
@@ -190,6 +224,8 @@ export function makeSerializer(warnings) {
 
   // Custom node rules extending the default set
   const nodes = Object.assign({}, defaultMarkdownSerializer.nodes, {
+
+    text: withRelaxedEscapes(defaultMarkdownSerializer.nodes.text),
 
     bullet_list: withListTightness(defaultMarkdownSerializer.nodes.bullet_list),
     ordered_list: withListTightness(defaultMarkdownSerializer.nodes.ordered_list),
