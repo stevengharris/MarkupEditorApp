@@ -140,6 +140,13 @@ describe('edit shapes', () => {
     expect(out).toContain('second entry')
   })
 
+  test('an edited tight list stays tight and the blocks around it are untouched', () => {
+    const text = 'Intro line\nwrapped here\n\n- one\n- two\n- three\n\nClosing line\nwrapped too\n'
+    const { tag } = load(text)
+    edit('two', 'second')
+    expect(save(tag).result).toBe('Intro line\nwrapped here\n\n* one\n* second\n* three\n\nClosing line\nwrapped too\n')
+  })
+
   test('saving, editing and saving again diffs against the first save', () => {
     const first = load(WRAPPED + '\n')
     edit('stays', 'remains')

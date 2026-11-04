@@ -14,6 +14,42 @@ import { MarkdownSerializer, defaultMarkdownSerializer } from 'prosemirror-markd
 const FENCE_LANGUAGE_UNSAFE_CHARS = /[^A-Za-z0-9_+#.-]/g
 
 /**
+ * Whether `list` can be written without blank lines between its items. The editor's list nodes do not
+ * record tight or loose, so a list is tight unless an item holds more than one block besides nested
+ * lists, because blank lines between an item's blocks make the list loose when it is read back.
+ *
+ * @param {import('prosemirror-model').Node} list
+ * @returns {boolean}
+ */
+function listIsTight(list) {
+  let tight = true
+  list.forEach(item => {
+    let blocks = 0
+    item.forEach(child => {
+      if (child.type.name !== 'bullet_list' && child.type.name !== 'ordered_list') blocks++
+    })
+    if (blocks > 1) tight = false
+  })
+  return tight
+}
+
+/**
+ * Wrap a list node rule so the list is written tight or loose according to `listIsTight`. The rule reads
+ * `options.tightLists` for a node without a `tight` attribute, so it is set for the list and then restored.
+ */
+function withListTightness(rule) {
+  return (state, node, parent, index) => {
+    const previous = state.options.tightLists
+    state.options.tightLists = listIsTight(node)
+    try {
+      rule(state, node, parent, index)
+    } finally {
+      state.options.tightLists = previous
+    }
+  }
+}
+
+/**
  * Sanitize a code_block's language attribute for use as a Markdown fence
  * info string. Strips any character outside a safe identifier set; if
  * nothing survives, returns '' so the fence is emitted bare (no info
@@ -154,6 +190,9 @@ export function makeSerializer(warnings) {
 
   // Custom node rules extending the default set
   const nodes = Object.assign({}, defaultMarkdownSerializer.nodes, {
+
+    bullet_list: withListTightness(defaultMarkdownSerializer.nodes.bullet_list),
+    ordered_list: withListTightness(defaultMarkdownSerializer.nodes.ordered_list),
 
     // hard_break: inside a table cell, emit <br> (real inline HTML, stays on one
     // line); everywhere else, same behavior as prosemirror-markdown's own default
