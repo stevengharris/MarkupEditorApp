@@ -316,6 +316,11 @@ internal import UniformTypeIdentifiers
         }
     }
 
+    /// True when saving `srcs` beside `fileURL` needs folder access the app does not yet hold.
+    func needsDestinationGrant(for fileURL: URL, srcs: [String]) -> Bool {
+        !srcs.isEmpty && resolveParentDirBookmark(for: fileURL) == nil
+    }
+
     /// Resolves a previously stored security-scoped bookmark for the parent directory of `fileURL`.
     /// Returns the scoped URL ready for `startAccessingSecurityScopedResource()`, or nil if none stored.
     func resolveParentDirBookmark(for fileURL: URL) -> URL? {
