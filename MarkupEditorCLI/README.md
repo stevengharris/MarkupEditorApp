@@ -12,7 +12,7 @@ This project contains the Command Line Interface for the MarkupEditor.
 
 The CLI is installed with any MarkupEditor package, both the Evaluation and Unlimited versions.
 
-If you are building from source, you can use the MarkupEditorCLI target from within Xcode, or you can build from the command line and then :
+If you are building from source, you can use the MarkupEditorCLI target from within Xcode, or you can build from the command line, from the repository root:
 
 ```bash
 xcodebuild -scheme MarkupEditorCLI -configuration Release -derivedDataPath ./build build
