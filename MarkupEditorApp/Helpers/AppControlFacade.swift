@@ -131,13 +131,12 @@ struct AppControlFacade: ControlFacade {
 
     func replaceBlocks(index: Int, count: Int, markdown: String, expected: [String], allowLoss: Bool) async throws -> ReplaceResult {
         _ = try editorWebView(for: "replace_blocks")
-        let text = control.document?.normalizeSmartPunctuation(in: markdown) ?? markdown
         let result = try await control.edits.run {
             // The view and the document may have changed while this call waited its turn.
             let webView = try editorWebView(for: "replace_blocks")
             let document = control.document
             var result = try await bridged {
-                try await webView.replaceBlocks(index: index, count: count, markdown: text, expected: expected, allowLoss: allowLoss,
+                try await webView.replaceBlocks(index: index, count: count, markdown: markdown, expected: expected, allowLoss: allowLoss,
                                                 restrictImages: control.restrictImages, allowSpecialBlocks: !(document?.isHTMLish ?? false))
             }
             // Done here, before another call can read or save the document.
@@ -188,11 +187,33 @@ struct AppControlFacade: ControlFacade {
         var problems: [String] = []
         _ = YAMLMetadata.parse(yaml, warnings: &problems)
         problems += Self.unkeptFrontMatter(yaml)
+        problems += Self.curlyQuotedFrontMatter(yaml)
         result.warnings += problems.map { "Front matter: \($0)" }
     }
 
     /// What the app's YAML reader drops without saying: comments, nested mappings, anchors, aliases, tags and
     /// mappings in braces. Line numbers count from the first line of the YAML.
+    /// Lines whose value is wrapped in curly quotes. YAML quotes are only the straight `"` and `'`, so the curly
+    /// ones are ordinary characters of the value, which the assistant may not have meant.
+    private static func curlyQuotedFrontMatter(_ yaml: String) -> [String] {
+        let opening: Set<Character> = ["\u{201C}", "\u{2018}"]
+        let closing: Set<Character> = ["\u{201D}", "\u{2019}"]
+        var problems: [String] = []
+        for (offset, raw) in yaml.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            var value = String(raw).trimmingCharacters(in: .whitespaces)
+            if value.hasPrefix("- ") {
+                value = String(value.dropFirst(2))
+            } else if let colon = value.firstIndex(of: ":") {
+                value = String(value[value.index(after: colon)...])
+            }
+            value = value.trimmingCharacters(in: .whitespaces)
+            if let first = value.first, let last = value.last, value.count > 1, opening.contains(first), closing.contains(last) {
+                problems.append("line \(offset + 1) wraps its value in curly quotes, which YAML reads as ordinary characters of the value, not quotes. Use straight quotes (\") to write a quoted string.")
+            }
+        }
+        return problems
+    }
+
     private static func unkeptFrontMatter(_ yaml: String) -> [String] {
         var problems: [String] = []
         for (offset, raw) in yaml.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {

@@ -35,6 +35,11 @@ function splitFrontMatter(markdown) {
   return { yaml: yaml ?? '', rest: lines.slice(token.map[1]).join('\n') }
 }
 
+/** `text` with curly quotes and apostrophes replaced by their straight equivalents. */
+function straightenQuotes(text) {
+  return text.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
+}
+
 // The HTML blocks that only end where their closing text appears, so one that never closes runs to the end of
 // the text. The first pattern tells which kind a block opens as, the second what ends it.
 const UNCLOSED_HTML_KINDS = [
@@ -238,6 +243,9 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
       }
     }
   }
+
+  // Front matter and the HTML header are data as the assistant wrote them; only the body is straightened.
+  text = straightenQuotes(text)
 
   const warnings = makeWarnings()
   let fragment

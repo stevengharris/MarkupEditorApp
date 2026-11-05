@@ -338,6 +338,42 @@ describe('metadata and HTML-preamble blocks', () => {
     })
   })
 
+  describe('curly quotes', () => {
+    const curly = 'He said \u201chi\u201d and it\u2019s fine'
+    const straight = 'He said "hi" and it\'s fine'
+
+    test('are straightened in the body of the fragment', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, curly)
+      expect(result.ok, result.reason).toBe(true)
+      expect(after.textContent).toBe(straight)
+    })
+
+    test('are kept in front matter, and the body after it is still straightened', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, `---\ntitle: Don\u2019t panic\n---\n\n${curly}`)
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['metadata', 'paragraph'])
+      expect(text(after, 0)).toBe('title: Don\u2019t panic')
+      expect(text(after, 1)).toBe(straight)
+    })
+
+    test('are kept in the HTML header, and the body after it is still straightened', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, `<div>\u201cquoted\u201d</div>\n\n${curly}`)
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['html-preamble', 'paragraph'])
+      expect(text(after, 0)).toBe('<div>\u201cquoted\u201d</div>')
+      expect(text(after, 1)).toBe(straight)
+    })
+
+    test('are kept in front matter and the header together, with the body straightened', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, `---\ntitle: \u201cT\u201d\n---\n<div>\u2019</div>\n\n${curly}`)
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['metadata', 'html-preamble', 'paragraph'])
+      expect(text(after, 0)).toBe('title: \u201cT\u201d')
+      expect(text(after, 1)).toBe('<div>\u2019</div>')
+      expect(text(after, 2)).toBe(straight)
+    })
+  })
+
   describe('the HTML header', () => {
     const banner = '<p align="center">\n    <img src="a.svg" width="96">\n</p>\n\n<p align="center">\n    <img src="b.svg">\n</p>'
 
