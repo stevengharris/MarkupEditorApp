@@ -5,18 +5,14 @@ This document describes what a MarkupEditor plugin is and how to create one. The
 A plugin is a JavaScript module that the MarkupEditor loads when it opens. Every plugin has a string `name` and `type`. The `type` can either be “exporter” or “codeview”:
 
 * An **Exporter** can be invoked from the File->Export menu and let you transform the document into a form other than Markdown.
-
-  * The editor supports HTML and PDF export at installation.
-
+  * Note: The editor supports HTML and PDF export at installation. While these options show up in the File->Export menu for a more consistent user experience, they are not themselves packaged or loaded as exporter plugins.
 * A **CodeView** displays the contents of a code block based on the language in that code block.
-
-  * The editor supports Mermaid diagrams at installation.
 
 ## Plugin API
 
-Besides its name and type properties, a plugin exposes its run method that can be invoked from Swift using MU.runPlugin(name).
+Besides its name and type properties, an exporter exposes a run method that can be invoked from Swift using `MU.runPlugin(name).` A codeview has no run method and registers from `install()` instead.
 
-A plugin never types its name or type. Both come from its `package.json` (see below) through `plugin-kit`, the workspace package every plugin builds and tests with:
+A plugin's `name` and `type` are defined in its [`package.json`](#packagejson-metadata) through `plugin-kit`, the workspace package every plugin builds and tests with:
 
 ```js
 import pkg from '../package.json' with { type: 'json' }
@@ -26,17 +22,17 @@ registerExporter(pkg.markupeditor, { run })   // exporters register at module lo
 // registerCodeView(pkg.markupeditor)         // codeviews register from install()
 ```
 
-`plugin-kit/` is a private workspace package (never published to npm; its source is in this repo). It is imported by subpath: `register`, `rollup`, `testing`, `testing/contract`, `testing/stub`, `metadata`, `images`, `export`, `base64` and `manifest`. Each plugin's `rollup.config.mjs` and `vitest.config.js` are a single call into it (`pluginConfig`, `pluginVitestConfig`). See `skills/writing-markupeditor-plugins` for scaffolding a plugin.
+`plugin-kit/` is a private workspace package (never published to npm; its source is in this repo). It is imported by subpath: `register`, `rollup`, `testing`, `testing/contract`, `testing/stub`, `metadata`, `images`, `export`, `base64`, `diagrams`, and `manifest`. Each plugin's `rollup.config.mjs` and `vitest.config.js` are a single call into it (`pluginConfig`, `pluginVitestConfig`). See `skills/writing-markupeditor-plugins` for scaffolding a plugin.
 
 ## Reference Plugins
 
-The DocX and EPUB Exporters and the Mermaid diagram CodeView are provided as fully supported examples you can use to model your own plugins on.
+The DocX and EPUB Exporters and the Mermaid diagram CodeView are provided as fully supported examples yplou can use to model your own plugins on.
 
-DocX Exporter
+> [DocX Exporter](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-docx)
 
-EPUB Exporter
+> [EPUB Exporter](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-epub)
 
-Mermaid Diagrams
+> [Mermaid Diagrams](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-mermaid)
 
 ## Testing
 
