@@ -89,10 +89,10 @@ struct YAMLMetadata {
             case .scalar(let s):
                 lines.append("\(entry.key): \(written(s, quotedAs: entry.quoted.first ?? nil, inSequence: false))")
             case .array(let elements):
-                let written = elements.enumerated().map { index, element in
+                let items = elements.enumerated().map { index, element in
                     written(element, quotedAs: entry.quoted.indices.contains(index) ? entry.quoted[index] : nil, inSequence: true)
                 }.joined(separator: ", ")
-                lines.append("\(entry.key): [\(written)]")
+                lines.append("\(entry.key): [\(items)]")
             }
         }
         return lines.joined(separator: "\n") + (lines.isEmpty ? "" : "\n")
