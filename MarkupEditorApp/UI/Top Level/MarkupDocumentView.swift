@@ -134,7 +134,7 @@ struct MarkupDocumentView: View {
             reloadEditorForConfigChange()
         }
         .popover(isPresented: $showImageDialog, attachmentAnchor: popupAnchor) {
-            ImageInsertView(presented: $showImageDialog)
+            ImageInsertView(presented: $showImageDialog, prepareSource: cacheLocalImage)
         }
         .popover(isPresented: $showLinkDialog, attachmentAnchor: popupAnchor) {
             LinkInsertView(presented: $showLinkDialog)
@@ -450,6 +450,34 @@ struct MarkupDocumentView: View {
         dirPanel.message = "This document uses local images. Grant read access to the containing folder to display them."
         if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
             document.storeParentDirBookmark(for: url, using: dirURL)
+        }
+    }
+
+    /// Copies a relative image from beside the document into the editor's folder, which is where the web
+    /// view loads relative sources from. Opening a document does this for the images it references; an
+    /// image typed into the insert dialog needs it too. Asks for the containing folder when the app has no
+    /// stored access to it. Does nothing for remote sources or an untitled document.
+    private func cacheLocalImage(src: String) {
+        guard document.isLocalRelativeSrc(src),
+              let url = document.url,
+              let cacheUrl = MarkupEditor.selectedWebView?.baseUrl else { return }
+        if document.resolveParentDirBookmark(for: url) == nil {
+            let dirPanel = NSOpenPanel()
+            dirPanel.canChooseFiles = false
+            dirPanel.canChooseDirectories = true
+            dirPanel.directoryURL = url.deletingLastPathComponent()
+            dirPanel.prompt = "Grant Access"
+            dirPanel.message = "Grant read access to the document's folder to display the image."
+            guard dirPanel.runModal() == .OK, let dirURL = dirPanel.url else { return }
+            document.storeParentDirBookmark(for: url, using: dirURL)
+        }
+        guard let scopedParent = document.resolveParentDirBookmark(for: url) else { return }
+        let accessing = scopedParent.startAccessingSecurityScopedResource()
+        defer { if accessing { scopedParent.stopAccessingSecurityScopedResource() } }
+        do {
+            try document.copyImageAssets(srcs: [src], from: scopedParent, to: cacheUrl, skipMissing: true, replaceExisting: true)
+        } catch {
+            editLog.error("Error copying image \(src): \(error.localizedDescription)")
         }
     }
 
