@@ -55,7 +55,7 @@ MarkupEditorApp/
       SourceView.swift         - Source view panel
       AppToolbarView.swift     - Main window toolbar
       SourceToolbarView.swift  - Source view toolbar
-    Info/                      - Log and document info UI
+    Info/                      - Log and plugin-related UI
     Insert Dialogs/            - Native macOS dialogs for inserting links, images, and tables
     Settings/                  - App settings UI including general behavior, toolbar, and keymapping, as well as plugins
     Welcome/                   - First-launch welcome flow
