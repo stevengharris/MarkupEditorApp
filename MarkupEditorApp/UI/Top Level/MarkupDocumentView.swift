@@ -913,6 +913,8 @@ struct MarkupDocumentView: View {
         //TODO: Fix to get local images from the proper source
         let srcs = await webView.getLocalImages()
         let baseUrl = webView.baseUrl
+        let scopedDestination = accessDestinationFolder(for: url, srcs: srcs)
+        defer { scopedDestination?.stopAccessingSecurityScopedResource() }
         do {
             // Set right before the write that will trigger FileChangeWatcher's event for this
             // same url, so handleExternalFileChange() doesn't mistake this save for an
@@ -940,6 +942,30 @@ struct MarkupDocumentView: View {
         }
     }
     
+    /// Starts access to the folder `url` is saved into when local images must be copied beside it. The save
+    /// panel grants only the file, so a folder with no stored bookmark is requested first. Returns the
+    /// scoped folder for the caller to stop accessing, or nil when nothing needs copying or access was
+    /// not granted.
+    private func accessDestinationFolder(for url: URL, srcs: [String]) -> URL? {
+        guard document.needsDestinationGrant(for: url, srcs: srcs) else {
+            return document.resolveParentDirBookmark(for: url).flatMap {
+                $0.startAccessingSecurityScopedResource() ? $0 : nil
+            }
+        }
+        let dirPanel = NSOpenPanel()
+        dirPanel.canChooseFiles = false
+        dirPanel.canChooseDirectories = true
+        dirPanel.directoryURL = url.deletingLastPathComponent()
+        dirPanel.prompt = "Grant Access"
+        dirPanel.message = "This document uses local images. Grant write access to the folder you are saving into so they can be copied beside it."
+        if dirPanel.runModal() == .OK, let dirURL = dirPanel.url {
+            document.storeParentDirBookmark(for: url, using: dirURL)
+        }
+        return document.resolveParentDirBookmark(for: url).flatMap {
+            $0.startAccessingSecurityScopedResource() ? $0 : nil
+        }
+    }
+
     private func handleExport(plugin: Plugin) async {
         guard let ext = plugin.ext else {
             let alert = NSAlert()
@@ -1001,7 +1027,11 @@ struct MarkupDocumentView: View {
     /// Prompt for a file to save to and return the URL if it is a support DocumentType
     private func getSaveURL() -> URL? {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = document.url?.lastPathComponent ?? ""
+        // The current document type comes first, so a name with no extension gets that type's extension.
+        let types = ([document.documentType] + DocumentType.allCases.filter { $0 != document.documentType })
+            .compactMap { UTType(filenameExtension: $0.ext()) }
+        panel.allowedContentTypes = types
+        panel.nameFieldStringValue = document.url?.lastPathComponent ?? "Untitled"
         guard panel.runModal() == .OK, let url = panel.url else {
             return nil
         }

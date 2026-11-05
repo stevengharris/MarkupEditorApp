@@ -190,3 +190,15 @@ import Foundation
     }
 }
 
+
+@MainActor struct DestinationGrantTests {
+    @Test func noImagesNeedsNoGrant() {
+        let url = URL(fileURLWithPath: "/tmp/destination-grant-none/doc.md")
+        #expect(!MarkupDocument().needsDestinationGrant(for: url, srcs: []))
+    }
+
+    @Test func imagesInAFolderWithoutABookmarkNeedAGrant() {
+        let url = URL(fileURLWithPath: "/tmp/destination-grant-unbookmarked/doc.md")
+        #expect(MarkupDocument().needsDestinationGrant(for: url, srcs: ["a.png"]))
+    }
+}
