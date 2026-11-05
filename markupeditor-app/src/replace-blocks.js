@@ -35,26 +35,62 @@ function splitFrontMatter(markdown) {
   return { yaml: yaml ?? '', rest: lines.slice(token.map[1]).join('\n') }
 }
 
+/** `text` with curly quotes and apostrophes replaced by their straight equivalents. */
+function straightenQuotes(text) {
+  return text.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
+}
+
+// The HTML blocks that only end where their closing text appears, so one that never closes runs to the end of
+// the text. The first pattern tells which kind a block opens as, the second what ends it.
+const UNCLOSED_HTML_KINDS = [
+  { opens: /^<!--/, closes: /-->/, open: '<!--', close: '-->' },
+  { opens: /^<(?:script|pre|style|textarea)(?:[\s>]|$)/i, closes: /<\/(?:script|pre|style|textarea)>/i },
+  { opens: /^<\?/, closes: /\?>/, open: '<?', close: '?>' },
+  { opens: /^<!\[CDATA\[/, closes: /\]\]>/, open: '<![CDATA[', close: ']]>' },
+  { opens: /^<![A-Za-z]/, closes: />/, open: '<!', close: '>' },
+]
+
+/**
+ * What an HTML block that never closes opens with, and what would close it, or null when `content` is closed
+ * or is a kind that ends at a blank line.
+ *
+ * @param {string} content  the text of one HTML block
+ * @returns {{open: string, close: string} | null}
+ */
+function unclosedHtml(content) {
+  const text = content.trimStart()
+  for (const kind of UNCLOSED_HTML_KINDS) {
+    if (!kind.opens.test(text)) continue
+    if (kind.closes.test(text)) return null
+    const tag = text.match(/^<([A-Za-z]+)/)?.[1]
+    return kind.open ? { open: kind.open, close: kind.close } : { open: `<${tag.toLowerCase()}`, close: `</${tag.toLowerCase()}>` }
+  }
+  return null
+}
+
 /**
  * Splits the HTML blocks that open `markdown` from the rest, the way opening a Markdown file folds its leading
  * HTML into the HTML-preamble block. Nothing but blank lines may come before the HTML, or the lines before it
  * would be lost.
  *
- * @returns {{html: string, rest: string} | null} null when `markdown` does not open with an HTML block
+ * @returns {{html: string, rest: string, unclosed: {open: string, close: string} | null} | null} null when
+ *   `markdown` does not open with an HTML block; `unclosed` names a last block that never closes
  */
 function splitLeadingHtml(markdown) {
   const lines = markdown.split('\n')
   const tokens = new MarkdownIt({ html: true }).parse(markdown, {})
   let start = -1
   let end = -1
+  let last = ''
   for (const token of tokens) {
     if (token.hidden) continue
     if (token.type !== 'html_block' || !token.map) break
     if (start === -1) start = token.map[0]
     end = token.map[1]
+    last = token.content
   }
   if (start === -1 || start !== lines.findIndex(line => line.trim() !== '')) return null
-  return { html: lines.slice(start, end).join('\n').replace(/\s+$/, ''), rest: lines.slice(end).join('\n') }
+  return { html: lines.slice(start, end).join('\n').replace(/\s+$/, ''), rest: lines.slice(end).join('\n'), unclosed: unclosedHtml(last) }
 }
 
 const FORBIDDEN_ELEMENTS = new Set(['script', 'iframe', 'object', 'embed', 'base', 'link', 'meta', 'form', 'template'])
@@ -193,6 +229,7 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
   }
 
   // HTML blocks that open the fragment where the HTML-preamble block belongs are that block, as when a file opens.
+  let unclosedHeader = null
   const metadataFirst = !!frontMatter || (index > 0 && kindOf(state.doc.child(0), 0, state.doc) === 'metadata')
   const landing = frontMatter ? 1 : index
   if (!deleting && landing === (metadataFirst ? 1 : 0)) {
@@ -200,8 +237,15 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
     if (leading) {
       special.push(codeBlock.create({ language: 'html' }, state.schema.text(leading.html)))
       text = leading.rest
+      if (leading.unclosed) {
+        const { open, close } = leading.unclosed
+        unclosedHeader = `The HTML that opens the fragment (${open}) is never closed, so everything after it became part of the HTML header. Add ${close} where it should end.`
+      }
     }
   }
+
+  // Front matter and the HTML header are data as the assistant wrote them; only the body is straightened.
+  text = straightenQuotes(text)
 
   const warnings = makeWarnings()
   let fragment
@@ -216,6 +260,7 @@ export function planReplace(state, { index, count, markdown, expected, allowLoss
   }
 
   const importWarnings = warnings.get()
+  if (unclosedHeader) importWarnings.push(unclosedHeader)
   if (fragment) {
     // Images already in the replaced blocks may be written again unchanged.
     const keepSrcs = new Set()

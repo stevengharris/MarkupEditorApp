@@ -38,10 +38,13 @@ internal import UniformTypeIdentifiers
     }
     var isHTMLish: Bool { documentType == .html }
 
-    /// The front matter text as the file had it, with the serialization of its parsed values.
+    /// True once the editor has been given a metadata block, until a sync finds it gone or the document is loaded or reset.
+    @ObservationIgnored private var editorShowedMetadataBlock = false
+
+    /// The front matter text as the file had it, with its parsed values.
     private struct FrontMatterRecord {
         let text: String
-        let serialization: String
+        let values: [MetadataTuple]
     }
     private var frontMatterRecord: FrontMatterRecord?
 
@@ -132,6 +135,7 @@ internal import UniformTypeIdentifiers
     func openUntitled(markdown: String, metadata: [MetadataTuple]) {
         url = nil                   // Sets documentType to .md
         clearBase()
+        editorShowedMetadataBlock = false
         source = markdown
         self.metadata = metadata    // triggers didSet → hasChanges = true
         hasChanges = false          // override didSet — must be last
@@ -141,6 +145,7 @@ internal import UniformTypeIdentifiers
     /// to override the metadata didSet.
     private func setOpenResult(source: String, url: URL, metadata: [MetadataTuple]) {
         self.url = url              // Sets documentType based on url
+        editorShowedMetadataBlock = false
         self.source = source        // Sets html or markdown based on documentType
         self.metadata = metadata    // triggers didSet → hasChanges = true
         hasChanges = false          // override didSet — must be last
@@ -193,6 +198,7 @@ internal import UniformTypeIdentifiers
     /// Resets document state for a new document. Sets hasChanges = false last to override the metadata didSet.
     func reset() {
         url = nil
+        editorShowedMetadataBlock = false
         metadata = []           // triggers didSet → hasChanges = true
         clearBase()
         hasChanges = false      // override didSet — must be last
@@ -369,14 +375,14 @@ internal import UniformTypeIdentifiers
         guard lines.first == "---", let closing = lines.dropFirst().firstIndex(of: "---") else { return }
         var warnings: [String] = []
         let values = YAMLMetadata.parse(lines[1..<closing].joined(separator: "\n"), warnings: &warnings)
-        frontMatterRecord = FrontMatterRecord(text: text, serialization: YAMLMetadata.serialize(values))
+        frontMatterRecord = FrontMatterRecord(text: text, values: values)
     }
 
     /// Prefixes `output` with the front matter. With `preserve`, a recorded original is written as it was
     /// when the current values still serialize the same as the recorded ones; otherwise the front matter
     /// is regenerated from `metadata`.
     func injectYAMLFrontMatter(into output: String, preserve: Bool = false) -> String {
-        if preserve, let record = frontMatterRecord, YAMLMetadata.serialize(metadata) == record.serialization {
+        if preserve, let record = frontMatterRecord, metadata == record.values {
             return record.text + output
         }
         guard !metadata.isEmpty else { return output }
@@ -402,11 +408,19 @@ internal import UniformTypeIdentifiers
     }
 
     /// Refreshes `metadata` from the metadata code_block's current text in `html`, when one is
-    /// found at position 0. Never clears `metadata` when none is found -- a metadata-less
-    /// document must not lose whatever `metadata` already held. A found-but-empty block still
-    /// overwrites, to `[]`.
+    /// found at position 0. A found-but-empty block overwrites, to `[]`. When none is found,
+    /// `metadata` is cleared only if the editor was given a block, since the block has since left
+    /// it (undo, redo or deletion). Otherwise it is kept: the editor may never have shown the
+    /// front matter the document holds.
     func syncMetadata(fromHTML html: String, warnings: inout [String]) {
-        guard let content = extractMetadataBlock(from: html).metadata else { return }
+        guard let content = extractMetadataBlock(from: html).metadata else {
+            if editorShowedMetadataBlock {
+                editorShowedMetadataBlock = false
+                metadata = []
+            }
+            return
+        }
+        editorShowedMetadataBlock = true
         metadata = YAMLMetadata.parse(content, warnings: &warnings)
     }
 
@@ -417,6 +431,7 @@ internal import UniformTypeIdentifiers
     /// conversion and lives only in `metadata`).
     func seedMetadataBlock(in html: String) -> String {
         guard !metadata.isEmpty else { return html }
+        editorShowedMetadataBlock = true
         // YAMLMetadata.serialize's trailing newline puts the closing "---" on its own line for
         // injectYAMLFrontMatter, but reads as a stray blank line as code_block content --
         // trimmed here only, not in serialize() itself.

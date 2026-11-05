@@ -338,6 +338,42 @@ describe('metadata and HTML-preamble blocks', () => {
     })
   })
 
+  describe('curly quotes', () => {
+    const curly = 'He said \u201chi\u201d and it\u2019s fine'
+    const straight = 'He said "hi" and it\'s fine'
+
+    test('are straightened in the body of the fragment', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, curly)
+      expect(result.ok, result.reason).toBe(true)
+      expect(after.textContent).toBe(straight)
+    })
+
+    test('are kept in front matter, and the body after it is still straightened', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, `---\ntitle: Don\u2019t panic\n---\n\n${curly}`)
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['metadata', 'paragraph'])
+      expect(text(after, 0)).toBe('title: Don\u2019t panic')
+      expect(text(after, 1)).toBe(straight)
+    })
+
+    test('are kept in the HTML header, and the body after it is still straightened', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, `<div>\u201cquoted\u201d</div>\n\n${curly}`)
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['html-preamble', 'paragraph'])
+      expect(text(after, 0)).toBe('<div>\u201cquoted\u201d</div>')
+      expect(text(after, 1)).toBe(straight)
+    })
+
+    test('are kept in front matter and the header together, with the body straightened', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 1, `---\ntitle: \u201cT\u201d\n---\n<div>\u2019</div>\n\n${curly}`)
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['metadata', 'html-preamble', 'paragraph'])
+      expect(text(after, 0)).toBe('title: \u201cT\u201d')
+      expect(text(after, 1)).toBe('<div>\u2019</div>')
+      expect(text(after, 2)).toBe(straight)
+    })
+  })
+
   describe('the HTML header', () => {
     const banner = '<p align="center">\n    <img src="a.svg" width="96">\n</p>\n\n<p align="center">\n    <img src="b.svg">\n</p>'
 
@@ -360,6 +396,34 @@ describe('metadata and HTML-preamble blocks', () => {
       const { result, doc: after } = run(withMetadata(), 1, 0, '<div>hi</div>\n\ntext')
       expect(result.ok, result.reason).toBe(true)
       expect(kinds(after)).toEqual(['metadata', 'html-preamble', 'paragraph', 'paragraph', 'paragraph'])
+    })
+
+    test('warns when an HTML comment that opens the fragment is never closed', () => {
+      const { result, doc: after } = run(doc(p('a')), 0, 0, '<!-- note\n\n# Title\n\nText')
+      expect(result.ok, result.reason).toBe(true)
+      expect(kinds(after)).toEqual(['html-preamble', 'paragraph'])
+      expect(result.warnings.some(w => w.includes('<!--') && w.includes('-->'))).toBe(true)
+    })
+
+    test('warns when a pre, style or textarea block that opens the fragment is never closed', () => {
+      for (const tag of ['pre', 'style', 'textarea']) {
+        const { result } = run(doc(p('a')), 0, 0, `<${tag}>\n\n# Title`)
+        expect(result.ok, result.reason).toBe(true)
+        expect(result.warnings.some(w => w.includes(`<${tag}`) && w.includes(`</${tag}>`)), tag).toBe(true)
+      }
+    })
+
+    test('does not warn when the comment or pre block that opens the fragment is closed', () => {
+      for (const header of ['<!-- note -->', '<pre>\ncode\n</pre>', '<!-- a\nb -->']) {
+        const { result } = run(doc(p('a')), 0, 0, `${header}\n\n# Title`)
+        expect(result.ok, result.reason).toBe(true)
+        expect(result.warnings.filter(w => /never closed/.test(w))).toEqual([])
+      }
+    })
+
+    test('does not warn about an open comment further into the fragment, which the parser strips with its own warning', () => {
+      const { result } = run(doc(p('a')), 0, 0, '# Title\n\n<!-- note\n\ntext')
+      expect(result.warnings.filter(w => /never closed/.test(w))).toEqual([])
     })
 
     test('a fenced html block at the header position is the header', () => {

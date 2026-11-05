@@ -203,6 +203,34 @@ struct MCPContentToolsTests {
         #expect(fixture.document.metadata.count == 1)
     }
 
+    @Test func curlyQuotesInFrontMatterAreKeptWhileTheBodyAfterItIsStraightened() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        let written = try await fixture.replace(0, 2, "---\ntitle: Don\u{2019}t panic\n---\n\nIt\u{2019}s \u{201C}quoted\u{201D}")
+        #expect(written.json?["ok"] == true, Comment(rawValue: written.text))
+        let blocks = try await fixture.markdowns()
+        #expect(blocks[0].contains("Don\u{2019}t panic"), Comment(rawValue: blocks[0]))
+        #expect(blocks[1] == "It's \"quoted\"")
+    }
+
+    @Test func aFrontMatterValueInCurlyQuotesIsReportedAsLiteralCharacters() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        let written = try await fixture.replace(0, 1, "---\ntitle: \u{201C}Hello\u{201D}\ntags:\n  - \u{2018}a\u{2019}\n---")
+        #expect(written.json?["ok"] == true, Comment(rawValue: written.text))
+        let warnings = (0..<10).compactMap { written.json?["warnings"]?[$0]?.stringValue }
+        #expect(warnings.contains { $0.hasPrefix("Front matter:") && $0.contains("line 1") && $0.contains("curly quotes") }, Comment(rawValue: written.text))
+        #expect(warnings.contains { $0.hasPrefix("Front matter:") && $0.contains("line 3") && $0.contains("curly quotes") }, Comment(rawValue: written.text))
+    }
+
+    @Test func curlyApostrophesInsideAFrontMatterValueAreNotReported() async throws {
+        let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
+        defer { fixture.stop() }
+        let written = try await fixture.replace(0, 1, "---\ntitle: Don\u{2019}t panic\n---")
+        #expect(written.json?["ok"] == true, Comment(rawValue: written.text))
+        #expect(written.json?["warnings"] == [], Comment(rawValue: written.text))
+    }
+
     @Test func frontMatterTheAppCannotKeepIsReportedToTheAssistant() async throws {
         let fixture = try await ContentFixture.start("Intro\n\nBody", metadataYAML: "title: Doc")
         defer { fixture.stop() }

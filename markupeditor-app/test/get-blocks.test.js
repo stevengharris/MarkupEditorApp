@@ -88,8 +88,8 @@ describe('describeBlocks: kinds and Markdown', () => {
     expect(blocks.map(b => b.markdown)).toEqual([
       '# Title',
       'A paragraph.',
-      '* one\n\n* two',
-      '1. first\n\n2. second',
+      '* one\n* two',
+      '1. first\n2. second',
       '| A | B |\n| --- | --- |\n| 1 | 2 |',
       '```js\nlet x = 1\n```',
       '> quoted',

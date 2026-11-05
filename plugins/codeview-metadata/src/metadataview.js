@@ -10,6 +10,7 @@ const CONTENT_CLASS = 'metadata-content'
 const CONTENT_COLLAPSED_CLASS = 'metadata-content-collapsed'
 const TAB_CLASS = 'metadata-mode-toggle'
 const TAB_ACTIVE_CLASS = 'metadata-mode-toggle-active'
+const TABS_HIDDEN_CLASS = 'metadata-tabs-hidden'
 const HIDDEN_CODE_CLASS = 'metadata-hidden-code'
 const TABLE_CLASS = 'metadata-table'
 const TABLE_EMPTY_CLASS = 'metadata-table-empty'
@@ -92,6 +93,7 @@ export class MetadataView extends MU.CodeView {
 
         this.setMode(true) // Table default
         this.syncCollapsedFromPluginState()
+        this.syncTabsFromState(this.view.state)
         this.renderTable()
     }
 
@@ -130,7 +132,28 @@ export class MetadataView extends MU.CodeView {
     }
 
     static syncAllSelectedState(state) {
-        for (const instance of liveInstances) instance.syncSelectedFromState(state)
+        for (const instance of liveInstances) {
+            instance.syncSelectedFromState(state)
+            instance.syncTabsFromState(state)
+        }
+    }
+
+    // Shows the Table and Source buttons only while the selection is within the block: the block
+    // itself selected, or the caret or a selection inside its text. Driven from live selection
+    // state, like the outline above, since setActive does not fire for a NodeSelection. The buttons
+    // stay in the bar and are hidden, so the bar keeps its height and the document below does not move.
+    syncTabsFromState(state) {
+        if (!this.positionValid) return
+        const pos = this.getPos()
+        const { from, to } = state.selection
+        const within = from >= pos && to <= pos + this.node.nodeSize
+        if (within !== this.bar.classList.contains(TABS_HIDDEN_CLASS)) return
+        this.view.domObserver?.stop()
+        try {
+            this.bar.classList.toggle(TABS_HIDDEN_CLASS, !within)
+        } finally {
+            this.view.domObserver?.start()
+        }
     }
 
     destroy() {
