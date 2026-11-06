@@ -18,7 +18,9 @@ struct EvaluationManagerTests {
     }
 
     private func setFirstLaunch(daysAgo: Double) {
-        UserDefaults.standard.set(Date().addingTimeInterval(-daysAgo * 24 * 60 * 60), forKey: MarkupEditorApp.firstLaunchDateKey)
+        // Calendar days, as the expiration date counts them: 24-hour multiples drift by an hour across a DST change.
+        let date = Calendar.current.date(byAdding: .day, value: -Int(daysAgo), to: .now) ?? .now
+        UserDefaults.standard.set(date, forKey: MarkupEditorApp.firstLaunchDateKey)
     }
 
     @Test func noFirstLaunchDateIsNotExpired() {

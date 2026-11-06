@@ -78,7 +78,7 @@ final class MCPHarness {
         let socket = directory.appending(path: "s").path(percentEncoded: false)
 
         let dispatcher = ControlDispatcher(facade: facade, tools: tools, authorizer: HarnessAuthorizer(access))
-        let server = ControlServer(path: socket) { line in await dispatcher.handle(line) }
+        let server = ControlServer(path: socket, peerVerifier: HarnessPeerVerifier()) { line in await dispatcher.handle(line) }
         try server.start()
 
         let process = Process()
@@ -154,6 +154,11 @@ final class HarnessAuthorizer: ControlAuthorizing {
     let access: ClientAccess
     init(_ access: ClientAccess) { self.access = access }
     func access(for client: ClientIdentity?, prompting: Bool) async -> ClientAccess { access }
+}
+
+/// Accepts every peer. The library's own accept-any verifier exists only in debug builds.
+struct HarnessPeerVerifier: PeerVerifying {
+    func verify(descriptor: Int32) -> Bool { true }
 }
 
 /// Splits the child's output into lines as chunks arrive on a background queue.
