@@ -150,9 +150,11 @@ Plugins extend the functionality of the MarkupEditor. HTML and PDF export are bu
 
 Consult the [README.md](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins) in the plugins directory for information about creating plugins for your own use and contributing them to the community.
 
-## Contributing
+## Working on the Project
 
-Refer to the separate [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
+* **Contributing**. Refer to the separate [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
+* **Change tracking**. Each release and what changed in it is described in [CHANGELOG.md](CHANGELOG.md).
+* **Issues**. Report a bug or request a feature in the [issue tracker](https://github.com/stevengharris/MarkupEditorApp/issues).
 
 ## Privacy
 

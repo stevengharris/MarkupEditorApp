@@ -5,3 +5,4 @@
 // prompts for a team on first build instead of failing against someone
 // else's team ID.
 #include? "Local.xcconfig"
+#include "Version.xcconfig"
