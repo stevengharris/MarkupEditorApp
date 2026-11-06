@@ -758,6 +758,8 @@ struct MCPContentToolsTests {
             """)
     }
 
+#if DEBUG
+    // Reads the document through the get_markdown developer tool, which only Debug builds provide.
     @Test func theSuggestionScenarioEndToEnd() async throws {
         let fixture = try await ContentFixture.start("Alpha one\n\nThe cat sat on the mat.\n\nThe dog ran far, far away.\n\nOmega last",
                                                      metadataYAML: "title: Doc", tools: ControlTools.all)
@@ -863,6 +865,7 @@ struct MCPContentToolsTests {
         let gone = try #require(try await listedSuggestions(fixture).first { $0["id"]?.stringValue == keptId })
         #expect(gone["status"] == "stale" && gone["reason"] == "document-replaced" && gone["find"] == "ran", Comment(rawValue: "\(gone)"))
     }
+#endif
 
     // MARK: Source view
 
