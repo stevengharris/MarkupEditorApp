@@ -1,0 +1,3 @@
+// Release version. Edited by scripts/release.sh prepare; do not set these in the Xcode project.
+MARKETING_VERSION = 0.9.10
+CURRENT_PROJECT_VERSION = 20261027
