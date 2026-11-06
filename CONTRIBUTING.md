@@ -21,8 +21,7 @@ If I feel like AI contributions are a burden on the project and not a benefit, t
 ## Development Requirements
 
 * Xcode or its toolchain, supporting macOS 26 or higher
-
-* Node 24, npm, rollup
+* Node 24.15 or later (see .nvmrc) and npm
 
 It may be possible to support earlier macOS versions, but the earlier you go, the more SwiftUI workarounds or drop-backs to AppKit are required. If earlier versions are important to you, scope out the requirements for support and raise an issue or a discussion on the topic.
 
@@ -56,7 +55,7 @@ MarkupEditorApp/
       SourceView.swift         - Source view panel
       AppToolbarView.swift     - Main window toolbar
       SourceToolbarView.swift  - Source view toolbar
-    Info/                      - Log and document info UI
+    Info/                      - Log and plugin-related UI
     Insert Dialogs/            - Native macOS dialogs for inserting links, images, and tables
     Settings/                  - App settings UI including general behavior, toolbar, and keymapping, as well as plugins
     Welcome/                   - First-launch welcome flow
@@ -84,7 +83,25 @@ The plugins to support exporters and codeviews (e.g., Mermaid and GeoJSON) are a
 
 Life would be simpler if the Swift Package Manager provided a way to express a dependency on a JavaScript package, but this is not the case. Every JavaScript dependency required in the chain produces a `dist` artifact using `npm build` and `rollup`. To ensure that what you build is up-to-date, the Xcode build process uses a script Build Phase to build the JavaScript dependencies and produce the `dist` artifact ES bundles that are loaded into the WKWebView at runtime. Mixing Swift and JavaScript is, admittedly, kind of complicated and drags you across a broad toolchain that you may not be familiar with.
 
-You don't need to know anything about the JavaScript toolchain just to work in the Swift app proper. However, if you want to work in the WYSIWYG editing area, you will have to venture into the Swift MarkupEditor and perhaps into the JavaScript markupeditor-base. If you want to work on a plugin, you will also be exposed to markupeditor-base and even ProseMirror. Fortunately, if you're using AI, this can be made easier.
+You don't need to know anything about the JavaScript toolchain just to work in the Swift app proper. However, if you want to work in the WYSIWYG editing area, you will have to venture into the Swift MarkupEditor and perhaps into the JavaScript markupeditor-base. If you want to work on a plugin, you will also be exposed to markupeditor-base and even ProseMirror. 
+
+### Making Cross-Project Changes
+
+A change to editing behavior or the document schema starts in markupeditor-base and moves downstream one repository at a time. Refer to the README in each repository for more details. The following is an overview of the process to make and propagate changes in the upstream repositories that end up in this repository.
+
+First, make and test the change in markupeditor-base using `npm test`. You can build and test your changes using the locally hosted documentation and the demo it points to using `npm run build` followed by `npm run docs`, and then opening the node server that is started, typically `http://localhost:3000`. 
+
+Second, bring the built `markup-editor.js` from markupeditor-base into the Swift MarkupEditor package. The Swift MarkupEditor has a `markupeditor-js` directory that builds a JavaScript project with a markupeditor-base dependency and provides a `prepare.sh` script to copy its local files into the proper locations (e.g., Resource) in the Swift project. For local development, you should modify its `package.json` to point the `markupeditor` dependency at your local markupeditor-base repository rather than the released npm package.
+
+When you have the updated markupeditor-base files in place, run its test suite.
+
+```bash
+xcodebuild clean test -scheme MarkupEditor -destination 'platform=macOS,arch=arm64'
+```
+
+Third, build on the verified change here in MarkupEditorApp. Each stage runs in a different runtime (Node and vitest for markupeditor-base, a WKWebView for MarkupEditor), so do not assume that passing tests in one stage mean the next works. Open a separate pull request in each repository as needed, and describe the relevant changes in each one.
+
+Fortunately, if you're using AI, this can be made easier.
 
 ## About AI
 
@@ -93,11 +110,8 @@ I created the two original libraries that MarkupEditorApp is built-on (the JavaS
 I have a lot of conflicted feelings about using AI tools, and I won't bore you with them here. I will just say that in my experience, the tools can be incredibly useful as a force multiplier for software development. One way they can help is to enable people to work on and contribute to this project without having to understand all of the details under the covers - and there is a *lot* to know about. For example:
 
 * A lot of the heavy lifting associated with WYSIWYG editing is provided using [ProseMirror](https://prosemirror.net). I think ProseMirror is great. Its [documentation](https://prosemirror.net/docs/) is thorough and its [forum](https://discuss.prosemirror.net) is a terrific source of information and support. Still, there are a *lot* of concepts to get your head around when building an editor with ProseMirror.
-
 * ProseMirror capabilities are consumed in [markupeditor-base](https://github.com/stevengharris/markupeditor-base) which in turn exposes its own [API](https://stevengharris.github.io/markupeditor-base/api/index.html) in JavaScript. The markupeditor-base project delivers everything it does using a [web component](https://stevengharris.github.io/markupeditor-base/guide/index.html#markupeditor-as-a-web-component). It comes with a toolbar and can be used directly in JavaScript as a WYSIWYG editing tool. Try it out on the markupeditor-base [web site](https://stevengharris.github.io/markupeditor-base/) and scan the [Developer's Guide](https://stevengharris.github.io/markupeditor-base/guide/index.html) to learn more.
-
-* The Swift [MarkupEditor](https://github.com/stevengharris/MarkupEditor) library delivers WYSIWYG editing capabilities using a SwiftUI-based MarkupEditorView. Under the covers, that SwiftUI view uses a WKWebView subclass that loads the markupeditor-base web component (which includes the ProseMirror runtime machinery). The Swift MarkupEditor library wraps the JavsScript markupeditor-base API with Swift using `executeJavaScript` from within the WKWebView subclass.
-
+* The Swift [MarkupEditor](https://github.com/stevengharris/MarkupEditor) library delivers WYSIWYG editing capabilities using a SwiftUI-based MarkupEditorView. Under the covers, that SwiftUI view uses a WKWebView subclass that loads the markupeditor-base web component (which includes the ProseMirror runtime machinery). The Swift MarkupEditor library wraps the JavaScript markupeditor-base API with Swift using `executeJavaScript` from within the WKWebView subclass.
 * I don't see a lot of projects combining Swift and JavaScript, and the mechanics of doing so in a build have to be hand crafted. The MarkupEditorApp was designed for extensibility using a plugin mechanism. Plugins are built in JavaScript. They can be quite powerful because they have access to the markupeditor-base API as well as a lot of the ProseMirror API. They can even call back into Swift to make things happen, too.
 
 AI tools are adept at navigating this kind of complexity, especially if they are armed with the right skills.
@@ -118,7 +132,7 @@ npx skills add stevengharris/MarkupEditorApp --skill writing-codeview-plugins
 npx skills add stevengharris/MarkupEditorApp --skill writing-exporter-plugins
 ```
 
-The `writing-markupeditor-plugins` skill covers the contract shared by every plugin type. The `writing-codeview-plugins` skill is specific to codeview plugins, such as the Mermaid diagram support. Similarly, the writing-exporter-plugins skill covers exporters. After writing these skills, I tested them from a cloned repository by creating a simpler version of the geoJSON codeview plugin and and the EPUB exporter, using Claude Code.
+The `writing-markupeditor-plugins` skill covers the contract shared by every plugin type. The `writing-codeview-plugins` skill is specific to codeview plugins, such as the Mermaid diagram support. Similarly, the writing-exporter-plugins skill covers exporters. After writing these skills, I tested them from a cloned repository by creating a simpler version of the geoJSON codeview plugin and the EPUB exporter, using Claude Code.
 
 Once installed, just describe what you're trying to do -- Claude Code loads the relevant skill automatically. File an [issue](https://github.com/stevengharris/MarkupEditorApp/issues) if you encounter a markupeditor-base, MarkupEditor, or MarkupEditorApp bug.
 

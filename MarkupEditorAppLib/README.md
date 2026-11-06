@@ -8,9 +8,9 @@ There are two library products in MarkupEditorAppLib Swift package:
 
 The package is divided in this way so that the MarkupEditorApp proper does not contain the MCP server, which is only part of the CLI.
 
-## Packaging The Package
+## Packaging the Package
 
-The MarkupEditorAppLib and the MarkupEditorApp need to be kept in lock-step, so the MarkupEditorAppLib is part of the MarkupEditorApp repository. MarkupEditor app has a package dependency on MarkupEditorAppLib. When viewed in Xcode, the MarkupEditorAppLib shows up as a local dependent package. Therefore, when you search in Xcode when working on the MarkupEditorApp project, your searches will not typically include MarkupEditorAppLib.
+The MarkupEditorAppLib and the MarkupEditorApp need to be kept in lock-step, so the MarkupEditorAppLib is part of the MarkupEditorApp repository. The MarkupEditorApp has a package dependency on MarkupEditorAppLib. When viewed in Xcode, the MarkupEditorAppLib shows up as a local dependent package. Therefore, when you search in Xcode when working on the MarkupEditorApp project, your searches will not typically include MarkupEditorAppLib.
 
 ## Project Structure
 
@@ -110,3 +110,21 @@ The pieces fit together like this:
 * **open_document** is the exception. It is handled in the CLI process rather than sent over the socket, because only a process outside the app's sandbox can hand the app a file to open.
 
 Because the server needs the app, it can only do useful work while MarkupEditor is running with assistants turned on and the client allowed.
+
+### Tools
+
+The control tools are defined in `Control/Tools/ControlTools.swift`, and `open_document` in `MCPControlBackend.swift`. Each tool needs a level of client access. A client the user has allowed read access can call the read tools, and read-write access adds the tools that change the open document.
+
+| Tool | Access | What it does |
+| --- | --- | --- |
+| `open_document` | read | Opens a file in the app. Handled in the CLI process. |
+| `get_document` | read | Returns the open document as blocks, each with its Markdown and a hash. |
+| `get_selection` | read | Returns the selected text and the block the selection starts in. |
+| `select` | read | Moves the visible selection to a block or to found text, to show the user a place. |
+| `list_suggestions` | read | Returns the suggestions made with `propose_edits`, with the status of each. |
+| `replace_blocks` | read-write | Replaces, inserts, or deletes blocks, if their hashes still match. |
+| `propose_edits` | read-write | Shows edits as suggestions for the user to accept or reject. |
+| `undo`, `redo` | read-write | Runs the user's own Undo or Redo. |
+| `save_document` | read-write | Saves the open document to its existing file. |
+
+Debug builds add developer tools for testing and demos: `app_state`, `get_markdown`, `get_html`, and `screenshot_editor` (read), and `eval_js`, `run_menu_command`, and `type_text` (read-write). A release build offers only the end-user tools, so it does not list the developer tools, and calling one fails as an unknown tool. The app's `DeveloperControlFacade` is also compiled only into Debug builds, which is a second layer: a dispatcher given a developer tool without that facade answers "not available in this build".

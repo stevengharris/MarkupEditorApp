@@ -16,6 +16,7 @@ struct ImageInsertView: View {
     }
     
     @Binding private var presented: Bool
+    private let prepareSource: (String) -> Void
     @State private var src: String = MarkupEditor.selectionState.src ?? ""
     @State private var alt: String = MarkupEditor.selectionState.alt ?? ""
     @State private var fileImporterShowing: Bool = false
@@ -63,8 +64,10 @@ struct ImageInsertView: View {
         .frame(width: 300)
     }
     
-    public init(presented: Binding<Bool>) {
+    /// `prepareSource` runs on the typed source before it is inserted, so the editor can load a local file.
+    public init(presented: Binding<Bool>, prepareSource: @escaping (String) -> Void) {
         _presented = presented
+        self.prepareSource = prepareSource
     }
     
     // Ternary-fed .buttonStyle doesn't compile: .bordered and .borderedProminent
@@ -81,6 +84,7 @@ struct ImageInsertView: View {
     }
 
     private func save() {
+        if let argSrc { prepareSource(argSrc) }
         MarkupEditor.selectedWebView?.insertImage(src: argSrc, alt: alt)
         dismiss()
     }

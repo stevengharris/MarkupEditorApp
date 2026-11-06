@@ -56,7 +56,7 @@ Select a thumbnail to watch the video.
 
 ## Installation Options
 
-You have three installation options. You also might qualify for a complimentary subscription providing free access to the Unlimited Version.
+MarkupEditor requires macOS 26 or later. You have three installation options. You also might qualify for a complimentary subscription providing free access to the Unlimited Version.
 
 ### Evaluation Version Package
 
@@ -138,7 +138,7 @@ Suggest editing changes to eliminate passive voice.
 Review the document for broken links.
 ```
 
-When you ask for *suggestions*, the AI assistent delivers them to the editor as a set. In the MarkupEditor, for each suggestion, you will see the highlighted text that would change next to the suggested test, together with `Accept` and `Reject` buttons. Typical usage is to move to the `Next` suggestion using `⌘+,` and press `Return` to accept and move to the next suggestion or `Shift+Return` to reject and move to the next selection. The Edit->Suggestions menu has additional options (like `Accept All` and `Reject All`) and hot keys. If you save the document, unaccepted changes are discarded.
+When you ask for *suggestions*, the AI assistant delivers them to the editor as a set. In the MarkupEditor, for each suggestion, you will see the highlighted text that would change next to the suggested text, together with `Accept` and `Reject` buttons. Typical usage is to move to the `Next` suggestion using `⌘+'` and press `Return` to accept and move to the next suggestion or `Shift+Return` to reject and move to the next selection. The Edit->Suggestions menu has additional options (like `Accept All` and `Reject All`) and hot keys. If you save the document, unaccepted changes are discarded.
 
 You can edit the document yourself and go back-and-forth with the AI assistant. Changes made by the assistant can be undone using standard Undo (⌘+z).
 
@@ -146,7 +146,7 @@ The MCP server is part of the Command Line Interface. You can find more details 
 
 ## Plugins
 
-Plugins extend the functionality of the MarkupEditor. HTML and PDF export are built in. Plugins from the catalog support DocX and EPUB exporting and let you edit and display Mermaid diagrams and GeoJSON on OpenStreetMap-based maps. You can install, update, add from a file, and uninstall plugins in the Plugins tab of the app's right side panel. The catalog of public plugins on the web site is synced with the app. You can create your own plugins and install them locally, and you can contribute a public plugin using a pull request.
+Plugins extend the functionality of the MarkupEditor. HTML and PDF export are built in. Plugins from the catalog support DocX and EPUB exporting and let you edit and display Mermaid diagrams and GeoJSON on OpenStreetMap-based maps. You can install, update, add from a file, and uninstall plugins in the Plugins tab of the app's right side panel. The [catalog of public plugins](https://markupeditor.app/plugins) on the web site is synced with the app. You can create your own plugins and install them locally, and you can contribute a public plugin using a pull request.
 
 Consult the [README.md](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins) in the plugins directory for information about creating plugins for your own use and contributing them to the community.
 
