@@ -1,4 +1,2 @@
-MarkupEditorApp/Resources/markupeditor-markdown.js linguist-generated=true
-MarkupEditorApp/Resources/markupeditor-codeview-mermaid.js linguist-generated=true
-plugins/markupeditor-exporter-docx/dist/markupeditor-exporter-docx.js linguist-generated=true
+# Built plugin bundles committed for discovery; exclude from language statistics.
 plugins/*/dist/*.js linguist-generated=true
