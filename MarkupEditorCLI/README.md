@@ -6,6 +6,8 @@ This project contains the Command Line Interface for the MarkupEditor.
 
 * Open a Markdown file for editing using the MarkupEditor.
 
+* Convert a Markdown file to HTML or PDF.
+
 * Start the MarkupEditor MCP server.
 
 ## Installation
@@ -35,6 +37,18 @@ markup <filename.md>
 ```
 
 Note that if `filename.md` contains references to local images (generally in the same directory as `filename.md` or a subdirectory below it), you will be prompted to allow access to the directory containing `filename.md`. If you allow access, local images will load and display properly. If not, they may show up in document as broken image links.
+
+### Exporting to HTML or PDF
+
+Convert a Markdown file without opening the editor:
+
+```bash
+markup export --format html notes.md
+markup export --format pdf --output notes.pdf notes.md
+markup export --format html --output - notes.md
+```
+
+Without `--output`, the result is saved as a file beside the input, with a `.html` or `.pdf` extension (`notes.md` becomes `notes.html`). Use `--output <path>` to save it elsewhere, or `--output -` to write it to standard output instead. An existing output file is refused unless `--force` is given. The HTML is the document body, with front matter removed and list items written tight: an item with a single paragraph has no `<p>`, and the editor restores it when the HTML is opened. By default local images stay relative references (`--images link`), so the HTML must stay next to its images; `--images embed` inlines the images found in the input file's folder as data URIs, and a PDF always includes them. An image that is missing, is not an image, or lies outside the input file's folder is left as written, with a warning. The conversion runs in a windowless launch of the MarkupEditor app this CLI is part of, so the app does not have to be running. Use `--app <path>` to convert with a different copy of the app. Without it, the command refuses to run if the app's version differs from the CLI's, and it does not run once an Evaluation Version has expired.
 
 ### Running the MCP server
 

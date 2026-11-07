@@ -34,6 +34,11 @@ extension MarkupWKWebView {
 
     /// Records a source map for `baseText` in the editor and returns its JSON envelope (see `RebaseResult`),
     /// or `nil` when the call fails.
+    /// `html` with each single-paragraph list item written tight (`<li>text</li>`), or `nil` when the call failed.
+    public func tightenHtml(_ html: String) async -> String? {
+        await runBlockFunction("MU.tightenHtml(\(Self.jsLiteral(html)))", name: "tightenHtml")
+    }
+
     public func rebaseSource(_ baseText: String) async -> String? {
         await runBlockFunction("MU.rebaseSource(\(Self.jsLiteral(baseText)))", name: "rebaseSource")
     }

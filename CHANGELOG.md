@@ -1,6 +1,8 @@
 # Change Log
 
-## Version 0.9.11 (20261106) - Beta 2 Release
+## MarkupEditor v0.9.11 (20261106)
+
+This is the Beta 2 release.
 
 Various editing- and presentation-related bug fixes, along with AI-assistant-related enhancements.
 
@@ -22,7 +24,7 @@ Various editing- and presentation-related bug fixes, along with AI-assistant-rel
 * Mermaid and HTML front matter plugins updated. Install the new versions from the Plugins tab.
 * Dependency updates, including fixes for audit findings.
 
-## Version 0.9.10 (20261027) - Beta 1 Release
+## MarkupEditor v0.9.10 (20261027)
 
 A new Welcome flow replaces the Tour, and Mermaid and DocX move out of the app into separately installed plugins.
 
@@ -35,7 +37,7 @@ A new Welcome flow replaces the Tour, and Mermaid and DocX move out of the app i
 * A new setting controls the width of the centered text column.
 * More tools for working with document content through MCP, and a configurable connection limit.
 
-## Version 0.9.9 (20261016)
+## MarkupEditor v0.9.9 (20261016)
 
 * Type a code fence with a language, like ```` ```bash ````, then press Return to start a code block in that language.
 * Code in the block you're editing is no longer syntax-highlighted until you move out, which fixes characters dropped by inline predictions.
@@ -45,17 +47,17 @@ A new Welcome flow replaces the Tour, and Mermaid and DocX move out of the app i
 * New hotkeys for images and horizontal rules, and a Horizontal Rule menu item.
 * Preliminary MCP support.
 
-## Version 0.9.8 (20261005)
+## MarkupEditor v0.9.8 (20261005)
 
 This build fixes an expired Evaluation opening a document from Finder: only the upgrade window opens now. If you installed the earlier 0.9.8 build (20260930), install this one over it.
 
-## Version 0.9.8 (20260930)
+## MarkupEditor v0.9.8 (20260930)
 
 * Subscribers can connect their account in Settings > General. Connected Unlimited copies check for and install updates in the app.
 * When the evaluation period ends, an upgrade window offers the Unlimited version.
 * The menu bar shows the app as "MarkupEditor".
 * The plugin catalog now loads from this repository.
 
-## Version 0.9.6 (2026-09-23)
+## MarkupEditor v0.9.6 (2026-09-23)
 
 First public Evaluation release.

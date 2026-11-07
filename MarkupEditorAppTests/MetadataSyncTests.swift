@@ -362,11 +362,22 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         try Data("<svg/>".utf8).write(to: base.appendingPathComponent("logo.svg"))
         let html = "<pre><code class=\"language-metadata\">title: Secret</code></pre><img src=\"photo.png\"><img src=\"logo.svg\">"
 
-        try doc.exportHtml(html: html, to: dest.appendingPathComponent("out.html"), srcs: ["photo.png", "logo.svg"], baseUrl: base)
+        try doc.exportHtml(html: html, to: dest.appendingPathComponent("out.html"), srcs: ["photo.png", "logo.svg"], baseUrl: base, embedImages: true)
 
         let written = try String(contentsOf: dest.appendingPathComponent("out.html"), encoding: .utf8)
         #expect(written == "<img src=\"data:image/png;base64,AQID\"><img src=\"data:image/svg+xml;base64,PHN2Zy8+\">")
         #expect(try FileManager.default.contentsOfDirectory(atPath: dest.path(percentEncoded: false)) == ["out.html"])
+    }
+
+    @Test func linksLocalImagesByDefault() throws {
+        let doc = MarkupDocument()
+        let base = try makeTempDir()
+        try Data([1, 2, 3]).write(to: base.appendingPathComponent("photo.png"))
+        let out = base.appendingPathComponent("out.html")
+
+        try doc.exportHtml(html: "<img src=\"photo.png\">", to: out, srcs: ["photo.png"], baseUrl: base)
+
+        #expect(try String(contentsOf: out, encoding: .utf8) == "<img src=\"photo.png\">")
     }
 
     @Test func leavesAnUnreadableImageReferenceUnchanged() throws {
@@ -374,7 +385,7 @@ private func makeMetadata(_ key: String = "title", _ value: String = "Test") -> 
         let base = try makeTempDir()
         let out = base.appendingPathComponent("out.html")
 
-        try doc.exportHtml(html: "<img src=\"absent.png\">", to: out, srcs: ["absent.png"], baseUrl: base)
+        try doc.exportHtml(html: "<img src=\"absent.png\">", to: out, srcs: ["absent.png"], baseUrl: base, embedImages: true)
 
         #expect(try String(contentsOf: out, encoding: .utf8) == "<img src=\"absent.png\">")
     }

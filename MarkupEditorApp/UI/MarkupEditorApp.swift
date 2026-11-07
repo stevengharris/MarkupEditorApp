@@ -9,7 +9,6 @@ import SwiftUI
 import MarkupEditor
 import MarkupEditorAppLib
 
-@main
 struct MarkupEditorApp: App {
     
     static let firstLaunchDateKey = BuildVariant.firstLaunchDateKey
