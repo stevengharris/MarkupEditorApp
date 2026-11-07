@@ -5,6 +5,7 @@
 
 import Foundation
 import Observation
+import MarkupEditorAppLib
 internal import UniformTypeIdentifiers
 
 /**
@@ -166,21 +167,15 @@ internal import UniformTypeIdentifiers
         hasChanges = false
     }
 
-    /// Writes `html` to `url` as a single self-contained file, without making `url` the
-    /// document's location or clearing `hasChanges`. The metadata block is stripped as in
-    /// `saveHtml`. Local images are embedded as `data:` URIs rather than copied alongside,
-    /// since the save panel grants access to `url` only, not its folder. An image that cannot
-    /// be read is left as its original relative reference.
-    func exportHtml(html: String, to url: URL, srcs: [String], baseUrl: URL) throws {
-        var body = extractMetadataBlock(from: html).body
-        for src in Set(srcs) {
-            let file = baseUrl.appendingPathComponent(src)
-            guard let data = try? Data(contentsOf: file) else { continue }
-            let mime = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-            let dataUri = "data:\(mime);base64,\(data.base64EncodedString())"
-            body = body.replacingOccurrences(of: "src=\"\(src)\"", with: "src=\"\(dataUri)\"")
-        }
-        try body.write(to: url, atomically: true, encoding: .utf8)
+    /// Writes `html` to `url` without making `url` the document's location or clearing `hasChanges`.
+    /// The metadata block is stripped as in `saveHtml`. Local images stay as the relative references
+    /// they are, unless `embedImages`, which writes a single self-contained file: each is embedded as a
+    /// `data:` URI, since the save panel grants access to `url` only, not its folder. An image that
+    /// cannot be read, or that resolves outside `baseUrl`, keeps its original relative reference.
+    func exportHtml(html: String, to url: URL, srcs: [String], baseUrl: URL, embedImages: Bool = false) throws {
+        let body = extractMetadataBlock(from: html).body
+        let result = embedImages ? ImageEmbedder.embedding(srcs, in: body, baseURL: baseUrl) : body
+        try result.write(to: url, atomically: true, encoding: .utf8)
     }
     
     /// `markdown` is expected to already carry frontmatter -- every call site producing it

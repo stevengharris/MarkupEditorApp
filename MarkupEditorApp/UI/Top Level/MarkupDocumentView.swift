@@ -994,6 +994,21 @@ struct MarkupDocumentView: View {
         }
     }
 
+    /// The save panel's accessory for the HTML export: `checkbox` with a line explaining the default, padded
+    /// so it does not sit against the panel's edges.
+    private static func embedImagesAccessory(_ checkbox: NSButton) -> NSView {
+        let note = NSTextField(labelWithString: "Unchecked, images stay as links, so keep the HTML and image locations consistent.")
+        note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        note.textColor = .secondaryLabelColor
+        let stack = NSStackView(views: [checkbox, note])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 4
+        stack.edgeInsets = NSEdgeInsets(top: 14, left: 20, bottom: 14, right: 20)
+        stack.frame.size = stack.fittingSize
+        return stack
+    }
+
     private func handleExport(plugin: Plugin) async {
         guard let ext = plugin.ext else {
             let alert = NSAlert()
@@ -1009,7 +1024,12 @@ struct MarkupDocumentView: View {
             alert.runModal()
             return
         }
+        // The HTML export links local images unless the user asks to embed them, which the panel offers
+        // only when the document has some.
+        let localImages = ExporterManager.builtIn(plugin) == .html ? await webView.getLocalImages() : []
         let panel = NSSavePanel()
+        let embedImages = NSButton(checkboxWithTitle: "Embed local images", target: nil, action: nil)
+        if !localImages.isEmpty { panel.accessoryView = Self.embedImagesAccessory(embedImages) }
         let baseName = document.url?.deletingPathExtension().lastPathComponent ?? "Untitled"
         panel.nameFieldStringValue = ext.isEmpty ? baseName : "\(baseName).\(ext)"
         panel.allowedContentTypes = UTType(filenameExtension: ext).map { [$0] } ?? []
@@ -1026,8 +1046,9 @@ struct MarkupDocumentView: View {
                 try data.write(to: url)
                 editLog.info("PDF exported to: \(url.path)")
             case .html:
-                guard let html = await webView.getHtml() else { throw MarkupDocumentError.noHTMLSource }
-                try document.exportHtml(html: html, to: url, srcs: await webView.getLocalImages(), baseUrl: webView.baseUrl)
+                guard let editorHtml = await webView.getHtml() else { throw MarkupDocumentError.noHTMLSource }
+                let html = await webView.tightenHtml(editorHtml) ?? editorHtml
+                try document.exportHtml(html: html, to: url, srcs: localImages, baseUrl: webView.baseUrl, embedImages: embedImages.state == .on)
                 editLog.info("HTML exported to: \(url.path)")
             case nil:
                 let exportStart = Date()
