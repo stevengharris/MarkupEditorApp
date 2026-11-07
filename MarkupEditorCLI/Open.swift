@@ -13,12 +13,6 @@ struct Open: AsyncParsableCommand {
 
     static let configuration = CommandConfiguration(abstract: "Open a file in MarkupEditor.")
 
-    //@Flag(name: [.short, .long], help: "Use named exporter.")
-    //var exporter: String? = nil
-    //
-    //@Flag(name: [.short, .long], help: "Use named importer.")
-    //var importer: String? = nil
-
     @Flag(name: [.short, .long], help: "Show version.")
     var version = false
 

@@ -33,7 +33,7 @@ The MarkupEditor lets you edit fully-formatted Markdown. Headers are properly si
 
 * Customizable toolbar can be toggled on/off or fully hidden.
 
-* Open from the command line using the `markup <filename>` command.
+* Open from the command line using the `markup <filename>` command, or convert a Markdown file to HTML or PDF with `markup export`.
 
 * Opt-in support for a MarkupEditor MCP server, so you can [collaborate](#ai-assistance) with the AI assistant of your choice while editing a document.
 
@@ -111,6 +111,14 @@ Installation of the Evaluation or Unlimited version package also installs a comm
 > `markup <filename>`
 
 opens `<filename>` in the MarkupEditor, the same as double-clicking it in Finder. `markup` is installed as a symlink into the app bundle, so removing the app leaves the command pointing at nothing until you reinstall. To remove manually: delete `/usr/local/bin/markup`.
+
+The same utility converts a Markdown file to HTML or PDF without opening a window:
+
+> `markup export --format html <filename>`
+>
+> `markup export --format pdf --output <output.pdf> <filename>`
+
+The result is saved as a file beside the input, with a `.html` or `.pdf` extension (`notes.md` becomes `notes.html`). Use `--output <path>` to save it elsewhere, or `--output -` to write it to standard output instead. An existing file is not overwritten unless you add `--force`. HTML export leaves local images as relative links by default; add `--images embed` to inline them in the file. A PDF always includes them. The File > Export > HTML menu item in the app does the same, with an "Embed local images" checkbox in the save panel when the document has local images.
 
 Refer to the [README](https://github.com/stevengharris/MarkupEditorApp/blob/main/MarkupEditorCLI/README.md) in the MarkupEditorCLI for more information, including details on the MCP server that is bundled with it. The commands/config to register the MCP server with Claude Code and other AI assistants are available within the MarkupEditor app itself, in Settings.
 
