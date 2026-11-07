@@ -59,6 +59,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA265E9C309FE43100AEFE4B /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		AA26E911308FC18600AEFE4B /* CONTRIBUTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CONTRIBUTING.md; sourceTree = "<group>"; };
 		AA3F963C302A516B00FB96C9 /* markup */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = markup; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA7B99972F9290DF0085425B /* MarkupEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkupEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -194,6 +195,7 @@
 				AAE62DEE305314D500692635 /* LICENSE */,
 				AAC586203022A9E100C6CDA3 /* README.md */,
 				AA26E911308FC18600AEFE4B /* CONTRIBUTING.md */,
+				AA265E9C309FE43100AEFE4B /* CHANGELOG.md */,
 				AAA4188D3030C877007C44C3 /* package.json */,
 				AAA4188E3030C877007C44C3 /* package-lock.json */,
 				AA263638309BA12400AEFE4B /* images */,
