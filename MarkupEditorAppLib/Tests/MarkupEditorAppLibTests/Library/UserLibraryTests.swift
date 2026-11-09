@@ -30,12 +30,15 @@ struct UserLibraryTests {
     @Test func itemsAreSortedByNameAndFoldersWithoutAManifestAreSkipped() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
-        try makeItem(in: root, folder: "b", name: "Beta", files: ["b.md": "b"])
-        try makeItem(in: root, folder: "a", name: "Alpha", files: ["a.md": "a"])
-        try makeItem(in: root, folder: "c", name: nil, files: ["c.md": "c"])
+        // Folder f0...f7 carry names Name7...Name0, so folder order is the reverse of name order, and the
+        // file system's own listing order (not guaranteed to be alphabetical) cannot match by accident.
+        for i in 0..<8 {
+            try makeItem(in: root, folder: "f\(i)", name: "Name\(7 - i)", files: ["d\(i).md": "d"])
+        }
+        try makeItem(in: root, folder: "nomanifest", name: nil, files: ["c.md": "c"])
         let items = UserLibrary(directory: root).items()
-        #expect(items.map(\.manifest.name) == ["Alpha", "Beta"])
-        #expect(items.map(\.id) == ["a", "b"])
+        #expect(items.map(\.manifest.name) == (0..<8).map { "Name\($0)" })
+        #expect(items.map(\.id) == (0..<8).map { "f\(7 - $0)" })
     }
 
     @Test func aMalformedManifestIsSkipped() throws {
@@ -380,5 +383,55 @@ struct UserLibraryTests {
         let found = assetProblems(assets)
         #expect(found.count <= 5)
         #expect(found.joined(separator: "\n").count < 800)
+    }
+
+    @Test func aFailedCopyRemovesTheFolderItMadeAndNothingElse() throws {
+        let root = try temporaryDirectory()
+        let source = try makeFolder(["a.md": "x", "img/b.png": "p"])
+        let blocked = source.appendingPathComponent("img/b.png")
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: blocked.path)
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: source)
+        }
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        try makeItem(in: library.directory, folder: "keep", name: "Keep", files: ["k.md": "k"])
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: blocked.path)
+        #expect(throws: (any Error).self) { try library.add(from: source, name: "Broken", description: "") }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: library.directory.path) == ["keep"])
+    }
+
+    @Test func aNewFolderNeverReplacesOrRemovesOneWhoseNameDiffersOnlyInCase() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        try makeItem(in: library.directory, folder: "Notes", name: "Existing", files: ["n.md": "existing"])
+        let item = try library.add(markdown: "new", name: "notes", description: "", assets: [], from: root)
+        #expect(item.id == "notes-2")
+        #expect(try String(contentsOf: library.directory.appendingPathComponent("Notes/n.md"), encoding: .utf8) == "existing")
+        #expect(UserLibrary.folderName(for: "NOTES", avoiding: ["notes"]) == "notes-2")
+    }
+
+    @Test func aFileWhoseNameReallyContainsAPercentSequenceIsFoundByItsLiteralSrc() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("cache")
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        try "png".write(to: cache.appendingPathComponent("100%25.png"), atomically: true, encoding: .utf8)
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        let item = try library.add(markdown: "![x](100%25.png)", name: "Literal", description: "", assets: ["100%25.png"], from: cache)
+        #expect(FileManager.default.fileExists(atPath: item.url.appendingPathComponent("100%25.png").path))
+    }
+
+    @Test func aSymbolicLinkToAMarkdownFileIsRefused() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let real = root.appendingPathComponent("real.md")
+        try "x".write(to: real, atomically: true, encoding: .utf8)
+        let link = root.appendingPathComponent("link.md")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        #expect(throws: (any Error).self) { try library.add(from: link, name: "Linked", description: "") }
+        #expect(library.items().isEmpty)
     }
 }

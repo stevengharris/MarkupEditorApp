@@ -221,10 +221,11 @@ struct TemplatesInfoView: View {
 
     /// Saves the draft. An empty name leaves the template as it was.
     private func commitEditing() {
-        guard let id = editingID, let item = items.first(where: { $0.id == id }) else { return }
+        guard let id = editingID else { return }
         editingID = nil
         focus = nil
         listFocused = true
+        guard let item = items.first(where: { $0.id == id }) else { return }
         guard !draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               draftName != item.manifest.name || draftDescription != item.manifest.description else { return }
         do {
@@ -232,7 +233,7 @@ struct TemplatesInfoView: View {
             editLog.info("Updated the template \(draftName)")
         } catch {
             editLog.error("Could not update \(item.manifest.name): \(error.localizedDescription)")
-            fail("Could Not Edit Template", error.localizedDescription)
+            fail("Could Not Rename Template", error.localizedDescription)
         }
         reload()
     }
@@ -244,7 +245,7 @@ struct TemplatesInfoView: View {
             NotificationCenter.default.post(name: .openDocumentURL, object: try item.documentURL())
         } catch {
             editLog.error("Could not edit \(item.manifest.name): \(error.localizedDescription)")
-            fail("Could Not Rename Template", error.localizedDescription)
+            fail("Could Not Edit Template", error.localizedDescription)
         }
     }
 

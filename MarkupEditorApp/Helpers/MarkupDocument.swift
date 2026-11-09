@@ -208,12 +208,17 @@ internal import UniformTypeIdentifiers
     func copyImageAssets(srcs: [String], from sourceDir: URL, to destDir: URL, skipMissing: Bool, replaceExisting: Bool) throws {
         let fm = FileManager.default
         for encoded in srcs {
-            // A src is a URL reference, so a space arrives as %20 while the file name has the space.
-            let src = encoded.removingPercentEncoding ?? encoded
+            // A src is a URL reference, so a space arrives as %20 while the file name has the space. A file
+            // whose name really contains a % sequence is found by the literal src when the decoded one is absent.
+            var src = encoded.removingPercentEncoding ?? encoded
+            if src != encoded, !fm.fileExists(atPath: sourceDir.appendingPathComponent(src).path(percentEncoded: false)),
+               fm.fileExists(atPath: sourceDir.appendingPathComponent(encoded).path(percentEncoded: false)) {
+                src = encoded
+            }
             let source = sourceDir.appendingPathComponent(src)
             let dest = destDir.appendingPathComponent(src)
-            // A src that climbs out of either folder is not an asset of this document.
-            guard Self.isInside(source, of: sourceDir), Self.isInside(dest, of: destDir) else { continue }
+            // A src that climbs out of its folder is not an asset of this document.
+            guard PathContainment.isInside(source, of: sourceDir) else { continue }
             guard fm.fileExists(atPath: source.path(percentEncoded: false)) else {
                 if skipMissing { continue }
                 throw MarkupDocumentError.missingImage(src)
@@ -230,13 +235,6 @@ internal import UniformTypeIdentifiers
                 try fm.copyItem(at: source, to: dest)
             }
         }
-    }
-
-    /// True when `url` is below `folder`, after resolving `.` and `..` components.
-    static func isInside(_ url: URL, of folder: URL) -> Bool {
-        var base = folder.standardizedFileURL.path(percentEncoded: false)
-        if base.hasSuffix("/") { base.removeLast() }
-        return url.standardizedFileURL.path(percentEncoded: false).hasPrefix(base + "/")
     }
 
     /// Cuts the document loose from a file that was deleted. The open content and the document type stay,
@@ -336,9 +334,7 @@ internal import UniformTypeIdentifiers
     /// already grants it, so it needs no stored bookmark and is kept out of Open Recent.
     static func isAppOwned(_ url: URL) -> Bool {
         guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return false }
-        var folder = support.standardizedFileURL.path(percentEncoded: false)
-        if folder.hasSuffix("/") { folder.removeLast() }
-        return url.standardizedFileURL.path(percentEncoded: false).hasPrefix(folder + "/")
+        return PathContainment.isInside(url, of: support)
     }
 
     /// True when saving `srcs` beside `fileURL` needs folder access the app does not yet hold.

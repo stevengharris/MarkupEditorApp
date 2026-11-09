@@ -37,10 +37,13 @@ struct ImageAssetCopyTests {
         #expect(try String(contentsOf: root.appendingPathComponent("outside.png"), encoding: .utf8) == "secret")
     }
 
-    @Test func isInsideComparesWholePathComponents() {
-        let folder = URL(fileURLWithPath: "/tmp/a/")
-        #expect(MarkupDocument.isInside(URL(fileURLWithPath: "/tmp/a/b/c.png"), of: folder))
-        #expect(!MarkupDocument.isInside(URL(fileURLWithPath: "/tmp/ab/c.png"), of: folder))
-        #expect(!MarkupDocument.isInside(URL(fileURLWithPath: "/tmp/a/../c.png"), of: folder))
+    @Test func aFileNamedWithAPercentSequenceIsFoundByItsLiteralSrc() throws {
+        let root = try folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("src"), dest = root.appendingPathComponent("dest")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try "png".write(to: source.appendingPathComponent("100%25.png"), atomically: true, encoding: .utf8)
+        try MarkupDocument().copyImageAssets(srcs: ["100%25.png"], from: source, to: dest, skipMissing: false, replaceExisting: false)
+        #expect(FileManager.default.fileExists(atPath: dest.appendingPathComponent("100%25.png").path))
     }
 }

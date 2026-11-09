@@ -48,9 +48,10 @@ public struct UserLibrary: Sendable {
             .map { $0.isASCII && ($0.isLetter || $0.isNumber) ? String($0) : "-" }.joined()
             .split(separator: "-", omittingEmptySubsequences: true).joined(separator: "-")
         let base = slug.isEmpty ? "template" : slug
-        guard existing.contains(base) else { return base }
+        let taken = Set(existing.map { $0.lowercased() })
+        guard taken.contains(base) else { return base }
         var n = 2
-        while existing.contains("\(base)-\(n)") { n += 1 }
+        while taken.contains("\(base)-\(n)") { n += 1 }
         return "\(base)-\(n)"
     }
 
@@ -177,7 +178,11 @@ public struct UserLibrary: Sendable {
         guard isDirectory || source.pathExtension.lowercased() == "md" else {
             throw LibraryError.unsupportedSource(source.lastPathComponent)
         }
-        if isDirectory { try Self.validate(folder: source) }
+        if isDirectory {
+            try Self.validate(folder: source)
+        } else if (try? source.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true {
+            throw LibraryError.invalidFolder(["\(Self.noLinks) (\(source.lastPathComponent))"])
+        }
         return try create(name: name, description: description) { destination in
             let fm = FileManager.default
             guard isDirectory else {
@@ -209,12 +214,13 @@ public struct UserLibrary: Sendable {
             let slug = destination.lastPathComponent
             try markdown.write(to: destination.appendingPathComponent("\(slug).md"), atomically: true, encoding: .utf8)
             for encoded in assets {
-                let asset = encoded.removingPercentEncoding ?? encoded
-                let source = assetsRoot.appendingPathComponent(asset).standardizedFileURL
-                let target = destination.appendingPathComponent(asset).standardizedFileURL
+                var asset = encoded.removingPercentEncoding ?? encoded
+                if asset != encoded, !fm.fileExists(atPath: assetsRoot.appendingPathComponent(asset).path) { asset = encoded }
+                let source = assetsRoot.appendingPathComponent(asset)
+                let target = destination.appendingPathComponent(asset)
                 guard !asset.hasPrefix("/"),
-                      source.path.hasPrefix(assetsRoot.standardizedFileURL.path + "/"),
-                      target.path.hasPrefix(destination.standardizedFileURL.path + "/"),
+                      PathContainment.isInside(source, of: assetsRoot),
+                      PathContainment.isInside(target, of: destination),
                       fm.fileExists(atPath: source.path) else { continue }
                 try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
                 if !fm.fileExists(atPath: target.path) { try fm.copyItem(at: source, to: target) }
@@ -229,10 +235,12 @@ public struct UserLibrary: Sendable {
         guard !trimmed.isEmpty else { throw LibraryError.emptyName }
         let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-        let existing = Set((try? fm.contentsOfDirectory(atPath: directory.path)) ?? [])
+        let existing = Set(((try? fm.contentsOfDirectory(atPath: directory.path)) ?? []).map { $0.lowercased() })
         let destination = directory.appendingPathComponent(Self.folderName(for: trimmed, avoiding: existing))
+        var created = false
         do {
             try fm.createDirectory(at: destination, withIntermediateDirectories: false)
+            created = true
             try populate(destination)
             let manifest = LibraryManifest(name: trimmed, description: description)
             try Self.encoder.encode(manifest).write(to: destination.appendingPathComponent(UserLibraryItem.manifestName))
@@ -240,7 +248,8 @@ public struct UserLibrary: Sendable {
             _ = try item.documentURL()
             return item
         } catch {
-            try? fm.removeItem(at: destination)
+            // Remove only a folder this call made, never one that was already there.
+            if created { try? fm.removeItem(at: destination) }
             throw error
         }
     }
