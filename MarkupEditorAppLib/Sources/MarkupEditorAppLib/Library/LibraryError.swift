@@ -20,7 +20,7 @@ public enum LibraryError: LocalizedError, Equatable {
         case .emptyName: "A template needs a name."
         case .notInLibrary: "That item is not in the templates folder."
         case .unsupportedSource(let name): "\(name) is not a Markdown file or a folder."
-        case .invalidFolder(let problems): "That folder cannot be a template:\n" + problems.map { "• \($0)" }.joined(separator: "\n")
+        case .invalidFolder(let problems): "This cannot be a template:\n" + problems.map { "• \($0)" }.joined(separator: "\n")
         }
     }
 }

@@ -208,17 +208,47 @@ struct UserLibraryTests {
         #expect(library.items().map(\.manifest.name) == ["My Template"])
     }
 
-    @Test func addingMarkdownSkipsMissingAbsoluteAndEscapingAssets() throws {
+    @Test func addingMarkdownSkipsAnAssetWhoseFileIsMissing() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = root.appendingPathComponent("cache")
         try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-        try "secret".write(to: root.appendingPathComponent("outside.png"), atomically: true, encoding: .utf8)
         let library = UserLibrary(directory: root.appendingPathComponent("library"))
-        let item = try library.add(markdown: "text", name: "Plain", description: "",
-                                   assets: ["missing.png", "../outside.png", "/etc/hosts"], from: cache)
+        let item = try library.add(markdown: "text", name: "Plain", description: "", assets: ["missing.png"], from: cache)
         let files = try FileManager.default.contentsOfDirectory(atPath: item.url.path).sorted()
         #expect(files == ["manifest.json", "plain.md"])
+    }
+
+    private func assetProblems(_ assets: [String]) -> [String] {
+        do { try UserLibrary.validate(assets: assets); return [] } catch LibraryError.invalidFolder(let found) { return found } catch { return ["\(error)"] }
+    }
+
+    @Test func imageAssetsAtTheTopAndInOneSubfolderConform() {
+        #expect(assetProblems([]).isEmpty)
+        #expect(assetProblems(["a.png", "img/b.JPG", "img/my%20pic.png"]).isEmpty)
+    }
+
+    @Test func assetsThatAreNotImagesOrAreNestedOrInSeveralFoldersAreRefused() {
+        let found = assetProblems(["notes.pdf", "one/a.png", "two/b.png", "one/deep/c.png"])
+        #expect(found.contains { $0.contains("notes.pdf is not an image") })
+        #expect(found.contains { $0.contains("one/deep/c.png is nested") })
+        #expect(found.contains { $0.contains("2 subfolders") })
+    }
+
+    @Test func assetsOutsideTheDocumentFolderAreRefused() {
+        let found = assetProblems(["../up.png", "/etc/x.png", "a/../b.png", "%2E%2E/c.png"])
+        #expect(found.count == 4 && found.allSatisfy { $0.contains("not inside the document's folder") })
+    }
+
+    @Test func addingMarkdownWithNonconformingAssetsLeavesNothingBehind() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        #expect(throws: (any Error).self) {
+            try library.add(markdown: "x", name: "Bad", description: "", assets: ["a/b/c.png"], from: root)
+        }
+        #expect(library.items().isEmpty)
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: library.directory.path)) ?? []).isEmpty)
     }
 
     @Test func addingMarkdownRefusesAnEmptyNameAndGivesDuplicateNamesDistinctFolders() throws {

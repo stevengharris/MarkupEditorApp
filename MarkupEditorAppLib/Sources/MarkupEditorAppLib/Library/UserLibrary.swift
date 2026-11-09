@@ -107,6 +107,34 @@ public struct UserLibrary: Sendable {
         if !problems.isEmpty { throw LibraryError.invalidFolder(problems) }
     }
 
+    /// Checks the image paths a document refers to against the same rules as `validate(folder:)`: image files
+    /// only, at the top level and/or in one subfolder, nothing deeper, and nothing outside the document's
+    /// folder. A path is a URL reference, so it is percent-decoded first. Throws `invalidFolder`.
+    public static func validate(assets: [String]) throws {
+        var problems: [String] = []
+        var subfolders: Set<String> = []
+        for encoded in assets {
+            let asset = encoded.removingPercentEncoding ?? encoded
+            let parts = asset.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+            if asset.hasPrefix("/") || parts.contains("..") || parts.contains(".") || parts.contains("") {
+                problems.append("\(asset) is not inside the document's folder.")
+                continue
+            }
+            if !imageExtensions.contains((asset as NSString).pathExtension.lowercased()) {
+                problems.append("\(asset) is not an image.")
+            }
+            if parts.count > 2 {
+                problems.append("\(asset) is nested more than one folder deep; images may be at the top or in one subfolder.")
+            } else if parts.count == 2 {
+                subfolders.insert(parts[0])
+            }
+        }
+        if subfolders.count > 1 {
+            problems.append("Images are in \(subfolders.count) subfolders (\(subfolders.sorted().joined(separator: ", "))); only one is allowed.")
+        }
+        if !problems.isEmpty { throw LibraryError.invalidFolder(problems) }
+    }
+
     /// Adds an item made from `source`, a Markdown file or a folder that passes `validate`. The item's
     /// manifest is written from `name` and `description`, replacing a manifest the folder already had.
     /// Nothing is left behind when it fails.
@@ -138,11 +166,12 @@ public struct UserLibrary: Sendable {
         }
     }
 
-    /// Adds an item whose document is `markdown`. `assets` are the relative paths of the files it refers to,
-    /// copied from `assetsRoot`; a path that is missing, absolute or leaves the folder is skipped.
+    /// Adds an item whose document is `markdown`. `assets` are the relative paths of the images it refers to,
+    /// copied from `assetsRoot`; they must pass `validate(assets:)`. A path whose file is missing is skipped.
     @discardableResult
     public func add(markdown: String, name: String, description: String, assets: [String], from assetsRoot: URL) throws -> UserLibraryItem {
-        try create(name: name, description: description) { destination in
+        try Self.validate(assets: assets)
+        return try create(name: name, description: description) { destination in
             let fm = FileManager.default
             let slug = destination.lastPathComponent
             try markdown.write(to: destination.appendingPathComponent("\(slug).md"), atomically: true, encoding: .utf8)

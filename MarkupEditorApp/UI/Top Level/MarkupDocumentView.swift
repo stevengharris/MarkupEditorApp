@@ -474,9 +474,15 @@ struct MarkupDocumentView: View {
             reportFailure("The document could not be read, so it was not saved as a template.")
             return
         }
+        let assets = document.localImageSrcsInMarkdown(markdown)
+        do {
+            try UserLibrary.validate(assets: assets)
+        } catch {
+            reportFailure("This document cannot be saved as a template.", detail: error.localizedDescription)
+            return
+        }
         let name = document.url?.deletingPathExtension().lastPathComponent ?? ""
-        templateSheet = .save(SaveTemplateRequest(
-            markdown: markdown, assets: document.localImageSrcsInMarkdown(markdown), name: name))
+        templateSheet = .save(SaveTemplateRequest(markdown: markdown, assets: assets, name: name))
     }
 
     private func saveAsTemplate(_ request: SaveTemplateRequest, name: String, description: String) {
@@ -711,10 +717,11 @@ struct MarkupDocumentView: View {
     }
 
     /// Logs `message` and tells the user, for something they just asked for that did not happen.
-    private func reportFailure(_ message: String) {
-        showError(message)
+    private func reportFailure(_ message: String, detail: String? = nil) {
+        showError(detail.map { "\(message) \($0)" } ?? message)
         let alert = NSAlert()
         alert.messageText = message
+        if let detail { alert.informativeText = detail }
         alert.alertStyle = .warning
         alert.runModal()
     }
