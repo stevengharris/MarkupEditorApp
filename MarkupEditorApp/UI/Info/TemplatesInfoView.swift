@@ -34,6 +34,7 @@ struct TemplatesInfoView: View {
     private enum Field { case name, description }
     @State private var deleteRequest: UserLibraryItem?
     @State private var showDelete = false
+    @State private var failureTitle = ""
     @State private var failure: String?
     @State private var showFailure = false
 
@@ -97,7 +98,7 @@ struct TemplatesInfoView: View {
         } message: { _ in
             Text("This removes the template and its files. It cannot be undone.")
         }
-        .alert("Could Not Change Templates", isPresented: $showFailure) {
+        .alert(failureTitle, isPresented: $showFailure) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(failure ?? "")
@@ -231,7 +232,7 @@ struct TemplatesInfoView: View {
             editLog.info("Updated the template \(draftName)")
         } catch {
             editLog.error("Could not update \(item.manifest.name): \(error.localizedDescription)")
-            fail(error.localizedDescription)
+            fail("Could Not Edit Template", error.localizedDescription)
         }
         reload()
     }
@@ -243,7 +244,7 @@ struct TemplatesInfoView: View {
             NotificationCenter.default.post(name: .openDocumentURL, object: try item.documentURL())
         } catch {
             editLog.error("Could not edit \(item.manifest.name): \(error.localizedDescription)")
-            fail(error.localizedDescription)
+            fail("Could Not Rename Template", error.localizedDescription)
         }
     }
 
@@ -264,7 +265,7 @@ struct TemplatesInfoView: View {
             guard await panel.begin() == .OK, let url = panel.url else { return }
             // Held open until the user confirms or cancels, because the copy happens then.
             guard url.startAccessingSecurityScopedResource() else {
-                fail("MarkupEditor was not given access to that file.")
+                fail("Could Not Add Template", "MarkupEditor was not given access to that file.")
                 return
             }
             if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
@@ -272,7 +273,7 @@ struct TemplatesInfoView: View {
                     try UserLibrary.validate(folder: url)
                 } catch {
                     url.stopAccessingSecurityScopedResource()
-                    fail(error.localizedDescription)
+                    fail("Could Not Add Template", error.localizedDescription)
                     return
                 }
             }
@@ -293,7 +294,7 @@ struct TemplatesInfoView: View {
             editLog.info("Added the template \(item.manifest.name)")
         } catch {
             editLog.error("Could not add a template from \(url.lastPathComponent): \(error.localizedDescription)")
-            fail(error.localizedDescription)
+            fail("Could Not Add Template", error.localizedDescription)
         }
         reload()
     }
@@ -305,12 +306,13 @@ struct TemplatesInfoView: View {
             editLog.info("Deleted the template \(item.manifest.name)")
         } catch {
             editLog.error("Could not delete \(item.manifest.name): \(error.localizedDescription)")
-            fail(error.localizedDescription)
+            fail("Could Not Delete Template", error.localizedDescription)
         }
         reload()
     }
 
-    private func fail(_ message: String) {
+    private func fail(_ title: String, _ message: String) {
+        failureTitle = title
         failure = message
         showFailure = true
     }
