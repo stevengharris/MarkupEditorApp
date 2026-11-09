@@ -8,12 +8,15 @@ import Foundation
 
 extension Notification.Name {
     static let menuNewDocument = Notification.Name("menuNewDocument")
+    static let menuNewFromTemplate = Notification.Name("menuNewFromTemplate")
     static let menuOpenDocument = Notification.Name("menuOpenDocument")
     static let menuSaveDocument = Notification.Name("menuSaveDocument")
     /// Posted after the keymap is saved in Settings, so the menu can pick up the new shortcuts.
     static let keymapDidChange = Notification.Name("keymapDidChange")
     static let menuSaveAsDocument = Notification.Name("menuSaveAsDocument")
     static let menuToggleSource = Notification.Name("menuToggleSource")
+    /// Posted with the URL of a document to open after the usual check for unsaved changes.
+    static let openDocumentURL = Notification.Name("openDocumentURL")
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
     static let menuShowSettings = Notification.Name("menuShowSettings")
     static let dismissSettings = Notification.Name("dismissSettings")

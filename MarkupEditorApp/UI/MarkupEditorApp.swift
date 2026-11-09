@@ -95,6 +95,7 @@ struct MarkupEditorApp: App {
             CodeViewManager.setupOnLaunch()
             hasSetupPlugins = true
         }
+        Self.seedTemplates()
         // Built-in exporters need no file, so an existing install picks up a newly added one here.
         AppConfig.update { config in
             config.exporters = ExporterManager.ensureBuiltIns(config.exporters)
@@ -105,7 +106,25 @@ struct MarkupEditorApp: App {
             config.codeViews = CodeViewManager.syncInternalPlugins(exporters: config.exporters, codeViews: config.codeViews, resourceURL: Bundle.main.resourceURL, cacheDir: AppDelegate.webViewCacheDir)
         }
     }
-    
+
+    static let seededTemplatesKey = "seededTemplates"
+
+    /// Writes the built-in templates into the templates folder. A template the user later deletes is
+    /// not put back, because its name stays recorded.
+    private static func seedTemplates() {
+        guard let indexURL = Bundle.main.url(forResource: "templates", withExtension: "json"),
+              let index = try? Data(contentsOf: indexURL),
+              let builtIns = try? UserLibrary.builtIns(index: index, data: { name in
+                  let url = Bundle.main.url(forResource: (name as NSString).deletingPathExtension, withExtension: (name as NSString).pathExtension)
+                  return url.flatMap { try? Data(contentsOf: $0) }
+              }) else { return }
+        let seeded = Set(UserDefaults.standard.stringArray(forKey: seededTemplatesKey) ?? [])
+        let copied = UserLibrary.templates.seed(builtIns, skipping: seeded)
+        if !copied.isEmpty {
+            UserDefaults.standard.set(Array(seeded.union(copied)).sorted(), forKey: seededTemplatesKey)
+        }
+    }
+
 }
 
 #if EVAL_VERSION

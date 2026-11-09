@@ -210,6 +210,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NotificationCenter.default.post(name: .menuNewDocument, object: nil)
     }
 
+    @objc private func newFromTemplate(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuNewFromTemplate, object: nil)
+    }
+
     @objc private func openDocument(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuOpenDocument, object: nil)
     }
@@ -335,6 +339,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(NSMenuItem(title: "New", action: #selector(newDocument(_:)), keyEquivalent: "n"))
+        fileMenu.addItem(NSMenuItem(title: "New from Template…", action: #selector(newFromTemplate(_:)), keyEquivalent: ""))
         fileMenu.addItem(NSMenuItem(title: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o"))
         let openRecentItem = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
         openRecentItem.submenu = openRecentMenu

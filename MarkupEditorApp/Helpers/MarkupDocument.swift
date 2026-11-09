@@ -311,6 +311,15 @@ internal import UniformTypeIdentifiers
         }
     }
 
+    /// True for a file inside the app container's Application Support folder, such as a template. The sandbox
+    /// already grants it, so it needs no stored bookmark and is kept out of Open Recent.
+    static func isAppOwned(_ url: URL) -> Bool {
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return false }
+        var folder = support.standardizedFileURL.path(percentEncoded: false)
+        if folder.hasSuffix("/") { folder.removeLast() }
+        return url.standardizedFileURL.path(percentEncoded: false).hasPrefix(folder + "/")
+    }
+
     /// True when saving `srcs` beside `fileURL` needs folder access the app does not yet hold.
     func needsDestinationGrant(for fileURL: URL, srcs: [String]) -> Bool {
         !srcs.isEmpty && resolveParentDirBookmark(for: fileURL) == nil
@@ -320,6 +329,7 @@ internal import UniformTypeIdentifiers
     /// Returns the scoped URL ready for `startAccessingSecurityScopedResource()`, or nil if none stored.
     func resolveParentDirBookmark(for fileURL: URL) -> URL? {
         let parentDir = fileURL.deletingLastPathComponent()
+        if Self.isAppOwned(fileURL) { return parentDir }
         guard let data = UserDefaults.standard.data(forKey: "parentDirBookmark:\(parentDir.path(percentEncoded: false))") else { return nil }
         var isStale = false
         return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)

@@ -35,6 +35,8 @@ struct InfoView: View {
                 LogInfoView()
             case .plugins:
                 PluginsInfoView()
+            case .templates:
+                TemplatesInfoView()
             }
             
             Spacer()

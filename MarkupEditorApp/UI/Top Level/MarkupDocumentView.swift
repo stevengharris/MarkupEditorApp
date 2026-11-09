@@ -57,6 +57,7 @@ struct MarkupDocumentView: View {
     @State private var showImageDialog: Bool = false
     @State private var showTableDialog: Bool = false
     @State private var showTableEditDialog: Bool = false
+    @State private var showTemplateChooser: Bool = false
     // Set right before handleSave writes the file, so the event that write triggers isn't
     // mistaken for an external change.
     @State private var ignoreNextExternalFileChange: Bool = false
@@ -145,12 +146,21 @@ struct MarkupDocumentView: View {
         .popover(isPresented: $showTableEditDialog, attachmentAnchor: popupAnchor) {
             TableEditView(presented: $showTableEditDialog)
         }
+        .sheet(isPresented: $showTemplateChooser) {
+            TemplateChooserView(
+                library: .templates,
+                onChoose: { item in
+                    showTemplateChooser = false
+                    Task { await handleNewFromTemplate(item) }
+                },
+                onCancel: { showTemplateChooser = false })
+        }
         // Consolidate menu items into a single .task modifier
         .task {
             let names: [Notification.Name] = [
-                .menuNewDocument, .menuOpenDocument, .menuSaveDocument,
+                .menuNewDocument, .menuNewFromTemplate, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuToggleSource, .menuShowSettings,
-                .menuOpenRecentDocument, .menuExport,
+                .menuOpenRecentDocument, .openDocumentURL, .menuExport,
                 .menuQuitApplication, NSWindow.willCloseNotification,
             ]
             await withTaskGroup(of: Void.self) { group in
@@ -369,6 +379,9 @@ struct MarkupDocumentView: View {
         switch notification.name {
         case .menuNewDocument:
             await handleNew()
+        case .menuNewFromTemplate:
+            guard await checkSave() else { return }
+            showTemplateChooser = true
         case .menuOpenDocument:
             await handleOpen()
         case .menuSaveDocument:
@@ -379,7 +392,7 @@ struct MarkupDocumentView: View {
             await handleToggleSource()
         case .menuShowSettings:
             openSettings()
-        case .menuOpenRecentDocument:
+        case .menuOpenRecentDocument, .openDocumentURL:
             guard let url = notification.object as? URL else { return }
             await handleOpenRecent(url: url)
         case .menuExport:
@@ -411,6 +424,33 @@ struct MarkupDocumentView: View {
         currentSource = MarkupDocument.emptyMarkdown
         document.reset()
         NSApplication.shared.mainWindow?.representedURL = nil
+    }
+
+    /// Replaces the document with an untitled copy of `item`'s document. The caller has already dealt with
+    /// unsaved changes. Its images are copied into the
+    /// editor's cache directory as they are for any opened document, and the first save writes them
+    /// beside the new file.
+    private func handleNewFromTemplate(_ item: UserLibraryItem) async {
+        guard let webView = MarkupEditor.selectedWebView else { return }
+        editLog.info("Opening a new document from the \(item.manifest.name) template")
+        clearPendingSelectionRestoreState()
+        do {
+            let markdown = try String(contentsOf: try item.documentURL(), encoding: .utf8)
+            let (html, metadata) = try await importMarkdown(markdown, in: webView)
+            await webView.emptyDocument()
+            document.reset()
+            try document.copyImageAssets(
+                srcs: document.localImageSrcsInMarkdown(markdown), from: item.url, to: webView.baseUrl,
+                skipMissing: true, replaceExisting: true)
+            document.openUntitled(markdown: markdown, metadata: metadata)
+            // Save is a no-op without changes, and a copy of a template should still ask where to go.
+            document.hasChanges = true
+            try setHTML(document.seedMetadataBlock(in: html))
+            currentSource = markdown
+            NSApplication.shared.mainWindow?.representedURL = nil
+        } catch {
+            showError("The template could not be opened: \(error.localizedDescription)")
+        }
     }
 
     /// Let the user select a file to open, and then open it
@@ -592,7 +632,7 @@ struct MarkupDocumentView: View {
     
     /// Keep track of the URL we are working on in recentDocuments and show in the window title bar
     private func track(url: URL) {
-        NSDocumentController.shared.noteNewRecentDocumentURL(url)
+        if !MarkupDocument.isAppOwned(url) { NSDocumentController.shared.noteNewRecentDocumentURL(url) }
         NSApplication.shared.mainWindow?.representedURL = url
     }
     
