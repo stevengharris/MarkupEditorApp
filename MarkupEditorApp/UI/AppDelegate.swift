@@ -214,6 +214,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NotificationCenter.default.post(name: .menuNewFromTemplate, object: nil)
     }
 
+    @objc private func saveAsTemplate(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuSaveAsTemplate, object: nil)
+    }
+
     @objc private func openDocument(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuOpenDocument, object: nil)
     }
@@ -352,6 +356,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         saveAsItem.image = NSImage(systemSymbolName: "square.and.arrow.down.on.square", accessibilityDescription: "Save As")
         fileMenu.addItem(saveAsItem)
+        fileMenu.addItem(NSMenuItem(title: "Save as Template…", action: #selector(saveAsTemplate(_:)), keyEquivalent: ""))
         fileMenu.addItem(.separator())
         let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
         exportItem.submenu = exportSubmenu

@@ -5,19 +5,21 @@
 
 import SwiftUI
 
-/// Asks for the name and description of a template about to be added.
+/// Asks for the name and description of a template about to be added or saved.
 struct AddTemplateView: View {
-    let pending: String
+    let title: String
+    let detail: String
+    let confirmTitle: String
     @State var name: String
     @State var description: String
-    let onAdd: (String, String) -> Void
+    let onConfirm: (String, String) -> Void
     let onCancel: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Add Template")
+            Text(title)
                 .font(.headline)
-            Text("From \(pending)")
+            Text(detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             TextField("Name", text: $name)
@@ -26,7 +28,7 @@ struct AddTemplateView: View {
                 Spacer()
                 Button("Cancel", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
-                Button("Add") { onAdd(name, description) }
+                Button(confirmTitle) { onConfirm(name, description) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }

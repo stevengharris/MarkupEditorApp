@@ -37,7 +37,7 @@ struct TemplateChooserView: View {
                 } primaryAction: { ids in
                     if let item = items.first(where: { ids.contains($0.id) }) { onChoose(item) }
                 }
-                .frame(minHeight: 160)
+                .frame(height: 280)
             }
             HStack {
                 Button("Show in Finder") {

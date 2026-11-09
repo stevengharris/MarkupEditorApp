@@ -9,6 +9,9 @@ import Foundation
 extension Notification.Name {
     static let menuNewDocument = Notification.Name("menuNewDocument")
     static let menuNewFromTemplate = Notification.Name("menuNewFromTemplate")
+    static let menuSaveAsTemplate = Notification.Name("menuSaveAsTemplate")
+    /// Posted after a template is added, so the Templates panel can reload.
+    static let templatesDidChange = Notification.Name("templatesDidChange")
     static let menuOpenDocument = Notification.Name("menuOpenDocument")
     static let menuSaveDocument = Notification.Name("menuSaveDocument")
     /// Posted after the keymap is saved in Settings, so the menu can pick up the new shortcuts.

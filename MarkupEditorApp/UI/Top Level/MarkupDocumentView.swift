@@ -57,7 +57,29 @@ struct MarkupDocumentView: View {
     @State private var showImageDialog: Bool = false
     @State private var showTableDialog: Bool = false
     @State private var showTableEditDialog: Bool = false
-    @State private var showTemplateChooser: Bool = false
+    @State private var templateSheet: TemplateSheet?
+
+    /// The sheet the template commands present: the chooser, or the form that names a new template.
+    private enum TemplateSheet: Identifiable {
+        case chooser
+        case save(SaveTemplateRequest)
+
+        var id: String {
+            switch self {
+            case .chooser: "chooser"
+            case .save(let request): request.id.uuidString
+            }
+        }
+    }
+
+    /// A document being saved as a template: its Markdown and the images it refers to, captured when the
+    /// command ran.
+    private struct SaveTemplateRequest {
+        let id = UUID()
+        let markdown: String
+        let assets: [String]
+        let name: String
+    }
     // Set right before handleSave writes the file, so the event that write triggers isn't
     // mistaken for an external change.
     @State private var ignoreNextExternalFileChange: Bool = false
@@ -146,19 +168,31 @@ struct MarkupDocumentView: View {
         .popover(isPresented: $showTableEditDialog, attachmentAnchor: popupAnchor) {
             TableEditView(presented: $showTableEditDialog)
         }
-        .sheet(isPresented: $showTemplateChooser) {
-            TemplateChooserView(
-                library: .templates,
-                onChoose: { item in
-                    showTemplateChooser = false
-                    Task { await handleNewFromTemplate(item) }
-                },
-                onCancel: { showTemplateChooser = false })
+        .sheet(item: $templateSheet) { sheet in
+            switch sheet {
+            case .chooser:
+                TemplateChooserView(
+                    library: .templates,
+                    onChoose: { item in
+                        templateSheet = nil
+                        Task { await handleNewFromTemplate(item) }
+                    },
+                    onCancel: { templateSheet = nil })
+            case .save(let request):
+                AddTemplateView(
+                    title: "Save as Template", detail: "The document and its images are copied into the templates folder.",
+                    confirmTitle: "Save", name: request.name, description: "",
+                    onConfirm: { name, description in
+                        templateSheet = nil
+                        saveAsTemplate(request, name: name, description: description)
+                    },
+                    onCancel: { templateSheet = nil })
+            }
         }
         // Consolidate menu items into a single .task modifier
         .task {
             let names: [Notification.Name] = [
-                .menuNewDocument, .menuNewFromTemplate, .menuOpenDocument, .menuSaveDocument,
+                .menuNewDocument, .menuNewFromTemplate, .menuSaveAsTemplate, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuToggleSource, .menuShowSettings,
                 .menuOpenRecentDocument, .openDocumentURL, .menuExport,
                 .menuQuitApplication, NSWindow.willCloseNotification,
@@ -381,7 +415,9 @@ struct MarkupDocumentView: View {
             await handleNew()
         case .menuNewFromTemplate:
             guard await checkSave() else { return }
-            showTemplateChooser = true
+            templateSheet = .chooser
+        case .menuSaveAsTemplate:
+            await handleSaveAsTemplate()
         case .menuOpenDocument:
             await handleOpen()
         case .menuSaveDocument:
@@ -424,6 +460,39 @@ struct MarkupDocumentView: View {
         currentSource = MarkupDocument.emptyMarkdown
         document.reset()
         NSApplication.shared.mainWindow?.representedURL = nil
+    }
+
+    /// Asks for a name and description for a template made from the document as it would be saved now. Only
+    /// a Markdown document can be a template.
+    private func handleSaveAsTemplate() async {
+        guard !document.isHTMLish else {
+            showError("Only a Markdown document can be saved as a template.")
+            return
+        }
+        let contents = await getCurrentContents()
+        guard let markdown = contents.markdown else {
+            showError("The document could not be read, so it was not saved as a template.")
+            return
+        }
+        let name = document.url?.deletingPathExtension().lastPathComponent ?? ""
+        templateSheet = .save(SaveTemplateRequest(
+            markdown: markdown, assets: document.localImageSrcsInMarkdown(markdown), name: name))
+    }
+
+    private func saveAsTemplate(_ request: SaveTemplateRequest, name: String, description: String) {
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+            showError("The editor is not available, so the template was not saved.")
+            return
+        }
+        do {
+            let item = try UserLibrary.templates.add(
+                markdown: request.markdown, name: name, description: description, assets: request.assets, from: baseUrl)
+            editLog.info("Saved the template \(item.manifest.name)")
+            NotificationCenter.default.post(name: .templatesDidChange, object: nil)
+        } catch {
+            showError("Could not save the template: \(error.localizedDescription)")
+            NSAlert(error: error).runModal()
+        }
     }
 
     /// Replaces the document with an untitled copy of `item`'s document. The caller has already dealt with

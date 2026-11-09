@@ -76,8 +76,9 @@ struct TemplatesInfoView: View {
         .onKeyPress(.downArrow) { moveSelection(by: 1) }
         .padding(.horizontal, 8)
         .onAppear(perform: reload)
+        .onReceive(NotificationCenter.default.publisher(for: .templatesDidChange)) { _ in reload() }
         .sheet(item: $pending, onDismiss: reload) { pendingTemplate in
-            AddTemplateView(pending: pendingTemplate.url.lastPathComponent, name: pendingTemplate.name, description: pendingTemplate.description) { name, description in
+            AddTemplateView(title: "Add Template", detail: "From \(pendingTemplate.url.lastPathComponent)", confirmTitle: "Add", name: pendingTemplate.name, description: pendingTemplate.description) { name, description in
                 add(pendingTemplate.url, name: name, description: description)
                 pending = nil
             } onCancel: {
