@@ -40,9 +40,6 @@ struct TemplateChooserView: View {
                 .frame(height: 280)
             }
             HStack {
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([selectedItem?.url ?? library.directory])
-                }
                 Spacer()
                 Button("Cancel", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
