@@ -8,66 +8,6 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "UserLibrary")
 
-/// The description of a library item, stored as `manifest.json` in the item's folder.
-public struct LibraryManifest: Codable, Sendable, Equatable {
-    public var name: String
-    public var description: String
-    /// The Markdown file to open. When nil, the folder must hold exactly one `.md` file.
-    public var document: String?
-
-    public init(name: String, description: String, document: String? = nil) {
-        self.name = name
-        self.description = description
-        self.document = document
-    }
-}
-
-public enum LibraryError: LocalizedError, Equatable {
-    case noDocument(String)
-    case ambiguousDocument(String)
-    case emptyName
-    case notInLibrary
-    case unsupportedSource(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .noDocument(let name): "\(name) has no Markdown document."
-        case .ambiguousDocument(let name): "\(name) has more than one Markdown file and its manifest does not say which to open."
-        case .emptyName: "A template needs a name."
-        case .notInLibrary: "That item is not in the templates folder."
-        case .unsupportedSource(let name): "\(name) is not a Markdown file or a folder."
-        }
-    }
-}
-
-/// One folder in a library: its manifest and the files it holds.
-public struct UserLibraryItem: Identifiable, Sendable, Equatable {
-    public static let manifestName = "manifest.json"
-
-    public let url: URL
-    public let manifest: LibraryManifest
-    public var id: String { url.lastPathComponent }
-
-    public init(url: URL, manifest: LibraryManifest) {
-        self.url = url
-        self.manifest = manifest
-    }
-
-    /// The Markdown document the item opens.
-    public func documentURL() throws -> URL {
-        if let document = manifest.document {
-            return url.appendingPathComponent(document)
-        }
-        let files = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
-        let markdown = files.filter { $0.pathExtension.lowercased() == "md" }
-        switch markdown.count {
-        case 1: return markdown[0]
-        case 0: throw LibraryError.noDocument(manifest.name)
-        default: throw LibraryError.ambiguousDocument(manifest.name)
-        }
-    }
-}
-
 /// A kind of user content kept in a folder under Application Support, with one subfolder per item.
 /// Templates are the first kind.
 public struct UserLibrary: Sendable {
@@ -91,7 +31,9 @@ public struct UserLibrary: Sendable {
             let manifestURL = folder.appendingPathComponent(UserLibraryItem.manifestName)
             do {
                 let manifest = try JSONDecoder().decode(LibraryManifest.self, from: Data(contentsOf: manifestURL))
-                items.append(UserLibraryItem(url: folder, manifest: manifest))
+                let item = UserLibraryItem(url: folder, manifest: manifest)
+                _ = try item.documentURL()
+                items.append(item)
             } catch {
                 logger.warning("Skipping \(folder.lastPathComponent): \(error.localizedDescription)")
             }
@@ -112,21 +54,86 @@ public struct UserLibrary: Sendable {
         return "\(base)-\(n)"
     }
 
-    /// Adds an item made from `source`, a Markdown file or a folder that holds one along with any files it
-    /// refers to. The item's manifest is written from `name` and `description`, replacing a manifest the
-    /// folder already had. Nothing is left behind when it fails.
+    /// The image file types a template folder may hold.
+    static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "svg", "webp", "tif", "tiff", "heic", "bmp"]
+
+    /// Checks that `folder` can become a template: one Markdown file; at most one manifest.json; and
+    /// otherwise only image files and/or one subfolder holding only image files. Hidden files are ignored.
+    /// Throws `invalidFolder` listing every problem found.
+    public static func validate(folder: URL) throws {
+        let fm = FileManager.default
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey]
+        func entries(_ url: URL) -> [URL] {
+            ((try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles])) ?? [])
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        }
+        func isDirectory(_ url: URL) -> Bool { (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+        func isLink(_ url: URL) -> Bool { (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true }
+        func isImage(_ url: URL) -> Bool { imageExtensions.contains(url.pathExtension.lowercased()) }
+
+        var problems: [String] = []
+        var markdownFiles = 0
+        var subfolders: [URL] = []
+        for entry in entries(folder) {
+            let name = entry.lastPathComponent
+            if isLink(entry) {
+                problems.append("\(name) is a link, which is not allowed.")
+            } else if isDirectory(entry) {
+                if name == UserLibraryItem.manifestName { problems.append("\(name) is a folder.") } else { subfolders.append(entry) }
+            } else if entry.pathExtension.lowercased() == "md" {
+                markdownFiles += 1
+            } else if name != UserLibraryItem.manifestName, !isImage(entry) {
+                problems.append("\(name) is neither Markdown, a manifest nor an image.")
+            }
+        }
+        if markdownFiles != 1 {
+            problems.insert("The folder must hold exactly one Markdown file; it holds \(markdownFiles).", at: 0)
+        }
+        if subfolders.count > 1 {
+            problems.append("The folder may hold only one subfolder, for images; it holds \(subfolders.count).")
+        }
+        for subfolder in subfolders {
+            for entry in entries(subfolder) {
+                let name = "\(subfolder.lastPathComponent)/\(entry.lastPathComponent)"
+                if isLink(entry) {
+                    problems.append("\(name) is a link, which is not allowed.")
+                } else if isDirectory(entry) {
+                    problems.append("\(name) is a folder; the image subfolder cannot hold folders.")
+                } else if !isImage(entry) {
+                    problems.append("\(name) is not an image.")
+                }
+            }
+        }
+        if !problems.isEmpty { throw LibraryError.invalidFolder(problems) }
+    }
+
+    /// Adds an item made from `source`, a Markdown file or a folder that passes `validate`. The item's
+    /// manifest is written from `name` and `description`, replacing a manifest the folder already had.
+    /// Nothing is left behind when it fails.
     @discardableResult
     public func add(from source: URL, name: String, description: String) throws -> UserLibraryItem {
         let isDirectory = (try? source.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
         guard isDirectory || source.pathExtension.lowercased() == "md" else {
             throw LibraryError.unsupportedSource(source.lastPathComponent)
         }
+        if isDirectory { try Self.validate(folder: source) }
         return try create(name: name, description: description) { destination in
-            if isDirectory {
-                try FileManager.default.removeItem(at: destination)
-                try FileManager.default.copyItem(at: source, to: destination)
-            } else {
-                try FileManager.default.copyItem(at: source, to: destination.appendingPathComponent(source.lastPathComponent))
+            let fm = FileManager.default
+            guard isDirectory else {
+                try fm.copyItem(at: source, to: destination.appendingPathComponent(source.lastPathComponent))
+                return
+            }
+            for entry in try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            where entry.lastPathComponent != UserLibraryItem.manifestName {
+                let target = destination.appendingPathComponent(entry.lastPathComponent)
+                if (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                    try fm.createDirectory(at: target, withIntermediateDirectories: false)
+                    for image in try fm.contentsOfDirectory(at: entry, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+                        try fm.copyItem(at: image, to: target.appendingPathComponent(image.lastPathComponent))
+                    }
+                } else {
+                    try fm.copyItem(at: entry, to: target)
+                }
             }
         }
     }
@@ -139,7 +146,8 @@ public struct UserLibrary: Sendable {
             let fm = FileManager.default
             let slug = destination.lastPathComponent
             try markdown.write(to: destination.appendingPathComponent("\(slug).md"), atomically: true, encoding: .utf8)
-            for asset in assets {
+            for encoded in assets {
+                let asset = encoded.removingPercentEncoding ?? encoded
                 let source = assetsRoot.appendingPathComponent(asset).standardizedFileURL
                 let target = destination.appendingPathComponent(asset).standardizedFileURL
                 guard !asset.hasPrefix("/"),

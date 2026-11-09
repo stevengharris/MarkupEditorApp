@@ -30,9 +30,9 @@ struct UserLibraryTests {
     @Test func itemsAreSortedByNameAndFoldersWithoutAManifestAreSkipped() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
-        try makeItem(in: root, folder: "b", name: "Beta")
-        try makeItem(in: root, folder: "a", name: "Alpha")
-        try makeItem(in: root, folder: "c", name: nil)
+        try makeItem(in: root, folder: "b", name: "Beta", files: ["b.md": "b"])
+        try makeItem(in: root, folder: "a", name: "Alpha", files: ["a.md": "a"])
+        try makeItem(in: root, folder: "c", name: nil, files: ["c.md": "c"])
         let items = UserLibrary(directory: root).items()
         #expect(items.map(\.manifest.name) == ["Alpha", "Beta"])
         #expect(items.map(\.id) == ["a", "b"])
@@ -55,15 +55,13 @@ struct UserLibraryTests {
     @Test func theDocumentIsTheOnlyMarkdownFileUnlessTheManifestNamesOne() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
-        try makeItem(in: root, folder: "one", name: "One", files: ["x.md": "x", "pic.png": "p"])
-        try makeItem(in: root, folder: "two", name: "Two", files: ["a.md": "a", "b.md": "b"])
-        try makeItem(in: root, folder: "named", name: "Named", files: ["a.md": "a", "b.md": "b"], document: "b.md")
-        try makeItem(in: root, folder: "none", name: "None", files: ["pic.png": "p"])
-        let items = Dictionary(uniqueKeysWithValues: UserLibrary(directory: root).items().map { ($0.id, $0) })
-        #expect(try items["one"]?.documentURL().lastPathComponent == "x.md")
-        #expect(try items["named"]?.documentURL().lastPathComponent == "b.md")
-        #expect(throws: LibraryError.ambiguousDocument("Two")) { try items["two"]?.documentURL() }
-        #expect(throws: LibraryError.noDocument("None")) { try items["none"]?.documentURL() }
+        func item(_ folder: String, _ name: String, files: [String: String], document: String? = nil) throws -> UserLibraryItem {
+            UserLibraryItem(url: try makeItem(in: root, folder: folder, name: nil, files: files), manifest: LibraryManifest(name: name, description: "", document: document))
+        }
+        #expect(try item("one", "One", files: ["x.md": "x", "pic.png": "p"]).documentURL().lastPathComponent == "x.md")
+        #expect(try item("named", "Named", files: ["a.md": "a", "b.md": "b"], document: "b.md").documentURL().lastPathComponent == "b.md")
+        #expect(throws: LibraryError.ambiguousDocument("Two")) { try item("two", "Two", files: ["a.md": "a", "b.md": "b"]).documentURL() }
+        #expect(throws: LibraryError.noDocument("None")) { try item("none", "None", files: ["pic.png": "p"]).documentURL() }
     }
 
     private func builtIn(_ folder: String, _ name: String, text: String) -> UserLibrary.BuiltIn {
@@ -139,11 +137,15 @@ struct UserLibraryTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let library = UserLibrary(directory: root.appendingPathComponent("library"))
         let noDocument = try makeItem(in: root, folder: "empty", name: nil, files: ["pic.png": "p"])
-        #expect(throws: LibraryError.noDocument("Pics")) { try library.add(from: noDocument, name: "Pics", description: "") }
+        #expect(throws: LibraryError.invalidFolder(["The folder must hold exactly one Markdown file; it holds 0."])) {
+            try library.add(from: noDocument, name: "Pics", description: "")
+        }
         let text = root.appendingPathComponent("a.txt")
         try "x".write(to: text, atomically: true, encoding: .utf8)
         #expect(throws: LibraryError.unsupportedSource("a.txt")) { try library.add(from: text, name: "A", description: "") }
-        #expect(throws: LibraryError.emptyName) { try library.add(from: noDocument, name: "  ", description: "") }
+        let markdown = root.appendingPathComponent("m.md")
+        try "m".write(to: markdown, atomically: true, encoding: .utf8)
+        #expect(throws: LibraryError.emptyName) { try library.add(from: markdown, name: "  ", description: "") }
         #expect(library.items().isEmpty)
         #expect(((try? FileManager.default.contentsOfDirectory(atPath: library.directory.path)) ?? []).isEmpty)
     }
@@ -228,5 +230,104 @@ struct UserLibraryTests {
         let second = try library.add(markdown: "y", name: "Same", description: "", assets: [], from: root)
         #expect(first.id == "same" && second.id == "same-2")
         #expect(library.items().count == 2)
+    }
+
+    private func makeFolder(_ files: [String: String]) throws -> URL {
+        let root = try temporaryDirectory()
+        for (path, text) in files {
+            let url = root.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try text.write(to: url, atomically: true, encoding: .utf8)
+        }
+        return root
+    }
+
+    private func problems(in folder: URL) -> [String] {
+        do { try UserLibrary.validate(folder: folder); return [] } catch LibraryError.invalidFolder(let found) { return found } catch { return ["\(error)"] }
+    }
+
+    @Test func aFolderMayHoldImagesAtTheTopAndInOneSubfolder() throws {
+        let both = try makeFolder(["a.md": "x", "manifest.json": "{}", "top.png": "p", "img/b.JPG": "p", ".DS_Store": "junk", "img/.hidden": "junk"])
+        defer { try? FileManager.default.removeItem(at: both) }
+        #expect(problems(in: both).isEmpty)
+        let topOnly = try makeFolder(["a.md": "x", "top.png": "p"])
+        defer { try? FileManager.default.removeItem(at: topOnly) }
+        #expect(problems(in: topOnly).isEmpty)
+        let subOnly = try makeFolder(["a.md": "x", "img/b.png": "p"])
+        defer { try? FileManager.default.removeItem(at: subOnly) }
+        #expect(problems(in: subOnly).isEmpty)
+    }
+
+    @Test func aFolderNeedsExactlyOneMarkdownFile() throws {
+        let none = try makeFolder(["top.png": "p"])
+        let two = try makeFolder(["a.md": "x", "b.md": "y"])
+        defer { try? FileManager.default.removeItem(at: none); try? FileManager.default.removeItem(at: two) }
+        #expect(problems(in: none).first?.contains("exactly one Markdown file; it holds 0") == true)
+        #expect(problems(in: two).first?.contains("it holds 2") == true)
+    }
+
+    @Test func otherFilesMoreSubfoldersAndNestedFoldersAreRefused() throws {
+        let folder = try makeFolder(["a.md": "x", "notes.pdf": "n", "one/a.png": "p", "two/b.png": "p", "one/deep/c.png": "p", "one/readme.txt": "t"])
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let found = problems(in: folder)
+        #expect(found.contains { $0.contains("notes.pdf") })
+        #expect(found.contains { $0.contains("only one subfolder") })
+        #expect(found.contains { $0.contains("one/deep") })
+        #expect(found.contains { $0.contains("one/readme.txt") })
+    }
+
+    @Test func linksAndAManifestFolderAreRefused() throws {
+        let folder = try makeFolder(["a.md": "x", "real.png": "p"])
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("link.png"), withDestinationURL: folder.appendingPathComponent("real.png"))
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("manifest.json"), withIntermediateDirectories: false)
+        let found = problems(in: folder)
+        #expect(found.contains { $0.contains("link.png is a link") })
+        #expect(found.contains { $0.contains("manifest.json is a folder") })
+    }
+
+    @Test func addingAFolderCopiesOnlyWhatItAllowsAndIgnoresTheSourceManifestDocumentKey() throws {
+        let source = try makeFolder(["post.md": "x", "top.png": "p", "img/b.png": "q", ".DS_Store": "junk",
+                                     "manifest.json": #"{"name": "Old", "description": "d", "document": "gone.md"}"#])
+        defer { try? FileManager.default.removeItem(at: source) }
+        let out = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: out) }
+        let library = UserLibrary(directory: out.appendingPathComponent("library"))
+        let item = try library.add(from: source, name: "New", description: "n")
+        let files = try FileManager.default.subpathsOfDirectory(atPath: item.url.path).sorted()
+        #expect(files == ["img", "img/b.png", "manifest.json", "post.md", "top.png"])
+        #expect(try item.documentURL().lastPathComponent == "post.md")
+        #expect(library.items().map(\.manifest.name) == ["New"])
+    }
+
+    @Test func addingAnInvalidFolderLeavesNothingBehind() throws {
+        let source = try makeFolder(["a.md": "x", "b.md": "y"])
+        defer { try? FileManager.default.removeItem(at: source) }
+        let out = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: out) }
+        let library = UserLibrary(directory: out.appendingPathComponent("lib"))
+        #expect(throws: (any Error).self) { try library.add(from: source, name: "Bad", description: "") }
+        #expect(library.items().isEmpty)
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: library.directory.path)) ?? []).isEmpty)
+    }
+
+    @Test func itemsSkipsAFolderWhoseDocumentCannotBeFound() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try makeItem(in: root, folder: "good", name: "Good", files: ["g.md": "g"])
+        try makeItem(in: root, folder: "two", name: "Two", files: ["a.md": "a", "b.md": "b"])
+        try makeItem(in: root, folder: "none", name: "None", files: ["pic.png": "p"])
+        #expect(UserLibrary(directory: root).items().map(\.manifest.name) == ["Good"])
+    }
+
+    @Test func addingMarkdownDecodesPercentEncodedAssetPaths() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("cache")
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        try "png".write(to: cache.appendingPathComponent("my pic.png"), atomically: true, encoding: .utf8)
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        let item = try library.add(markdown: "![x](my%20pic.png)", name: "Spaces", description: "", assets: ["my%20pic.png"], from: cache)
+        #expect(FileManager.default.fileExists(atPath: item.url.appendingPathComponent("my pic.png").path))
     }
 }
