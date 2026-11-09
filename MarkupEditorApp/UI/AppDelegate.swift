@@ -572,6 +572,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(redoEdit(_:)):
             if let textView = focusedTextView { return textView.undoManager?.canRedo ?? false }
             return MarkupEditor.selectedWebView?.validateMenuItem(NSMenuItem(title: "", action: #selector(MarkupWKWebView.redoFromMenu(_:)), keyEquivalent: "")) ?? false
+        case #selector(saveAsTemplate(_:)):
+            // Only a Markdown document can be a template.
+            return !(AppControl.shared.document?.isHTMLish ?? false)
         default:
             if menuItem.action == #selector(executeMenuJS(_:)), let js = menuItem.representedObject as? String, Self.suggestionCommands.contains(js) {
                 let state = suggestionsState()

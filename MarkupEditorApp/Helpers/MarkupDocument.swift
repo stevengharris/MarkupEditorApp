@@ -50,8 +50,9 @@ internal import UniformTypeIdentifiers
     private var frontMatterRecord: FrontMatterRecord?
 
     /// The Markdown the editor content was last loaded from or saved as, and the tag the editor reported for
-    /// the source map it recorded from that text. Nil for HTML and untitled documents, and whenever no map
-    /// is recorded. Separate from `source`, which the source view overwrites on every toggle.
+    /// the source map it recorded from that text. Nil for HTML documents, and whenever no map is recorded.
+    /// A document detached from a deleted file keeps the text it was loaded from. Separate from `source`,
+    /// which the source view overwrites on every toggle.
     var baseText: String?
     var sourceMapTag: String?
 
@@ -206,9 +207,13 @@ internal import UniformTypeIdentifiers
     /// When false, a missing file throws `MarkupDocumentError.missingPackageImage`.
     func copyImageAssets(srcs: [String], from sourceDir: URL, to destDir: URL, skipMissing: Bool, replaceExisting: Bool) throws {
         let fm = FileManager.default
-        for src in srcs {
+        for encoded in srcs {
+            // A src is a URL reference, so a space arrives as %20 while the file name has the space.
+            let src = encoded.removingPercentEncoding ?? encoded
             let source = sourceDir.appendingPathComponent(src)
             let dest = destDir.appendingPathComponent(src)
+            // A src that climbs out of either folder is not an asset of this document.
+            guard Self.isInside(source, of: sourceDir), Self.isInside(dest, of: destDir) else { continue }
             guard fm.fileExists(atPath: source.path(percentEncoded: false)) else {
                 if skipMissing { continue }
                 throw MarkupDocumentError.missingImage(src)
@@ -225,6 +230,22 @@ internal import UniformTypeIdentifiers
                 try fm.copyItem(at: source, to: dest)
             }
         }
+    }
+
+    /// True when `url` is below `folder`, after resolving `.` and `..` components.
+    static func isInside(_ url: URL, of folder: URL) -> Bool {
+        var base = folder.standardizedFileURL.path(percentEncoded: false)
+        if base.hasSuffix("/") { base.removeLast() }
+        return url.standardizedFileURL.path(percentEncoded: false).hasPrefix(base + "/")
+    }
+
+    /// Cuts the document loose from a file that was deleted. The open content and the document type stay,
+    /// and the document counts as changed, so saving asks for a new location.
+    func detachFromFile() {
+        let type = documentType
+        url = nil
+        documentType = type
+        hasChanges = true
     }
 
     // MARK: - Image sources

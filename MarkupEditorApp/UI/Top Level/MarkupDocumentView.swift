@@ -466,12 +466,12 @@ struct MarkupDocumentView: View {
     /// a Markdown document can be a template.
     private func handleSaveAsTemplate() async {
         guard !document.isHTMLish else {
-            showError("Only a Markdown document can be saved as a template.")
+            reportFailure("Only a Markdown document can be saved as a template.")
             return
         }
         let contents = await getCurrentContents()
         guard let markdown = contents.markdown else {
-            showError("The document could not be read, so it was not saved as a template.")
+            reportFailure("The document could not be read, so it was not saved as a template.")
             return
         }
         let name = document.url?.deletingPathExtension().lastPathComponent ?? ""
@@ -481,7 +481,7 @@ struct MarkupDocumentView: View {
 
     private func saveAsTemplate(_ request: SaveTemplateRequest, name: String, description: String) {
         guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
-            showError("The editor is not available, so the template was not saved.")
+            reportFailure("The editor is not available, so the template was not saved.")
             return
         }
         do {
@@ -490,27 +490,27 @@ struct MarkupDocumentView: View {
             editLog.info("Saved the template \(item.manifest.name)")
             NotificationCenter.default.post(name: .templatesDidChange, object: nil)
         } catch {
-            showError("Could not save the template: \(error.localizedDescription)")
-            NSAlert(error: error).runModal()
+            reportFailure("Could not save the template: \(error.localizedDescription)")
         }
     }
 
     /// Replaces the document with an untitled copy of `item`'s document. The caller has already dealt with
-    /// unsaved changes. Its images are copied into the
-    /// editor's cache directory as they are for any opened document, and the first save writes them
-    /// beside the new file.
+    /// unsaved changes. The item's images are copied into the editor's cache directory as they are for any
+    /// opened document, and the first save writes them beside the new file. Everything that can fail runs
+    /// before the editor is emptied, so a failure leaves the current document alone.
     private func handleNewFromTemplate(_ item: UserLibraryItem) async {
         guard let webView = MarkupEditor.selectedWebView else { return }
         editLog.info("Opening a new document from the \(item.manifest.name) template")
         clearPendingSelectionRestoreState()
         do {
-            let markdown = try String(contentsOf: try item.documentURL(), encoding: .utf8)
+            let documentURL = try item.documentURL()
+            let markdown = try String(contentsOf: documentURL, encoding: .utf8)
             let (html, metadata) = try await importMarkdown(markdown, in: webView)
+            try document.copyImageAssets(
+                srcs: document.localImageSrcsInMarkdown(markdown), from: documentURL.deletingLastPathComponent(),
+                to: webView.baseUrl, skipMissing: true, replaceExisting: true)
             await webView.emptyDocument()
             document.reset()
-            try document.copyImageAssets(
-                srcs: document.localImageSrcsInMarkdown(markdown), from: item.url, to: webView.baseUrl,
-                skipMissing: true, replaceExisting: true)
             document.openUntitled(markdown: markdown, metadata: metadata)
             // Save is a no-op without changes, and a copy of a template should still ask where to go.
             document.hasChanges = true
@@ -518,7 +518,7 @@ struct MarkupDocumentView: View {
             currentSource = markdown
             NSApplication.shared.mainWindow?.representedURL = nil
         } catch {
-            showError("The template could not be opened: \(error.localizedDescription)")
+            reportFailure("The template \(item.manifest.name) could not be opened: \(error.localizedDescription)")
         }
     }
 
@@ -709,6 +709,15 @@ struct MarkupDocumentView: View {
     private func showError(_ message: String) {
         editLog.error(message)
     }
+
+    /// Logs `message` and tells the user, for something they just asked for that did not happen.
+    private func reportFailure(_ message: String) {
+        showError(message)
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
     
     /// Let the MarkupDelegate deal with the `url` that identifies an image to add to the document
     private func imageSelected(url: URL) {
@@ -827,10 +836,11 @@ struct MarkupDocumentView: View {
         // briefly looks the same, so look again before deciding it is gone.
         if !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
             try? await Task.sleep(for: .milliseconds(300))
-            if document.url == currentURL, !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
+            // The document moved on while waiting, so this event is stale.
+            guard document.url == currentURL else { return }
+            if !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
                 editLog.info("\(currentURL.lastPathComponent) was deleted; the document is now untitled")
-                document.url = nil
-                document.hasChanges = true
+                document.detachFromFile()
                 NSApplication.shared.mainWindow?.representedURL = nil
                 return
             }

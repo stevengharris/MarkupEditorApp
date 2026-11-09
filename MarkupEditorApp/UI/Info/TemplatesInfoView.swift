@@ -267,6 +267,15 @@ struct TemplatesInfoView: View {
                 fail("MarkupEditor was not given access to that file.")
                 return
             }
+            if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                do {
+                    try UserLibrary.validate(folder: url)
+                } catch {
+                    url.stopAccessingSecurityScopedResource()
+                    fail(error.localizedDescription)
+                    return
+                }
+            }
             var name = url.deletingPathExtension().lastPathComponent
             var description = ""
             if let manifest = try? JSONDecoder().decode(LibraryManifest.self, from: Data(contentsOf: url.appendingPathComponent(UserLibraryItem.manifestName))) {
