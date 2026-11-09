@@ -230,14 +230,15 @@ struct UserLibraryTests {
 
     @Test func assetsThatAreNotImagesOrAreNestedOrInSeveralFoldersAreRefused() {
         let found = assetProblems(["notes.pdf", "one/a.png", "two/b.png", "one/deep/c.png"])
-        #expect(found.contains { $0.contains("notes.pdf is not an image") })
-        #expect(found.contains { $0.contains("one/deep/c.png is nested") })
-        #expect(found.contains { $0.contains("2 subfolders") })
+        #expect(found.contains { $0.hasPrefix("Only image files are allowed.") && $0.contains("notes.pdf") })
+        #expect(found.contains { $0.hasPrefix("Images may be at the top or in one subfolder, not nested deeper.") && $0.contains("one/deep/c.png") })
+        #expect(found.contains { $0.hasPrefix("Images may be in only one subfolder.") && $0.contains("one, two") })
     }
 
     @Test func assetsOutsideTheDocumentFolderAreRefused() {
         let found = assetProblems(["../up.png", "/etc/x.png", "a/../b.png", "%2E%2E/c.png"])
-        #expect(found.count == 4 && found.allSatisfy { $0.contains("not inside the document's folder") })
+        #expect(found.count == 1)
+        #expect(found[0].hasPrefix("Images must be inside the document's folder.") && found[0].contains("4 found"))
     }
 
     @Test func addingMarkdownWithNonconformingAssetsLeavesNothingBehind() throws {
@@ -300,10 +301,10 @@ struct UserLibraryTests {
         let folder = try makeFolder(["a.md": "x", "notes.pdf": "n", "one/a.png": "p", "two/b.png": "p", "one/deep/c.png": "p", "one/readme.txt": "t"])
         defer { try? FileManager.default.removeItem(at: folder) }
         let found = problems(in: folder)
-        #expect(found.contains { $0.contains("notes.pdf") })
-        #expect(found.contains { $0.contains("only one subfolder") })
-        #expect(found.contains { $0.contains("one/deep") })
-        #expect(found.contains { $0.contains("one/readme.txt") })
+        #expect(found.contains { $0.hasPrefix("Besides the Markdown file and manifest.json, only image files are allowed.") && $0.contains("notes.pdf") })
+        #expect(found.contains { $0.hasPrefix("At most one subfolder is allowed, for images.") && $0.contains("two") })
+        #expect(found.contains { $0.hasPrefix("The image subfolder may hold only image files.") && $0.contains("2 found") && $0.contains("one/deep") })
+        #expect(found.count == 3)
     }
 
     @Test func linksAndAManifestFolderAreRefused() throws {
@@ -312,8 +313,8 @@ struct UserLibraryTests {
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("link.png"), withDestinationURL: folder.appendingPathComponent("real.png"))
         try FileManager.default.createDirectory(at: folder.appendingPathComponent("manifest.json"), withIntermediateDirectories: false)
         let found = problems(in: folder)
-        #expect(found.contains { $0.contains("link.png is a link") })
-        #expect(found.contains { $0.contains("manifest.json is a folder") })
+        #expect(found.contains { $0.hasPrefix("Links are not allowed.") && $0.contains("link.png") })
+        #expect(found.contains { $0.hasPrefix("manifest.json must be a file") })
     }
 
     @Test func addingAFolderCopiesOnlyWhatItAllowsAndIgnoresTheSourceManifestDocumentKey() throws {
@@ -359,5 +360,25 @@ struct UserLibraryTests {
         let library = UserLibrary(directory: root.appendingPathComponent("library"))
         let item = try library.add(markdown: "![x](my%20pic.png)", name: "Spaces", description: "", assets: ["my%20pic.png"], from: cache)
         #expect(FileManager.default.fileExists(atPath: item.url.appendingPathComponent("my pic.png").path))
+    }
+
+    @Test func theMessageStaysShortHoweverManyFilesBreakTheRules() throws {
+        var files = ["a.md": "x"]
+        for i in 0..<2000 { files["doc\(i).pdf"] = "p" }
+        for i in 0..<50 { files["sub\(i)/inner.txt"] = "t" }
+        let folder = try makeFolder(files)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let found = problems(in: folder)
+        #expect(found.count <= 4)
+        #expect(found.joined(separator: "\n").count < 700)
+        #expect(found.contains { $0.contains("2000 found") })
+        #expect(found.contains { $0.contains("49 found") })
+    }
+
+    @Test func theAssetMessageStaysShortHoweverManyAssetsBreakTheRules() {
+        let assets = (0..<5000).map { "dir\($0)/deep/x\($0).pdf" } + (0..<5000).map { "../up\($0).png" }
+        let found = assetProblems(assets)
+        #expect(found.count <= 5)
+        #expect(found.joined(separator: "\n").count < 800)
     }
 }

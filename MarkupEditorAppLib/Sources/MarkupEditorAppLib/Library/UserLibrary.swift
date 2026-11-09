@@ -57,9 +57,39 @@ public struct UserLibrary: Sendable {
     /// The image file types a template folder may hold.
     static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "svg", "webp", "tif", "tiff", "heic", "bmp"]
 
+    /// The rules a folder broke, each stated once with how many times it was broken and one example, so the
+    /// message stays short however many files are wrong.
+    private struct Violations {
+        private var order: [String] = []
+        private var found: [String: (count: Int, example: String)] = [:]
+
+        var isEmpty: Bool { order.isEmpty }
+
+        mutating func add(_ rule: String, example: String) {
+            if let existing = found[rule] {
+                found[rule] = (existing.count + 1, existing.example)
+            } else {
+                order.append(rule)
+                found[rule] = (1, example)
+            }
+        }
+
+        var messages: [String] {
+            order.compactMap { rule in
+                guard let entry = found[rule] else { return nil }
+                return entry.count == 1 ? "\(rule) (\(entry.example))" : "\(rule) (\(entry.count) found, for example \(entry.example))"
+            }
+        }
+    }
+
+    private static let notAnImage = "Besides the Markdown file and manifest.json, only image files are allowed."
+    private static let noLinks = "Links are not allowed."
+    private static let oneSubfolder = "At most one subfolder is allowed, for images."
+    private static let subfolderImagesOnly = "The image subfolder may hold only image files."
+
     /// Checks that `folder` can become a template: one Markdown file; at most one manifest.json; and
     /// otherwise only image files and/or one subfolder holding only image files. Hidden files are ignored.
-    /// Throws `invalidFolder` listing every problem found.
+    /// Throws `invalidFolder` naming each rule that was broken.
     public static func validate(folder: URL) throws {
         let fm = FileManager.default
         let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey]
@@ -71,68 +101,71 @@ public struct UserLibrary: Sendable {
         func isLink(_ url: URL) -> Bool { (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true }
         func isImage(_ url: URL) -> Bool { imageExtensions.contains(url.pathExtension.lowercased()) }
 
-        var problems: [String] = []
+        var violations = Violations()
         var markdownFiles = 0
         var subfolders: [URL] = []
         for entry in entries(folder) {
             let name = entry.lastPathComponent
             if isLink(entry) {
-                problems.append("\(name) is a link, which is not allowed.")
+                violations.add(noLinks, example: name)
             } else if isDirectory(entry) {
-                if name == UserLibraryItem.manifestName { problems.append("\(name) is a folder.") } else { subfolders.append(entry) }
+                if name == UserLibraryItem.manifestName {
+                    violations.add("manifest.json must be a file, not a folder.", example: name)
+                } else {
+                    subfolders.append(entry)
+                }
             } else if entry.pathExtension.lowercased() == "md" {
                 markdownFiles += 1
             } else if name != UserLibraryItem.manifestName, !isImage(entry) {
-                problems.append("\(name) is neither Markdown, a manifest nor an image.")
+                violations.add(notAnImage, example: name)
             }
         }
+        var messages: [String] = []
         if markdownFiles != 1 {
-            problems.insert("The folder must hold exactly one Markdown file; it holds \(markdownFiles).", at: 0)
+            messages.append("The folder must hold exactly one Markdown file; it holds \(markdownFiles).")
         }
-        if subfolders.count > 1 {
-            problems.append("The folder may hold only one subfolder, for images; it holds \(subfolders.count).")
-        }
+        for extra in subfolders.dropFirst() { violations.add(oneSubfolder, example: extra.lastPathComponent) }
         for subfolder in subfolders {
             for entry in entries(subfolder) {
                 let name = "\(subfolder.lastPathComponent)/\(entry.lastPathComponent)"
                 if isLink(entry) {
-                    problems.append("\(name) is a link, which is not allowed.")
-                } else if isDirectory(entry) {
-                    problems.append("\(name) is a folder; the image subfolder cannot hold folders.")
-                } else if !isImage(entry) {
-                    problems.append("\(name) is not an image.")
+                    violations.add(noLinks, example: name)
+                } else if isDirectory(entry) || !isImage(entry) {
+                    violations.add(subfolderImagesOnly, example: name)
                 }
             }
         }
-        if !problems.isEmpty { throw LibraryError.invalidFolder(problems) }
+        messages += violations.messages
+        if !messages.isEmpty { throw LibraryError.invalidFolder(messages) }
     }
 
     /// Checks the image paths a document refers to against the same rules as `validate(folder:)`: image files
     /// only, at the top level and/or in one subfolder, nothing deeper, and nothing outside the document's
-    /// folder. A path is a URL reference, so it is percent-decoded first. Throws `invalidFolder`.
+    /// folder. A path is a URL reference, so it is percent-decoded first. Throws `invalidFolder` naming each
+    /// rule that was broken.
     public static func validate(assets: [String]) throws {
-        var problems: [String] = []
+        var violations = Violations()
         var subfolders: Set<String> = []
         for encoded in assets {
             let asset = encoded.removingPercentEncoding ?? encoded
             let parts = asset.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
             if asset.hasPrefix("/") || parts.contains("..") || parts.contains(".") || parts.contains("") {
-                problems.append("\(asset) is not inside the document's folder.")
+                violations.add("Images must be inside the document's folder.", example: asset)
                 continue
             }
             if !imageExtensions.contains((asset as NSString).pathExtension.lowercased()) {
-                problems.append("\(asset) is not an image.")
+                violations.add("Only image files are allowed.", example: asset)
             }
             if parts.count > 2 {
-                problems.append("\(asset) is nested more than one folder deep; images may be at the top or in one subfolder.")
+                violations.add("Images may be at the top or in one subfolder, not nested deeper.", example: asset)
             } else if parts.count == 2 {
                 subfolders.insert(parts[0])
             }
         }
         if subfolders.count > 1 {
-            problems.append("Images are in \(subfolders.count) subfolders (\(subfolders.sorted().joined(separator: ", "))); only one is allowed.")
+            violations.add("Images may be in only one subfolder.", example: subfolders.sorted().joined(separator: ", "))
         }
-        if !problems.isEmpty { throw LibraryError.invalidFolder(problems) }
+        if !violations.isEmpty { throw LibraryError.invalidFolder(violations.messages) }
     }
 
     /// Adds an item made from `source`, a Markdown file or a folder that passes `validate`. The item's
