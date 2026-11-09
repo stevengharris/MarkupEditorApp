@@ -20,29 +20,18 @@ The MarkupEditor lets you edit fully-formatted Markdown. Headers are properly si
 ## Features
 
 * Native macOS app, open source from top to bottom.
-
 * True "what you see is what you get" Markdown editing.
-
 * Shortcuts let you use your Markdown muscle memory naturally.
-
 * Edit and view the WYSIWYG document or the underlying Markdown source.
-
 * GitHub flavored Markdown support, including metadata and HTML in front matter.
-
+* Start a new document from a template and save your own templates.
 * Customizable editing hotkeys.
-
 * Customizable toolbar can be toggled on/off or fully hidden.
-
 * Open from the command line using the `markup <filename>` command, or convert a Markdown file to HTML or PDF with `markup export`.
-
 * Opt-in support for a MarkupEditor MCP server, so you can [collaborate](#ai-assistance) with the AI assistant of your choice while editing a document.
-
 * Extend MarkupEditor functionality using JavaScript-based *plugins*.
-
 * Export to HTML and PDF out-of-the-box. Install exporters for DocX and EPUB from the plugin catalog, or add your own.
-
 * View Mermaid diagrams and GeoJSON by installing their plugins from the catalog. Add plugins for additional capabilities.
-
 * Discover hosted plugins and contribute to a community of MarkupEditor users.
 
 ## Demos
