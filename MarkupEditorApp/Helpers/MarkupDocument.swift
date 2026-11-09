@@ -50,8 +50,9 @@ internal import UniformTypeIdentifiers
     private var frontMatterRecord: FrontMatterRecord?
 
     /// The Markdown the editor content was last loaded from or saved as, and the tag the editor reported for
-    /// the source map it recorded from that text. Nil for HTML and untitled documents, and whenever no map
-    /// is recorded. Separate from `source`, which the source view overwrites on every toggle.
+    /// the source map it recorded from that text. Nil for HTML documents, and whenever no map is recorded.
+    /// A document detached from a deleted file keeps the text it was loaded from. Separate from `source`,
+    /// which the source view overwrites on every toggle.
     var baseText: String?
     var sourceMapTag: String?
 
@@ -206,9 +207,18 @@ internal import UniformTypeIdentifiers
     /// When false, a missing file throws `MarkupDocumentError.missingPackageImage`.
     func copyImageAssets(srcs: [String], from sourceDir: URL, to destDir: URL, skipMissing: Bool, replaceExisting: Bool) throws {
         let fm = FileManager.default
-        for src in srcs {
+        for encoded in srcs {
+            // A src is a URL reference, so a space arrives as %20 while the file name has the space. A file
+            // whose name really contains a % sequence is found by the literal src when the decoded one is absent.
+            var src = encoded.removingPercentEncoding ?? encoded
+            if src != encoded, !fm.fileExists(atPath: sourceDir.appendingPathComponent(src).path(percentEncoded: false)),
+               fm.fileExists(atPath: sourceDir.appendingPathComponent(encoded).path(percentEncoded: false)) {
+                src = encoded
+            }
             let source = sourceDir.appendingPathComponent(src)
             let dest = destDir.appendingPathComponent(src)
+            // A src that climbs out of its folder is not an asset of this document.
+            guard PathContainment.isInside(source, of: sourceDir) else { continue }
             guard fm.fileExists(atPath: source.path(percentEncoded: false)) else {
                 if skipMissing { continue }
                 throw MarkupDocumentError.missingImage(src)
@@ -225,6 +235,15 @@ internal import UniformTypeIdentifiers
                 try fm.copyItem(at: source, to: dest)
             }
         }
+    }
+
+    /// Cuts the document loose from a file that was deleted. The open content and the document type stay,
+    /// and the document counts as changed, so saving asks for a new location.
+    func detachFromFile() {
+        let type = documentType
+        url = nil
+        documentType = type
+        hasChanges = true
     }
 
     // MARK: - Image sources
@@ -311,6 +330,13 @@ internal import UniformTypeIdentifiers
         }
     }
 
+    /// True for a file inside the app container's Application Support folder, such as a template. The sandbox
+    /// already grants it, so it needs no stored bookmark and is kept out of Open Recent.
+    static func isAppOwned(_ url: URL) -> Bool {
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return false }
+        return PathContainment.isInside(url, of: support)
+    }
+
     /// True when saving `srcs` beside `fileURL` needs folder access the app does not yet hold.
     func needsDestinationGrant(for fileURL: URL, srcs: [String]) -> Bool {
         !srcs.isEmpty && resolveParentDirBookmark(for: fileURL) == nil
@@ -320,6 +346,7 @@ internal import UniformTypeIdentifiers
     /// Returns the scoped URL ready for `startAccessingSecurityScopedResource()`, or nil if none stored.
     func resolveParentDirBookmark(for fileURL: URL) -> URL? {
         let parentDir = fileURL.deletingLastPathComponent()
+        if Self.isAppOwned(fileURL) { return parentDir }
         guard let data = UserDefaults.standard.data(forKey: "parentDirBookmark:\(parentDir.path(percentEncoded: false))") else { return nil }
         var isStale = false
         return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)

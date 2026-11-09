@@ -65,7 +65,7 @@ struct PluginsInfoView: View {
             }
         }
         .listStyle(.plain)
-        .padding(.leading, Self.chevronInset)
+        .padding(.horizontal, Self.chevronInset)
         .task { await model.load() }
         .confirmationDialog(
             "Uninstall \"\(uninstallRequest?.plugin.name ?? "")\"?",
@@ -132,10 +132,8 @@ struct PluginsInfoView: View {
                 chooseFile(for: type)
             } label: {
                 Image(systemName: "plus")
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(SquareIconButtonStyle())
             .help(addHelp)
             .accessibilityLabel(addHelp)
         }

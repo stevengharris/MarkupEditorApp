@@ -57,6 +57,29 @@ struct MarkupDocumentView: View {
     @State private var showImageDialog: Bool = false
     @State private var showTableDialog: Bool = false
     @State private var showTableEditDialog: Bool = false
+    @State private var templateSheet: TemplateSheet?
+
+    /// The sheet the template commands present: the chooser, or the form that names a new template.
+    private enum TemplateSheet: Identifiable {
+        case chooser
+        case save(SaveTemplateRequest)
+
+        var id: String {
+            switch self {
+            case .chooser: "chooser"
+            case .save(let request): request.id.uuidString
+            }
+        }
+    }
+
+    /// A document being saved as a template: its Markdown and the images it refers to, captured when the
+    /// command ran.
+    private struct SaveTemplateRequest {
+        let id = UUID()
+        let markdown: String
+        let assets: [String]
+        let name: String
+    }
     // Set right before handleSave writes the file, so the event that write triggers isn't
     // mistaken for an external change.
     @State private var ignoreNextExternalFileChange: Bool = false
@@ -145,12 +168,33 @@ struct MarkupDocumentView: View {
         .popover(isPresented: $showTableEditDialog, attachmentAnchor: popupAnchor) {
             TableEditView(presented: $showTableEditDialog)
         }
+        .sheet(item: $templateSheet) { sheet in
+            switch sheet {
+            case .chooser:
+                TemplateChooserView(
+                    library: .templates,
+                    onChoose: { item in
+                        templateSheet = nil
+                        Task { await handleNewFromTemplate(item) }
+                    },
+                    onCancel: { templateSheet = nil })
+            case .save(let request):
+                AddTemplateView(
+                    title: "Save as Template", detail: "The document and its images are copied into the templates folder.",
+                    confirmTitle: "Save", name: request.name, description: "",
+                    onConfirm: { name, description in
+                        templateSheet = nil
+                        saveAsTemplate(request, name: name, description: description)
+                    },
+                    onCancel: { templateSheet = nil })
+            }
+        }
         // Consolidate menu items into a single .task modifier
         .task {
             let names: [Notification.Name] = [
-                .menuNewDocument, .menuOpenDocument, .menuSaveDocument,
+                .menuNewDocument, .menuNewFromTemplate, .menuSaveAsTemplate, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuToggleSource, .menuShowSettings,
-                .menuOpenRecentDocument, .menuExport,
+                .menuOpenRecentDocument, .openDocumentURL, .menuExport,
                 .menuQuitApplication, NSWindow.willCloseNotification,
             ]
             await withTaskGroup(of: Void.self) { group in
@@ -369,6 +413,11 @@ struct MarkupDocumentView: View {
         switch notification.name {
         case .menuNewDocument:
             await handleNew()
+        case .menuNewFromTemplate:
+            guard await checkSave() else { return }
+            templateSheet = .chooser
+        case .menuSaveAsTemplate:
+            await handleSaveAsTemplate()
         case .menuOpenDocument:
             await handleOpen()
         case .menuSaveDocument:
@@ -379,7 +428,7 @@ struct MarkupDocumentView: View {
             await handleToggleSource()
         case .menuShowSettings:
             openSettings()
-        case .menuOpenRecentDocument:
+        case .menuOpenRecentDocument, .openDocumentURL:
             guard let url = notification.object as? URL else { return }
             await handleOpenRecent(url: url)
         case .menuExport:
@@ -411,6 +460,72 @@ struct MarkupDocumentView: View {
         currentSource = MarkupDocument.emptyMarkdown
         document.reset()
         NSApplication.shared.mainWindow?.representedURL = nil
+    }
+
+    /// Asks for a name and description for a template made from the document as it would be saved now. Only
+    /// a Markdown document can be a template.
+    private func handleSaveAsTemplate() async {
+        guard !document.isHTMLish else {
+            reportFailure("Only a Markdown document can be saved as a template.")
+            return
+        }
+        let contents = await getCurrentContents()
+        guard let markdown = contents.markdown else {
+            reportFailure("The document could not be read, so it was not saved as a template.")
+            return
+        }
+        let assets = document.localImageSrcsInMarkdown(markdown)
+        do {
+            try UserLibrary.validate(assets: assets)
+        } catch {
+            reportFailure("This document cannot be saved as a template.", detail: error.localizedDescription)
+            return
+        }
+        let name = document.url?.deletingPathExtension().lastPathComponent ?? ""
+        templateSheet = .save(SaveTemplateRequest(markdown: markdown, assets: assets, name: name))
+    }
+
+    private func saveAsTemplate(_ request: SaveTemplateRequest, name: String, description: String) {
+        guard let baseUrl = MarkupEditor.selectedWebView?.baseUrl else {
+            reportFailure("The editor is not available, so the template was not saved.")
+            return
+        }
+        do {
+            let item = try UserLibrary.templates.add(
+                markdown: request.markdown, name: name, description: description, assets: request.assets, from: baseUrl)
+            editLog.info("Saved the template \(item.manifest.name)")
+            NotificationCenter.default.post(name: .templatesDidChange, object: nil)
+        } catch {
+            reportFailure("Could not save the template: \(error.localizedDescription)")
+        }
+    }
+
+    /// Replaces the document with an untitled copy of `item`'s document. The caller has already dealt with
+    /// unsaved changes. The item's images are copied into the editor's cache directory as they are for any
+    /// opened document, and the first save writes them beside the new file. Everything that can fail runs
+    /// before the editor is emptied, so a failure leaves the current document alone.
+    private func handleNewFromTemplate(_ item: UserLibraryItem) async {
+        guard let webView = MarkupEditor.selectedWebView else { return }
+        editLog.info("Opening a new document from the \(item.manifest.name) template")
+        clearPendingSelectionRestoreState()
+        do {
+            let documentURL = try item.documentURL()
+            let markdown = try String(contentsOf: documentURL, encoding: .utf8)
+            let (html, metadata) = try await importMarkdown(markdown, in: webView)
+            try document.copyImageAssets(
+                srcs: document.localImageSrcsInMarkdown(markdown), from: documentURL.deletingLastPathComponent(),
+                to: webView.baseUrl, skipMissing: true, replaceExisting: true)
+            await webView.emptyDocument()
+            document.reset()
+            document.openUntitled(markdown: markdown, metadata: metadata)
+            // Save is a no-op without changes, and a copy of a template should still ask where to go.
+            document.hasChanges = true
+            try setHTML(document.seedMetadataBlock(in: html))
+            currentSource = markdown
+            NSApplication.shared.mainWindow?.representedURL = nil
+        } catch {
+            reportFailure("The template \(item.manifest.name) could not be opened: \(error.localizedDescription)")
+        }
     }
 
     /// Let the user select a file to open, and then open it
@@ -592,13 +707,23 @@ struct MarkupDocumentView: View {
     
     /// Keep track of the URL we are working on in recentDocuments and show in the window title bar
     private func track(url: URL) {
-        NSDocumentController.shared.noteNewRecentDocumentURL(url)
+        if !MarkupDocument.isAppOwned(url) { NSDocumentController.shared.noteNewRecentDocumentURL(url) }
         NSApplication.shared.mainWindow?.representedURL = url
     }
     
     /// For now, just show an error in the log, but in longer run, show notification breadcrumbs
     private func showError(_ message: String) {
         editLog.error(message)
+    }
+
+    /// Logs `message` and tells the user, for something they just asked for that did not happen.
+    private func reportFailure(_ message: String, detail: String? = nil) {
+        showError(detail.map { "\(message) \($0)" } ?? message)
+        let alert = NSAlert()
+        alert.messageText = message
+        if let detail { alert.informativeText = detail }
+        alert.alertStyle = .warning
+        alert.runModal()
     }
     
     /// Let the MarkupDelegate deal with the `url` that identifies an image to add to the document
@@ -712,6 +837,20 @@ struct MarkupDocumentView: View {
             document.url = newURL
             track(url: newURL)
             return
+        }
+
+        // A deleted file leaves nothing to reload. A writer that replaces a file by unlinking it first
+        // briefly looks the same, so look again before deciding it is gone.
+        if !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
+            try? await Task.sleep(for: .milliseconds(300))
+            // The document moved on while waiting, so this event is stale.
+            guard document.url == currentURL else { return }
+            if !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
+                editLog.info("\(currentURL.lastPathComponent) was deleted; the document is now untitled")
+                document.detachFromFile()
+                NSApplication.shared.mainWindow?.representedURL = nil
+                return
+            }
         }
 
         if document.hasChanges {

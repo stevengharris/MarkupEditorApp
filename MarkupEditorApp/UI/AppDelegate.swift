@@ -210,6 +210,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NotificationCenter.default.post(name: .menuNewDocument, object: nil)
     }
 
+    @objc private func newFromTemplate(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuNewFromTemplate, object: nil)
+    }
+
+    @objc private func saveAsTemplate(_ sender: Any?) {
+        NotificationCenter.default.post(name: .menuSaveAsTemplate, object: nil)
+    }
+
     @objc private func openDocument(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuOpenDocument, object: nil)
     }
@@ -335,6 +343,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(NSMenuItem(title: "New", action: #selector(newDocument(_:)), keyEquivalent: "n"))
+        fileMenu.addItem(NSMenuItem(title: "New from Template…", action: #selector(newFromTemplate(_:)), keyEquivalent: ""))
         fileMenu.addItem(NSMenuItem(title: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o"))
         let openRecentItem = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
         openRecentItem.submenu = openRecentMenu
@@ -347,6 +356,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         saveAsItem.image = NSImage(systemSymbolName: "square.and.arrow.down.on.square", accessibilityDescription: "Save As")
         fileMenu.addItem(saveAsItem)
+        fileMenu.addItem(NSMenuItem(title: "Save as Template…", action: #selector(saveAsTemplate(_:)), keyEquivalent: ""))
         fileMenu.addItem(.separator())
         let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
         exportItem.submenu = exportSubmenu
@@ -562,6 +572,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(redoEdit(_:)):
             if let textView = focusedTextView { return textView.undoManager?.canRedo ?? false }
             return MarkupEditor.selectedWebView?.validateMenuItem(NSMenuItem(title: "", action: #selector(MarkupWKWebView.redoFromMenu(_:)), keyEquivalent: "")) ?? false
+        case #selector(saveAsTemplate(_:)):
+            // Only a Markdown document can be a template.
+            return !(AppControl.shared.document?.isHTMLish ?? false)
         default:
             if menuItem.action == #selector(executeMenuJS(_:)), let js = menuItem.representedObject as? String, Self.suggestionCommands.contains(js) {
                 let state = suggestionsState()
