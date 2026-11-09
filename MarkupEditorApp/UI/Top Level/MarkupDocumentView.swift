@@ -823,6 +823,19 @@ struct MarkupDocumentView: View {
             return
         }
 
+        // A deleted file leaves nothing to reload. A writer that replaces a file by unlinking it first
+        // briefly looks the same, so look again before deciding it is gone.
+        if !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
+            try? await Task.sleep(for: .milliseconds(300))
+            if document.url == currentURL, !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
+                editLog.info("\(currentURL.lastPathComponent) was deleted; the document is now untitled")
+                document.url = nil
+                document.hasChanges = true
+                NSApplication.shared.mainWindow?.representedURL = nil
+                return
+            }
+        }
+
         if document.hasChanges {
             let alert = NSAlert()
             alert.messageText = "\(currentURL.lastPathComponent) changed on disk"
