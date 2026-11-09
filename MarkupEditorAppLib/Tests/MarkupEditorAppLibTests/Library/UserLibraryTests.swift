@@ -187,4 +187,46 @@ struct UserLibraryTests {
         #expect(throws: LibraryError.notInLibrary) { try library.update(outside, name: "X", description: "") }
         #expect(library.items().map(\.manifest.name) == ["Keep"])
     }
+
+    @Test func addingMarkdownWritesTheDocumentAndCopiesItsImages() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("cache")
+        try FileManager.default.createDirectory(at: cache.appendingPathComponent("img"), withIntermediateDirectories: true)
+        try "png".write(to: cache.appendingPathComponent("a.png"), atomically: true, encoding: .utf8)
+        try "png2".write(to: cache.appendingPathComponent("img/b.png"), atomically: true, encoding: .utf8)
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        let item = try library.add(markdown: "# T\n\n![a](a.png) ![b](img/b.png)", name: "My Template", description: "d",
+                                   assets: ["a.png", "img/b.png"], from: cache)
+        #expect(item.id == "my-template")
+        #expect(try String(contentsOf: item.documentURL(), encoding: .utf8).hasPrefix("# T"))
+        #expect(try item.documentURL().lastPathComponent == "my-template.md")
+        #expect(FileManager.default.fileExists(atPath: item.url.appendingPathComponent("a.png").path))
+        #expect(try String(contentsOf: item.url.appendingPathComponent("img/b.png"), encoding: .utf8) == "png2")
+        #expect(library.items().map(\.manifest.name) == ["My Template"])
+    }
+
+    @Test func addingMarkdownSkipsMissingAbsoluteAndEscapingAssets() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("cache")
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        try "secret".write(to: root.appendingPathComponent("outside.png"), atomically: true, encoding: .utf8)
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        let item = try library.add(markdown: "text", name: "Plain", description: "",
+                                   assets: ["missing.png", "../outside.png", "/etc/hosts"], from: cache)
+        let files = try FileManager.default.contentsOfDirectory(atPath: item.url.path).sorted()
+        #expect(files == ["manifest.json", "plain.md"])
+    }
+
+    @Test func addingMarkdownRefusesAnEmptyNameAndGivesDuplicateNamesDistinctFolders() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = UserLibrary(directory: root.appendingPathComponent("library"))
+        #expect(throws: LibraryError.emptyName) { try library.add(markdown: "x", name: " ", description: "", assets: [], from: root) }
+        let first = try library.add(markdown: "x", name: "Same", description: "", assets: [], from: root)
+        let second = try library.add(markdown: "y", name: "Same", description: "", assets: [], from: root)
+        #expect(first.id == "same" && second.id == "same-2")
+        #expect(library.items().count == 2)
+    }
 }

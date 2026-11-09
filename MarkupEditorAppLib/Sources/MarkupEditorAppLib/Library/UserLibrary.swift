@@ -117,23 +117,53 @@ public struct UserLibrary: Sendable {
     /// folder already had. Nothing is left behind when it fails.
     @discardableResult
     public func add(from source: URL, name: String, description: String) throws -> UserLibraryItem {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw LibraryError.emptyName }
-        let fm = FileManager.default
         let isDirectory = (try? source.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
         guard isDirectory || source.pathExtension.lowercased() == "md" else {
             throw LibraryError.unsupportedSource(source.lastPathComponent)
         }
+        return try create(name: name, description: description) { destination in
+            if isDirectory {
+                try FileManager.default.removeItem(at: destination)
+                try FileManager.default.copyItem(at: source, to: destination)
+            } else {
+                try FileManager.default.copyItem(at: source, to: destination.appendingPathComponent(source.lastPathComponent))
+            }
+        }
+    }
+
+    /// Adds an item whose document is `markdown`. `assets` are the relative paths of the files it refers to,
+    /// copied from `assetsRoot`; a path that is missing, absolute or leaves the folder is skipped.
+    @discardableResult
+    public func add(markdown: String, name: String, description: String, assets: [String], from assetsRoot: URL) throws -> UserLibraryItem {
+        try create(name: name, description: description) { destination in
+            let fm = FileManager.default
+            let slug = destination.lastPathComponent
+            try markdown.write(to: destination.appendingPathComponent("\(slug).md"), atomically: true, encoding: .utf8)
+            for asset in assets {
+                let source = assetsRoot.appendingPathComponent(asset).standardizedFileURL
+                let target = destination.appendingPathComponent(asset).standardizedFileURL
+                guard !asset.hasPrefix("/"),
+                      source.path.hasPrefix(assetsRoot.standardizedFileURL.path + "/"),
+                      target.path.hasPrefix(destination.standardizedFileURL.path + "/"),
+                      fm.fileExists(atPath: source.path) else { continue }
+                try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+                if !fm.fileExists(atPath: target.path) { try fm.copyItem(at: source, to: target) }
+            }
+        }
+    }
+
+    /// Makes a new item folder with a unique name, lets `populate` fill it, then writes the manifest and checks
+    /// the item has a document. The folder is removed when anything fails.
+    private func create(name: String, description: String, populate: (URL) throws -> Void) throws -> UserLibraryItem {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LibraryError.emptyName }
+        let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let existing = Set((try? fm.contentsOfDirectory(atPath: directory.path)) ?? [])
         let destination = directory.appendingPathComponent(Self.folderName(for: trimmed, avoiding: existing))
         do {
-            if isDirectory {
-                try fm.copyItem(at: source, to: destination)
-            } else {
-                try fm.createDirectory(at: destination, withIntermediateDirectories: true)
-                try fm.copyItem(at: source, to: destination.appendingPathComponent(source.lastPathComponent))
-            }
+            try fm.createDirectory(at: destination, withIntermediateDirectories: false)
+            try populate(destination)
             let manifest = LibraryManifest(name: trimmed, description: description)
             try Self.encoder.encode(manifest).write(to: destination.appendingPathComponent(UserLibraryItem.manifestName))
             let item = UserLibraryItem(url: destination, manifest: manifest)
