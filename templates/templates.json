@@ -1,0 +1,20 @@
+[
+  {
+    "folder": "readme-github",
+    "name": "GitHub README",
+    "description": "A project README with a badge block and suggested sections.",
+    "file": "readme-github.md"
+  },
+  {
+    "folder": "skill-claude",
+    "name": "Claude Skill",
+    "description": "An agent skill with front matter and standard sections.",
+    "file": "skill-claude.md"
+  },
+  {
+    "folder": "blog-post-ghost",
+    "name": "Ghost Blog Post",
+    "description": "A blog post with front matter for Ghost and instructions for each field.",
+    "file": "blog-post-ghost.md"
+  }
+]

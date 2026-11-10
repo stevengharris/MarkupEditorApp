@@ -55,7 +55,8 @@ MarkupEditorApp/
       SourceView.swift         - Source view panel
       AppToolbarView.swift     - Main window toolbar
       SourceToolbarView.swift  - Source view toolbar
-    Info/                      - Log and plugin-related UI
+    Info/                      - Info sidebar: log, plugin, and template management UI
+    Template/                  - UI associated with adding and choosing Templates
     Insert Dialogs/            - Native macOS dialogs for inserting links, images, and tables
     Settings/                  - App settings UI including general behavior, toolbar, and keymapping, as well as plugins
     Welcome/                   - First-launch welcome flow
@@ -65,11 +66,13 @@ MarkupEditorApp/
     SyntaxHighlighter.swift    - Source view syntax highlighting
     Metadata/                  - YAML frontmatter parsing/encoding
   Extensions/                  - Base class extensions
-MarkupEditorAppLib/            - Local Swift package (own Package.swift) with two targets: MarkupEditorAppLib (plugin/codeview/exporter management, Markdown conversion, and the Control layer backing assistant content-editing tools) and MarkupEditorMCP (the MCP server exposing those tools).
+MarkupEditorAppLib/            - Local Swift package (own Package.swift) with two targets: MarkupEditorAppLib (plugin/codeview/exporter management, Markdown conversion, user-content libraries such as templates, and the Control layer backing assistant content-editing tools) and MarkupEditorMCP (the MCP server exposing those tools).
+MarkupEditorAppTests/          - Swift Testing suites for the app target
 MarkupEditorCLI/               - `markup` CLI tool target; embedded in the app bundle, shipped via signed .pkg
 markupeditor-app/              - JavaScript project loaded as a userScript to support Markdown and more
 plugin-kit/                    - Shared JavaScript workspace package every plugin builds and tests with (rollup/vitest config, frontmatter, images, export, register helpers)
 plugins/                       - JavaScript plugin projects for codeviews and exporters (Mermaid, GeoJSON, HTML front matter, metadata, DocX, EPUB) + plugins.json for discovery
+templates/                     - Built-in templates seeded into the user's templates folder at launch. See its README.md
 skills/                        - Agent Skills (SKILL.md) covering the three-repo architecture and plugin-authoring conventions, for any AI tool that supports the format
 ```
 
