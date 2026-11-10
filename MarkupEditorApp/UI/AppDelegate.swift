@@ -239,12 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     @objc private func showAboutPanel(_ sender: Any?) {
-        // .version defaults to CFBundleVersion and would otherwise append its own
-        // "(1)" after versionString's already-included build number.
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationVersion: MarkupEditorApp.versionString,
-            .version: ""
-        ])
+        NotificationCenter.default.post(name: .menuShowAbout, object: nil)
     }
 
     @objc private func openRecentDocument(_ sender: NSMenuItem) {

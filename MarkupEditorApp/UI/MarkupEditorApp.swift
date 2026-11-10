@@ -16,6 +16,8 @@ struct MarkupEditorApp: App {
     static let hasSeenWelcomeKey = "hasSeenWelcomeKey"
     /// Scene id of the document window, which is also its `NSWindow` identifier.
     static let mainWindowID = "main"
+    /// Scene id of the About window.
+    static let aboutWindowID = "about"
     
     static var versionString: String { BuildVariant.versionString }
     
@@ -51,6 +53,12 @@ struct MarkupEditorApp: App {
         }
         .defaultSize(width: 500, height: 400)
         .windowResizability(.automatic)
+        Window("About MarkupEditor", id: Self.aboutWindowID) {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(.suppressed)
         Window("MarkupEditor", id: "welcome") {
             WelcomeView()
                 .environment(editLog)

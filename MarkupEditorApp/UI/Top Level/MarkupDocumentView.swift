@@ -25,6 +25,7 @@ struct MarkupDocumentView: View {
     
     @Environment(EditLog.self) private var editLog
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
     
     @ObservedObject var selectImage = MarkupEditor.selectImage
     
@@ -194,7 +195,7 @@ struct MarkupDocumentView: View {
             let names: [Notification.Name] = [
                 .menuNewDocument, .menuNewFromTemplate, .menuSaveAsTemplate, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuToggleSource, .menuShowSettings,
-                .menuOpenRecentDocument, .openDocumentURL, .menuExport,
+                .menuOpenRecentDocument, .openDocumentURL, .menuExport, .menuShowAbout, .showReleaseNotes,
                 .menuQuitApplication, NSWindow.willCloseNotification,
             ]
             await withTaskGroup(of: Void.self) { group in
@@ -428,6 +429,10 @@ struct MarkupDocumentView: View {
             await handleToggleSource()
         case .menuShowSettings:
             openSettings()
+        case .menuShowAbout:
+            openWindow(id: MarkupEditorApp.aboutWindowID)
+        case .showReleaseNotes:
+            await handleShowReleaseNotes()
         case .menuOpenRecentDocument, .openDocumentURL:
             guard let url = notification.object as? URL else { return }
             await handleOpenRecent(url: url)
@@ -525,6 +530,31 @@ struct MarkupDocumentView: View {
             NSApplication.shared.mainWindow?.representedURL = nil
         } catch {
             reportFailure("The template \(item.manifest.name) could not be opened: \(error.localizedDescription)")
+        }
+    }
+
+    /// Open the release notes bundled with the app as an untitled document, after dealing with unsaved
+    /// changes. Saving it asks for a location instead of writing back to the bundle.
+    private func handleShowReleaseNotes() async {
+        openWindow(id: MarkupEditorApp.mainWindowID)
+        guard await checkSave() else { return }
+        guard let webView = MarkupEditor.selectedWebView,
+              let url = Bundle.main.url(forResource: "release-notes", withExtension: "md") else {
+            reportFailure("The release notes could not be found.")
+            return
+        }
+        clearPendingSelectionRestoreState()
+        do {
+            let markdown = try String(contentsOf: url, encoding: .utf8)
+            let (html, metadata) = try await importMarkdown(markdown, in: webView)
+            await webView.emptyDocument()
+            document.reset()
+            document.openUntitled(markdown: markdown, metadata: metadata)
+            try setHTML(document.seedMetadataBlock(in: html))
+            currentSource = markdown
+            NSApplication.shared.mainWindow?.representedURL = nil
+        } catch {
+            reportFailure("The release notes could not be opened: \(error.localizedDescription)")
         }
     }
 

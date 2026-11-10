@@ -20,6 +20,8 @@ extension Notification.Name {
     static let menuToggleSource = Notification.Name("menuToggleSource")
     /// Posted with the URL of a document to open after the usual check for unsaved changes.
     static let openDocumentURL = Notification.Name("openDocumentURL")
+    static let menuShowAbout = Notification.Name("menuShowAbout")
+    static let showReleaseNotes = Notification.Name("showReleaseNotes")
     static let menuOpenRecentDocument = Notification.Name("menuOpenRecentDocument")
     static let menuShowSettings = Notification.Name("menuShowSettings")
     static let dismissSettings = Notification.Name("dismissSettings")
