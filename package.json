@@ -4,6 +4,9 @@
   "engines": {
     "node": "^24.15.0"
   },
+  "scripts": {
+    "new-plugin": "node plugins/new-plugin.mjs"
+  },
   "workspaces": [
     "markupeditor-app",
     "plugin-kit",

@@ -42,7 +42,14 @@ You can write, build, test, and try a plugin with Node alone, without changing t
 
 **1. Set up.** Fork the repository, clone your fork, and run `npm install` once from the repository root. It links every plugin and `plugin-kit` as workspace packages.
 
-**2. Create the plugin.** Make a directory `plugins/<type>-<name>/`, such as `plugins/exporter-latex/`, holding a `package.json`, `rollup.config.mjs`, `vitest.config.js`, a `src/` directory, and `test/registration-contract.test.js`. Each of the first three is a few lines, and the [package.json metadata](#packagejson-metadata) below defines the plugin's identity. The skill in [`skills/writing-markupeditor-plugins`](../skills/writing-markupeditor-plugins/SKILL.md) has the contents of each file. It is plain Markdown, so you can read it as a guide even if you do not use an AI assistant. The reference plugins above are complete working examples of each type. Run `npm install` from the repository root again after adding the directory.
+**2. Create the plugin.** From the repository root, run one of:
+
+```bash
+npm run new-plugin -- --type exporter --name LaTeX --ext tex
+npm run new-plugin -- --type codeview --name Graphviz
+```
+
+This creates `plugins/exporter-latex/` (or `plugins/codeview-graphviz/`) with a `package.json`, `rollup.config.mjs`, `vitest.config.js`, a stub in `src/`, a `README.md`, and the registration contract test. An exporter also gets a small test of its stub. The stub builds and passes its tests as generated. Run `npm install` from the repository root to link the new directory, then edit `src/` and the `description`, `author` and `version` in `package.json`. The [package.json metadata](#packagejson-metadata) below defines the plugin's identity. The skill in [`skills/writing-markupeditor-plugins`](../skills/writing-markupeditor-plugins/SKILL.md) explains each of these files. It is plain Markdown, so you can read it as a guide even if you do not use an AI assistant. The reference plugins above are complete working examples of each type.
 
 **3. Build.** From the plugin's directory, run `npm run build`. This writes the plugin to `dist/<type>-<name>.js`, which is the file the app installs. The `dist/` file is committed, so it is part of your pull request.
 

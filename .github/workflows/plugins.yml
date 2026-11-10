@@ -60,7 +60,7 @@ jobs:
         for dir in plugins/*/; do
           npm test --workspace "${dir%/}" --if-present || status=1
         done
-        npx vitest run plugins/generate-plugins-json.test.mjs || status=1
+        npx vitest run plugins/generate-plugins-json.test.mjs plugins/new-plugin.test.mjs || status=1
         exit $status
 
     # Checks every plugin's metadata. The maintainer commits the regenerated plugins.json after a merge.

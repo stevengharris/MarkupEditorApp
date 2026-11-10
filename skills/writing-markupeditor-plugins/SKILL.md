@@ -38,6 +38,8 @@ The editor loads plugins by `import()`ing each file listed in its `plugins` attr
 
 ## Creating a Plugin
 
+Run `npm run new-plugin -- --type <exporter|codeview> --name <Name> [--ext <ext>]` from the repo root. It writes every file below (and a stub that builds and passes its tests), refuses a directory that already exists, and prints the next steps. Run `npm install` afterwards to link the new directory. The rest of this section explains what it wrote.
+
 A plugin directory holds four small files of configuration next to its `src/` and `test/`. Nothing in them is copied from another plugin, and none of them types the plugin's name or type.
 
 **`package.json`** -- the only place the plugin's identity is written (details below):
