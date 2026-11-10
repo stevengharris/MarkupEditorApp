@@ -71,6 +71,16 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA26731B30A3863A00AEFE4B /* Exceptions for "templates" folder in "MarkupEditorApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"blog-post-ghost.md",
+				"readme-github.md",
+				"skill-claude.md",
+				templates.json,
+			);
+			target = AA7B99962F9290DF0085425B /* MarkupEditorApp */;
+		};
 		AA83FAD0302E517C0034CD46 /* Exceptions for "markupeditor-app" folder in "MarkupEditorApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -99,6 +109,14 @@
 		AA263638309BA12400AEFE4B /* images */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = images;
+			sourceTree = "<group>";
+		};
+		AA26731330A3843B00AEFE4B /* templates */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA26731B30A3863A00AEFE4B /* Exceptions for "templates" folder in "MarkupEditorApp" target */,
+			);
+			path = templates;
 			sourceTree = "<group>";
 		};
 		AA3F963D302A516B00FB96C9 /* MarkupEditorCLI */ = {
@@ -200,6 +218,7 @@
 				AA83FACE302E516F0034CD46 /* markupeditor-app */,
 				AA8327AF302E47F80034CD46 /* plugins */,
 				AAE62565304B3BCD00692635 /* skills */,
+				AA26731330A3843B00AEFE4B /* templates */,
 				AAAB554B3059E78400BEAEE2 /* Config */,
 				AADAE3AB306487BA006863E3 /* Frameworks */,
 				AA7B99982F9290DF0085425B /* Products */,
