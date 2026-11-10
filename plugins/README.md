@@ -56,6 +56,8 @@ You can write, build, test, and try a plugin with Node alone, without changing t
 * A `version` in `package.json`, which the catalog shows and the app compares to offer updates (see [Versions](#versions)).
 * The updated `package-lock.json`, which `npm install` produces.
 
+A GitHub Actions workflow runs on pull requests that change `plugins/` or `plugin-kit/`. It installs the dependencies from `package-lock.json`, rebuilds every plugin and fails if a committed `dist/` file differs from the fresh build, runs the tests for `plugin-kit` and each plugin, and validates every plugin's metadata. To check the same things before you push, run `npm ci`, then `npm run build` and `npm test` in your plugin, and `git status` to confirm nothing in `dist/` changed.
+
 You do not need to edit `plugins/plugins.json`. After a plugin is merged, the maintainer regenerates it, as described in [Publishing plugins.json](#publishing-pluginsjson), and the plugin then appears in the catalog and on the [web site](https://markupeditor.app/plugins/). Everything up to that point you can try yourself. The web site is the one part you cannot test, which is why the regeneration step is the maintainer's.
 
 ## Testing

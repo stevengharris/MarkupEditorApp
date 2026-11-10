@@ -1,0 +1,68 @@
+name: Plugins
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'plugins/**'
+      - 'plugin-kit/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
+      - '.github/workflows/plugins.yml'
+  workflow_dispatch:
+
+# A newer run for the same pull request replaces an older one that is still queued or running.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Needs no secrets, so it also runs for pull requests from forks. markupeditor-app's tests are not
+# run here: they load the editor bundle from a sibling MarkupEditor checkout.
+jobs:
+  plugins:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: '.nvmrc'
+
+    # Fails when package-lock.json does not match the package.json files.
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build the plugins
+      run: |
+        for dir in plugins/*/; do
+          npm run build --workspace "${dir%/}" --if-present
+        done
+
+    # The built file in dist/ is committed and is what the app installs, so it must match the source.
+    - name: Check the built files are current
+      run: |
+        if [ -n "$(git status --porcelain -- plugins)" ]; then
+          git status --short -- plugins
+          echo "::error::A plugin's dist/ file differs from a fresh build. Run 'npm run build' in the plugin and commit dist/."
+          exit 1
+        fi
+
+    - name: Test plugin-kit and the plugins
+      run: |
+        status=0
+        npm test --workspace plugin-kit || status=1
+        for dir in plugins/*/; do
+          npm test --workspace "${dir%/}" --if-present || status=1
+        done
+        npx vitest run plugins/generate-plugins-json.test.mjs || status=1
+        exit $status
+
+    # Checks every plugin's metadata. The maintainer commits the regenerated plugins.json after a merge.
+    - name: Validate plugin metadata
+      run: node plugins/generate-plugins-json.mjs
