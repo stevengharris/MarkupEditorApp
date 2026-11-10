@@ -8,6 +8,8 @@ A plugin is a JavaScript module that the MarkupEditor loads when it opens. Every
   * Note: The editor supports HTML and PDF export at installation. While these options show up in the File->Export menu for a more consistent user experience, they are not themselves packaged or loaded as exporter plugins.
 * A **CodeView** displays the contents of a code block based on the language in that code block.
 
+If you want to write a plugin and contribute it, start with [Contributing a Plugin](#contributing-a-plugin).
+
 ## Plugin API
 
 Besides its name and type properties, an exporter exposes a run method that can be invoked from Swift using `MU.runPlugin(name).` A codeview has no run method and registers from `install()` instead.
@@ -26,13 +28,35 @@ registerExporter(pkg.markupeditor, { run })   // exporters register at module lo
 
 ## Reference Plugins
 
-The DocX and EPUB Exporters and the Mermaid diagram CodeView are provided as fully supported examples yplou can use to model your own plugins on.
+The DocX and EPUB Exporters and the Mermaid diagram CodeView are provided as fully supported examples you can use to model your own plugins on.
 
 > [DocX Exporter](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-docx)
 
 > [EPUB Exporter](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/exporter-epub)
 
 > [Mermaid Diagrams](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins/codeview-mermaid)
+
+## Contributing a Plugin
+
+You can write, build, test, and try a plugin with Node alone, without changing the app. You need a fork of this repository, Node 24 (see `.nvmrc`), and a MarkupEditor app to try the plugin in, either installed from the [downloads page](https://markupeditor.app/downloads) or built from this repository.
+
+**1. Set up.** Fork the repository, clone your fork, and run `npm install` once from the repository root. It links every plugin and `plugin-kit` as workspace packages.
+
+**2. Create the plugin.** Make a directory `plugins/<type>-<name>/`, such as `plugins/exporter-latex/`, holding a `package.json`, `rollup.config.mjs`, `vitest.config.js`, a `src/` directory, and `test/registration-contract.test.js`. Each of the first three is a few lines, and the [package.json metadata](#packagejson-metadata) below defines the plugin's identity. The skill in [`skills/writing-markupeditor-plugins`](../skills/writing-markupeditor-plugins/SKILL.md) has the contents of each file. It is plain Markdown, so you can read it as a guide even if you do not use an AI assistant. The reference plugins above are complete working examples of each type. Run `npm install` from the repository root again after adding the directory.
+
+**3. Build.** From the plugin's directory, run `npm run build`. This writes the plugin to `dist/<type>-<name>.js`, which is the file the app installs. The `dist/` file is committed, so it is part of your pull request.
+
+**4. Try it in the app.** Open MarkupEditor and go to the Plugins tab in the side panel. Use the + button for your plugin's type (Exporters or CodeViews), choose the file in `dist/`, and confirm the name the app reads from the plugin's banner. An exporter then appears in File > Export, and a codeview takes effect for code blocks in its language. Rebuilding does not update a copy the app has already installed. After each rebuild, add the file again: adding a plugin with the same name replaces the installed copy and reloads the editor, so there is no need to restart.
+
+**5. Test.** From the plugin's directory, run `npm test`. The registration contract test checks that the built file, `package.json`, and what the plugin registers all agree. Add tests for the plugin's own behavior as described in [Testing](#testing). Run `npm test --workspaces` from the repository root to run every project's tests.
+
+**6. Open a pull request.** Include:
+
+* The plugin directory, with its built `dist/` file, and a `README.md` that says what the plugin does and how to use it.
+* A `version` in `package.json`, which the catalog shows and the app compares to offer updates (see [Versions](#versions)).
+* The updated `package-lock.json`, which `npm install` produces.
+
+You do not need to edit `plugins/plugins.json`. After a plugin is merged, the maintainer regenerates it, as described in [Publishing plugins.json](#publishing-pluginsjson), and the plugin then appears in the catalog and on the [web site](https://markupeditor.app/plugins/). Everything up to that point you can try yourself. The web site is the one part you cannot test, which is why the regeneration step is the maintainer's.
 
 ## Testing
 

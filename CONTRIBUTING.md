@@ -84,6 +84,8 @@ The part that will seem unusual for many Swift developers is the mixture of Swif
 
 The plugins to support exporters and codeviews (e.g., Mermaid and GeoJSON) are also written in JavaScript, and these dependencies have to be brought in to the MarkupEditorApp package. The document you are editing when using the app is, ultimately, a `contentEditable` div inside of a WKWebView, and all of the JavaScript is loaded as ES modules into that view.
 
+If you want to contribute a plugin, see [Contributing a Plugin](https://github.com/stevengharris/MarkupEditorApp/tree/main/plugins#contributing-a-plugin) in the Plugins README. You can build and try a plugin with Node and the installed app, without building the app yourself.
+
 Life would be simpler if the Swift Package Manager provided a way to express a dependency on a JavaScript package, but this is not the case. Every JavaScript dependency required in the chain produces a `dist` artifact using `npm build` and `rollup`. To ensure that what you build is up-to-date, the Xcode build process uses a script Build Phase to build the JavaScript dependencies and produce the `dist` artifact ES bundles that are loaded into the WKWebView at runtime. Mixing Swift and JavaScript is, admittedly, kind of complicated and drags you across a broad toolchain that you may not be familiar with.
 
 You don't need to know anything about the JavaScript toolchain just to work in the Swift app proper. However, if you want to work in the WYSIWYG editing area, you will have to venture into the Swift MarkupEditor and perhaps into the JavaScript markupeditor-base. If you want to work on a plugin, you will also be exposed to markupeditor-base and even ProseMirror. 
