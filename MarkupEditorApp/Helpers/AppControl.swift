@@ -7,10 +7,7 @@ import AppKit
 import MarkupEditor
 import MarkupEditorAppLib
 import Observation
-import os
 internal import WebKit
-
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorApp", category: "Control")
 
 /// Lets an assistant, through `markup mcp`, read and edit the open document once the user allows it.
 /// Listens on a socket inside the app container only while the Assistants setting is on. Each
@@ -37,6 +34,7 @@ final class AppControl {
     var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
+            EditLog.shared.info(isEnabled ? "AI assistants enabled" : "AI assistants disabled", category: "Control")
             reconcile()
             if isEnabled { Task { await refreshPendingSuggestions() } } else { pendingSuggestions = 0; suggestionSelected = false }
         }
@@ -206,6 +204,7 @@ final class AppControl {
 
     func allow(_ client: ClientIdentity, _ access: ClientAccess) {
         store.save(access, for: client)
+        Self.logDecision(access, for: client)
         approvals = store.approvals()
     }
 
@@ -214,11 +213,22 @@ final class AppControl {
         approvals = store.approvals()
     }
 
+    /// Records an allow or deny decision, naming the program but not its path.
+    private static func logDecision(_ access: ClientAccess, for client: ClientIdentity) {
+        let name = displayed(client.name)
+        switch access {
+        case .undecided: break
+        case .denied: EditLog.shared.info("Denied \(name) access to MarkupEditor", category: "Control")
+        case .read: EditLog.shared.info("Allowed \(name) to read documents", category: "Control")
+        case .readWrite: EditLog.shared.info("Allowed \(name) to read and edit documents", category: "Control")
+        }
+    }
+
     private func startListening() {
         guard server == nil else { return }
         startupProblem = nil
         guard let tool = Self.bundledToolURL, let requirement = CodeSignaturePeerVerifier.designatedRequirement(ofCodeAt: tool) else {
-            logger.error("Control channel not started: the bundled markup tool's signature could not be read")
+            EditLog.shared.error("Control channel not started: the bundled markup tool's signature could not be read", category: "Control")
             startupProblem = "The command line tool inside MarkupEditor could not be verified."
             return
         }
@@ -238,7 +248,7 @@ final class AppControl {
             try server.start()
             self.server = server
         } catch {
-            logger.error("Control channel not started: \(error.localizedDescription, privacy: .public)")
+            EditLog.shared.error("Control channel not started: \(error.localizedDescription)", category: "Control")
             startupProblem = "Assistants could not connect: \(error.localizedDescription)"
         }
     }
@@ -260,6 +270,7 @@ final class AppControl {
     private func makeAuthorizer() -> ControlAuthorizing {
         let authorizer = ControlAuthorizer(store: store, isEnabled: { [weak self] in self?.isEnabled ?? false }) { [weak self] client in
             let choice = Self.ask(about: client)
+            Self.logDecision(choice, for: client)
             self?.approvals = self?.store.approvals() ?? []
             return choice
         }
