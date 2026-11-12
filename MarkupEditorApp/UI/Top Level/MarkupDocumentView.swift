@@ -124,7 +124,7 @@ struct MarkupDocumentView: View {
                 }
             },
             right: {
-                InfoView()
+                InfoView(infoHide: infoHide)
             }
         )
         .fraction(docFraction)
@@ -317,7 +317,7 @@ struct MarkupDocumentView: View {
                 url: $doc.url,
                 toolbarConfigJSON: $toolbarConfigJSON,
                 markupConfiguration: $markupConfiguration,
-                infoHide: $infoHide
+                infoHide: infoHide
             )
         }
     }
@@ -454,7 +454,7 @@ struct MarkupDocumentView: View {
     private func handleNew() async {
         guard let webView = MarkupEditor.selectedWebView else { return }
         guard await checkSave() else { return }
-        editLog.info("Opening a new document")
+        editLog.info("Opening a new document", category: "Document")
         clearPendingSelectionRestoreState()
         // Not routed through seedMetadataBlock/setHTML: document.metadata is empty again
         // immediately after document.reset() below, so seeding would be a no-op, while
@@ -498,7 +498,7 @@ struct MarkupDocumentView: View {
         do {
             let item = try UserLibrary.templates.add(
                 markdown: request.markdown, name: name, description: description, assets: request.assets, from: baseUrl)
-            editLog.info("Saved the template \(item.manifest.name)")
+            editLog.info("Saved the template \(item.manifest.name)", category: "Template")
             NotificationCenter.default.post(name: .templatesDidChange, object: nil)
         } catch {
             reportFailure("Could not save the template: \(error.localizedDescription)")
@@ -511,7 +511,7 @@ struct MarkupDocumentView: View {
     /// before the editor is emptied, so a failure leaves the current document alone.
     private func handleNewFromTemplate(_ item: UserLibraryItem) async {
         guard let webView = MarkupEditor.selectedWebView else { return }
-        editLog.info("Opening a new document from the \(item.manifest.name) template")
+        editLog.info("Opening a new document from the \(item.manifest.name) template", category: "Template")
         clearPendingSelectionRestoreState()
         do {
             let documentURL = try item.documentURL()
@@ -622,7 +622,7 @@ struct MarkupDocumentView: View {
         do {
             try document.copyImageAssets(srcs: [src], from: scopedParent, to: cacheUrl, skipMissing: true, replaceExisting: true)
         } catch {
-            editLog.error("Error copying image \(src): \(error.localizedDescription)")
+            editLog.error("Error copying image \(src): \(error.localizedDescription)", category: "Document")
         }
     }
 
@@ -743,7 +743,7 @@ struct MarkupDocumentView: View {
     
     /// For now, just show an error in the log, but in longer run, show notification breadcrumbs
     private func showError(_ message: String) {
-        editLog.error(message)
+        editLog.error(message, category: "Document")
     }
 
     /// Logs `message` and tells the user, for something they just asked for that did not happen.
@@ -816,7 +816,7 @@ struct MarkupDocumentView: View {
         // clears it when no block is found.
         var metadataWarnings: [String] = []
         document.syncMetadata(fromHTML: html, warnings: &metadataWarnings)
-        editLog.warnings(metadataWarnings)
+        editLog.warnings(metadataWarnings, context: "Reading the document metadata", category: "Document")
         if document.isHTMLish {
             document.setSource(html)
             currentSource = html
@@ -876,7 +876,7 @@ struct MarkupDocumentView: View {
             // The document moved on while waiting, so this event is stale.
             guard document.url == currentURL else { return }
             if !FileManager.default.fileExists(atPath: currentURL.path(percentEncoded: false)) {
-                editLog.info("\(currentURL.lastPathComponent) was deleted; the document is now untitled")
+                editLog.info("\(currentURL.lastPathComponent) was deleted; the document is now untitled", category: "Document")
                 document.detachFromFile()
                 NSApplication.shared.mainWindow?.representedURL = nil
                 return
@@ -891,11 +891,11 @@ struct MarkupDocumentView: View {
             alert.addButton(withTitle: "Keep My Changes")
             alert.alertStyle = .warning
             guard alert.runModal() == .alertFirstButtonReturn else {
-                editLog.info("\(currentURL.lastPathComponent) changed on disk; keeping unsaved changes")
+                editLog.info("\(currentURL.lastPathComponent) changed on disk; keeping unsaved changes", category: "Document")
                 return
             }
         }
-        editLog.info("\(currentURL.lastPathComponent) changed on disk; reloading")
+        editLog.info("\(currentURL.lastPathComponent) changed on disk; reloading", category: "Document")
         await openDocument(at: currentURL)
     }
 
@@ -921,7 +921,7 @@ struct MarkupDocumentView: View {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
         grantParentAccessIfNeeded(for: url)
-        editLog.info("Opening \(url.path())")
+        editLog.info("Opening \(url.path())", category: "Document")
         
         // Open the specific kind of document
         do {
@@ -1016,7 +1016,7 @@ struct MarkupDocumentView: View {
         } else {
             metadata = []
         }
-        editLog.warnings(warnings)
+        editLog.warnings(warnings, context: "Importing Markdown", category: "Document")
         return (converted.result, metadata)
     }
 
@@ -1044,7 +1044,15 @@ struct MarkupDocumentView: View {
                 html = currentSource
             } else {
                 markdown = currentSource
-                html = try? await getHTML(from: currentSource)
+                do {
+                    html = try await getHTML(from: currentSource)
+                } catch is CancellationError {
+                    // A cancelled conversion is not a failure to report.
+                } catch {
+                    // The converter's message can quote the document, so only the system log gets it.
+                    errorLogger.error("HTML conversion failed: \(error.localizedDescription)")
+                    editLog.warning("The HTML for the document could not be produced from its Markdown", category: "Document")
+                }
             }
         } else if let htmlContents = await webView.getHtml() {
             html = htmlContents
@@ -1052,9 +1060,16 @@ struct MarkupDocumentView: View {
             // visited the app's own Source view this session. No-op when no block is found.
             var metadataWarnings: [String] = []
             document.syncMetadata(fromHTML: htmlContents, warnings: &metadataWarnings)
-            editLog.warnings(metadataWarnings)
+            editLog.warnings(metadataWarnings, context: "Reading the document metadata", category: "Document")
             if !document.isHTMLish {
-                markdown = (try? await getMarkdown(from: htmlContents, preserve: true)).map { document.injectYAMLFrontMatter(into: $0, preserve: true) }
+                do {
+                    markdown = document.injectYAMLFrontMatter(into: try await getMarkdown(from: htmlContents, preserve: true), preserve: true)
+                } catch is CancellationError {
+                    // A cancelled conversion is not a failure to report.
+                } catch {
+                    errorLogger.error("Markdown conversion failed: \(error.localizedDescription)")
+                    editLog.warning("The Markdown for the document could not be produced", category: "Document")
+                }
             }
         }
         return (html: html, markdown: markdown)
@@ -1068,7 +1083,7 @@ struct MarkupDocumentView: View {
         }
         let options = preserve ? MarkdownExportOptions.preserving(tag: document.sourceMapTag) : nil
         let converted = try await MarkupConverter.exportMarkdownDecoded(webView, content: html, options: options)
-        editLog.warnings(converted.warnings)
+        editLog.warnings(converted.warnings, context: "Converting to Markdown", category: "Document")
         return converted.result
     }
 
@@ -1085,7 +1100,7 @@ struct MarkupDocumentView: View {
         if let yamlString = converted.metadata {
             document.metadata = YAMLMetadata.parse(yamlString, warnings: &warnings)
         }
-        editLog.warnings(warnings)
+        editLog.warnings(warnings, context: "Converting from Markdown", category: "Document")
         return document.seedMetadataBlock(in: converted.result)
     }
     
@@ -1134,7 +1149,7 @@ struct MarkupDocumentView: View {
             // before reaching it) -- clear the flag so a later external change to this url
             // isn't silently swallowed by a stale "ignore next" left over from here.
             ignoreNextExternalFileChange = false
-            editLog.error("Error saving: \(error.localizedDescription)")
+            editLog.error("Error saving: \(error.localizedDescription)", category: "Document")
             document.url = oldURL
         }
     }
@@ -1213,19 +1228,19 @@ struct MarkupDocumentView: View {
             case .pdf:
                 let data = try await webView.exportPDF()
                 try data.write(to: url)
-                editLog.info("PDF exported to: \(url.path)")
+                editLog.info("PDF exported to: \(url.path)", category: "Export")
             case .html:
                 guard let editorHtml = await webView.getHtml() else { throw MarkupDocumentError.noHTMLSource }
                 let html = await webView.tightenHtml(editorHtml) ?? editorHtml
                 try document.exportHtml(html: html, to: url, srcs: localImages, baseUrl: webView.baseUrl, embedImages: embedImages.state == .on)
-                editLog.info("HTML exported to: \(url.path)")
+                editLog.info("HTML exported to: \(url.path)", category: "Export")
             case nil:
                 let exportStart = Date()
                 let (outputData, warnings) = try await MarkupConverter.runExporterDecoded(webView, name: plugin.name)
                 let exportElapsed = Date().timeIntervalSince(exportStart)
-                editLog.warnings(warnings)
+                editLog.warnings(warnings, context: "Exporting with \(plugin.name)", category: "Export")
                 try outputData.write(to: url)
-                editLog.info("\(plugin.name) exported to: \(url.path(percentEncoded: false)), \(outputData.count) bytes, \(String(format: "%.2f", exportElapsed))s")
+                editLog.info("\(plugin.name) exported to: \(url.path(percentEncoded: false)), \(outputData.count) bytes, \(String(format: "%.2f", exportElapsed))s", category: "Export")
             }
         } catch {
             // Export errors, like open errors, need to be visible to the user, not just logged.
@@ -1254,7 +1269,7 @@ struct MarkupDocumentView: View {
             return nil
         }
         guard DocumentType.for(url: url) != nil else {
-            editLog.error("Invalid save path: \(url.path(percentEncoded: false))")
+            editLog.error("Invalid save path: \(url.path(percentEncoded: false))", category: "Document")
             return nil
         }
         return url
@@ -1409,7 +1424,7 @@ extension MarkupDocumentView: MarkupDelegate {
             registered: plugins
         )
         for problem in problems {
-            errorLogger.warning("Plugin registration: \(problem.description, privacy: .public)")
+            editLog.warning("Plugin registration: \(problem.description)", category: "Plugin", once: problem.logKey)
         }
     }
 

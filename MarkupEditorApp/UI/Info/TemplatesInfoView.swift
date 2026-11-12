@@ -230,9 +230,9 @@ struct TemplatesInfoView: View {
               draftName != item.manifest.name || draftDescription != item.manifest.description else { return }
         do {
             try library.update(item, name: draftName, description: draftDescription)
-            editLog.info("Updated the template \(draftName)")
+            editLog.info("Updated the template \(draftName)", category: "Template")
         } catch {
-            editLog.error("Could not update \(item.manifest.name): \(error.localizedDescription)")
+            editLog.error("Could not update \(item.manifest.name): \(error.localizedDescription)", category: "Template")
             fail("Could Not Rename Template", error.localizedDescription)
         }
         reload()
@@ -244,7 +244,7 @@ struct TemplatesInfoView: View {
         do {
             NotificationCenter.default.post(name: .openDocumentURL, object: try item.documentURL())
         } catch {
-            editLog.error("Could not edit \(item.manifest.name): \(error.localizedDescription)")
+            editLog.error("Could not edit \(item.manifest.name): \(error.localizedDescription)", category: "Template")
             fail("Could Not Edit Template", error.localizedDescription)
         }
     }
@@ -292,9 +292,9 @@ struct TemplatesInfoView: View {
         defer { url.stopAccessingSecurityScopedResource() }
         do {
             let item = try library.add(from: url, name: name, description: description)
-            editLog.info("Added the template \(item.manifest.name)")
+            editLog.info("Added the template \(item.manifest.name)", category: "Template")
         } catch {
-            editLog.error("Could not add a template from \(url.lastPathComponent): \(error.localizedDescription)")
+            editLog.error("Could not add a template from \(url.lastPathComponent): \(error.localizedDescription)", category: "Template")
             fail("Could Not Add Template", error.localizedDescription)
         }
         reload()
@@ -304,9 +304,9 @@ struct TemplatesInfoView: View {
         do {
             try library.delete(item)
             if selection == item.id { selection = nil }
-            editLog.info("Deleted the template \(item.manifest.name)")
+            editLog.info("Deleted the template \(item.manifest.name)", category: "Template")
         } catch {
-            editLog.error("Could not delete \(item.manifest.name): \(error.localizedDescription)")
+            editLog.error("Could not delete \(item.manifest.name): \(error.localizedDescription)", category: "Template")
             fail("Could Not Delete Template", error.localizedDescription)
         }
         reload()

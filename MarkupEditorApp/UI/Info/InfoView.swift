@@ -7,10 +7,14 @@
 
 import SwiftUI
 import MarkupEditor
+import SplitView
+import MarkupEditorAppLib
 
 struct InfoView: View {
 
-    @State private var infoType: InfoType
+    /// Shared with the toolbar, which selects Log when there is something unread.
+    @AppStorage(InfoType.storageKey) private var infoType: InfoType = .plugins
+    @ObservedObject var infoHide: SideHolder
     
     let height = ToolbarConfig.fromDefaults().toolbarHeight() - 1
     
@@ -32,7 +36,7 @@ struct InfoView: View {
             
             switch infoType {
             case .log:
-                LogInfoView()
+                LogInfoView(isVisible: infoHide.side == nil)
             case .plugins:
                 PluginsInfoView()
             case .templates:
@@ -42,17 +46,10 @@ struct InfoView: View {
             Spacer()
         }
         .clipped()  // Just clip all to avoid layout weirdness w/ very narrow SplitView
-        .onChange(of: infoType) {
-            UserDefaults.standard.set(infoType.rawValue, forKey: "infoType")
-        }
-    }
-    
-    init() {
-        let stored = UserDefaults.standard.string(forKey: "infoType") ?? InfoType.plugins.rawValue
-        _infoType = State(initialValue: InfoType(rawValue: stored) ?? .plugins)
     }
 }
 
 #Preview {
-    InfoView()
+    InfoView(infoHide: SideHolder())
+        .environment(EditLog())
 }
