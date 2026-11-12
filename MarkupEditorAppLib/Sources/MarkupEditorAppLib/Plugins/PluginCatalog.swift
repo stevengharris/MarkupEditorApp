@@ -4,9 +4,6 @@
 //
 
 import Foundation
-import OSLog
-
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "PluginCatalog")
 
 private let pluginsJSONURLString =
     "https://raw.githubusercontent.com/stevengharris/MarkupEditorApp/main/plugins/plugins.json"
@@ -81,16 +78,16 @@ public struct PluginCatalog: Decodable, Equatable, Sendable {
             switch wrapped.result {
             case .success(let entry):
                 guard entry.repo.hasPrefix("https://") else {
-                    logger.warning("Skipping plugin catalog entry \"\(name)\" in \"\(key.stringValue)\": repo is not an https:// URL")
+                    EditLog.record(.warning, "Skipping plugin catalog entry \"\(name)\" in \"\(key.stringValue)\": repo is not an https:// URL", category: "Plugin", once: "catalog:\(key.stringValue):\(name):repo")
                     continue
                 }
                 guard entry.source.hasPrefix("https://") else {
-                    logger.warning("Skipping plugin catalog entry \"\(name)\" in \"\(key.stringValue)\": source is not an https:// URL")
+                    EditLog.record(.warning, "Skipping plugin catalog entry \"\(name)\" in \"\(key.stringValue)\": source is not an https:// URL", category: "Plugin", once: "catalog:\(key.stringValue):\(name):source")
                     continue
                 }
                 entries[name] = entry
             case .failure(let error):
-                logger.warning("Skipping malformed plugin catalog entry \"\(name)\" in \"\(key.stringValue)\": \(error.localizedDescription)")
+                EditLog.record(.warning, "Skipping malformed plugin catalog entry \"\(name)\" in \"\(key.stringValue)\": \(error.localizedDescription)", category: "Plugin", once: "catalog:\(key.stringValue):\(name):\(error.localizedDescription)")
             }
         }
         return entries

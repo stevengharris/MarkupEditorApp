@@ -19,6 +19,16 @@ public enum PluginReconciliation {
         /// An exporter whose recorded extension differs from the one it registers.
         case extensionMismatch(name: String, recorded: String?, registered: String?)
 
+        /// Identifies the plugin and the kind of mismatch, so a repeat of one problem is told from a different problem
+        /// on the same plugin.
+        public var logKey: String {
+            switch self {
+            case .notRegistered(let name, let kind, _): "registration:\(kind):\(name):notRegistered"
+            case .unrecorded(let name, let kind): "registration:\(kind):\(name):unrecorded"
+            case .extensionMismatch(let name, _, _): "registration:exporter:\(name):extensionMismatch"
+            }
+        }
+
         public var description: String {
             switch self {
             case .notRegistered(let name, let kind, let registered):

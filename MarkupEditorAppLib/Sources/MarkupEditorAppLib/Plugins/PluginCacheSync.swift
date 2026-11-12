@@ -4,10 +4,7 @@
 //
 
 import Foundation
-import OSLog
 import MarkupEditor
-
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "PluginCacheSync")
 
 /// Copies registered plugin files from their persistent homes (`ExporterManager`/`CodeViewManager`'s
 /// Application Support directories) into the WKWebView's runtime cache directory, where
@@ -33,7 +30,7 @@ public enum PluginCacheSync {
         do {
             try fileManager.createDirectory(at: cacheDir, withIntermediateDirectories: true)
         } catch {
-            logger.error("Failed to create directory at \(cacheDir.path(percentEncoded: false)): \(error.localizedDescription)")
+            EditLog.record(.error, "Failed to create directory at \(cacheDir.path(percentEncoded: false)): \(error.localizedDescription)", category: "Plugin")
             return
         }
 
@@ -54,7 +51,7 @@ public enum PluginCacheSync {
                 }
                 try fileManager.copyItem(at: source, to: destination)
             } catch {
-                logger.error("Failed to sync \(filename) to cache: \(error.localizedDescription)")
+                EditLog.record(.error, "Failed to sync \(filename) to cache: \(error.localizedDescription)", category: "Plugin")
             }
         }
     }
@@ -69,7 +66,7 @@ public enum PluginCacheSync {
         do {
             try fileManager.removeItem(at: destination)
         } catch {
-            logger.error("Failed to remove \(filename) from cache: \(error.localizedDescription)")
+            EditLog.record(.error, "Failed to remove \(filename) from cache: \(error.localizedDescription)", category: "Plugin")
         }
     }
 

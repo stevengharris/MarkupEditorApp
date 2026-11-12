@@ -87,4 +87,19 @@ struct PluginReconciliationTests {
         #expect(PluginReconciliation.Problem.extensionMismatch(name: "DocX", recorded: "doc", registered: nil).description
                 == "exporter 'DocX' has extension 'doc' in Settings but registers none")
     }
+
+    @Test func logKeysNameThePluginAndTheKindOfMismatch() {
+        #expect(PluginReconciliation.Problem.notRegistered(name: "EPUB", kind: "exporter", registered: ["DocX"]).logKey
+                == "registration:exporter:EPUB:notRegistered")
+        #expect(PluginReconciliation.Problem.unrecorded(name: "EPUB", kind: "exporter").logKey
+                == "registration:exporter:EPUB:unrecorded")
+        #expect(PluginReconciliation.Problem.extensionMismatch(name: "DocX", recorded: "doc", registered: nil).logKey
+                == "registration:exporter:DocX:extensionMismatch")
+    }
+
+    @Test func logKeyIgnoresTheListOfRegisteredNames() {
+        let first = PluginReconciliation.Problem.notRegistered(name: "EPUB", kind: "codeview", registered: ["A"])
+        let second = PluginReconciliation.Problem.notRegistered(name: "EPUB", kind: "codeview", registered: ["A", "B"])
+        #expect(first.logKey == second.logKey)
+    }
 }

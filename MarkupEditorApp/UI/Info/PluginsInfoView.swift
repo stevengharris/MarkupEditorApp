@@ -242,7 +242,7 @@ struct PluginsInfoView: View {
             present(.confirm(PendingPlugin(url: url, banner: banner)))
         } catch {
             url.stopAccessingSecurityScopedResource()
-            editLog.error("Could not add \(url.lastPathComponent): \(error.localizedDescription)")
+            editLog.error("Could not add \(url.lastPathComponent): \(error.localizedDescription)", category: "Plugin")
             present(.failure(error.localizedDescription))
             addPluginType = nil
         }
@@ -276,18 +276,18 @@ struct PluginsInfoView: View {
         }
         addPluginType = nil
         if let failure {
-            editLog.error("Could not add \(banner.kind.displayName) \(banner.name): \(failure)")
+            editLog.error("Could not add \(banner.kind.displayName) \(banner.name): \(failure)", category: "Plugin")
             // Presented after this alert has finished dismissing, which would clear it.
             Task { present(.failure(failure)) }
         } else {
-            editLog.info("Added \(banner.kind.displayName) \(banner.name) from \(pending.url.path(percentEncoded: false))")
+            editLog.info("Added \(banner.kind.displayName) \(banner.name) from \(pending.url.path(percentEncoded: false))", category: "Plugin")
         }
     }
 
     // MARK: Uninstalling
 
     private func uninstall(_ request: UninstallRequest) {
-        editLog.info("Uninstalled \(request.type.logName) \(request.plugin.name)")
+        editLog.info("Uninstalled \(request.type.logName) \(request.plugin.name)", category: "Plugin")
         switch request.type {
         case .codeview:
             AppConfig.update { config in

@@ -3,6 +3,7 @@
 //  MarkupEditorApp
 //
 
+import AppKit
 import Foundation
 import Sparkle
 import MarkupEditorAppLib
@@ -78,7 +79,13 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     }
 
     func checkNow() {
-        guard gate.refusal(for: .manual, feed: feedURL) == nil else { return }
+        if let refusal = gate.refusal(for: .manual, feed: feedURL) {
+            let alert = NSAlert()
+            alert.messageText = "Can't check for updates"
+            alert.informativeText = UpdateLogFilter.refusalError(refusal).localizedDescription
+            alert.runModal()
+            return
+        }
         refreshSession()
         controller?.checkForUpdates(nil)
     }
@@ -96,6 +103,28 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     /// Sparkle records the check time itself, so observers must be told when a check ends.
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
         withMutation(keyPath: \.lastCheckDate) {}
+        let kind: UpdateLogFilter.Kind = switch updateCheck {
+        case .updates: .userStarted
+        case .updatesInBackground: .background
+        default: .information
+        }
+        switch UpdateLogFilter.action(kind: kind, error: error) {
+        case .skip: break
+        case .info(let message, let once): EditLog.record(.info, message, category: "Update", once: once)
+        case .error(let message, let once): EditLog.record(.error, message, category: "Update", once: once)
+        }
+    }
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        EditLog.record(.info, "Update found: version \(item.displayVersionString)", category: "Update")
+    }
+
+    func updater(_ updater: SPUUpdater, didDownloadUpdate item: SUAppcastItem) {
+        EditLog.record(.info, "Update downloaded: version \(item.displayVersionString)", category: "Update")
+    }
+
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        EditLog.record(.info, "Installing update: version \(item.displayVersionString)", category: "Update")
     }
 
     func updater(_ updater: SPUUpdater, willDownloadUpdate item: SUAppcastItem, with request: NSMutableURLRequest) {
@@ -106,11 +135,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         let kind: UpdateGate.Kind = updateCheck == .updatesInBackground ? .background : .manual
         if let refusal = gate.refusal(for: kind, feed: feedURL) {
-            throw NSError(domain: "com.stevengharris.MarkupEditorApp.updates", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: refusal == .notConnected
-                    ? "Updates require a connected markupeditor.app subscription."
-                    : "The update feed override is not a valid URL."
-            ])
+            throw UpdateLogFilter.refusalError(refusal)
         }
         refreshSession()
     }

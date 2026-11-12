@@ -33,9 +33,9 @@ struct CatalogInstaller {
                 config.recordCatalogInstall(key: versionKey(type, entry.name), version: entry.version)
                 config.pluginsRevision += 1
             }
-            log?.info("\(replacing ? "Updated" : "Installed") \(type.logName) \(entry.name) v\(entry.version) from the plugin catalog")
+            log?.info("\(replacing ? "Updated" : "Installed") \(type.logName) \(entry.name) v\(entry.version) from the plugin catalog", category: "Plugin")
         } catch {
-            log?.error("Could not install \(type.logName) \(entry.name): \(error.localizedDescription)")
+            log?.error("Could not install \(type.logName) \(entry.name): \(error.localizedDescription)", category: "Plugin")
             throw error
         }
     }
