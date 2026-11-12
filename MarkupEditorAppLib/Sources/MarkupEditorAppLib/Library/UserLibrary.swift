@@ -4,9 +4,6 @@
 //
 
 import Foundation
-import OSLog
-
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "UserLibrary")
 
 /// A kind of user content kept in a folder under Application Support, with one subfolder per item.
 /// Templates are the first kind.
@@ -35,7 +32,7 @@ public struct UserLibrary: Sendable {
                 _ = try item.documentURL()
                 items.append(item)
             } catch {
-                logger.warning("Skipping \(folder.lastPathComponent): \(error.localizedDescription)")
+                EditLog.record(.warning, "Skipping \(folder.lastPathComponent): \(error.localizedDescription)", category: "Template", once: "template:\(folder.lastPathComponent):\(error.localizedDescription)")
             }
         }
         return items.sorted { $0.manifest.name.localizedStandardCompare($1.manifest.name) == .orderedAscending }
@@ -298,7 +295,7 @@ public struct UserLibrary: Sendable {
     public static func builtIns(index: Data, data: (String) -> Data?) throws -> [BuiltIn] {
         try JSONDecoder().decode([BuiltInEntry].self, from: index).compactMap { entry in
             guard let document = data(entry.file) else {
-                logger.warning("Built-in \(entry.folder) is missing its file \(entry.file)")
+                EditLog.record(.warning, "Built-in \(entry.folder) is missing its file \(entry.file)", category: "Template")
                 return nil
             }
             return BuiltIn(
@@ -341,7 +338,7 @@ public struct UserLibrary: Sendable {
                 }
                 written.append(builtIn.folder)
             } catch {
-                logger.error("Could not seed \(builtIn.folder): \(error.localizedDescription)")
+                EditLog.record(.error, "Could not seed \(builtIn.folder): \(error.localizedDescription)", category: "Template")
                 try? fm.removeItem(at: destination)
             }
         }

@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 import MarkupEditor
 
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "ExporterManager")
+private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "Plugin")
 
 /// Manages the exporters directory under Application Support: first-launch setup, the built-in
 /// HTML and PDF exporters, add, delete, and membership checks.
@@ -84,7 +84,7 @@ public enum ExporterManager {
                 attributes: nil
             )
         } catch {
-            logger.error("Failed to create directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
+            EditLog.record(.error, "Failed to create directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)", category: "Plugin")
             return exporters
         }
 
@@ -99,7 +99,7 @@ public enum ExporterManager {
         do {
             return try install(name: name, url: source, ext: ext, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir)
         } catch {
-            logger.error("Failed to add exporter \(name): \(error.localizedDescription)")
+            EditLog.record(.error, "Failed to add exporter \(name): \(error.localizedDescription)", category: "Plugin")
             return exporters
         }
     }

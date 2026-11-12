@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 import MarkupEditor
 
-private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "CodeViewManager")
+private let logger = Logger(subsystem: "com.stevengharris.MarkupEditorAppLib", category: "Plugin")
 
 /// Manages the codeviews directory under Application Support: first-launch setup (prepopulated
 /// with the bundled Mermaid codeview), add, delete, and membership checks.
@@ -65,7 +65,7 @@ public enum CodeViewManager {
                 attributes: nil
             )
         } catch {
-            logger.error("Failed to create directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)")
+            EditLog.record(.error, "Failed to create directory at \(defaultDir.path(percentEncoded: false)): \(error.localizedDescription)", category: "Plugin")
         }
     }
 
@@ -75,7 +75,7 @@ public enum CodeViewManager {
     /// and must pick up a newer bundled copy.
     public static func syncInternalPlugins(exporters: [Plugin], codeViews: [Plugin], resourceURL: URL?, cacheDir: URL) -> [Plugin] {
         guard let resourceURL else {
-            logger.warning("Resource URL was not found.")
+            EditLog.record(.warning, "Resource URL was not found.", category: "Plugin")
             return codeViews
         }
         var updated = codeViews
@@ -95,7 +95,7 @@ public enum CodeViewManager {
         do {
             return try install(name: name, url: source, exporters: exporters, codeViews: codeViews, cacheDir: cacheDir, allowProtectedNames: allowProtectedNames)
         } catch {
-            logger.error("Failed to add codeview \(name): \(error.localizedDescription)")
+            EditLog.record(.error, "Failed to add codeview \(name): \(error.localizedDescription)", category: "Plugin")
             return codeViews
         }
     }
@@ -129,7 +129,7 @@ public enum CodeViewManager {
         guard let codeview, let filename = codeview.filename,
               let index = codeViews.firstIndex(of: codeview) else { return codeViews }
         guard !protectedNames.contains(codeview.name) else {
-            logger.warning("Refused to delete protected codeview: \(codeview.name)")
+            EditLog.record(.warning, "Refused to delete protected codeview: \(codeview.name)", category: "Plugin")
             return codeViews
         }
         let url = defaultDir.appendingPathComponent(filename)
