@@ -67,6 +67,7 @@ public final class SubscriptionModel {
 
     @ObservationIgnored private let service: MemberService
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let log: EditLog
     @ObservationIgnored private let paidDidChange: @MainActor (Bool) -> Void
     @ObservationIgnored private let applyFirstPaidDefaults: @MainActor () -> Void
     /// Bumped by cancel() so a sign-in call that finishes afterward is ignored.
@@ -75,12 +76,15 @@ public final class SubscriptionModel {
     /// - Parameters:
     ///   - paidDidChange: Called with the new paid-connected value after every state change.
     ///   - applyFirstPaidDefaults: Called once ever, on the first paid connection.
+    ///   - log: Where connection events are recorded. Entries never name the account.
     public init(service: MemberService,
                 defaults: UserDefaults = .standard,
+                log: EditLog? = nil,
                 paidDidChange: @escaping @MainActor (Bool) -> Void,
                 applyFirstPaidDefaults: @escaping @MainActor () -> Void) {
         self.service = service
         self.defaults = defaults
+        self.log = log ?? EditLog.shared
         self.paidDidChange = paidDidChange
         self.applyFirstPaidDefaults = applyFirstPaidDefaults
     }
@@ -96,10 +100,16 @@ public final class SubscriptionModel {
                 if let member = try await service.currentMember() {
                     connect(member)
                 } else {
+                    log.warning("Your markupeditor.app session expired; reconnect to check for updates", category: "Subscription")
                     setState(.expired(email: email))
                 }
             } catch {
                 self.error = error
+                if case .transportFailure = error {
+                    log.info("Could not reach markupeditor.app to confirm your subscription", category: "Subscription", once: "subscription-offline")
+                } else {
+                    log.warning("markupeditor.app could not confirm your subscription: \(error.localizedDescription)", category: "Subscription")
+                }
                 setState(.unavailable(email: email))
             }
         }
@@ -116,6 +126,7 @@ public final class SubscriptionModel {
             } catch {
                 guard attempt == signInAttempt else { return }
                 self.error = error
+                log.warning("Sign-in failed: \(error.localizedDescription)", category: "Subscription")
             }
         }
     }
@@ -134,10 +145,12 @@ public final class SubscriptionModel {
                     connect(member)
                 } else {
                     self.error = .invalidCode
+                    log.warning("Sign-in failed: \(MemberError.invalidCode.localizedDescription)", category: "Subscription")
                 }
             } catch {
                 guard attempt == signInAttempt else { return }
                 self.error = error
+                log.warning("Sign-in failed: \(error.localizedDescription)", category: "Subscription")
             }
         }
     }
