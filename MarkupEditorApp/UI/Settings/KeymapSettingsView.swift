@@ -226,8 +226,8 @@ struct KeymapSettingsView: View {
                 get: { bindingStrings[key] ?? [""] },
                 set: { new in
                     let old = bindingStrings[key] ?? [""]
-                    // A list with an empty entry is a step in adding a binding, not a state to return to.
-                    if old != new, !old.contains("") {
+                    // A list with an empty entry beside others is a step in adding a binding, not a state to return to.
+                    if old != new, !(old.count > 1 && old.contains("")) {
                         history[key] = (old, false)
                     }
                     bindingStrings[key] = new
@@ -247,7 +247,9 @@ struct KeymapSettingsView: View {
 
     /// Whether the action has a change to undo or redo, and which one.
     private func swapState(for key: String) -> KeymapActionRow.SwapState? {
-        guard let entry = history[key], entry.previous != (bindingStrings[key] ?? [""]) else { return nil }
+        // An empty entry is a binding not yet recorded, so it does not count as a change.
+        func recorded(_ specs: [String]) -> [String] { specs.filter { !$0.isEmpty } }
+        guard let entry = history[key], recorded(entry.previous) != recorded(bindingStrings[key] ?? [""]) else { return nil }
         return entry.undone ? .redo : .undo
     }
 
