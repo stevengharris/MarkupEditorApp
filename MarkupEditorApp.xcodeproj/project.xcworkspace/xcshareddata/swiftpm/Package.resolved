@@ -1,5 +1,5 @@
 {
-  "originHash" : "13cdd8e68e8b5670dac2a1c85aff4f355aa359b9780ae436ec11f5f451b44bf1",
+  "originHash" : "3ff454d8f82a3f3bcea1613783ce506ea91bbb1c232ef78076b79c49a27fdf38",
   "pins" : [
     {
       "identity" : "eventsource",
@@ -13,10 +13,10 @@
     {
       "identity" : "keyboardshortcuts",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
+      "location" : "https://github.com/stevengharris/KeyboardShortcuts",
       "state" : {
-        "revision" : "772133d9dbe800fdac0473226822994c5c162c58",
-        "version" : "3.1.0"
+        "branch" : "markupeditor",
+        "revision" : "b22d417d820253c80ec32fd7ee5e620b76efbdad"
       }
     },
     {
