@@ -238,6 +238,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NotificationCenter.default.post(name: .menuShowSettings, object: nil)
     }
 
+    @objc private func showKeyboardShortcuts(_ sender: Any?) {
+        UserDefaults.standard.set(SettingsView.Pane.keymap.rawValue, forKey: SettingsView.selectedTabKey)
+        NotificationCenter.default.post(name: .menuShowSettings, object: nil)
+    }
+
     @objc private func showAboutPanel(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuShowAbout, object: nil)
     }
@@ -440,6 +445,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let helpMenu = NSMenu(title: "Help")
         let helpItem = NSMenuItem(title: "\(appName) Help", action: #selector(NSApplication.showHelp(_:)), keyEquivalent: "?")
         helpMenu.addItem(helpItem)
+        let shortcutsItem = NSMenuItem(title: "Keyboard Shortcuts", action: #selector(showKeyboardShortcuts(_:)), keyEquivalent: "")
+        shortcutsItem.target = self
+        helpMenu.addItem(shortcutsItem)
         helpMenuItem.submenu = helpMenu
         NSApp.helpMenu = helpMenu
         
