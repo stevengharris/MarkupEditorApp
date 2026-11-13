@@ -14,6 +14,8 @@
 		AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */ = {isa = PBXBuildFile; productRef = AA7B99C22F9291B90085425B /* MarkupEditor */; };
 		AA8BB49B307ADD4E00EB58DF /* MarkupEditorMCP in Frameworks */ = {isa = PBXBuildFile; productRef = AA8BB49A307ADD4E00EB58DF /* MarkupEditorMCP */; };
 		AAB801F52FC7471300212250 /* SplitView in Frameworks */ = {isa = PBXBuildFile; productRef = AAB801F42FC7471300212250 /* SplitView */; };
+		AABD811330A77C5F0013FC39 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = AABD811230A77C5F0013FC39 /* KeyboardShortcuts */; };
+		AABD863A30A790C30013FC39 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = AABD863930A790C30013FC39 /* KeyboardShortcuts */; };
 		AADAE3AD306487BA006863E3 /* MarkupEditorAppLib in Frameworks */ = {isa = PBXBuildFile; productRef = AADAE3AC306487BA006863E3 /* MarkupEditorAppLib */; };
 		AADAE3B43065C5AA006863E3 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AADAE3B33065C5AA006863E3 /* Sparkle */; };
 /* End PBXBuildFile section */
@@ -185,10 +187,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				AADAE3B43065C5AA006863E3 /* Sparkle in Frameworks */,
+				AABD863A30A790C30013FC39 /* KeyboardShortcuts in Frameworks */,
 				AA3F99F4302D225A00FB96C9 /* MarkupEditorAppLib in Frameworks */,
 				AAB801F52FC7471300212250 /* SplitView in Frameworks */,
 				AA7B99C32F9291B90085425B /* MarkupEditor in Frameworks */,
 				AA0B1183306329BC001BDCA2 /* MarkupEditor in Frameworks */,
+				AABD811330A77C5F0013FC39 /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -295,6 +299,8 @@
 				AA3F99F3302D225A00FB96C9 /* MarkupEditorAppLib */,
 				AA0B1182306329BC001BDCA2 /* MarkupEditor */,
 				AADAE3B33065C5AA006863E3 /* Sparkle */,
+				AABD811230A77C5F0013FC39 /* KeyboardShortcuts */,
+				AABD863930A790C30013FC39 /* KeyboardShortcuts */,
 			);
 			productName = MarkupEditorApp;
 			productReference = AA7B99972F9290DF0085425B /* MarkupEditor.app */;
@@ -360,6 +366,7 @@
 				AA3F99F2302D225A00FB96C9 /* XCLocalSwiftPackageReference "MarkupEditorAppLib" */,
 				AA0B1181306329BC001BDCA2 /* XCRemoteSwiftPackageReference "MarkupEditor" */,
 				AADAE3B23065C5AA006863E3 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				AABD863830A790C30013FC39 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA7B99982F9290DF0085425B /* Products */;
@@ -1144,6 +1151,14 @@
 				minimumVersion = 3.5.3;
 			};
 		};
+		AABD863830A790C30013FC39 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stevengharris/KeyboardShortcuts";
+			requirement = {
+				branch = markupeditor;
+				kind = branch;
+			};
+		};
 		AADAE3B23065C5AA006863E3 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
@@ -1182,6 +1197,15 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAB801F32FC7471300212250 /* XCRemoteSwiftPackageReference "SplitView" */;
 			productName = SplitView;
+		};
+		AABD811230A77C5F0013FC39 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KeyboardShortcuts;
+		};
+		AABD863930A790C30013FC39 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AABD863830A790C30013FC39 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
 		};
 		AADAE3AC306487BA006863E3 /* MarkupEditorAppLib */ = {
 			isa = XCSwiftPackageProductDependency;
