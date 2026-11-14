@@ -26,6 +26,8 @@ struct TemplatesInfoView: View {
     /// The built-in templates whose saved copy differs from the one the app ships, by folder name.
     @State private var modifiedBuiltIns: Set<UserLibraryItem.ID> = []
     @State private var pending: PendingTemplate?
+    /// Set while a template is being copied into the templates folder, which can take a while for large images.
+    @State private var isAdding = false
     @State private var selection: UserLibraryItem.ID?
     @State private var editingID: UserLibraryItem.ID?
     @State private var draftName = ""
@@ -82,7 +84,7 @@ struct TemplatesInfoView: View {
         .onReceive(NotificationCenter.default.publisher(for: .templatesDidChange)) { _ in reload() }
         .sheet(item: $pending, onDismiss: reload) { pendingTemplate in
             AddTemplateView(title: "Add Template", detail: "From \(pendingTemplate.url.lastPathComponent)", confirmTitle: "Add", name: pendingTemplate.name, description: pendingTemplate.description) { name, description in
-                add(pendingTemplate.url, name: name, description: description)
+                Task { await add(pendingTemplate.url, name: name, description: description) }
                 pending = nil
             } onCancel: {
                 pendingTemplate.url.stopAccessingSecurityScopedResource()
@@ -121,10 +123,17 @@ struct TemplatesInfoView: View {
             .disabled(selected == nil)
             .help("Delete the selected template")
             .accessibilityLabel("Delete the selected template")
+            if isAdding {
+                ProgressView()
+                    .controlSize(.small)
+                    .help("Adding the template")
+                    .accessibilityLabel("Adding the template")
+            }
             Button(action: chooseSource) {
                 Image(systemName: "plus")
             }
             .buttonStyle(SquareIconButtonStyle())
+            .disabled(isAdding)
             .help("Add a template from a Markdown file or a folder")
             .accessibilityLabel("Add a template from a Markdown file or a folder")
         }
@@ -318,10 +327,15 @@ struct TemplatesInfoView: View {
         }
     }
 
-    private func add(_ url: URL, name: String, description: String) {
+    /// Copies the file or folder into the templates folder off the main thread, so a large folder does not freeze
+    /// the window. Access to the source is held until the copy ends.
+    private func add(_ url: URL, name: String, description: String) async {
         defer { url.stopAccessingSecurityScopedResource() }
+        isAdding = true
+        defer { isAdding = false }
+        let library = library
         do {
-            let item = try library.add(from: url, name: name, description: description)
+            let item = try await Task.detached { try library.add(from: url, name: name, description: description) }.value
             editLog.info("Added the template \(item.manifest.name)", category: "Template")
         } catch {
             editLog.error("Could not add a template from \(url.lastPathComponent): \(error.localizedDescription)", category: "Template")
