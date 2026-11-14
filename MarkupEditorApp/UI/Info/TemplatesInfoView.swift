@@ -57,8 +57,6 @@ struct TemplatesInfoView: View {
                         .contextMenu {
                             Button("Delete…") { requestDelete(item) }
                         }
-                        .accessibilityAddTraits(item.id == selection ? .isSelected : [])
-                        .accessibilityAction(named: "Delete") { requestDelete(item) }
                 }
             }
         }
@@ -173,7 +171,25 @@ struct TemplatesInfoView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .modifier(rowAccessibility(for: item))
         }
+    }
+
+    /// Presents the row to VoiceOver as one button that selects the template, with the row's other commands as
+    /// actions. The Edit and Restore buttons drawn in the row are reached through those actions instead of as
+    /// separate elements inside it.
+    private func rowAccessibility(for item: UserLibraryItem) -> some ViewModifier {
+        TemplateRowAccessibility(
+            name: item.manifest.name,
+            detail: [item.manifest.description, modifiedBuiltIns.contains(item.id) ? "Differs from the version that ships with MarkupEditor" : ""]
+                .filter { !$0.isEmpty }.joined(separator: ". "),
+            isSelected: item.id == selection,
+            isModified: modifiedBuiltIns.contains(item.id),
+            select: { selection = item.id; listFocused = true },
+            rename: { selection = item.id; beginEditing(item) },
+            edit: { edit(item) },
+            restore: { restore(item) },
+            delete: { requestDelete(item) })
     }
 
     private var editingRow: some View {
@@ -360,5 +376,34 @@ struct TemplatesInfoView: View {
         failureTitle = title
         failure = message
         showFailure = true
+    }
+}
+
+/// A template row as one VoiceOver button: the name and description are read, the default action selects it,
+/// and Rename, Edit, Restore and Delete are offered as actions.
+private struct TemplateRowAccessibility: ViewModifier {
+    let name: String
+    let detail: String
+    let isSelected: Bool
+    let isModified: Bool
+    let select: () -> Void
+    let rename: () -> Void
+    let edit: () -> Void
+    let restore: () -> Void
+    let delete: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(name)
+            .accessibilityValue(detail)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction(.default, select)
+            .accessibilityActions {
+                Button("Rename", action: rename)
+                Button("Edit", action: edit)
+                if isModified { Button("Restore", action: restore) }
+                Button("Delete", action: delete)
+            }
     }
 }
