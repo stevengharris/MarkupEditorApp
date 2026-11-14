@@ -93,6 +93,8 @@ struct MarkupDocumentView: View {
     @AppStorage(ConfigKeys.behavior) private var behaviorConfigJSON = ""
     @State private var markupConfiguration: MarkupWKWebViewConfiguration
     @State private var configVersion = 0    // Used as id for MarkupEditorView to trigger redraw w/new toolbar
+    /// The `configVersion` of the editor already reloaded because it lacked a plugin recorded in Settings.
+    @State private var pluginReloadVersion: Int?
     @ScaledMetric(relativeTo: .title3) var iconSize: CGFloat = 22
     
     @AppStorage(MarkupEditorApp.hasSeenWelcomeKey) private var hasSeenWelcome = false
@@ -1423,6 +1425,15 @@ extension MarkupDocumentView: MarkupDelegate {
             recordedCodeViews: AppConfig.shared.codeViews,
             registered: plugins
         )
+        // An editor created while plugins were still being installed, as the Welcome does on the first launch, lacks
+        // the later ones. Reload it once with the current list before treating that as a fault.
+        let isMissingPlugin = problems.contains { if case .notRegistered = $0 { true } else { false } }
+        if isMissingPlugin, pluginReloadVersion != configVersion {
+            pluginReloadVersion = configVersion
+            markupConfiguration.pluginFiles = AppConfig.shared.pluginFilenames()
+            reloadEditorForConfigChange()
+            return
+        }
         for problem in problems {
             editLog.warning("Plugin registration: \(problem.description)", category: "Plugin", once: problem.logKey)
         }
