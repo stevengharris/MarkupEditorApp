@@ -1,6 +1,13 @@
-***\<Edit this template and save it as README.md in the project root directory.>***
+<p align="center">
+    <img src="https://github.com/stevengharris/MarkupEditorApp/actions/workflows/swift.yml/badge.svg">
+    <img src="https://img.shields.io/badge/Swift-6.0+-blue.svg">
+    <img src="https://img.shields.io/badge/macOS-26+-blue" alt="macOS 26+">
+    <a href="https://mastodon.social/@yourhandle">
+        <img src="https://img.shields.io/badge/Contact-@yourhandle-lightgrey.svg?style=flat" alt="Mastodon: @yourhandle">
+    </a>
+</p>
 
-<img src="https://github.com/stevengharris/MarkupEditor/actions/workflows/swift.yml/badge.svg" width="151" height="20">
+***\<Edit this template and save it as README.md in the project root directory.>***
 
 \<Edit the badges and add a logo (if you have one) to point to your project’s CI/test status, language and OS support, and your contact information.>
 
