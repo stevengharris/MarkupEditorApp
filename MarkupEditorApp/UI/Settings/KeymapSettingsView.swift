@@ -15,26 +15,22 @@ struct KeymapSettingsView: View {
     static let settingGroupKey = "keymapSettingGroup"
 
     enum SettingGroup: String, CaseIterable, Identifiable {
-        case general = "General"
+        case document = "Document"
         case insert = "Insert"
         case style = "Style"
         case format = "Format"
-        case suggestions = "Suggest"     // Segments share the longest label's width, so keep it short
         var id: Self { self }
     }
 
     enum Action {
-        enum General: String, CaseIterable, Identifiable {
-            case undo, redo, bullet, number, indent, outdent, search
+        enum Document: String, CaseIterable, Identifiable {
+            case undo, redo, search, source
             var label: String {
                 switch self {
                 case .undo: "Undo:"
                 case .redo: "Redo:"
-                case .bullet: "Bullets:"
-                case .number: "Numbers:"
-                case .indent: "Indent:"
-                case .outdent: "Outdent:"
-                case .search: "Search:"
+                case .search: "Find:"
+                case .source: "Toggle Source:"
                 }
             }
             var id: String { rawValue }
@@ -52,9 +48,13 @@ struct KeymapSettingsView: View {
             var id: String { rawValue }
         }
         enum Style: String, CaseIterable, Identifiable {
-            case p, h1, h2, h3, h4, h5, h6
+            case p, h1, h2, h3, h4, h5, h6, bullet, number, indent, outdent
             var label: String {
                 switch self {
+                case .bullet: "Bullets:"
+                case .number: "Numbers:"
+                case .indent: "Indent:"
+                case .outdent: "Outdent:"
                 case .p: "Normal:"
                 case .h1: "H1:"
                 case .h2: "H2:"
@@ -107,17 +107,7 @@ struct KeymapSettingsView: View {
     @State private var history: [String: (previous: [String], undone: Bool)] = [:]
     /// The binding being recorded, if any. Only one is at a time.
     @State private var editingTarget: (action: String, index: Int)?
-    @AppStorage(Self.settingGroupKey) private var settingGroup: SettingGroup = .general
-
-    /// The segments to offer: Suggestions only while assistants are on, as in the Edit menu.
-    private var visibleGroups: [SettingGroup] {
-        SettingGroup.allCases.filter { $0 != .suggestions || AppControl.shared.isEnabled }
-    }
-
-    /// The selected segment, or General when the stored one is not offered now.
-    private var shownGroup: SettingGroup {
-        visibleGroups.contains(settingGroup) ? settingGroup : .general
-    }
+    @AppStorage(Self.settingGroupKey) private var settingGroup: SettingGroup = .document
 
     /// The bindings used by more than one action, in menu notation. Spellings of one key press are the same binding.
     private var conflicts: [String] {
@@ -149,8 +139,8 @@ struct KeymapSettingsView: View {
                 }
                 .padding()
             }
-            Picker("", selection: Binding(get: { shownGroup }, set: { settingGroup = $0 })) {
-                ForEach(visibleGroups) { info in
+            Picker("", selection: $settingGroup) {
+                ForEach(SettingGroup.allCases) { info in
                     Text(info.rawValue)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -159,16 +149,24 @@ struct KeymapSettingsView: View {
             }
             .pickerStyle(.segmented)
 
-            Text("Click a field and press the keys you want. Use + to add another binding and the clear button in a field to remove it. The first binding appears in menus.")
+            Text("Select an item to edit. Then, press the hotkey combo you want or use the clear button to remove it. Use + to add multiple bindings. The first binding appears in menus.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding()
 
-            switch shownGroup {
-            case .general:
+            switch settingGroup {
+            case .document:
                 Form {
-                    ForEach(Action.General.allCases) { action in
+                    ForEach(Action.Document.allCases) { action in
                         actionRow(key: action.rawValue, label: action.label)
+                    }
+                    // Suggestions follow the document actions only while assistants are on, as in the Edit menu.
+                    if AppControl.shared.isEnabled {
+                        LabeledContent("Suggestions:") { Text("When active") }
+                            .padding(.top, 12)
+                        ForEach(Action.Suggestions.allCases) { action in
+                            actionRow(key: action.rawValue, label: action.label)
+                        }
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -189,13 +187,6 @@ struct KeymapSettingsView: View {
             case .format:
                 Form {
                     ForEach(Action.Format.allCases) { action in
-                        actionRow(key: action.rawValue, label: action.label)
-                    }
-                }
-                .frame(maxHeight: .infinity, alignment: .top)
-            case .suggestions:
-                Form {
-                    ForEach(Action.Suggestions.allCases) { action in
                         actionRow(key: action.rawValue, label: action.label)
                     }
                 }
@@ -267,7 +258,7 @@ struct KeymapSettingsView: View {
         guard !loaded else { return }
         loaded = true
         actions =
-            Action.General.allCases.map(\.rawValue) +
+            Action.Document.allCases.map(\.rawValue) +
             Action.Insert.allCases.map(\.rawValue) +
             Action.Style.allCases.map(\.rawValue) +
             Action.Format.allCases.map(\.rawValue) +

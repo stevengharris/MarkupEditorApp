@@ -236,8 +236,8 @@ import Foundation
         #expect(next.keyEquivalent.isEmpty, "a cleared binding removes the shortcut")
         let bold = try #require(item(titled: "Bold", in: menu), "the Format menu has Bold")
         #expect(bold.keyEquivalent == "y" && bold.keyEquivalentModifierMask == [.command, .shift], "Format items follow the keymap too")
-        let find = try #require(item(titled: "Find", in: menu))
-        #expect(find.keyEquivalent == "f", "an item the keymap does not drive is left alone")
+        let selectAll = try #require(item(titled: "Select All", in: menu))
+        #expect(selectAll.keyEquivalent == "a", "an item the keymap does not drive is left alone")
         let unchanged = try #require(item(titled: "Reject+Next", in: menu))
         #expect(unchanged.keyEquivalent == "'" && unchanged.keyEquivalentModifierMask == [.command, .control])
     }

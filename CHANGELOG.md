@@ -9,7 +9,7 @@ This is the Beta 2 release.
 * Suggestions: an assistant connected through MCP can propose edits instead of changing the document directly. Each suggestion shows the text that would change next to the replacement, with Accept and Reject buttons.
   * Accept or reject the selected suggestion with Return or Shift+Return and move on to the next.
   * The Edit > Suggestions menu adds Next, Previous, Accept All and Reject All.
-  * Suggestion-related shortcuts are configurable in Keymap settings.
+  * Suggestion-related shortcuts are configurable in Shortcuts settings.
   * App warns before New, Open, Quit or switching to the source view would discard suggestions, and they survive an editor reload.
 * Front matter values keep the quoting they had when read.
 * Lists are written tight unless an item holds more than one block.
