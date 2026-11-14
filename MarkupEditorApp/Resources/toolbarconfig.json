@@ -67,9 +67,9 @@
         "image": "Insert/edit image",
         "table": "Insert/edit table",
         "hRule": "Insert horizontal rule",
-        "search": "Toggle search",
-        "searchForward": "Search forward",
-        "searchBackward": "Search backward",
+        "search": "Find",
+        "searchForward": "Find next",
+        "searchBackward": "Find previous",
         "matchCase": "Match case",
         "undo": "Undo",
         "redo": "Redo"

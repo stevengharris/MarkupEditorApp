@@ -42,7 +42,7 @@ struct ToolbarSettingsView: View {
             "styleMenu": Toggle("Style Menu", isOn: visibility("styleMenu")),
             "styleBar": Toggle("Style Bar", isOn: visibility("styleBar")),
             "formatBar": Toggle("Format Bar", isOn: visibility("formatBar")),
-            "search": Toggle("Search", isOn: visibility("search"))
+            "search": Toggle("Find", isOn: visibility("search"))
         ]
         Spacer()
         VStack(spacing: 0) {
@@ -108,7 +108,7 @@ struct ToolbarSettingsView: View {
                     Toggle("Show name", isOn: menus("styleName"))
                     Toggle("Lists", isOn: styleBar("list"))
                     Toggle("Indent/Outdent", isOn: styleBar("dent"))
-                    Spacer()
+                        .padding(.bottom, 8)
                     LabeledContent("Style name:") {
                         Text("Enter to update")
                     }

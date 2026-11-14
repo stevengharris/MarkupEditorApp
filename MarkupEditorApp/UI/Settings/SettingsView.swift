@@ -27,7 +27,7 @@ struct SettingsView: View {
             Tab("Toolbar", systemImage: "rectangle.topthird.inset.filled", value: .toolbar) {
                 ToolbarSettingsView()
             }
-            Tab("Keymap", systemImage: "keyboard", value: .keymap) {
+            Tab("Shortcuts", systemImage: "keyboard", value: .keymap) {
                 KeymapSettingsView()
             }
         }

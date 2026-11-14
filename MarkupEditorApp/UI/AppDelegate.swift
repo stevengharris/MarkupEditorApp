@@ -367,17 +367,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(NSMenuItem(title: "Undo", action: #selector(undoEdit(_:)), keyEquivalent: "z"))
-        let redoItem = NSMenuItem(title: "Redo", action: #selector(redoEdit(_:)), keyEquivalent: "z")
-        redoItem.keyEquivalentModifierMask = [.command, .shift]
-        editMenu.addItem(redoItem)
+        editMenu.addItem(menuItem(title: "Undo", action: #selector(undoEdit(_:)), keymapAction: "undo"))
+        editMenu.addItem(menuItem(title: "Redo", action: #selector(redoEdit(_:)), keymapAction: "redo"))
         editMenu.addItem(.separator())
         editMenu.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
         editMenu.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
         editMenu.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
         editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
         editMenu.addItem(.separator())
-        let findItem = jsMenuItem(title: "Find", js: "MU.toggleSearch()", keyEquivalent: "f", modifierMask: .command)
+        let findItem = jsMenuItem(title: "Find", js: "MU.toggleSearch()", keymapAction: "search")
         findItem.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Find")
         editMenu.addItem(findItem)
         editMenu.addItem(buildSuggestionsSubmenuItem())
@@ -408,8 +406,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         toggleFullScreen.keyEquivalentModifierMask = [.command, .control]
         viewMenu.addItem(toggleFullScreen)
         viewMenu.addItem(.separator())
-        let toggleSourceItem = NSMenuItem(title: "Toggle Source", action: #selector(toggleSource(_:)), keyEquivalent: "/")
-        toggleSourceItem.keyEquivalentModifierMask = [.command]
+        let toggleSourceItem = menuItem(title: "Toggle Source", action: #selector(toggleSource(_:)), keymapAction: "source")
         toggleSourceItem.image = NSImage(systemSymbolName: "chevron.left.slash.chevron.right", accessibilityDescription: "Toggle Source")
         toggleSourceItem.target = self
         viewMenu.addItem(toggleSourceItem)
