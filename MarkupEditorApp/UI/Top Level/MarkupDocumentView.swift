@@ -178,7 +178,11 @@ struct MarkupDocumentView: View {
                     library: .templates,
                     onChoose: { item in
                         templateSheet = nil
-                        Task { await handleNewFromTemplate(item) }
+                        // Asked after the choice, so browsing templates never prompts and the check sees the document as it is now.
+                        Task {
+                            guard await checkSave() else { return }
+                            await handleNewFromTemplate(item)
+                        }
                     },
                     onCancel: { templateSheet = nil })
             case .save(let request):
@@ -417,7 +421,6 @@ struct MarkupDocumentView: View {
         case .menuNewDocument:
             await handleNew()
         case .menuNewFromTemplate:
-            guard await checkSave() else { return }
             templateSheet = .chooser
         case .menuSaveAsTemplate:
             await handleSaveAsTemplate()
