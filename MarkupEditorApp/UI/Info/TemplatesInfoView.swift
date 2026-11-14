@@ -23,6 +23,8 @@ struct TemplatesInfoView: View {
     @Environment(EditLog.self) private var editLog
     private let library = UserLibrary.templates
     @State private var items: [UserLibraryItem] = []
+    /// The built-in templates whose saved copy differs from the one the app ships, by folder name.
+    @State private var modifiedBuiltIns: Set<UserLibraryItem.ID> = []
     @State private var pending: PendingTemplate?
     @State private var selection: UserLibraryItem.ID?
     @State private var editingID: UserLibraryItem.ID?
@@ -145,6 +147,11 @@ struct TemplatesInfoView: View {
                 HStack {
                     Text(item.manifest.name)
                     Spacer()
+                    if modifiedBuiltIns.contains(item.id) {
+                        Button("Restore…") { restore(item) }
+                            .controlSize(.small)
+                            .help("Replace \(item.manifest.name) with the version that ships with MarkupEditor")
+                    }
                     if item.id == selection {
                         Button("Edit") { edit(item) }
                             .controlSize(.small)
@@ -251,6 +258,29 @@ struct TemplatesInfoView: View {
 
     private func reload() {
         items = library.items()
+        modifiedBuiltIns = Set(BuiltInTemplates.all().filter { library.isModified($0) }.map(\.folder))
+    }
+
+    /// Replaces the template with the version the app ships, after warning that the current one is lost.
+    private func restore(_ item: UserLibraryItem) {
+        guard let builtIn = BuiltInTemplates.all().first(where: { $0.folder == item.id }) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Replace the current version of \"\(item.manifest.name)\" with the default for this version of the MarkupEditor?"
+        alert.informativeText = "To save the current version first, Cancel now. Then, select Edit, and File > Save as Template under a new name before restoring."
+        alert.alertStyle = .warning
+        let cancel = alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "OK").hasDestructiveAction = true
+        // A button titled Cancel is given Escape and no default; Return makes it the default button.
+        cancel.keyEquivalent = "\r"
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        do {
+            try library.restore(builtIn)
+            editLog.info("Restored the template \(builtIn.manifest.name)", category: "Template")
+        } catch {
+            editLog.error("Could not restore \(item.manifest.name): \(error.localizedDescription)", category: "Template")
+            fail("Could Not Restore Template", error.localizedDescription)
+        }
+        reload()
     }
 
     /// Asks for a Markdown file or a folder with an open panel, not a SwiftUI file importer, because the

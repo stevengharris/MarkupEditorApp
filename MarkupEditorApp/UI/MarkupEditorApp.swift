@@ -118,19 +118,7 @@ struct MarkupEditorApp: App {
     /// Writes the built-in templates into the templates folder. A template the user later deletes is
     /// not put back, because its name stays recorded.
     private static func seedTemplates() {
-        TemplateSeeding.seed(
-            into: .templates,
-            index: {
-                guard let url = Bundle.main.url(forResource: "templates", withExtension: "json") else {
-                    throw TemplateSeeding.Failure.indexMissing
-                }
-                return try Data(contentsOf: url)
-            },
-            data: { name in
-                let url = Bundle.main.url(forResource: (name as NSString).deletingPathExtension, withExtension: (name as NSString).pathExtension)
-                return url.flatMap { try? Data(contentsOf: $0) }
-            },
-            defaults: .standard)
+        TemplateSeeding.seed(into: .templates, index: BuiltInTemplates.index, data: BuiltInTemplates.data, defaults: .standard)
     }
 
 }

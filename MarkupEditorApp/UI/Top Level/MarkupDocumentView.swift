@@ -1134,6 +1134,8 @@ struct MarkupDocumentView: View {
                 try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
             }
             track(url: url)
+            // Lets the Templates tab recheck whether a built-in still matches the one that ships.
+            if MarkupDocument.isAppOwned(url) { NotificationCenter.default.post(name: .templatesDidChange, object: nil) }
             // While the source view shows, the selected web view is the one that was replaced; the editor
             // that comes back rebases from markupDidLoad.
             if document.documentType == .md && !sourceShowing { await rebase(on: webView) }
