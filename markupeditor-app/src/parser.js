@@ -151,6 +151,10 @@ export function makeParser(schema, warnings, recorder) {
       state.openNode(schema.nodes.paragraph, null)
       state.addNode(schema.nodes.image, img)
       state.closeNode()
+      // Only a lone <img> is imported whole; anything else in the block is not.
+      if (!/^<img\s[^>]*>$/i.test(tok.content.trim())) {
+        warnings.add(`Only the first image of a raw HTML block was kept; the rest was not imported: ${tok.content.slice(0, 60).trim()}`)
+      }
     } else {
       warnings.add(`Raw HTML block stripped (not supported in MarkupEditor): ${tok.content.slice(0, 60).trim()}`)
     }

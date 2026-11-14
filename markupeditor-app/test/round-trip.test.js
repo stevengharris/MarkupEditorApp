@@ -278,6 +278,16 @@ describe('image node', () => {
     expect(html).toContain('height="200"')
   })
 
+  test('an HTML block holding more than one image warns that only the first was kept', () => {
+    const block = '<p align="center">\n    <img src="one.svg">\n    <img src="two.svg">\n</p>'
+    const { doc, warnings } = parse('Before.\n\n' + block + '\n\nAfter.')
+    const html = docToHtml(doc)
+    expect(html).toContain('src="one.svg"')
+    expect(html).not.toContain('two.svg')
+    expect(warnings.get()).toHaveLength(1)
+    expect(warnings.get()[0]).toContain('Only the first image of a raw HTML block was kept')
+  })
+
   test('round-trip: image with dimensions exports as <img> and re-imports with same attrs (AC-6)', () => {
     const original = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, [
