@@ -330,11 +330,10 @@ internal import UniformTypeIdentifiers
         }
     }
 
-    /// True for a file inside the app container's Application Support folder, such as a template. The sandbox
-    /// already grants it, so it needs no stored bookmark and is kept out of Open Recent.
+    /// True for a file inside the templates folder in the app container. The sandbox already grants it, so it
+    /// needs no stored bookmark and is kept out of Open Recent.
     static func isAppOwned(_ url: URL) -> Bool {
-        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return false }
-        return PathContainment.isInside(url, of: support)
+        PathContainment.isInside(url, of: UserLibrary.templates.directory)
     }
 
     /// True when saving `srcs` beside `fileURL` needs folder access the app does not yet hold.
