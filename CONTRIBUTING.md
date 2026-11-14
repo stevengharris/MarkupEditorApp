@@ -58,7 +58,7 @@ MarkupEditorApp/
     Info/                      - Info sidebar: log, plugin, and template management UI
     Template/                  - UI associated with adding and choosing Templates
     Insert Dialogs/            - Native macOS dialogs for inserting links, images, and tables
-    Settings/                  - App settings UI including general behavior, toolbar, and keymapping, as well as plugins
+    Settings/                  - App settings UI including general behavior, toolbar, and keyboard shortcuts, as well as plugins
     Welcome/                   - First-launch welcome flow
   Helpers/
     MarkupDocument.swift       - Document model (URL, metadata, save/open operations)
