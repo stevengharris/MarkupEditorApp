@@ -359,6 +359,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         fileMenu.addItem(NSMenuItem(title: "Save as Template…", action: #selector(saveAsTemplate(_:)), keyEquivalent: ""))
         fileMenu.addItem(.separator())
         let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
+        exportItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Export")
         exportItem.submenu = exportSubmenu
         fileMenu.addItem(exportItem)
         fileMenuItem.submenu = fileMenu
@@ -367,8 +368,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(menuItem(title: "Undo", action: #selector(undoEdit(_:)), keymapAction: "undo"))
-        editMenu.addItem(menuItem(title: "Redo", action: #selector(redoEdit(_:)), keymapAction: "redo"))
+        let undoItem = menuItem(title: "Undo", action: #selector(undoEdit(_:)), keymapAction: "undo")
+        undoItem.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Undo")
+        editMenu.addItem(undoItem)
+        let redoItem = menuItem(title: "Redo", action: #selector(redoEdit(_:)), keymapAction: "redo")
+        redoItem.image = NSImage(systemSymbolName: "arrow.uturn.forward", accessibilityDescription: "Redo")
+        editMenu.addItem(redoItem)
         editMenu.addItem(.separator())
         editMenu.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
         editMenu.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
@@ -397,9 +402,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         viewMenu.addItem(NSMenuItem(title: "Actual Size", action: #selector(MarkupWKWebView.zoomToActualSize(_:)), keyEquivalent: "0"))
         let zoomIn = NSMenuItem(title: "Zoom In", action: #selector(MarkupWKWebView.zoomIn(_:)), keyEquivalent: "+")
         zoomIn.keyEquivalentModifierMask = .command
+        zoomIn.image = NSImage(systemSymbolName: "plus.magnifyingglass", accessibilityDescription: "Zoom In")
         viewMenu.addItem(zoomIn)
         let zoomOut = NSMenuItem(title: "Zoom Out", action: #selector(MarkupWKWebView.zoomOut(_:)), keyEquivalent: "-")
         zoomOut.keyEquivalentModifierMask = .command
+        zoomOut.image = NSImage(systemSymbolName: "minus.magnifyingglass", accessibilityDescription: "Zoom Out")
         viewMenu.addItem(zoomOut)
         viewMenu.addItem(.separator())
         let toggleFullScreen = NSMenuItem(title: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
@@ -646,6 +653,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         submenu.addItem(jsMenuItem(title: "Accept All Suggestions", js: "MU.acceptAllSuggestions()", modifierMask: []))
         submenu.addItem(jsMenuItem(title: "Reject All Suggestions", js: "MU.rejectAllSuggestions()", modifierMask: []))
         let item = NSMenuItem(title: "Suggestions", action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "text.badge.checkmark", accessibilityDescription: "Suggestions")
         item.submenu = submenu
         return item
     }
