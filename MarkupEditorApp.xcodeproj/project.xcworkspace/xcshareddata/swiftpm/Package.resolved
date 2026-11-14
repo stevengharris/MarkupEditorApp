@@ -1,5 +1,5 @@
 {
-  "originHash" : "3ff454d8f82a3f3bcea1613783ce506ea91bbb1c232ef78076b79c49a27fdf38",
+  "originHash" : "c78977121325c1bdf5e118cd4866db4774b63868203b3fcf83011a0a37977b12",
   "pins" : [
     {
       "identity" : "eventsource",
@@ -25,7 +25,7 @@
       "location" : "https://github.com/stevengharris/MarkupEditor.git",
       "state" : {
         "branch" : "main",
-        "revision" : "230578a8eb5f600be44039578254c435cb370c84"
+        "revision" : "d73bb6c480481c7b0d786c74c5de5ab3fe9cef48"
       }
     },
     {
