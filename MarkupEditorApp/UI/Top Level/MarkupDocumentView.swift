@@ -232,6 +232,7 @@ struct MarkupDocumentView: View {
                 ud.removeObject(forKey: MarkupEditorApp.firstLaunchDateKey)
                 ud.removeObject(forKey: MarkupEditorApp.hasSeenWelcomeKey)
                 ud.removeObject(forKey: MarkupEditorApp.hasSetupPluginsKey)
+                ud.removeObject(forKey: TemplateSeeding.seededKey)
                 ud.removeObject(forKey: ConfigKeys.toolbar)
                 ud.removeObject(forKey: ConfigKeys.keymap)
                 ud.removeObject(forKey: ConfigKeys.behavior)
