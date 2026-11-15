@@ -22,7 +22,8 @@ struct MCP: AsyncParsableCommand {
 
     func run() async throws {
         // The first call from a program the user has not decided about waits for their answer.
-        let client = ControlClient(path: socket ?? ControlClient.defaultPath(), timeout: 300)
+        let socketPath = socket ?? ControlClient.defaultPath()
+        let client = ControlClient(path: socketPath, timeout: 300)
         let backend = MCPControlBackend(
             client: ClientIdentity.ofParentProcess(),
             log: { try? FileHandle.standardError.write(contentsOf: Data(($0 + "\n").utf8)) },
@@ -35,6 +36,6 @@ struct MCP: AsyncParsableCommand {
             tools: { await backend.tools() },
             knownNames: MCPControlBackend.knownToolNames,
             call: { await backend.call($0, $1) })
-        await server.run(input: .standardInput, output: .standardOutput)
+        await server.run(input: .standardInput, output: .standardOutput, socketPath: socketPath)
     }
 }

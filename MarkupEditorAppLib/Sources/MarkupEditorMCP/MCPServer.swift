@@ -43,13 +43,17 @@ public struct MCPServer: Sendable {
     }
 
     /// Serves requests read from `input` until it closes, writing replies to `output`. After the
-    /// client reports it is initialized, the offered tools are re-checked every `pollInterval` and a
-    /// `tools/list_changed` notification is sent when they differ from what was last listed.
-    public func run(input: FileHandle, output: FileHandle, pollInterval: Duration = .seconds(3)) async {
-        await serve(over: DescriptorTransport(input: input.fileDescriptor, output: output.fileDescriptor), pollInterval: pollInterval)
+    /// client reports it is initialized, the offered tools are re-checked and a `tools/list_changed`
+    /// notification is sent when they differ from what was last listed.
+    ///
+    /// With a `socketPath`, the tools are re-checked every `pollInterval` only while the app's socket
+    /// exists, and when the socket is created, removed or replaced. While it does not exist nothing is
+    /// polled and the app is not contacted. Without one, they are re-checked every `pollInterval`.
+    public func run(input: FileHandle, output: FileHandle, pollInterval: Duration = .seconds(10), socketPath: String? = nil) async {
+        await serve(over: DescriptorTransport(input: input.fileDescriptor, output: output.fileDescriptor), pollInterval: pollInterval, socketPath: socketPath)
     }
 
-    func serve(over transport: any Transport, pollInterval: Duration) async {
+    func serve(over transport: any Transport, pollInterval: Duration, socketPath: String? = nil) async {
         let server = Server(name: name, version: version, instructions: instructions, capabilities: .init(tools: .init(listChanged: true)))
         let advertised = AdvertisedTools()
         let watcher = Watcher()
@@ -70,7 +74,7 @@ public struct MCPServer: Sendable {
             return .init(content: result.content.map(\.sdkContent), isError: result.isError)
         }
         await server.onNotification(InitializedNotification.self) { _ in
-            watcher.startOnce { await watchTools(server, advertised, every: pollInterval) }
+            watcher.startOnce { await watchTools(server, advertised, every: pollInterval, socketPath: socketPath) }
         }
 
         do {
@@ -83,9 +87,16 @@ public struct MCPServer: Sendable {
         await server.stop()
     }
 
-    private func watchTools(_ server: Server, _ advertised: AdvertisedTools, every interval: Duration) async {
+    private func watchTools(_ server: Server, _ advertised: AdvertisedTools, every interval: Duration, socketPath: String?) async {
+        let socket = socketPath.map(SocketWatch.init(path:))
         while !Task.isCancelled {
-            try? await Task.sleep(for: interval)
+            if let socket {
+                let timeout: Duration? = socket.exists || !socket.isWatching ? interval : nil
+                await socket.waitForChange(timeout: timeout)
+                if Task.isCancelled { return }
+            } else {
+                try? await Task.sleep(for: interval)
+            }
             let names = await tools().map(\.name)
             guard let listed = advertised.names, listed != names else { continue }
             advertised.set(names)
