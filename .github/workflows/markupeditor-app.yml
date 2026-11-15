@@ -1,0 +1,65 @@
+name: markupeditor-app
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'markupeditor-app/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
+      - 'MarkupEditorApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'
+      - '.github/workflows/markupeditor-app.yml'
+  workflow_dispatch:
+
+# A newer run for the same pull request replaces an older one that is still queued or running.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Needs no secrets, so it also runs for pull requests from forks.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: '.nvmrc'
+
+    # Fails when package-lock.json does not match the package.json files.
+    - name: Install dependencies
+      run: npm ci
+
+    # The tests run against the markupeditor package in node_modules (see markupeditor-app/vitest.config.js).
+    # The app ships the bundle from the MarkupEditor revision pinned in Package.resolved, so the locked
+    # package version must equal the version that revision locks.
+    - name: Check markupeditor matches the app's MarkupEditor
+      run: |
+        resolved=MarkupEditorApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+        revision=$(jq -r '.pins[] | select(.identity == "markupeditor") | .state.revision' "$resolved")
+        if [ -z "$revision" ] || [ "$revision" = "null" ]; then
+          echo "::error::No markupeditor revision found in $resolved"
+          exit 1
+        fi
+        url="https://raw.githubusercontent.com/stevengharris/MarkupEditor/$revision/markupeditor-js/package-lock.json"
+        shipped=$(curl -fsSL "$url" | jq -r '.packages["node_modules/markupeditor"].version')
+        locked=$(jq -r '.packages["node_modules/markupeditor"].version' package-lock.json)
+        if [ -z "$shipped" ] || [ "$shipped" = "null" ]; then
+          echo "::error::No markupeditor version found in MarkupEditor's lockfile at $revision"
+          exit 1
+        fi
+        echo "app ships markupeditor $shipped; locked $locked"
+        if [ "$shipped" != "$locked" ]; then
+          echo "::error::package-lock.json has markupeditor $locked but the app ships $shipped. Run: npm update markupeditor"
+          exit 1
+        fi
+
+    - name: Test markupeditor-app
+      run: npm test --workspace markupeditor-app

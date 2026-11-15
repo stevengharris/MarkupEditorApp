@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 # Needs no secrets, so it also runs for pull requests from forks. markupeditor-app's tests are not
-# run here: they load the editor bundle from a sibling MarkupEditor checkout.
+# run here: they load the editor bundle from a sibling MarkupEditor checkout, which markupeditor-app.yml makes.
 jobs:
   plugins:
     runs-on: ubuntu-latest
