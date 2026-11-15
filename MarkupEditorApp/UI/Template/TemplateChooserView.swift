@@ -20,7 +20,9 @@ struct TemplateChooserView: View {
             Text("New from Template")
                 .font(.headline)
             if items.isEmpty {
-                ContentUnavailableView("No Templates", systemImage: "doc.on.doc")
+                ContentUnavailableView(
+                    "No Templates", systemImage: "doc.on.doc",
+                    description: Text("Use File > Save as Template… to make one from a document."))
                     .frame(maxWidth: .infinity, minHeight: 160)
             } else {
                 List(items, selection: $selection) { item in

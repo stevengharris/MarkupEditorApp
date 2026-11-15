@@ -15,7 +15,13 @@ public final class ControlServer: Sendable {
     private let peerVerifier: PeerVerifying
     private let handler: @Sendable (Data) async -> Data
     private let descriptor = Mutex<Int32>(-1)
+    /// The write end of the pipe that wakes the accept loop when the server stops. Guarded by `descriptor`'s lock.
+    private let wakeWriter = Mutex<Int32>(-1)
     private let connections = Mutex<Int>(0)
+    private let accepting = Mutex<Bool>(false)
+
+    /// Whether the accept loop is running. Tests use it to see when a stop has taken effect.
+    var isAccepting: Bool { accepting.withLock { $0 } }
 
     /// Connections served at once unless the caller asks for a different limit.
     static let maxConnections = 16
@@ -81,21 +87,40 @@ public final class ControlServer: Sendable {
                 unlink(path)
                 throw error
             }
+            // The loop waits on this pipe as well as the listener, so stop() can end the wait at once instead of the
+            // loop waking on a timer to look for a stop.
+            var pipeEnds: [Int32] = [-1, -1]
+            guard pipe(&pipeEnds) == 0 else {
+                let error = ControlSocketError.posix("pipe")
+                close(fd)
+                unlink(path)
+                throw error
+            }
+            for end in pipeEnds { _ = fcntl(end, F_SETFD, FD_CLOEXEC) }
+            _ = fcntl(pipeEnds[1], F_SETFL, fcntl(pipeEnds[1], F_GETFL) | O_NONBLOCK)
             descriptor = fd
+            wakeWriter.withLock { $0 = pipeEnds[1] }
+            let wakeReader = pipeEnds[0]
             let handler = handler
             let verifier = peerVerifier
-            DispatchQueue.global(qos: .userInitiated).async { [self] in acceptLoop(fd, verifier, handler) }
+            DispatchQueue.global(qos: .userInitiated).async { [self] in acceptLoop(fd, wakeReader, verifier, handler) }
         }
     }
 
     public func stop() {
         descriptor.withLock { descriptor in
             guard descriptor >= 0 else { return }
-            // The accept loop notices within its poll interval and closes the listener on its way out.
+            // The accept loop is woken through its pipe and closes the listener on its way out.
             // Closing it here frees the descriptor number while the loop can still call accept on it, and a
             // socket created in the meantime would reuse the number and have its connections taken by this loop.
             descriptor = -1
             unlink(path)
+            wakeWriter.withLock { writer in
+                var byte: UInt8 = 0
+                _ = write(writer, &byte, 1)
+                close(writer)
+                writer = -1
+            }
         }
     }
 
@@ -103,17 +128,29 @@ public final class ControlServer: Sendable {
         stop()
     }
 
-    private func acceptLoop(_ listener: Int32, _ verifier: PeerVerifying, _ handler: @escaping @Sendable (Data) async -> Data) {
-        // The loop owns the listener from here on; see stop().
-        defer { close(listener) }
+    private func acceptLoop(_ listener: Int32, _ wakeReader: Int32, _ verifier: PeerVerifying, _ handler: @escaping @Sendable (Data) async -> Data) {
+        // The loop owns the listener and the read end of the wake pipe from here on; see stop().
+        accepting.withLock { $0 = true }
+        defer {
+            close(listener)
+            close(wakeReader)
+            accepting.withLock { $0 = false }
+        }
         while true {
             // stop() clears the stored descriptor. Checking first means a stopped server never calls accept,
             // and polling means a blocked accept never keeps the loop from noticing.
             guard descriptor.withLock({ $0 }) == listener else { return }
-            var ready = pollfd(fd: listener, events: Int16(POLLIN), revents: 0)
-            let polled = poll(&ready, 1, 100)
-            if polled == 0 || (polled < 0 && errno == EINTR) { continue }
+            var ready = [
+                pollfd(fd: listener, events: Int16(POLLIN), revents: 0),
+                pollfd(fd: wakeReader, events: Int16(POLLIN), revents: 0),
+            ]
+            let polled = poll(&ready, 2, -1)
+            if polled < 0 && errno == EINTR { continue }
             if polled < 0 { return }
+            // stop() wrote to the pipe, or closed its end.
+            if ready[1].revents != 0 { return }
+            // Anything the listener reports goes to accept, which fails and ends the loop if the listener is broken.
+            if polled == 0 || ready[0].revents == 0 { continue }
             let connection = accept(listener, nil, nil)
             if connection < 0 {
                 // Transient failures, such as a connection aborted before it was accepted or a full

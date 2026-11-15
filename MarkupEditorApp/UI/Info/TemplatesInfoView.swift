@@ -23,7 +23,11 @@ struct TemplatesInfoView: View {
     @Environment(EditLog.self) private var editLog
     private let library = UserLibrary.templates
     @State private var items: [UserLibraryItem] = []
+    /// The built-in templates whose saved copy differs from the one the app ships, by folder name.
+    @State private var modifiedBuiltIns: Set<UserLibraryItem.ID> = []
     @State private var pending: PendingTemplate?
+    /// Set while a template is being copied into the templates folder, which can take a while for large images.
+    @State private var isAdding = false
     @State private var selection: UserLibraryItem.ID?
     @State private var editingID: UserLibraryItem.ID?
     @State private var draftName = ""
@@ -53,8 +57,6 @@ struct TemplatesInfoView: View {
                         .contextMenu {
                             Button("Delete…") { requestDelete(item) }
                         }
-                        .accessibilityAddTraits(item.id == selection ? .isSelected : [])
-                        .accessibilityAction(named: "Delete") { requestDelete(item) }
                 }
             }
         }
@@ -80,7 +82,7 @@ struct TemplatesInfoView: View {
         .onReceive(NotificationCenter.default.publisher(for: .templatesDidChange)) { _ in reload() }
         .sheet(item: $pending, onDismiss: reload) { pendingTemplate in
             AddTemplateView(title: "Add Template", detail: "From \(pendingTemplate.url.lastPathComponent)", confirmTitle: "Add", name: pendingTemplate.name, description: pendingTemplate.description) { name, description in
-                add(pendingTemplate.url, name: name, description: description)
+                Task { await add(pendingTemplate.url, name: name, description: description) }
                 pending = nil
             } onCancel: {
                 pendingTemplate.url.stopAccessingSecurityScopedResource()
@@ -119,10 +121,17 @@ struct TemplatesInfoView: View {
             .disabled(selected == nil)
             .help("Delete the selected template")
             .accessibilityLabel("Delete the selected template")
+            if isAdding {
+                ProgressView()
+                    .controlSize(.small)
+                    .help("Adding the template")
+                    .accessibilityLabel("Adding the template")
+            }
             Button(action: chooseSource) {
                 Image(systemName: "plus")
             }
             .buttonStyle(SquareIconButtonStyle())
+            .disabled(isAdding)
             .help("Add a template from a Markdown file or a folder")
             .accessibilityLabel("Add a template from a Markdown file or a folder")
         }
@@ -145,6 +154,11 @@ struct TemplatesInfoView: View {
                 HStack {
                     Text(item.manifest.name)
                     Spacer()
+                    if modifiedBuiltIns.contains(item.id) {
+                        Button("Restore…") { restore(item) }
+                            .controlSize(.small)
+                            .help("Replace \(item.manifest.name) with the version that ships with MarkupEditor")
+                    }
                     if item.id == selection {
                         Button("Edit") { edit(item) }
                             .controlSize(.small)
@@ -157,7 +171,25 @@ struct TemplatesInfoView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .modifier(rowAccessibility(for: item))
         }
+    }
+
+    /// Presents the row to VoiceOver as one button that selects the template, with the row's other commands as
+    /// actions. The Edit and Restore buttons drawn in the row are reached through those actions instead of as
+    /// separate elements inside it.
+    private func rowAccessibility(for item: UserLibraryItem) -> some ViewModifier {
+        TemplateRowAccessibility(
+            name: item.manifest.name,
+            detail: [item.manifest.description, modifiedBuiltIns.contains(item.id) ? "Differs from the version that ships with MarkupEditor" : ""]
+                .filter { !$0.isEmpty }.joined(separator: ". "),
+            isSelected: item.id == selection,
+            isModified: modifiedBuiltIns.contains(item.id),
+            select: { selection = item.id; listFocused = true },
+            rename: { selection = item.id; beginEditing(item) },
+            edit: { edit(item) },
+            restore: { restore(item) },
+            delete: { requestDelete(item) })
     }
 
     private var editingRow: some View {
@@ -251,6 +283,29 @@ struct TemplatesInfoView: View {
 
     private func reload() {
         items = library.items()
+        modifiedBuiltIns = Set(BuiltInTemplates.all().filter { library.isModified($0) }.map(\.folder))
+    }
+
+    /// Replaces the template with the version the app ships, after warning that the current one is lost.
+    private func restore(_ item: UserLibraryItem) {
+        guard let builtIn = BuiltInTemplates.all().first(where: { $0.folder == item.id }) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Replace the current version of \"\(item.manifest.name)\" with the default for this version of the MarkupEditor?"
+        alert.informativeText = "To save the current version first, Cancel now. Then, select Edit, and File > Save as Template under a new name before restoring."
+        alert.alertStyle = .warning
+        let cancel = alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "OK").hasDestructiveAction = true
+        // A button titled Cancel is given Escape and no default; Return makes it the default button.
+        cancel.keyEquivalent = "\r"
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        do {
+            try library.restore(builtIn)
+            editLog.info("Restored the template \(builtIn.manifest.name)", category: "Template")
+        } catch {
+            editLog.error("Could not restore \(item.manifest.name): \(error.localizedDescription)", category: "Template")
+            fail("Could Not Restore Template", error.localizedDescription)
+        }
+        reload()
     }
 
     /// Asks for a Markdown file or a folder with an open panel, not a SwiftUI file importer, because the
@@ -288,10 +343,15 @@ struct TemplatesInfoView: View {
         }
     }
 
-    private func add(_ url: URL, name: String, description: String) {
+    /// Copies the file or folder into the templates folder off the main thread, so a large folder does not freeze
+    /// the window. Access to the source is held until the copy ends.
+    private func add(_ url: URL, name: String, description: String) async {
         defer { url.stopAccessingSecurityScopedResource() }
+        isAdding = true
+        defer { isAdding = false }
+        let library = library
         do {
-            let item = try library.add(from: url, name: name, description: description)
+            let item = try await Task.detached { try library.add(from: url, name: name, description: description) }.value
             editLog.info("Added the template \(item.manifest.name)", category: "Template")
         } catch {
             editLog.error("Could not add a template from \(url.lastPathComponent): \(error.localizedDescription)", category: "Template")
@@ -316,5 +376,34 @@ struct TemplatesInfoView: View {
         failureTitle = title
         failure = message
         showFailure = true
+    }
+}
+
+/// A template row as one VoiceOver button: the name and description are read, the default action selects it,
+/// and Rename, Edit, Restore and Delete are offered as actions.
+private struct TemplateRowAccessibility: ViewModifier {
+    let name: String
+    let detail: String
+    let isSelected: Bool
+    let isModified: Bool
+    let select: () -> Void
+    let rename: () -> Void
+    let edit: () -> Void
+    let restore: () -> Void
+    let delete: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(name)
+            .accessibilityValue(detail)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction(.default, select)
+            .accessibilityActions {
+                Button("Rename", action: rename)
+                Button("Edit", action: edit)
+                if isModified { Button("Restore", action: restore) }
+                Button("Delete", action: delete)
+            }
     }
 }

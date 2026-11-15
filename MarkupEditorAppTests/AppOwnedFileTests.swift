@@ -14,8 +14,14 @@ struct AppOwnedFileTests {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
-    @Test func aFileInApplicationSupportIsAppOwned() {
+    @Test func aFileInTheTemplatesFolderIsAppOwned() {
         #expect(MarkupDocument.isAppOwned(support.appendingPathComponent("templates/a/a.md")))
+    }
+
+    @Test func otherFilesInApplicationSupportAreNot() {
+        #expect(!MarkupDocument.isAppOwned(support.appendingPathComponent("exporters/exporter-docx.js")))
+        #expect(!MarkupDocument.isAppOwned(support.appendingPathComponent("templates-other/a.md")))
+        #expect(!MarkupDocument.isAppOwned(support.appendingPathComponent("templates")))
     }
 
     @Test func otherFilesAndALookalikeFolderAreNot() {

@@ -115,31 +115,10 @@ struct MarkupEditorApp: App {
         }
     }
 
-    static let seededTemplatesKey = "seededTemplates"
-
     /// Writes the built-in templates into the templates folder. A template the user later deletes is
     /// not put back, because its name stays recorded.
     private static func seedTemplates() {
-        guard let indexURL = Bundle.main.url(forResource: "templates", withExtension: "json") else {
-            EditLog.shared.warning("The built-in templates could not be read: templates.json is missing from the app", category: "Template")
-            return
-        }
-        let builtIns: [UserLibrary.BuiltIn]
-        do {
-            let index = try Data(contentsOf: indexURL)
-            builtIns = try UserLibrary.builtIns(index: index, data: { name in
-                let url = Bundle.main.url(forResource: (name as NSString).deletingPathExtension, withExtension: (name as NSString).pathExtension)
-                return url.flatMap { try? Data(contentsOf: $0) }
-            })
-        } catch {
-            EditLog.shared.warning("The built-in templates could not be read: \(error.localizedDescription)", category: "Template")
-            return
-        }
-        let seeded = Set(UserDefaults.standard.stringArray(forKey: seededTemplatesKey) ?? [])
-        let copied = UserLibrary.templates.seed(builtIns, skipping: seeded)
-        if !copied.isEmpty {
-            UserDefaults.standard.set(Array(seeded.union(copied)).sorted(), forKey: seededTemplatesKey)
-        }
+        TemplateSeeding.seed(into: .templates, index: BuiltInTemplates.index, data: BuiltInTemplates.data, defaults: .standard)
     }
 
 }

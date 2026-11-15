@@ -329,13 +329,7 @@ public struct UserLibrary: Sendable {
             let destination = directory.appendingPathComponent(builtIn.folder)
             guard !seeded.contains(builtIn.folder), !fm.fileExists(atPath: destination.path) else { continue }
             do {
-                try fm.createDirectory(at: destination, withIntermediateDirectories: true)
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                try encoder.encode(builtIn.manifest).write(to: destination.appendingPathComponent(UserLibraryItem.manifestName))
-                for (name, data) in builtIn.files {
-                    try data.write(to: destination.appendingPathComponent(name))
-                }
+                try write(builtIn, to: destination)
                 written.append(builtIn.folder)
             } catch {
                 EditLog.record(.error, "Could not seed \(builtIn.folder): \(error.localizedDescription)", category: "Template")
@@ -343,5 +337,38 @@ public struct UserLibrary: Sendable {
             }
         }
         return written
+    }
+
+    /// Writes the built-in's manifest and files into `destination`, creating it if needed and replacing
+    /// files of the same names. Files the folder holds beyond the built-in's own are left alone.
+    private func write(_ builtIn: BuiltIn, to destination: URL) throws {
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(builtIn.manifest).write(
+            to: destination.appendingPathComponent(UserLibraryItem.manifestName), options: .atomic)
+        for (name, data) in builtIn.files {
+            try data.write(to: destination.appendingPathComponent(name), options: .atomic)
+        }
+    }
+
+    /// True when the folder for `builtIn` exists but differs from what the app ships: a different name or
+    /// description, or a file that is missing or has other contents. A folder the user deleted is not
+    /// modified, because there is nothing to compare.
+    public func isModified(_ builtIn: BuiltIn) -> Bool {
+        let folder = directory.appendingPathComponent(builtIn.folder)
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: folder.path) else { return false }
+        let saved = try? JSONDecoder().decode(
+            LibraryManifest.self, from: Data(contentsOf: folder.appendingPathComponent(UserLibraryItem.manifestName)))
+        guard saved?.name == builtIn.manifest.name, saved?.description == builtIn.manifest.description else { return true }
+        return builtIn.files.contains { name, data in
+            (try? Data(contentsOf: folder.appendingPathComponent(name))) != data
+        }
+    }
+
+    /// Replaces the folder's manifest and the built-in's files with the shipped versions.
+    public func restore(_ builtIn: BuiltIn) throws {
+        try write(builtIn, to: directory.appendingPathComponent(builtIn.folder))
     }
 }

@@ -77,9 +77,7 @@ struct MarkupDocumentView: View {
     /// command ran.
     private struct SaveTemplateRequest {
         let id = UUID()
-        let markdown: String
-        let assets: [String]
-        let name: String
+        let draft: TemplateDraft
     }
     // Set right before handleSave writes the file, so the event that write triggers isn't
     // mistaken for an external change.
@@ -178,13 +176,17 @@ struct MarkupDocumentView: View {
                     library: .templates,
                     onChoose: { item in
                         templateSheet = nil
-                        Task { await handleNewFromTemplate(item) }
+                        // Asked after the choice, so browsing templates never prompts and the check sees the document as it is now.
+                        Task {
+                            guard await checkSave() else { return }
+                            await handleNewFromTemplate(item)
+                        }
                     },
                     onCancel: { templateSheet = nil })
             case .save(let request):
                 AddTemplateView(
                     title: "Save as Template", detail: "The document and its images are copied into the templates folder.",
-                    confirmTitle: "Save", name: request.name, description: "",
+                    confirmTitle: "Save", name: request.draft.name, description: "",
                     onConfirm: { name, description in
                         templateSheet = nil
                         saveAsTemplate(request, name: name, description: description)
@@ -230,6 +232,7 @@ struct MarkupDocumentView: View {
                 ud.removeObject(forKey: MarkupEditorApp.firstLaunchDateKey)
                 ud.removeObject(forKey: MarkupEditorApp.hasSeenWelcomeKey)
                 ud.removeObject(forKey: MarkupEditorApp.hasSetupPluginsKey)
+                ud.removeObject(forKey: TemplateSeeding.seededKey)
                 ud.removeObject(forKey: ConfigKeys.toolbar)
                 ud.removeObject(forKey: ConfigKeys.keymap)
                 ud.removeObject(forKey: ConfigKeys.behavior)
@@ -417,7 +420,6 @@ struct MarkupDocumentView: View {
         case .menuNewDocument:
             await handleNew()
         case .menuNewFromTemplate:
-            guard await checkSave() else { return }
             templateSheet = .chooser
         case .menuSaveAsTemplate:
             await handleSaveAsTemplate()
@@ -472,24 +474,17 @@ struct MarkupDocumentView: View {
     /// Asks for a name and description for a template made from the document as it would be saved now. Only
     /// a Markdown document can be a template.
     private func handleSaveAsTemplate() async {
-        guard !document.isHTMLish else {
-            reportFailure("Only a Markdown document can be saved as a template.")
-            return
-        }
-        let contents = await getCurrentContents()
-        guard let markdown = contents.markdown else {
-            reportFailure("The document could not be read, so it was not saved as a template.")
-            return
-        }
-        let assets = document.localImageSrcsInMarkdown(markdown)
+        let markdown = document.isHTMLish ? nil : await getCurrentContents().markdown
         do {
-            try UserLibrary.validate(assets: assets)
+            let draft = try UserLibrary.draft(
+                isHTML: document.isHTMLish, markdown: markdown,
+                assets: markdown.map(document.localImageSrcsInMarkdown) ?? [], documentURL: document.url)
+            templateSheet = .save(SaveTemplateRequest(draft: draft))
+        } catch let error as TemplateDraftError {
+            reportFailure(error.message, detail: error.detail)
         } catch {
             reportFailure("This document cannot be saved as a template.", detail: error.localizedDescription)
-            return
         }
-        let name = document.url?.deletingPathExtension().lastPathComponent ?? ""
-        templateSheet = .save(SaveTemplateRequest(markdown: markdown, assets: assets, name: name))
     }
 
     private func saveAsTemplate(_ request: SaveTemplateRequest, name: String, description: String) {
@@ -499,7 +494,7 @@ struct MarkupDocumentView: View {
         }
         do {
             let item = try UserLibrary.templates.add(
-                markdown: request.markdown, name: name, description: description, assets: request.assets, from: baseUrl)
+                markdown: request.draft.markdown, name: name, description: description, assets: request.draft.assets, from: baseUrl)
             editLog.info("Saved the template \(item.manifest.name)", category: "Template")
             NotificationCenter.default.post(name: .templatesDidChange, object: nil)
         } catch {
@@ -516,19 +511,16 @@ struct MarkupDocumentView: View {
         editLog.info("Opening a new document from the \(item.manifest.name) template", category: "Template")
         clearPendingSelectionRestoreState()
         do {
-            let documentURL = try item.documentURL()
-            let markdown = try String(contentsOf: documentURL, encoding: .utf8)
-            let (html, metadata) = try await importMarkdown(markdown, in: webView)
-            try document.copyImageAssets(
-                srcs: document.localImageSrcsInMarkdown(markdown), from: documentURL.deletingLastPathComponent(),
-                to: webView.baseUrl, skipMissing: true, replaceExisting: true)
+            let prepared = try await TemplateOpening.prepare(item, document: document, imagesTo: webView.baseUrl) {
+                try await importMarkdown($0, in: webView)
+            }
             await webView.emptyDocument()
             document.reset()
-            document.openUntitled(markdown: markdown, metadata: metadata)
+            document.openUntitled(markdown: prepared.markdown, metadata: prepared.metadata)
             // Save is a no-op without changes, and a copy of a template should still ask where to go.
             document.hasChanges = true
-            try setHTML(document.seedMetadataBlock(in: html))
-            currentSource = markdown
+            try setHTML(document.seedMetadataBlock(in: prepared.html))
+            currentSource = prepared.markdown
             NSApplication.shared.mainWindow?.representedURL = nil
         } catch {
             reportFailure("The template \(item.manifest.name) could not be opened: \(error.localizedDescription)")
@@ -1143,6 +1135,8 @@ struct MarkupDocumentView: View {
                 try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
             }
             track(url: url)
+            // Lets the Templates tab recheck whether a built-in still matches the one that ships.
+            if MarkupDocument.isAppOwned(url) { NotificationCenter.default.post(name: .templatesDidChange, object: nil) }
             // While the source view shows, the selected web view is the one that was replaced; the editor
             // that comes back rebases from markupDidLoad.
             if document.documentType == .md && !sourceShowing { await rebase(on: webView) }

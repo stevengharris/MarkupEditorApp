@@ -356,3 +356,54 @@ import Foundation
         #expect(delegate.validateMenuItem(find))
     }
 }
+
+// File > Show in Finder reveals the file of the open document, so it is available only for a saved one.
+@MainActor struct ShowInFinderMenuTests {
+
+    private func item(of delegate: AppDelegate) -> NSMenuItem? {
+        delegate.buildMenu().items.compactMap(\.submenu).first { $0.title == "File" }?.items.first { $0.title == "Show in Finder" }
+    }
+
+    private func withDocument<T>(url: URL?, _ body: (MarkupDocument?) throws -> T) rethrows -> T {
+        let saved = AppControl.shared.document
+        defer { AppControl.shared.document = saved }
+        let document = url.map { url -> MarkupDocument in
+            let document = MarkupDocument()
+            document.url = url
+            return document
+        }
+        AppControl.shared.document = document
+        return try body(document)
+    }
+
+    @Test func testFileMenuHoldsShowInFinderAfterSaveAsTemplate() {
+        let titles = AppDelegate().buildMenu().items.compactMap(\.submenu).first { $0.title == "File" }?.items.map(\.title) ?? []
+        let template = titles.firstIndex(of: "Save as Template…")
+        let finder = titles.firstIndex(of: "Show in Finder")
+        #expect(template != nil && finder != nil, "File items: \(titles)")
+        if let template, let finder { #expect(finder > template) }
+    }
+
+    @Test func testItIsDisabledWithNoDocumentOrAnUntitledOne() throws {
+        let delegate = AppDelegate()
+        let finder = try #require(item(of: delegate))
+        withDocument(url: nil) { _ in #expect(!delegate.validateMenuItem(finder)) }
+        let untitled = AppControl.shared.document
+        AppControl.shared.document = MarkupDocument()
+        #expect(!delegate.validateMenuItem(finder))
+        AppControl.shared.document = untitled
+    }
+
+    @Test func testItIsEnabledForASavedFileAndDisabledOnceTheFileIsGone() throws {
+        let delegate = AppDelegate()
+        let finder = try #require(item(of: delegate))
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("ShowInFinder-\(UUID().uuidString).md")
+        try "text".write(to: file, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: file) }
+        withDocument(url: file) { _ in
+            #expect(delegate.validateMenuItem(finder))
+            try? FileManager.default.removeItem(at: file)
+            #expect(!delegate.validateMenuItem(finder))
+        }
+    }
+}
