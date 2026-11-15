@@ -43,11 +43,11 @@ final class MCPServerTests: Sendable {
 
     /// Runs `server` with `script`, calls `awaiting` with the output as it arrives, then closes input and
     /// returns everything the server wrote.
-    func runAwaiting(_ server: MCPServer, script: [String], awaiting: (ReceivedOutput) async -> Void) async -> [String] {
+    func runAwaiting(_ server: MCPServer, script: [String], socketPath: String? = nil, awaiting: (ReceivedOutput) async -> Void) async -> [String] {
         let input = Pipe(), output = Pipe()
         let received = ReceivedOutput(output.fileHandleForReading)
         received.start()
-        let finished = Task { await server.run(input: input.fileHandleForReading, output: output.fileHandleForWriting, pollInterval: .milliseconds(20)) }
+        let finished = Task { await server.run(input: input.fileHandleForReading, output: output.fileHandleForWriting, pollInterval: .milliseconds(20), socketPath: socketPath) }
         for line in script { input.fileHandleForWriting.write(Data((line + "\n").utf8)) }
 
         await awaiting(received)
@@ -61,8 +61,8 @@ final class MCPServerTests: Sendable {
 
     /// Runs `server` with `script`, waits for the reply to `tools/list`, calls `change`, then waits
     /// up to `timeout` for a `tools/list_changed` notification before closing input.
-    func runAwaitingAnnouncement(_ server: MCPServer, script: [String], timeout: Duration = .seconds(5), change: () -> Void) async -> [String] {
-        await runAwaiting(server, script: script) { received in
+    func runAwaitingAnnouncement(_ server: MCPServer, script: [String], timeout: Duration = .seconds(5), socketPath: String? = nil, change: () -> Void) async -> [String] {
+        await runAwaiting(server, script: script, socketPath: socketPath) { received in
             await received.wait(for: #""id":2"#, timeout: timeout)
             change()
             await received.wait(for: "notifications/tools/list_changed", timeout: timeout)
@@ -263,6 +263,26 @@ final class MCPServerTests: Sendable {
         let offered = OfferedTools([ControlTools.all[0]])
         let out = await runAwaitingAnnouncement(switchableServer(offered), script: [Self.initialize(), Self.initialized, Self.listTools]) {
             offered.set(ControlTools.all)
+        }
+        #expect(try announcements(out) == 1)
+    }
+
+    @Test func withNoSocketTheToolsAreNotRecheckedUntilItAppears() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("mcp-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let socket = folder.appendingPathComponent("mcp.sock").path
+        let offered = OfferedTools([ControlTools.all[0]])
+        let quiet = await runAwaiting(switchableServer(offered), script: [Self.initialize(), Self.initialized, Self.listTools], socketPath: socket) { received in
+            await received.wait(for: #""id":2"#, timeout: .seconds(5))
+            offered.set(ControlTools.all)
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+        #expect(try announcements(quiet) == 0)
+
+        let out = await runAwaitingAnnouncement(switchableServer(offered), script: [Self.initialize(), Self.initialized, Self.listTools], socketPath: socket) {
+            offered.set([ControlTools.all[0]])
+            FileManager.default.createFile(atPath: socket, contents: nil)
         }
         #expect(try announcements(out) == 1)
     }
