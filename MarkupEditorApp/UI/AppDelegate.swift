@@ -218,6 +218,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NotificationCenter.default.post(name: .menuSaveAsTemplate, object: nil)
     }
 
+    /// Reveals the open document's file in Finder.
+    @objc private func showInFinder(_ sender: Any?) {
+        guard let url = AppControl.shared.document?.url else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
     @objc private func openDocument(_ sender: Any?) {
         NotificationCenter.default.post(name: .menuOpenDocument, object: nil)
     }
@@ -357,6 +363,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         saveAsItem.image = NSImage(systemSymbolName: "square.and.arrow.down.on.square", accessibilityDescription: "Save As")
         fileMenu.addItem(saveAsItem)
         fileMenu.addItem(NSMenuItem(title: "Save as Template…", action: #selector(saveAsTemplate(_:)), keyEquivalent: ""))
+        fileMenu.addItem(NSMenuItem(title: "Show in Finder", action: #selector(showInFinder(_:)), keyEquivalent: ""))
         fileMenu.addItem(.separator())
         let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
         exportItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Export")
@@ -582,6 +589,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(saveAsTemplate(_:)):
             // Only a Markdown document can be a template.
             return !(AppControl.shared.document?.isHTMLish ?? false)
+        case #selector(showInFinder(_:)):
+            // An untitled document has no file to show, and a file deleted behind the app's back is not there to reveal.
+            guard let url = AppControl.shared.document?.url else { return false }
+            return FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
         default:
             if menuItem.action == #selector(executeMenuJS(_:)), let js = menuItem.representedObject as? String, Self.suggestionCommands.contains(js) {
                 let state = suggestionsState()
