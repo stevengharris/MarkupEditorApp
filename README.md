@@ -113,7 +113,9 @@ Refer to the [README](https://github.com/stevengharris/MarkupEditorApp/blob/main
 
 ## AI Assistance
 
-Markdown seems to be everywhere when you're using AI. You can connect your AI assistant to the MarkupEditor using Model Context Protocol (MCP). Start in the MarkupEditor by enabling AI assistants in Settings->General, acknowledging you understand the privacy implications of using an AI assistant. If you are using Claude Code, use the `Copy Claude Code Command` button and paste its result into the command line. You can use the `Copy JSON Config` button for the config data needed by other assistants. This operation enables the AI assistant session to connect to a running MarkupEditor, but it won't actually be connected until you ask it to do some editing. At that point, the MarkupEditor will prompt you to allow the connection. When you have AI assistance enabled, the "sparkles" button will appear in the window toolbar.
+You can connect your AI assistant to the MarkupEditor using Model Context Protocol (MCP). AI assistant connections are disabled by default. 
+
+Start in the MarkupEditor by enabling AI assistants in Settings->General, acknowledging you understand the privacy implications of using an AI assistant. If you are using Claude Code, use the `Copy Claude Code Command` button and paste its result into the command line. You can use the `Copy JSON Config` button for the config data needed by other assistants. This operation enables the AI assistant session to connect to a running MarkupEditor, but it won't actually be connected until you ask it to do some editing. At that point, the MarkupEditor will prompt you to allow the connection. When you have AI assistance enabled, the "sparkles" button will appear in the window toolbar.
 
 The MarkupEditor supports tools for opening and saving a document, getting and replacing blocks in the document, and presenting suggestions for your review. Edits are done on the *live* document you have open, so what you are seeing on your screen is the document the AI assistant is working with. You can reference the *selection* in the document. For example, the following commands to the AI assistant should do... what you would expect:
 
@@ -129,10 +131,6 @@ Contents entries should link to sections.
 
 ```
 Suggest editing changes to eliminate passive voice.
-```
-
-```
-Review the document for broken links.
 ```
 
 When you ask for *suggestions*, the AI assistant delivers them to the editor as a set. In the MarkupEditor, for each suggestion, you will see the highlighted text that would change next to the suggested text, together with `Accept` and `Reject` buttons. Typical usage is to move to the `Next` suggestion using `⌘+'` and press `Return` to accept and move to the next suggestion or `Shift+Return` to reject and move to the next selection. The Edit->Suggestions menu has additional options (like `Accept All` and `Reject All`) and hot keys. If you save the document, unaccepted changes are discarded.
@@ -175,4 +173,12 @@ The source licensing covers the *code*, not the MarkupEditor *name or logo*. "
 
 ## Acknowledgements
 
-The MarkupEditor depends on the amazing [ProseMirror](https://prosemirror.net) as a foundational part of WYSIWYG editing. A portion of the MarkupEditor app subscription revenue, once and if it exceeds expenses to host it, will go to support ProseMirror. If you find the MarkupEditor to be useful and/or are not using the supported version, please [support ProseMirror directly.](https://marijnhaverbeke.nl/fund/)
+MarkupEditor depends on the amazing [ProseMirror](https://prosemirror.net) as a foundational part of WYSIWYG editing. A portion of MarkupEditor subscription revenue, once and if it exceeds expenses to host it, will go to support ProseMirror. If you find MarkupEditor to be useful and/or are not using the supported version, please [support ProseMirror directly.](https://marijnhaverbeke.nl/fund/)
+
+In addition to Apple libraries, MarkupEditor uses the following, and I would like to thank their creators and maintainers:
+
+[Sparkle](https://sparkle-project.org) - The gold standard for updating macOS apps.
+
+[EventSource](https://github.com/mattt/EventSource) - A lightweight, spec-compliant Server-Sent Events (SSE) client for Swift.
+
+[KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) - Support for user-customizable global keyboard shortcuts for macOS apps.

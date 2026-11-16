@@ -14,14 +14,14 @@ Below you will find some [discussion](#about-ai) about how I used AI-assisted co
 
 * I, a human, will review PRs that you submit. Do not waste my time submitting AI-generated pull requests that you cannot discuss and answer questions about. You can even use the MarkupEditor MCP server to collaborate with an AI assistant on writing content for the PR. If I feel like I am interacting with AI on a pull request and not a human, I will just reject it.
 
-If you are using AI to work on this project, be sure to review the [AI Skills](#ai-skills) section below. The skills are designed to help you navigate the multi-tiered dependencies between Swift and JavaScript and to make plugin development simpler.
+If you are using AI to work on this project, be sure to review the [AI Skills](#ai-skills) section below. The skills are designed to help your AI assistant to navigate the multi-tiered dependencies between Swift and JavaScript and to make plugin development simpler.
 
 If I feel like AI contributions are a burden on the project and not a benefit, then I will reconsider this policy.
 
 ## Development Requirements
 
 * Xcode or its toolchain, supporting macOS 26 or higher
-* Node 24.15 or later (see .nvmrc) and npm
+* Node 24 or later (see .nvmrc) and npm
 
 It may be possible to support earlier macOS versions, but the earlier you go, the more SwiftUI workarounds or drop-backs to AppKit are required. If earlier versions are important to you, scope out the requirements for support and raise an issue or a discussion on the topic.
 
@@ -104,7 +104,7 @@ When you have the updated markupeditor-base files in place, run its test suite.
 xcodebuild clean test -scheme MarkupEditor -destination 'platform=macOS,arch=arm64'
 ```
 
-Third, build on the verified change here in MarkupEditorApp. Each stage runs in a different runtime (Node and vitest for markupeditor-base, a WKWebView for MarkupEditor), so do not assume that passing tests in one stage mean the next works. Open a separate pull request in each repository as needed, and describe the relevant changes in each one.
+Third, build on the verified change here in MarkupEditorApp. Each step runs in a different runtime (Node and vitest for markupeditor-base, a WKWebView for MarkupEditor), so do not assume that passing tests in one environment means the next works. Open a separate pull request in each repository as needed, and describe the relevant changes in each one.
 
 Fortunately, if you're using AI, this can be made easier.
 
