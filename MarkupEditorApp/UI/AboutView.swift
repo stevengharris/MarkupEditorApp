@@ -24,7 +24,7 @@ struct AboutView: View {
             Text(MarkupEditorApp.versionString)
                 .foregroundStyle(.secondary)
             if let expiry = BuildVariant.expiryDate() {
-                Text("Evaluation\(BuildVariant.evaluationBetaDays == nil ? "" : " (Beta)") \(BuildVariant.isExpired() ? "ended" : "ends") \(expiry.formatted(date: .abbreviated, time: .shortened))")
+                Text("Evaluation \(BuildVariant.isExpired() ? "ended" : "ends") \(expiry.formatted(date: .abbreviated, time: .shortened))")
                     .foregroundStyle(.secondary)
             }
             Button("Release Notes") {
