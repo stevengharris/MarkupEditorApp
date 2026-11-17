@@ -334,15 +334,16 @@ private struct RecorderFocus: NSViewRepresentable {
         var started = false
         private var observation: NSKeyValueObservation?
         private weak var window: NSWindow?
+        private weak var recorder: KeyboardShortcuts.RecorderCocoa?
 
         /// Watches the window's first responder. The recorder is active while it, or the field editor it uses, holds focus.
         func watch(_ recorder: KeyboardShortcuts.RecorderCocoa, in window: NSWindow) {
             guard isActive(window.firstResponder, recorder) else { return }
-            nonisolated(unsafe) let recorder = recorder
             self.window = window
+            self.recorder = recorder
             observation = window.observe(\.firstResponder) { [weak self] _, _ in
                 MainActor.assumeIsolated {
-                    guard let self, !self.isActive(self.window?.firstResponder, recorder) else { return }
+                    guard let self, let recorder = self.recorder, !self.isActive(self.window?.firstResponder, recorder) else { return }
                     self.observation = nil
                     self.onEnd()
                 }
