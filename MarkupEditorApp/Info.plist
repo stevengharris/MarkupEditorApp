@@ -53,6 +53,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)$(MARKUPEDITOR_BUILD_SUFFIX)</string>
 	<key>MarkupEditorEvalVersion</key>
 	<string>$(MARKUPEDITOR_EVAL_VERSION)</string>
+	<key>MarkupEditorEvalBetaDays</key>
+	<string>$(MARKUPEDITOR_EVAL_BETA_DAYS)</string>
 	<key>MarkupEditorUnlimitedVersion</key>
 	<string>$(MARKUPEDITOR_UNLIMITED_VERSION)</string>
 	<key>LSApplicationCategoryType</key>

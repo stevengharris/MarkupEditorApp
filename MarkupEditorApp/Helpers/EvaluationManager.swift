@@ -24,7 +24,30 @@ struct EvaluationManager {
     /// The date the evaluation period ends.
     static func expirationDate() -> Date {
         guard let firstLaunchDate else { return .distantFuture }
-        return Calendar.current.date(byAdding: .day, value: BuildVariant.evaluationPeriodDays, to: firstLaunchDate) ?? .distantFuture
+        return Calendar.current.date(byAdding: .day, value: EvaluationStore().days, to: firstLaunchDate) ?? .distantFuture
+    }
+
+    /// Restarts the evaluation period when the running build calls for it, and records the first launch.
+    /// Logs a warning saying why a restart happened. Run once per launch, before the expiry is checked.
+    static func refreshForLaunch(now: Date = .now) {
+        let build = EvaluationBuild.current
+        let store = EvaluationStore()
+        let result = EvaluationPolicy.resolve(stored: store.load(), build: build, now: now)
+        store.save(result.record)
+        guard let reset = result.reset else { return }
+        let ends = result.record.expiry().formatted(date: .abbreviated, time: .shortened)
+        let message = switch reset {
+        case .beta: "The evaluation restarted for this Beta build. It ends \(ends)."
+        case .afterBeta: "The evaluation restarted for this release build, keeping the time left on the Beta. It ends \(ends)."
+        case .newVersion: "The evaluation restarted for version \(build.major).\(build.minor). It ends \(ends)."
+        }
+        EditLog.shared.warning(message, category: "Evaluation")
+    }
+
+    /// Whether the evaluation had ended when the app launched, after any restart this build calls for.
+    static func isExpiredAtLaunch() -> Bool {
+        refreshForLaunch()
+        return isExpired()
     }
 
     /// Whether the evaluation period has ended as of `Date.now`.

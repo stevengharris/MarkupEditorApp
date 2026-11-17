@@ -1,3 +1,5 @@
 // Release version. Edited by scripts/release.sh prepare; do not set these in the Xcode project.
 MARKETING_VERSION = 0.9.12
 CURRENT_PROJECT_VERSION = 20261116
+// Set for an Evaluation Beta build: the number of days its evaluation lasts. Empty otherwise.
+MARKUPEDITOR_EVAL_BETA_DAYS =

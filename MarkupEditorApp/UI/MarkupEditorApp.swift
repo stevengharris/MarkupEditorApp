@@ -30,7 +30,7 @@ struct MarkupEditorApp: App {
 #if EVAL_VERSION
     /// The evaluation had expired when the app launched. Fixed at launch so a document is never
     /// swapped out from under the user when the expiration passes mid-session.
-    private let expiredAtLaunch = EvaluationManager.isExpired()
+    private let expiredAtLaunch = EvaluationManager.isExpiredAtLaunch()
 #endif
 
     var body: some Scene {

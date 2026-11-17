@@ -50,20 +50,37 @@ public enum BuildVariant: Equatable {
     }
 
     public static var versionString: String {
-        "\(version) (\(build)) — \(current.label)"
+        "\(version) (\(build)) — \(displayLabel(from: Bundle.main.infoDictionary))"
     }
 
-    /// UserDefaults key holding the date the evaluation build was first launched.
+    /// The variant's label, with "Beta" added for an Evaluation build that has a Beta period.
+    static func displayLabel(from info: [String: Any]?) -> String {
+        let variant = resolve(from: info)
+        return variant == .evaluation && evaluationBetaDays(from: info) != nil ? "\(variant.label) Beta" : variant.label
+    }
+
+    /// The length of a Beta evaluation build's period, set by the `MarkupEditorEvalBetaDays` Info.plist key.
+    /// Nil for any other build, and for a key that is empty, unresolved or not a positive number.
+    public static func evaluationBetaDays(from info: [String: Any]?) -> Int? {
+        guard let text = info?["MarkupEditorEvalBetaDays"] as? String, let days = Int(text), days > 0 else { return nil }
+        return days
+    }
+
+    public static var evaluationBetaDays: Int? {
+        evaluationBetaDays(from: Bundle.main.infoDictionary)
+    }
+
+    /// UserDefaults key holding the date the current evaluation period started.
     public static let firstLaunchDateKey = "firstLaunchDateKey"
 
     public static let evaluationPeriodDays = 14
 
-    /// The date the evaluation ends: `evaluationPeriodDays` after the first launch. Nil for any
+    /// The date the evaluation ends: the stored period length after the date it started. Nil for any
     /// other variant, and for the evaluation build before its first launch is recorded.
     public static func expiryDate() -> Date? {
         guard current == .evaluation,
               let firstLaunch = UserDefaults.standard.object(forKey: firstLaunchDateKey) as? Date else { return nil }
-        return Calendar.current.date(byAdding: .day, value: evaluationPeriodDays, to: firstLaunch)
+        return Calendar.current.date(byAdding: .day, value: EvaluationStore().days, to: firstLaunch)
     }
 
     /// Whether the evaluation has ended. False for any other variant, and for the evaluation build
