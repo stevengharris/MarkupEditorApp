@@ -19,9 +19,10 @@ import MarkupEditorMCP
         usage: """
             markup [--version] [<file>]
             markup export --format <html|pdf|exporter> [--images <link|embed>] [--output <path>] [--force] <file>
+            markup current [--saved]
             markup mcp [--socket <path>]
             """,
-        subcommands: [Open.self, Export.self, MCP.self],
+        subcommands: [Open.self, Export.self, Current.self, MCP.self],
         defaultSubcommand: Open.self
     )
 

@@ -59,7 +59,12 @@ final class AppControl {
     /// Why the listener could not start, shown in Settings while Assistants is on.
     private(set) var startupProblem: String?
 
-    @ObservationIgnored var document: MarkupDocument?
+    @ObservationIgnored var document: MarkupDocument? {
+        didSet { currentDocumentPublisher?.attach(document) }
+    }
+    /// Publishes the document for `markup current`. Absent in unit tests, which host the app while the user's own copy may be running.
+    @ObservationIgnored private let currentDocumentPublisher: CurrentDocumentPublisher? = SingleInstance.isTestRun ? nil
+        : CurrentDocumentPublisher(file: CurrentDocumentFile(url: CurrentDocumentFile.url(containerHome: NSHomeDirectory())))
     @ObservationIgnored var sourceShowing = false
     /// The text the source view shows (HTML for an HTML document, Markdown otherwise); read-only for assistants.
     @ObservationIgnored var sourceText = ""

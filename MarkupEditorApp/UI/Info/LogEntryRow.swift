@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AppKit
 import MarkupEditorAppLib
 
 /// One entry of the Log tab: a title line with the level, time and category, and the message below it across the
@@ -27,6 +28,26 @@ struct LogEntryRow: View {
             }
             .foregroundStyle(Color(nsColor: .secondaryLabelColor))
             Text(Self.counted(entry.message, entry.count))
+            if let output = entry.output {
+                Text(output)
+                    .font(.system(.caption, design: .monospaced))
+                    .padding(6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+            }
+            if let fileURL = entry.fileURL {
+                HStack {
+                    Spacer()
+                    Button { NSWorkspace.shared.open(fileURL) } label: {
+                        Text("Log File")
+                            .font(.caption)
+                            .foregroundStyle(Color(nsColor: .linkColor))
+                    }
+                    .buttonStyle(.plain)
+                    .fixedSize()
+                    .help("Open the full output")
+                }
+            }
         }
         .font(.system(.body, design: .monospaced))
         .frame(maxWidth: .infinity, alignment: .leading)

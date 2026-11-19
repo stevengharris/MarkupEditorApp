@@ -6,6 +6,7 @@ import Testing
 import AppKit
 import MarkupEditor
 import Foundation
+import MarkupEditorAppLib
 @testable import MarkupEditorApp
 
 // .serialized prevents races on the shared static AppDelegate.pendingFinderURL
@@ -405,5 +406,138 @@ import Foundation
             try? FileManager.default.removeItem(at: file)
             #expect(!delegate.validateMenuItem(finder))
         }
+    }
+}
+
+// File > Run Shortcut lists the chosen Shortcuts and posts the chosen one for the document view to run.
+@MainActor struct ShortcutsMenuTests {
+
+    private typealias Rig = (delegate: AppDelegate, store: ChosenShortcutsStore, runs: ShortcutRunStore, cleanup: () -> Void)
+
+    /// `installed` is what the fake `shortcuts` command reports as the unfiled Shortcuts.
+    private func rig(installed: [String] = []) throws -> Rig {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ShortcutsMenuTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = ChosenShortcutsStore(directory: root.appendingPathComponent("shortcuts"))
+        let runs = ShortcutRunStore(timeout: .seconds(120), sleeper: { _ in try await Task.sleep(for: .seconds(3600)) })
+        let listing = installed.map { "\($0) (\(UUID().uuidString))" }.joined(separator: "\n")
+        let reader = ShortcutLibraryReader(run: { arguments in arguments.contains("none") ? listing : "" })
+        let delegate = AppDelegate()
+        delegate.shortcuts = ShortcutsModel(reader: reader, store: store)
+        delegate.shortcutRuns = runs
+        _ = delegate.buildMenu()
+        return (delegate, store, runs, { try? FileManager.default.removeItem(at: root) })
+    }
+
+    private final class PostedBox: @unchecked Sendable {
+        var name: String?
+        var count = 0
+    }
+
+    private func titles(_ delegate: AppDelegate) -> [String] { delegate.shortcutsSubmenu.items.map(\.title) }
+
+    private func settle() async { for _ in 0..<10 { await Task.yield() } }
+
+    /// Waits up to two seconds for the menu to show `expected`.
+    private func waitForTitles(_ delegate: AppDelegate, _ expected: [String]) async {
+        for _ in 0..<200 where titles(delegate) != expected { try? await Task.sleep(for: .milliseconds(10)) }
+    }
+
+    @Test func testFileMenuHoldsRunShortcutAfterExport() {
+        let titles = AppDelegate().buildMenu().items.compactMap(\.submenu).first { $0.title == "File" }?.items.map(\.title) ?? []
+        let export = titles.firstIndex(of: "Export")
+        let run = titles.firstIndex(of: "Run Shortcut")
+        #expect(export != nil && run != nil, "File items: \(titles)")
+        if let export, let run { #expect(run == export + 1) }
+    }
+
+    @Test func testItListsTheChosenShortcutsInOrder() throws {
+        let (delegate, store, _, cleanup) = try rig()
+        defer { cleanup() }
+        try store.add("Publish")
+        try store.add("Build Help")
+        delegate.shortcuts.reloadChosen()
+        delegate.populateShortcutsMenu()
+        #expect(titles(delegate) == ["Publish", "Build Help"])
+        #expect(delegate.shortcutsSubmenu.items.allSatisfy { $0.isEnabled })
+    }
+
+    @Test func testWithNoneChosenItHoldsOneDisabledItem() throws {
+        let (delegate, _, _, cleanup) = try rig()
+        defer { cleanup() }
+        delegate.populateShortcutsMenu()
+        #expect(titles(delegate) == ["No Shortcuts"])
+        #expect(delegate.shortcutsSubmenu.items.allSatisfy { !$0.isEnabled })
+    }
+
+    @Test func testARunningShortcutIsMarkedAndEveryItemIsDisabled() throws {
+        let (delegate, store, runs, cleanup) = try rig()
+        defer { cleanup() }
+        try store.add("Publish")
+        try store.add("Other")
+        delegate.shortcuts.reloadChosen()
+        let ticket = runs.begin(shortcutName: "Publish")
+        delegate.populateShortcutsMenu()
+        #expect(titles(delegate) == ["Publish (running)", "Other"])
+        #expect(delegate.shortcutsSubmenu.items.map(\.isEnabled) == [false, false])
+        _ = ticket
+    }
+
+    @Test func testAShortcutMissingFromTheLibraryIsDisabledAndMarked() async throws {
+        let (delegate, store, _, cleanup) = try rig(installed: ["Publish"])
+        defer { cleanup() }
+        try store.add("Publish")
+        try store.add("Gone")
+        delegate.shortcuts.reloadChosen()
+        await delegate.shortcuts.reloadLibrary()
+        delegate.populateShortcutsMenu()
+        #expect(titles(delegate) == ["Publish", "Gone (not found)"])
+        #expect(delegate.shortcutsSubmenu.items.map(\.isEnabled) == [true, false])
+    }
+
+    @Test func testAnItemPostsTheNameForTheDocumentView() throws {
+        let (delegate, store, _, cleanup) = try rig()
+        defer { cleanup() }
+        try store.add("Publish")
+        delegate.shortcuts.reloadChosen()
+        delegate.populateShortcutsMenu()
+        let box = PostedBox()
+        let token = NotificationCenter.default.addObserver(forName: .menuRunShortcut, object: nil, queue: nil) { note in
+            box.name = note.userInfo?["name"] as? String
+            box.count += 1
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+        let item = try #require(delegate.shortcutsSubmenu.items.first)
+        let action = try #require(item.action)
+        #expect(NSApp.sendAction(action, to: item.target, from: item))
+        #expect(box.name == "Publish")
+        #expect(box.count == 1)
+    }
+
+    @Test func testTheMenuRefreshesWhenTheChosenShortcutsChange() async throws {
+        let (delegate, store, _, cleanup) = try rig(installed: ["Publish"])
+        defer { cleanup() }
+        delegate.observeShortcuts()
+        await settle()
+        try store.add("Publish")
+        await waitForTitles(delegate, ["Publish"])
+        #expect(titles(delegate) == ["Publish"])
+    }
+
+    @Test func testTheMenuRefreshesWhenTheRunningSetChanges() async throws {
+        let (delegate, store, runs, cleanup) = try rig(installed: ["Publish"])
+        defer { cleanup() }
+        try store.add("Publish")
+        delegate.shortcuts.reloadChosen()
+        delegate.populateShortcutsMenu()
+        delegate.observeShortcuts()
+        await settle()
+        let ticket = try #require(runs.begin(shortcutName: "Publish"))
+        await waitForTitles(delegate, ["Publish (running)"])
+        #expect(titles(delegate) == ["Publish (running)"])
+        runs.receive(ShortcutCallbackURL.urls(for: ticket.id).cancel)
+        await waitForTitles(delegate, ["Publish"])
+        #expect(titles(delegate) == ["Publish"])
+        #expect(delegate.shortcutsSubmenu.items.allSatisfy { $0.isEnabled })
     }
 }

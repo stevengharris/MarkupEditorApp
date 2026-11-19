@@ -37,16 +37,16 @@ public final class EditLog {
 
     // MARK: Recording
 
-    public func info(_ message: String, category: String? = nil, once: String? = nil) {
-        post(.info, message, category: category, once: once)
+    public func info(_ message: String, category: String? = nil, once: String? = nil, output: String? = nil, fileURL: URL? = nil) {
+        post(.info, message, category: category, once: once, output: output, fileURL: fileURL)
     }
 
-    public func warning(_ message: String, category: String? = nil, once: String? = nil) {
-        post(.warning, message, category: category, once: once)
+    public func warning(_ message: String, category: String? = nil, once: String? = nil, output: String? = nil, fileURL: URL? = nil) {
+        post(.warning, message, category: category, once: once, output: output, fileURL: fileURL)
     }
 
-    public func error(_ message: String, category: String? = nil, once: String? = nil) {
-        post(.error, message, category: category, once: once)
+    public func error(_ message: String, category: String? = nil, once: String? = nil, output: String? = nil, fileURL: URL? = nil) {
+        post(.error, message, category: category, once: once, output: output, fileURL: fileURL)
     }
 
     /// Records one group entry for a batch. An empty batch records nothing; one message records an
@@ -74,10 +74,10 @@ public final class EditLog {
 
     /// Callable from any thread. Takes the date and writes OSLog on the calling thread, then appends
     /// synchronously when already on the main thread, otherwise after a hop to the main actor.
-    public nonisolated static func record(_ level: LogLevel, _ message: String, category: String? = nil, once: String? = nil) {
+    public nonisolated static func record(_ level: LogLevel, _ message: String, category: String? = nil, once: String? = nil, output: String? = nil, fileURL: URL? = nil) {
         let date = Date()
         writeOSLog(level, message, category: category)
-        let entry = LogEntry(date: date, level: level, category: category, message: message)
+        let entry = LogEntry(date: date, level: level, category: category, message: message, output: output, fileURL: fileURL)
         if Thread.isMainThread {
             MainActor.assumeIsolated { shared.append(entry, once: once) }
         } else {
@@ -111,6 +111,7 @@ public final class EditLog {
         for entry in entries {
             let prefix = "\(formatter.string(from: entry.date)) [\(entry.level.label)] " + (entry.category.map { "\($0): " } ?? "")
             lines.append(prefix + Self.indented(Self.counted(entry.message, entry.count)))
+            if let output = entry.output { lines.append(contentsOf: output.components(separatedBy: "\n").map { "    " + $0 }) }
             for detail in entry.details {
                 lines.append("    [\(detail.level.label)] " + Self.indented(Self.counted(detail.text, detail.count), by: "        "))
             }
@@ -120,9 +121,9 @@ public final class EditLog {
 
     // MARK: Internals
 
-    private func post(_ level: LogLevel, _ message: String, category: String?, once: String?) {
+    private func post(_ level: LogLevel, _ message: String, category: String?, once: String?, output: String? = nil, fileURL: URL? = nil) {
         Self.writeOSLog(level, message, category: category)
-        append(LogEntry(date: clock(), level: level, category: category, message: message), once: once)
+        append(LogEntry(date: clock(), level: level, category: category, message: message, output: output, fileURL: fileURL), once: once)
     }
 
     /// A keyed call is resolved before folding: a key still in the log updates that entry and adds no row;

@@ -1,6 +1,6 @@
 # Built-in Templates
 
-This folder holds the templates that ship with MarkupEditor. They appear in File > New from Template… and in the Templates tab of the side panel.
+This folder holds the templates that ship with MarkupEditor. They appear in File > New from Template… and in the Templates section of the Tools tab of the side panel.
 
 For most users, templates will be specific to their workflow. They are easy to create, save, edit, and delete from the MarkupEditor side panel. The built-in templates will be useful for some users, but they also serve as examples.
 
@@ -46,7 +46,7 @@ Each template is one Markdown file named for its template, in the form `<kind>-<
 ```
 
 * `folder` is the name of the folder created for the template in the user's templates folder. By convention it is also the Markdown file's name here, without `.md`.
-* `name` and `description` are shown in the chooser and the Templates panel.
+* `name` and `description` are shown in the chooser and the Templates section.
 * `file` is the name of the template's Markdown file, typically `<folder>.md`.
 
 ## Adding a built-in template

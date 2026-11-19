@@ -120,7 +120,7 @@ struct PluginsInfoView: View {
         let addHelp = "Add a \(type == .codeview ? "CodeView" : "Exporter") from a file"
         return HStack {
             HStack {
-                Text(title)
+                Label(title, systemImage: type == .codeview ? "text.viewfinder" : "square.and.arrow.up")
                     .font(.title3)
                 Spacer()
             }

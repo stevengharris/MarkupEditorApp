@@ -8,8 +8,9 @@ import MarkupEditorAppLib
 
 internal import UniformTypeIdentifiers
 
-/// Lists the templates in the templates folder, read from their manifests. A template is added from a
-/// Markdown file or a folder with the + button in the header, and deleted from its row.
+/// The Templates section of the Tools tab: the templates in the templates folder, read from their manifests.
+/// A template is added from a Markdown file or a folder with the + button in the header, and deleted from its row.
+/// It is a disclosure group, so it is placed in the list of `ToolsInfoView`.
 struct TemplatesInfoView: View {
 
     /// A file or folder the user picked, waiting for a name and description.
@@ -22,6 +23,7 @@ struct TemplatesInfoView: View {
 
     @Environment(EditLog.self) private var editLog
     private let library = UserLibrary.templates
+    @State private var expanded = true
     @State private var items: [UserLibraryItem] = []
     /// The built-in templates whose saved copy differs from the one the app ships, by folder name.
     @State private var modifiedBuiltIns: Set<UserLibraryItem.ID> = []
@@ -43,11 +45,11 @@ struct TemplatesInfoView: View {
     @State private var showFailure = false
 
     var body: some View {
-        List {
-            header
+        DisclosureGroup(isExpanded: $expanded) {
             if items.isEmpty {
                 Text("None")
                     .foregroundStyle(.secondary)
+                    .padding(.leading, -(InfoSectionLayout.disclosureIndent + InfoSectionLayout.chevronInset))
             } else {
                 ForEach(items) { item in
                     row(item)
@@ -57,10 +59,13 @@ struct TemplatesInfoView: View {
                         .contextMenu {
                             Button("Delete…") { requestDelete(item) }
                         }
+                        .padding(.leading, -(InfoSectionLayout.disclosureIndent + InfoSectionLayout.chevronInset))
                 }
             }
+        } label: {
+            header
+                .padding(.leading, -InfoSectionLayout.chevronInset)
         }
-        .listStyle(.plain)
         // The selection is drawn here, not by the list, because the list draws it in the accent color
         // while it has keyboard focus and in gray otherwise.
         .focusable()
@@ -77,7 +82,6 @@ struct TemplatesInfoView: View {
         .onDeleteCommand { _ = deleteSelectedFromKeyboard() }
         .onKeyPress(.upArrow) { moveSelection(by: -1) }
         .onKeyPress(.downArrow) { moveSelection(by: 1) }
-        .padding(.horizontal, 8)
         .onAppear(perform: reload)
         .onReceive(NotificationCenter.default.publisher(for: .templatesDidChange)) { _ in reload() }
         .sheet(item: $pending, onDismiss: reload) { pendingTemplate in
@@ -109,7 +113,7 @@ struct TemplatesInfoView: View {
 
     private var header: some View {
         HStack {
-            Text("Templates")
+            Label("Templates", systemImage: "puzzlepiece.extension")
                 .font(.title3)
             Spacer()
             Button {

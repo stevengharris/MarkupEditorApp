@@ -51,6 +51,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// Submenu under File > Export, populated by populateExportMenu(_:).
     var exportSubmenu = NSMenu(title: "Export")
 
+    /// Submenu under File > Run Shortcut, populated by populateShortcutsMenu().
+    var shortcutsSubmenu = NSMenu(title: "Run Shortcut")
+    var shortcuts = ShortcutsModel()
+    var shortcutRuns = ShortcutRunStore.shared
+    private var actionsObserver: Task<Void, Never>?
+    private var activeObserver: Task<Void, Never>?
+
     /// The `id` passed to the app's single `MarkupEditorView`/`MarkupWKWebView` instance,
     /// and therefore the subdirectory name its runtime cache directory resolves to.
     static let webViewId = "Document"
@@ -147,6 +154,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         Task { @MainActor [self] in
             NSApplication.shared.mainMenu = buildMenu()
             populateExportMenu()
+            populateShortcutsMenu()
+            observeShortcuts()
             let documentWindow = NSApp.windows.first { $0.identifier?.rawValue == MarkupEditorApp.mainWindowID }
             if let button = (documentWindow ?? NSApplication.shared.mainWindow)?.standardWindowButton(.closeButton) {
                 button.target = self
@@ -180,6 +189,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                     Task { @MainActor in
                         NSApplication.shared.mainMenu = self.buildMenu()
                         self.populateExportMenu()
+                        self.populateShortcutsMenu()
                     }
                 }
             }
@@ -199,6 +209,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard (NSApp.mainMenu?.numberOfItems ?? 0) < 6 else { return }
         NSApplication.shared.mainMenu = buildMenu()
         populateExportMenu()
+        populateShortcutsMenu()
     }
 
     // MARK: - File menu actions
@@ -311,6 +322,72 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         )
     }
 
+    /// Fills the Run Shortcut submenu from the chosen Shortcuts, in the order chosen. One that is running
+    /// shows "(running)", and every item is disabled while one runs, since Shortcuts drops the results of a
+    /// run when another starts. One that is no longer in the Shortcuts library is disabled too. Safe to
+    /// call repeatedly.
+    func populateShortcutsMenu() {
+        shortcutsSubmenu.removeAllItems()
+        shortcutsSubmenu.autoenablesItems = false
+        guard !shortcuts.chosen.isEmpty else {
+            let none = NSMenuItem(title: "No Shortcuts", action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            shortcutsSubmenu.addItem(none)
+            return
+        }
+        for name in shortcuts.chosen {
+            let running = shortcutRuns.isRunning(name)
+            let missing = shortcuts.isMissing(name)
+            let title = running ? "\(name) (running)" : (missing ? "\(name) (not found)" : name)
+            let item = NSMenuItem(title: title, action: #selector(runShortcutItem(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = name
+            item.isEnabled = !shortcutRuns.isBusy && !missing
+            shortcutsSubmenu.addItem(item)
+        }
+    }
+
+    /// Keeps the Run Shortcut submenu current: refreshes when the chosen Shortcuts change, when one starts
+    /// or stops running, and when the app becomes active, which also rereads the Shortcuts library.
+    func observeShortcuts() {
+        actionsObserver?.cancel()
+        actionsObserver = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .chosenShortcutsDidChange) {
+                self?.shortcuts.reloadChosen()
+                self?.populateShortcutsMenu()
+            }
+        }
+        activeObserver?.cancel()
+        activeObserver = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification) {
+                await self?.refreshShortcuts()
+            }
+        }
+        trackRunningShortcuts()
+        Task { await refreshShortcuts() }
+    }
+
+    private func refreshShortcuts() async {
+        await shortcuts.reloadLibrary()
+        populateShortcutsMenu()
+    }
+
+    private func trackRunningShortcuts() {
+        withObservationTracking {
+            _ = shortcutRuns.runningNames
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.populateShortcutsMenu()
+                self?.trackRunningShortcuts()
+            }
+        }
+    }
+
+    @objc private func runShortcutItem(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        NotificationCenter.default.post(name: .menuRunShortcut, object: nil, userInfo: ["name": name])
+    }
+
     func buildMenu() -> NSMenu {
         // Reset all instance-var submenus on every call so they can be
         // re-attached to fresh NSMenuItems. NSMenu throws "already a submenu
@@ -318,6 +395,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // time without being detached first.
         openRecentMenu = NSMenu(title: "Open Recent")
         exportSubmenu = NSMenu(title: "Export")
+        shortcutsSubmenu = NSMenu(title: "Run Shortcut")
 
         let mainMenu = NSMenu()
 
@@ -369,6 +447,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         exportItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Export")
         exportItem.submenu = exportSubmenu
         fileMenu.addItem(exportItem)
+        let runShortcutMenuItem = NSMenuItem(title: "Run Shortcut", action: nil, keyEquivalent: "")
+        runShortcutMenuItem.image = NSImage(systemSymbolName: "bolt", accessibilityDescription: "Run Shortcut")
+        runShortcutMenuItem.submenu = shortcutsSubmenu
+        fileMenu.addItem(runShortcutMenuItem)
         fileMenuItem.submenu = fileMenu
 
         // Standard edit menu

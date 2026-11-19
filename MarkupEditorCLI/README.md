@@ -52,6 +52,27 @@ markup export --format epub --output book.epub notes.md
 
 Without `--output`, the result is saved as a file beside the input, with a `.html` or `.pdf` extension (`notes.md` becomes `notes.html`). Use `--output <path>` to save it elsewhere, or `--output -` to write it to standard output instead. An existing output file is refused unless `--force` is given. The HTML is the document body, with front matter removed and list items written tight: an item with a single paragraph has no `<p>`, and the editor restores it when the HTML is opened. By default local images stay relative references (`--images link`), so the HTML must stay next to its images; `--images embed` inlines the images found in the input file's folder as data URIs, and a PDF always includes them. An image that is missing, is not an image, or lies outside the input file's folder is left as written, with a warning. Besides `html` and `pdf`, `--format` accepts the name or extension of an exporter plugin installed in the app, ignoring case: `docx` or `DocX`, `epub`, and any other installed exporter. A file made by an exporter has the document's local images embedded, as a PDF does, and `--images` has no effect on it. The default output file takes the exporter's extension. If no installed exporter matches, the command fails and lists the formats that are available. Install exporters from the Plugins tab in the app; the command uses the same plugins and the same settings as the app. The conversion runs in a windowless launch of the MarkupEditor app this CLI is part of, so the app does not have to be running. Use `--app <path>` to convert with a different copy of the app. Without it, the command refuses to run if the app's version differs from the CLI's, and it does not run once an Evaluation Version has expired.
 
+### Finding the open document
+
+Print the path of the saved file MarkupEditor has open:
+
+```bash
+markup current
+markup current --saved
+```
+
+Standard output is only the path, so `$(markup current)` is safe in a script, such as a Shortcuts Run Shell Script step that was started without an input file. Messages go to standard error. The app must be running, but Assistants does not need to be on: the app keeps a small file in its container up to date, and the command reads it.
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | The path was printed. |
+| 2 | MarkupEditor is not running. |
+| 3 | The open document has not been saved yet, so it has no path. |
+| 4 | The document has unsaved changes and `--saved` was given. |
+| 5 | macOS refused access to the app's data. The first time Shortcuts runs `markup current`, macOS asks whether Shortcuts may access data from other apps; choose Allow, or allow it later in System Settings > Privacy & Security. |
+
+Without `--saved`, a document with unsaved changes still prints its path, with a warning on standard error: the file on disk is older than what the editor shows.
+
 ### Running the MCP server
 
 The CLI can run a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that lets an assistant such as Claude read and edit the document open in MarkupEditor.
