@@ -538,7 +538,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let helpMenu = NSMenu(title: "Help")
         let helpItem = NSMenuItem(title: "\(appName) Help", action: #selector(NSApplication.showHelp(_:)), keyEquivalent: "?")
         helpMenu.addItem(helpItem)
-        let shortcutsItem = NSMenuItem(title: "Keyboard Shortcuts", action: #selector(showKeyboardShortcuts(_:)), keyEquivalent: "")
+        let shortcutsItem = NSMenuItem(title: "Hotkeys", action: #selector(showKeyboardShortcuts(_:)), keyEquivalent: "")
         shortcutsItem.target = self
         helpMenu.addItem(shortcutsItem)
         helpMenuItem.submenu = helpMenu
