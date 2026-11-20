@@ -10,7 +10,7 @@ extension Notification.Name {
     static let menuNewDocument = Notification.Name("menuNewDocument")
     static let menuNewFromTemplate = Notification.Name("menuNewFromTemplate")
     static let menuSaveAsTemplate = Notification.Name("menuSaveAsTemplate")
-    /// Posted after a template is added, so the Templates panel can reload.
+    /// Posted after a template is added, so the Templates section can reload.
     static let templatesDidChange = Notification.Name("templatesDidChange")
     static let menuOpenDocument = Notification.Name("menuOpenDocument")
     static let menuSaveDocument = Notification.Name("menuSaveDocument")
@@ -27,6 +27,8 @@ extension Notification.Name {
     static let dismissSettings = Notification.Name("dismissSettings")
     static let menuQuitApplication = Notification.Name("menuQuitApplication")
     static let menuExport = Notification.Name("menuExport")
+    /// Posted when an item of the Run Shortcut menu is chosen; the Shortcut's name is under "name" in `userInfo`.
+    static let menuRunShortcut = Notification.Name("menuRunShortcut")
 #if DEBUG
     static let menuClearUserDefaults = Notification.Name("menuClearUserDefaults")
     static let menuClearCacheDir = Notification.Name("menuClearCacheDir")

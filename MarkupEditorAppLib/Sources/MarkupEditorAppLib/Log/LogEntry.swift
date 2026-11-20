@@ -15,6 +15,10 @@ public struct LogEntry: Identifiable, Sendable {
     public let category: String?
     /// For a group, the summary.
     public let message: String
+    /// Text shown under the message, such as the tail of a script's output.
+    public let output: String?
+    /// A file the entry points to, opened from the row.
+    public let fileURL: URL?
     /// Occurrences folded into this entry; 1 when none.
     public internal(set) var count: Int
     /// Empty for an ordinary entry. At most `EditLog.detailCap` distinct details.
@@ -22,21 +26,23 @@ public struct LogEntry: Identifiable, Sendable {
     /// Messages in the batch before folding and the cap; 0 for an ordinary entry.
     public let detailCount: Int
 
-    init(id: UUID = UUID(), date: Date, level: LogLevel, category: String?, message: String,
+    init(id: UUID = UUID(), date: Date, level: LogLevel, category: String?, message: String, output: String? = nil, fileURL: URL? = nil,
          count: Int = 1, details: [LogDetail] = [], detailCount: Int = 0) {
         self.id = id
         self.date = date
         self.level = level
         self.category = category
         self.message = message
+        self.output = output
+        self.fileURL = fileURL
         self.count = count
         self.details = details
         self.detailCount = detailCount
     }
 
-    /// Whether `other` is the same entry for folding: level, category, message and each detail's level and text.
+    /// Whether `other` is the same entry for folding: level, category, message, output, file and each detail's level and text.
     func isSame(as other: LogEntry) -> Bool {
-        level == other.level && category == other.category && message == other.message
+        level == other.level && category == other.category && message == other.message && output == other.output && fileURL == other.fileURL
             && details.count == other.details.count
             && zip(details, other.details).allSatisfy { $0.sameContent(as: $1) }
     }

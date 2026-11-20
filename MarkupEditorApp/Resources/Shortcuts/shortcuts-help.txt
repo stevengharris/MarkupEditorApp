@@ -1,0 +1,9 @@
+Choose a Shortcut from your Shortcuts library to make it visible in File > Run Shortcut. Shortcuts typically run a script that is given the path of the document you are editing, as `$1`. The script can use the `markup` command line tool to export the document to other formats and exercise your custom script on the result. For example, you could use a Shortcut to post your document to a web site or to add it to documentation you are assembling.
+
+Select Add Sample below to add an `Open in Browser` sample to your Shortcuts library. It runs a script that gets the HTML from the (saved) document you are editing, and then opens it in your default browser. The sample Shortcut script contains comments about script requirements that will help you write your own. You can view the sample script without installing the sample Shortcut using the `View Script` button.
+
+Notes:
+
+1. See `markup --help` for more information about the command line options.
+2. The first time a Shortcut runs a script, Shortcuts asks you to allow it. It asks once for each Shortcut.
+3. The Shortcut gets the path of the saved file. Unsaved changes are not in it. An untitled document has no path, so your script should handle that case.

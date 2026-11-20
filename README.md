@@ -21,7 +21,7 @@ The MarkupEditor lets you edit fully-formatted Markdown. Headers are properly si
 
 * Native macOS app, open source from top to bottom.
 * True "what you see is what you get" Markdown editing.
-* Shortcuts let you use your Markdown muscle memory naturally.
+* Hotkeys let you use your Markdown muscle memory naturally.
 * Edit and view the WYSIWYG document or the underlying Markdown source.
 * GitHub flavored Markdown support, including metadata and HTML in front matter.
 * Start a new document from a template and save your own templates.

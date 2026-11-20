@@ -59,6 +59,7 @@ struct MarkupDocumentView: View {
     @State private var showTableDialog: Bool = false
     @State private var showTableEditDialog: Bool = false
     @State private var templateSheet: TemplateSheet?
+    @State private var runDialog: RunShortcutModel?
 
     /// The sheet the template commands present: the chooser, or the form that names a new template.
     private enum TemplateSheet: Identifiable {
@@ -169,6 +170,9 @@ struct MarkupDocumentView: View {
         .popover(isPresented: $showTableEditDialog, attachmentAnchor: popupAnchor) {
             TableEditView(presented: $showTableEditDialog)
         }
+        .sheet(item: $runDialog) { model in
+            RunShortcutView(model: model) { runDialog = nil }
+        }
         .sheet(item: $templateSheet) { sheet in
             switch sheet {
             case .chooser:
@@ -199,7 +203,7 @@ struct MarkupDocumentView: View {
             let names: [Notification.Name] = [
                 .menuNewDocument, .menuNewFromTemplate, .menuSaveAsTemplate, .menuOpenDocument, .menuSaveDocument,
                 .menuSaveAsDocument, .menuToggleSource, .menuShowSettings,
-                .menuOpenRecentDocument, .openDocumentURL, .menuExport, .menuShowAbout, .showReleaseNotes,
+                .menuOpenRecentDocument, .openDocumentURL, .menuExport, .menuRunShortcut, .menuShowAbout, .showReleaseNotes,
                 .menuQuitApplication, NSWindow.willCloseNotification,
             ]
             await withTaskGroup(of: Void.self) { group in
@@ -292,14 +296,16 @@ struct MarkupDocumentView: View {
         }
 #endif
         .onOpenURL { url in
-            if MarkupEditor.selectedWebView != nil {
-                AppDelegate.pendingFinderURL = nil
-                Task {
-                    guard await checkSave() else { return }
-                    await openDocument(at: url)
+            OpenURLRoute.dispatch(url) { url in
+                if MarkupEditor.selectedWebView != nil {
+                    AppDelegate.pendingFinderURL = nil
+                    Task {
+                        guard await checkSave() else { return }
+                        await openDocument(at: url)
+                    }
+                } else {
+                    AppDelegate.pendingFinderURL = url
                 }
-            } else {
-                AppDelegate.pendingFinderURL = url
             }
         }
         .fileImporter(isPresented: $documentPickerShowing, allowedContentTypes: [.html], allowsMultipleSelection: false) { result in
@@ -443,6 +449,9 @@ struct MarkupDocumentView: View {
         case .menuExport:
             guard let plugin = notification.userInfo?["plugin"] as? Plugin else { return }
             await handleExport(plugin: plugin)
+        case .menuRunShortcut:
+            guard let name = notification.userInfo?["name"] as? String else { return }
+            handleRunShortcut(name)
         case .menuQuitApplication:
             await handleQuit()
         case NSWindow.willCloseNotification:
@@ -1135,7 +1144,7 @@ struct MarkupDocumentView: View {
                 try document.saveMd(markdown: markdown, to: url, srcs: srcs, baseUrl: baseUrl)
             }
             track(url: url)
-            // Lets the Templates tab recheck whether a built-in still matches the one that ships.
+            // Lets the Templates section of the Tools tab recheck whether a built-in still matches the one that ships.
             if MarkupDocument.isAppOwned(url) { NotificationCenter.default.post(name: .templatesDidChange, object: nil) }
             // While the source view shows, the selected web view is the one that was replaced; the editor
             // that comes back rebases from markupDidLoad.
@@ -1187,6 +1196,18 @@ struct MarkupDocumentView: View {
         stack.edgeInsets = NSEdgeInsets(top: 14, left: 20, bottom: 14, right: 20)
         stack.frame.size = stack.fittingSize
         return stack
+    }
+
+    /// Opens the dialog for the chosen Shortcut called `name`. The Shortcut gets no input and decides for
+    /// itself whether the document is usable; nothing is saved. The run goes on if the dialog is closed.
+    private func handleRunShortcut(_ name: String) {
+        // The menu disables its items while a run goes on, but only after a main-actor hop; a click in that
+        // gap must not replace a dialog whose run is still going, since its buttons would be lost.
+        guard runDialog == nil, !ShortcutRunStore.shared.isBusy else { return }
+        let path = document.url?.path(percentEncoded: false)
+        runDialog = RunShortcutModel(shortcut: name, documentName: document.url?.lastPathComponent, hasUnsavedChanges: document.hasChanges) {
+            await ShortcutRunner().runShortcut(named: $0, documentPath: path)
+        }
     }
 
     private func handleExport(plugin: Plugin) async {

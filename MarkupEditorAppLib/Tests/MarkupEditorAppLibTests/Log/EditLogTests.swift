@@ -337,6 +337,54 @@ struct EditLogTests {
         let later = formatter.string(from: Date(timeIntervalSince1970: 1_700_003_600))
         #expect(log.plainText(header: "").hasPrefix(later))
     }
+
+    // MARK: File links
+
+    @Test func entriesKeepTheirFileLink() {
+        let (log, _) = log()
+        let file = URL(fileURLWithPath: "/tmp/run output.txt")
+        log.info("tail", fileURL: file)
+        log.warning("careful", fileURL: file)
+        log.error("failed", fileURL: file)
+        log.info("plain")
+        #expect(log.entries.map(\.fileURL) == [file, file, file, nil])
+    }
+
+    @Test func entriesEqualInTextFoldOnlyWhenTheirLinksMatch() {
+        let (log, _) = log()
+        let first = URL(fileURLWithPath: "/tmp/a.txt")
+        let second = URL(fileURLWithPath: "/tmp/b.txt")
+        log.info("tail", fileURL: first)
+        log.info("tail", fileURL: first)
+        log.info("tail", fileURL: second)
+        log.info("tail")
+        #expect(log.entries.map(\.count) == [2, 1, 1])
+        #expect(log.entries.map(\.fileURL) == [first, second, nil])
+    }
+
+    @Test func entriesKeepTheirOutputAndFoldOnlyWhenItMatches() {
+        let (log, _) = log()
+        log.info("ran", output: "a")
+        log.info("ran", output: "a")
+        log.info("ran", output: "b")
+        #expect(log.entries.map(\.count) == [2, 1])
+        #expect(log.entries.map(\.output) == ["a", "b"])
+    }
+
+    @Test func plainTextIncludesAnEntrysOutput() {
+        let (log, _) = log()
+        log.info("ran", output: "line one\nline two")
+        #expect(log.plainText(header: "").contains("ran\n    line one\n    line two"))
+    }
+
+    @Test func aLinkedInformationEntryLeavesNothingUnread() {
+        let (log, _) = log()
+        log.info("tail", fileURL: URL(fileURLWithPath: "/tmp/a.txt"))
+        #expect(log.unreadLevel == nil)
+        log.error("failed", fileURL: URL(fileURLWithPath: "/tmp/a.txt"))
+        #expect(log.unreadLevel == .error)
+    }
+
 }
 
 /// Tests that reach `EditLog.shared` through the static `record`. Library code under test in other suites
@@ -432,5 +480,12 @@ struct EditLogSharedTests {
         private var value = false
         func set() { lock.lock(); value = true; lock.unlock() }
         var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    }
+
+    @Test func staticRecordKeepsTheFileLink() {
+        let tag = "link-\(UUID().uuidString)"
+        let file = URL(fileURLWithPath: "/tmp/\(tag).txt")
+        EditLog.record(.info, tag, fileURL: file)
+        #expect(EditLog.shared.entries.last?.fileURL == file)
     }
 }

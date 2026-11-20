@@ -39,8 +39,8 @@ struct InfoView: View {
                 LogInfoView(isVisible: infoHide.side == nil)
             case .plugins:
                 PluginsInfoView()
-            case .templates:
-                TemplatesInfoView()
+            case .tools:
+                ToolsInfoView()
             }
             
             Spacer()
