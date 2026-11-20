@@ -1,4 +1,5 @@
 import { MarkdownSerializer, defaultMarkdownSerializer } from 'prosemirror-markdown'
+import { taskMarkerAt } from './task-list.js'
 
 // Characters allowed in a Markdown fence info string. Restricts to a safe
 // language-identifier set that still covers real-world tags with punctuation
@@ -226,6 +227,19 @@ export function makeSerializer(warnings) {
   const nodes = Object.assign({}, defaultMarkdownSerializer.nodes, {
 
     text: withRelaxedEscapes(defaultMarkdownSerializer.nodes.text),
+
+    // A task marker at the start of a list item is Markdown syntax, so it is written as it is and not escaped.
+    paragraph(state, node, parent, index) {
+      const task = index === 0 ? taskMarkerAt(parent, { allowEmpty: true }) : null
+      if (!task) {
+        state.renderInline(node)
+      } else if (node.content.size > task.length) {
+        state.write(node.textBetween(0, task.length))
+        state.renderInline(node.cut(task.length))
+      }
+      // A marker with no text is written as an empty item: the file would read the bare marker back as text.
+      state.closeBlock(node)
+    },
 
     bullet_list: withListTightness(defaultMarkdownSerializer.nodes.bullet_list),
     ordered_list: withListTightness(defaultMarkdownSerializer.nodes.ordered_list),

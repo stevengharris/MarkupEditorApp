@@ -473,6 +473,7 @@ struct MarkupDocumentView: View {
         // immediately after document.reset() below, so seeding would be a no-op, while
         // webView.emptyDocument() also clears MU's selectedID, which setHTML alone does not.
         await webView.emptyDocument()
+        webView.enableTaskLists()
         document.setSource("", documentType: .md)
         currentHtml = MarkupDocument.emptyHTML
         currentSource = MarkupDocument.emptyMarkdown
@@ -808,6 +809,7 @@ struct MarkupDocumentView: View {
             throw MarkupDocumentError.couldNotSetHTML
         }
         webView.setHtml(html)
+        webView.enableTaskLists(!document.isHTMLish)
         currentHtml = html
     }
     
@@ -1307,6 +1309,7 @@ extension MarkupDocumentView: MarkupDelegate {
         // Opening a file or the welcome document sets the base text itself; any other new view holds the
         // document that is already loaded, so its source map is recorded here.
         if pendingURL == nil && !showWelcomeDocument {
+            if !document.isHTMLish { view.enableTaskLists() }
             Task { await rebase(on: view) }
             if !suggestionsToRestore.isEmpty {
                 let saved = suggestionsToRestore

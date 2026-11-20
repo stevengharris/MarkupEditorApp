@@ -39,6 +39,13 @@ extension MarkupWKWebView {
         await runBlockFunction("MU.tightenHtml(\(Self.jsLiteral(html)))", name: "tightenHtml")
     }
 
+    /// Show GFM task list items in the active editor as checkboxes, or stop showing them. Safe to call more than once.
+    public func enableTaskLists(_ enabled: Bool = true) {
+        executeJavaScript("MU.enableTaskLists(\(enabled))") { _, error in
+            if let error { Logger.webview.error("Error enabling task lists: \(error)") }
+        }
+    }
+
     public func rebaseSource(_ baseText: String) async -> String? {
         await runBlockFunction("MU.rebaseSource(\(Self.jsLiteral(baseText)))", name: "rebaseSource")
     }

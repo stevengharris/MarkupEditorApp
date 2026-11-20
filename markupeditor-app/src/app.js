@@ -9,6 +9,7 @@ import { MU } from "markupeditor"
 import { MarkupEditorDelegate } from "./delegate.js"
 import { getMarkdown, exportMarkdown, importMarkdown } from "./markdown.js"
 import { tightenHtml } from "./tight-lists.js"
+import { ensureInstalled as ensureTaskLists, setTaskListsEnabled } from "./task-list.js"
 import { rebaseSource } from "./source-map.js"
 import { makeInsertTableWithHeader } from "./tables.js"
 import { getSelectionBlockIndex, selectBlockIndex, blockIndexAtOffset, offsetForBlockIndex } from "./blocks.js"
@@ -25,7 +26,19 @@ MU.registerDelegate(new MarkupEditorDelegate())
 
 MU.getMarkdown = getMarkdown
 MU.exportMarkdown = exportMarkdown
-MU.importMarkdown = importMarkdown
+// Only a Markdown document is imported this way, so task lists are shown for Markdown and nothing else.
+MU.importMarkdown = (content) => {
+  const view = MU.activeView()
+  if (view) ensureTaskLists(view)
+  return importMarkdown(content)
+}
+// An editor that loads a Markdown document without importing it, such as the one that comes back from the
+// source view, is asked to show task lists directly. The editor is reused across documents, so loading an HTML
+// document turns them off.
+MU.enableTaskLists = (enabled = true) => {
+  const view = MU.activeView()
+  if (view) setTaskListsEnabled(view, enabled)
+}
 MU.tightenHtml = tightenHtml
 MU.rebaseSource = rebaseSource
 MU.getSelectionBlockIndex = getSelectionBlockIndex
