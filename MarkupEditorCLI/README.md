@@ -66,7 +66,7 @@ Standard output is only the path, so `$(markup current)` is safe in a script, su
 | Exit code | Meaning |
 | --- | --- |
 | 0 | The path was printed. |
-| 2 | MarkupEditor is not running. |
+| 2 | MarkupEditor is not running, or its state file could not be read. |
 | 3 | The open document has not been saved yet, so it has no path. |
 | 4 | The document has unsaved changes and `--saved` was given. |
 | 5 | macOS refused access to the app's data. The first time Shortcuts runs `markup current`, macOS asks whether Shortcuts may access data from other apps; choose Allow, or allow it later in System Settings > Privacy & Security. |

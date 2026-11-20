@@ -1201,6 +1201,9 @@ struct MarkupDocumentView: View {
     /// Opens the dialog for the chosen Shortcut called `name`. The Shortcut gets no input and decides for
     /// itself whether the document is usable; nothing is saved. The run goes on if the dialog is closed.
     private func handleRunShortcut(_ name: String) {
+        // The menu disables its items while a run goes on, but only after a main-actor hop; a click in that
+        // gap must not replace a dialog whose run is still going, since its buttons would be lost.
+        guard runDialog == nil, !ShortcutRunStore.shared.isBusy else { return }
         let path = document.url?.path(percentEncoded: false)
         runDialog = RunShortcutModel(shortcut: name, documentName: document.url?.lastPathComponent, hasUnsavedChanges: document.hasChanges) {
             await ShortcutRunner().runShortcut(named: $0, documentPath: path)

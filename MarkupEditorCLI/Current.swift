@@ -16,7 +16,7 @@ struct Current: ParsableCommand {
         abstract: "Print the path of the saved document open in MarkupEditor.",
         discussion: """
             Standard output is only the path, so $(markup current) is safe in a script. Messages go to \
-            standard error. Exit codes: 0 success; 2 MarkupEditor is not running; 3 the open document has \
+            standard error. Exit codes: 0 success; 2 MarkupEditor is not running or its state file cannot be read; 3 the open document has \
             not been saved; 4 the document has unsaved changes and --saved was given; 5 macOS refused access to the app's data. Without --saved, a \
             document with unsaved changes still prints its path, with a warning.
             """)

@@ -14,6 +14,8 @@ public enum ShortcutOutcome: Equatable, Sendable {
     /// No callback arrived before the timeout.
     case noResponse
     case cancelled
+    /// The run was not started because a Shortcut is already running.
+    case refused
     /// Shortcuts reported an error of its own.
     case shortcutError(String)
 }

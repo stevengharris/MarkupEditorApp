@@ -55,7 +55,7 @@ struct CurrentDocumentResolverTests {
     @Test func aRefusedReadIsItsOwnResolutionAndOtherReadsFollowTheState() {
         #expect(CurrentDocumentResolver.resolve(.denied, isRunning: running) == .accessDenied)
         #expect(CurrentDocumentResolver.resolve(.missing, isRunning: running) == .notRunning)
-        #expect(CurrentDocumentResolver.resolve(.unreadable, isRunning: running) == .notRunning)
+        #expect(CurrentDocumentResolver.resolve(.unreadable, isRunning: running) == .unreadableState)
         #expect(CurrentDocumentResolver.resolve(.state(state("/a.md")), isRunning: running, fileExists: exists) == .saved(path: "/a.md"))
     }
 

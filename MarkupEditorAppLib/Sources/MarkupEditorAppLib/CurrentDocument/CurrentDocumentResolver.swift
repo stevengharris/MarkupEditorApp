@@ -13,6 +13,8 @@ public enum CurrentDocumentResolution: Equatable, Sendable {
     case modified(path: String)
     case untitled
     case notRunning
+    /// The state file is there but could not be understood, such as one cut short or from a newer version.
+    case unreadableState
     /// The system refused to let this process read the app's state file.
     case accessDenied
 }
@@ -33,7 +35,8 @@ public enum CurrentDocumentResolver {
                                fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> CurrentDocumentResolution {
         switch reading {
         case .state(let state): resolve(state, isRunning: isRunning, fileExists: fileExists)
-        case .missing, .unreadable: .notRunning
+        case .missing: .notRunning
+        case .unreadable: .unreadableState
         case .denied: .accessDenied
         }
     }

@@ -24,8 +24,9 @@ struct RunShortcutView: View {
             buttons
         }
         .padding(20)
-        // One size for every state, so the dialog does not move or resize when the run starts or ends.
-        .frame(width: 420, height: model.warning == nil ? 130 : 170, alignment: .topLeading)
+        // The same size for every state, so the dialog does not resize when the run starts or ends; a message
+        // too long for it makes the dialog taller instead of running into the buttons.
+        .frame(minWidth: 420, maxWidth: 420, minHeight: model.warning == nil ? 130 : 170, alignment: .topLeading)
     }
 
     private var ready: some View {

@@ -237,12 +237,24 @@ struct ShortcutRunStoreTests {
         #expect(ShortcutRunStore.timeout == .seconds(120))
     }
 
-    @Test func aCompletedRunDoesNotTimeOutLater() async throws {
-        let (store, gate) = store()
+    private final class Flag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var raised = false
+        func set() { lock.lock(); raised = true; lock.unlock() }
+        var value: Bool { lock.lock(); defer { lock.unlock() }; return raised }
+    }
+
+    @Test func completingARunCancelsItsTimer() async throws {
+        let cancelled = Flag()
+        let store = ShortcutRunStore(timeout: .seconds(120), sleeper: { _ in
+            await withTaskCancellationHandler { await Gate().wait() } onCancel: { cancelled.set() }
+        })
         let ticket = try #require(store.begin(shortcutName: "Publish"))
+        #expect(!cancelled.value)
         store.receive(callback(ShortcutCallbackURL.urls(for: ticket.id).success, adding: [result("ok\nexit=0")]))
-        gate.open()
-        await Task.yield()
+        let deadline = Date().addingTimeInterval(2)
+        while !cancelled.value && Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(cancelled.value)
         #expect(await ticket.result() == .succeeded("ok\nexit=0"))
     }
 

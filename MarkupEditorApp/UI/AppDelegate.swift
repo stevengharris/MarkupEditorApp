@@ -53,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// Submenu under File > Run Shortcut, populated by populateShortcutsMenu().
     var shortcutsSubmenu = NSMenu(title: "Run Shortcut")
-    var shortcuts = ShortcutsModel()
+    var shortcuts = ShortcutsModel.shared
     var shortcutRuns = ShortcutRunStore.shared
     private var actionsObserver: Task<Void, Never>?
     private var activeObserver: Task<Void, Never>?

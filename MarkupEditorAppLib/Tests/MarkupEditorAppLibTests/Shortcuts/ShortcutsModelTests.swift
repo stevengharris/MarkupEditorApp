@@ -101,4 +101,77 @@ struct ShortcutsModelTests {
         model.reloadChosen()
         #expect(model.chosen == ["Later"])
     }
+
+    private final class Gate: @unchecked Sendable {
+        private let stream: AsyncStream<Void>
+        private let continuation: AsyncStream<Void>.Continuation
+        init() { (stream, continuation) = AsyncStream.makeStream() }
+        func open() { continuation.yield(); continuation.finish() }
+        func wait() async { for await _ in stream { return } }
+    }
+
+    private final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+        func next() -> Int { lock.lock(); defer { lock.unlock() }; value += 1; return value }
+    }
+
+    @Test func theNewestReloadWinsEvenWhenAnOlderOneFinishesLast() async {
+        let started = Gate()
+        let release = Gate()
+        let counter = Counter()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ShortcutsModelTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let reader = ShortcutLibraryReader { arguments in
+            guard arguments.contains("none") else { return "" }
+            if counter.next() == 1 {
+                started.open()
+                await release.wait()
+                return "Old (11111111-1111-1111-1111-111111111111)"
+            }
+            return "New (22222222-2222-2222-2222-222222222222)"
+        }
+        let model = ShortcutsModel(reader: reader, store: ChosenShortcutsStore(directory: root))
+        let older = Task { await model.reloadLibrary() }
+        await started.wait()
+        await model.reloadLibrary()
+        #expect(model.library?.allNames == ["New"])
+        #expect(model.isLoading)
+        release.open()
+        await older.value
+        #expect(model.library?.allNames == ["New"])
+        #expect(!model.isLoading)
+    }
+
+    @Test func aFailedWriteIsReportedApartFromReadErrorsAndClearedByTheNextSuccess() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ShortcutsModelTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let blocker = root.appendingPathComponent("blocker")
+        try Data().write(to: blocker)
+        let failing = ChosenShortcutsStore(directory: blocker.appendingPathComponent("shortcuts"))
+        let model = ShortcutsModel(reader: ShortcutLibraryReader { _ in "" }, store: failing)
+        model.choose("Alpha")
+        #expect(model.chosen.isEmpty)
+        #expect(model.chosenError != nil)
+        #expect(model.errorMessage == nil)
+        model.remove("Alpha")
+        #expect(model.chosenError == nil)
+    }
+
+    @Test func aSuccessfulChoiceClearsAnEarlierWriteError() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ShortcutsModelTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let blocker = root.appendingPathComponent("blocker")
+        try Data().write(to: blocker)
+        let model = ShortcutsModel(reader: ShortcutLibraryReader { _ in "" },
+                                   store: ChosenShortcutsStore(directory: blocker.appendingPathComponent("shortcuts")))
+        model.choose("Alpha")
+        #expect(model.chosenError != nil)
+        try FileManager.default.removeItem(at: blocker)
+        model.choose("Alpha")
+        #expect(model.chosenError == nil)
+        #expect(model.chosen == ["Alpha"])
+    }
 }

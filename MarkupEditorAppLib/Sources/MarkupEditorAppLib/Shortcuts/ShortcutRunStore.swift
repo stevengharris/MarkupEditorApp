@@ -13,7 +13,8 @@ public struct ShortcutRunTicket: Sendable {
     let store: ShortcutRunStore
     let run: ShortcutRunStore.Run
 
-    /// Waits for the run to end. Cancelling the waiting task ends the run as cancelled.
+    /// Waits for the run to end. Cancelling the waiting task ends the run as cancelled. Only one caller may
+    /// wait on a ticket at a time; a second waiter would replace the first, which would never resume.
     @MainActor
     public func result() async -> ShortcutOutcome {
         if let outcome = run.outcome { return outcome }

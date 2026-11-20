@@ -11,17 +11,60 @@ public enum ShortcutsProcess {
 
     public static let defaultExecutable = URL(fileURLWithPath: "/usr/bin/shortcuts")
 
-    /// Runs off the calling actor. The process is stopped when it has not finished within `timeout`.
-    public static func run(executable: URL = defaultExecutable, arguments: [String], timeout: Duration = .seconds(10)) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(with: Result { try runBlocking(executable: executable, arguments: arguments, timeout: timeout) })
+    /// Bytes read from one pipe, appended from a read handler and taken once the process is done.
+    private final class Collected: @unchecked Sendable {
+        private let data = Mutex(Data())
+
+        func append(_ chunk: Data) { data.withLock { $0.append(chunk) } }
+        var value: Data { data.withLock { $0 } }
+    }
+
+    /// One launch of the tool, shared between the blocking worker and the cancellation handler.
+    private final class Launch: @unchecked Sendable {
+        let process = Process()
+        private let cancelled = Mutex(false)
+
+        func markCancelled() { cancelled.withLock { $0 = true } }
+        var isCancelled: Bool { cancelled.withLock { $0 } }
+    }
+
+    /// Runs off the calling actor. The process is terminated when it has not finished within `timeout` and
+    /// killed `killGrace` later if it is still running; output is collected for at most `drainGrace` after
+    /// it exits. Cancelling the task stops the process and throws `CancellationError`.
+    public static func run(executable: URL = defaultExecutable, arguments: [String], timeout: Duration = .seconds(10),
+                           killGrace: Duration = .seconds(2), drainGrace: Duration = .seconds(1)) async throws -> String {
+        let launch = Launch()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    continuation.resume(with: Result {
+                        try runBlocking(launch: launch, executable: executable, arguments: arguments,
+                                        timeout: timeout, killGrace: killGrace, drainGrace: drainGrace)
+                    })
+                }
             }
+        } onCancel: {
+            launch.markCancelled()
+            stop(launch.process, killGrace: killGrace)
         }
     }
 
-    private static func runBlocking(executable: URL, arguments: [String], timeout: Duration) throws -> String {
-        let process = Process()
+    private static func seconds(_ duration: Duration) -> Double {
+        Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+    }
+
+    /// Terminates `process`, then kills it after `killGrace` if it is still running.
+    private static func stop(_ process: Process, killGrace: Duration) {
+        guard process.isRunning else { return }
+        process.terminate()
+        DispatchQueue.global().asyncAfter(deadline: .now() + seconds(killGrace)) {
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        }
+    }
+
+    private static func runBlocking(launch: Launch, executable: URL, arguments: [String], timeout: Duration,
+                                    killGrace: Duration, drainGrace: Duration) throws -> String {
+        let process = launch.process
         process.executableURL = executable
         process.arguments = arguments
         process.standardInput = FileHandle.nullDevice
@@ -29,39 +72,55 @@ public enum ShortcutsProcess {
         let errors = Pipe()
         process.standardOutput = output
         process.standardError = errors
+
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in finished.signal() }
+
+        // Both pipes are drained while the process runs, so output larger than a pipe buffer cannot stall it.
+        let outputData = Collected()
+        let errorData = Collected()
+        let drained = DispatchGroup()
+        func drain(_ pipe: Pipe, into data: Collected) {
+            drained.enter()
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if chunk.isEmpty {
+                    handle.readabilityHandler = nil
+                    drained.leave()
+                } else {
+                    data.append(chunk)
+                }
+            }
+        }
+        drain(output, into: outputData)
+        drain(errors, into: errorData)
+
         do {
             try process.run()
         } catch {
+            output.fileHandleForReading.readabilityHandler = nil
+            errors.fileHandleForReading.readabilityHandler = nil
             throw ShortcutsError.launchFailed(error.localizedDescription)
         }
+        if launch.isCancelled { stop(process, killGrace: killGrace) }
 
-        let timedOut = Mutex(false)
-        let seconds = Double(timeout.components.seconds) + Double(timeout.components.attoseconds) / 1e18
-        let timer = DispatchWorkItem {
-            timedOut.withLock { $0 = true }
-            if process.isRunning { process.terminate() }
+        var timedOut = false
+        if finished.wait(timeout: .now() + seconds(timeout)) == .timedOut {
+            timedOut = true
+            stop(process, killGrace: killGrace)
+            _ = finished.wait(timeout: .now() + seconds(killGrace) + 1)
         }
-        DispatchQueue.global().asyncAfter(deadline: .now() + seconds, execute: timer)
+        // A child that keeps a pipe open must not keep this call waiting once the process is gone.
+        _ = drained.wait(timeout: .now() + seconds(drainGrace))
+        output.fileHandleForReading.readabilityHandler = nil
+        errors.fileHandleForReading.readabilityHandler = nil
 
-        // Both pipes are drained while the process runs, so output larger than a pipe buffer cannot stall it.
-        let errorData = Mutex(Data())
-        let drained = DispatchGroup()
-        drained.enter()
-        DispatchQueue.global().async {
-            let data = errors.fileHandleForReading.readDataToEndOfFile()
-            errorData.withLock { $0 = data }
-            drained.leave()
-        }
-        let outputData = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        drained.wait()
-        timer.cancel()
-
-        if timedOut.withLock({ $0 }) { throw ShortcutsError.timedOut }
+        if launch.isCancelled { throw CancellationError() }
+        if timedOut { throw ShortcutsError.timedOut }
         guard process.terminationStatus == 0 else {
-            let message = String(data: errorData.withLock { $0 }, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let message = String(data: errorData.value, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             throw ShortcutsError.failed(status: process.terminationStatus, message: message)
         }
-        return String(data: outputData, encoding: .utf8) ?? ""
+        return String(data: outputData.value, encoding: .utf8) ?? ""
     }
 }

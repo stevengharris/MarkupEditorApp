@@ -25,6 +25,8 @@ public struct CurrentDocumentReport: Equatable, Sendable {
             (output, message, exitCode) = (nil, "error: the open document has not been saved", 3)
         case .accessDenied:
             (output, message, exitCode) = (nil, "error: macOS did not let this process read MarkupEditor's data; choose Allow if it asks, or allow it in System Settings > Privacy & Security", 5)
+        case .unreadableState:
+            (output, message, exitCode) = (nil, "error: MarkupEditor's current-document file could not be read; quit and reopen MarkupEditor, or update markup and MarkupEditor to the same version", 2)
         case .notRunning:
             (output, message, exitCode) = (nil, "error: MarkupEditor is not running", 2)
         }

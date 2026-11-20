@@ -26,7 +26,8 @@ public enum ShortcutStatus {
 
     /// The result without its status line, which the log reports in the entry's message.
     public static func body(ofResult result: String) -> String {
-        var lines = result.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        var lines = result.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
         while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty { lines.removeLast() }
         if exitCode(forResult: result) != nil { lines.removeLast() }
         return lines.joined(separator: "\n")

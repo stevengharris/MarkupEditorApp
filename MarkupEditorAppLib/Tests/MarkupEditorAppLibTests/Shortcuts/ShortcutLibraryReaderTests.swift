@@ -92,4 +92,44 @@ struct ShortcutLibraryReaderTests {
         #expect(library.contains(name: "Delta"))
         #expect(!library.contains(name: "Zeta"))
     }
+
+    @Test func aReadThatTakesLongerThanItsLimitFailsWithATimeoutAndStopsTheCalls() async {
+        let calls = Calls()
+        let slow = ShortcutLibraryReader(timeout: .milliseconds(150)) { arguments in
+            calls.arguments.append(arguments)
+            try await Task.sleep(for: .seconds(30))
+            return ""
+        }
+        let started = Date()
+        do {
+            _ = try await slow.read()
+            Issue.record("expected a timeout")
+        } catch let error as ShortcutsError {
+            #expect(error == .timedOut)
+        } catch {
+            Issue.record("unexpected error \(error)")
+        }
+        #expect(Date().timeIntervalSince(started) < 3)
+        #expect(calls.arguments.count == 1)
+    }
+
+    @Test func cancellingARunningReadStopsBeforeTheNextCallEvenWhenACallIgnoresCancellation() async {
+        let calls = Calls()
+        let r = ShortcutLibraryReader { arguments in
+            calls.arguments.append(arguments)
+            try? await Task.sleep(for: .milliseconds(300))
+            return ""
+        }
+        let task = Task { try await r.read() }
+        try? await Task.sleep(for: .milliseconds(100))
+        task.cancel()
+        do {
+            _ = try await task.value
+            Issue.record("expected cancellation")
+        } catch is CancellationError {
+        } catch {
+            Issue.record("unexpected error \(error)")
+        }
+        #expect(calls.arguments.count == 1)
+    }
 }

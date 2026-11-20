@@ -86,6 +86,19 @@ struct ChosenShortcutsStoreTests {
         #expect(store.load() == ["A"])
     }
 
+    @Test func aFileThatExistsButCannotBeReadIsNeverOverwritten() throws {
+        let (store, directory, cleanup) = scratch()
+        defer { cleanup() }
+        try store.add("A")
+        let file = directory.appendingPathComponent("chosen.json")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        #expect(throws: ChosenShortcutsError.self) { try store.add("B") }
+        #expect(throws: ChosenShortcutsError.self) { try store.remove("A") }
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+        #expect(store.load() == ["A"])
+    }
+
     @Test func everyChangePostsANotification() async throws {
         let (store, _, cleanup) = scratch()
         defer { cleanup() }

@@ -9,7 +9,7 @@ import MarkupEditorAppLib
 /// The Shortcuts section of the Tools tab: the Shortcuts chosen for File > Run Shortcut, with add and remove.
 /// It is a disclosure group, so it is placed in the list of `ToolsInfoView`.
 struct ShortcutsInfoView: View {
-    @State private var model = ShortcutsModel()
+    private let model = ShortcutsModel.shared
     @State private var expanded = true
     @State private var showHelp = false
     @State private var showPicker = false
@@ -19,6 +19,13 @@ struct ShortcutsInfoView: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
+            if let error = model.chosenError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, indent)
+            }
             if model.chosen.isEmpty {
                 Text("None")
                     .foregroundStyle(.secondary)
@@ -56,10 +63,6 @@ struct ShortcutsInfoView: View {
             Text("Remove Shortcut \"\(name)\"? This does not remove the Shortcut from your computer, only from the menu and this list.")
         }
         .task { await model.reloadLibrary() }
-        .onReceive(NotificationCenter.default.publisher(for: .chosenShortcutsDidChange)) { _ in model.reloadChosen() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await model.reloadLibrary() }
-        }
     }
 
     /// Where the rows start, so they line up under the heading.

@@ -55,7 +55,12 @@ struct ShortcutRunnerTests {
     private func start(_ rig: Rig, _ name: String? = nil) async -> Task<ShortcutRunReport, Never> {
         let before = rig.opened.urls.count
         let task = Task { await rig.runner.runShortcut(named: name ?? self.shortcut) }
-        while rig.opened.urls.count == before { await Task.yield() }
+        let deadline = Date().addingTimeInterval(2)
+        while rig.opened.urls.count == before && Date() < deadline { try? await Task.sleep(for: .milliseconds(5)) }
+        if rig.opened.urls.count == before {
+            Issue.record("the Shortcut was never opened")
+            task.cancel()
+        }
         return task
     }
 
@@ -293,7 +298,7 @@ struct ShortcutRunnerTests {
         defer { rig.cleanup() }
         let task = await start(rig)
         let second = await rig.runner.runShortcut(named: shortcut)
-        #expect(second.outcome == .cancelled)
+        #expect(second.outcome == .refused)
         #expect(rig.opened.urls.count == 1)
         #expect(rig.log.entries.contains { $0.level == .warning && $0.message == "\"Publish\" is already running." })
         try answer(rig, { _, _, c in c })
@@ -305,7 +310,7 @@ struct ShortcutRunnerTests {
         defer { rig.cleanup() }
         let task = await start(rig)
         let other = await rig.runner.runShortcut(named: "Other")
-        #expect(other.outcome == .cancelled)
+        #expect(other.outcome == .refused)
         #expect(other.summary == "another Shortcut is running")
         #expect(rig.opened.urls.count == 1)
         #expect(rig.log.entries.contains { $0.level == .warning && $0.message == "\"Other\" was not run because another Shortcut is running." })
@@ -368,6 +373,7 @@ struct ShortcutRunnerTests {
         rig.opened.result = false
         _ = await rig.runner.runShortcut(named: "Publish")
         #expect(rig.opened.urls.count == 1)
+        #expect(rig.log.entries.contains { $0.level == .warning && $0.message.hasPrefix("The Shortcuts library could not be checked before running \"Publish\"") })
     }
 
     @Test func anOpenerThatReturnsFalseGivesAShortcutErrorAndFreesTheShortcut() async throws {

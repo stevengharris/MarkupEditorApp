@@ -14,6 +14,12 @@ struct ShortcutStatusBodyTests {
         #expect(ShortcutStatus.body(ofResult: "exit=0") == "")
     }
 
+    @Test func aLoneCarriageReturnEndsALineLikeAnyOtherLineBreak() {
+        #expect(ShortcutStatus.body(ofResult: "a\rexit=0") == "a")
+        #expect(ShortcutStatus.body(ofResult: "a\rb\rexit=3\r") == "a\nb")
+        #expect(ShortcutStatus.exitCode(forResult: "a\rexit=3") == 3)
+    }
+
     @Test func aResultWithoutAStatusLineIsKeptWhole() {
         #expect(ShortcutStatus.body(ofResult: "a\nb\n") == "a\nb")
         #expect(ShortcutStatus.body(ofResult: "") == "")

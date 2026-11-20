@@ -46,6 +46,16 @@ struct CurrentDocumentReportTests {
         }
     }
 
+    @Test func anUnreadableStateFileSaysSoAndSharesTheNotRunningCode() {
+        for requireSaved in [false, true] {
+            let report = CurrentDocumentReport(for: .unreadableState, requireSaved: requireSaved)
+            #expect(report.output == nil)
+            #expect(report.exitCode == 2)
+            #expect(report.message?.contains("could not be read") == true)
+            #expect(report.message?.contains("not running") == false)
+        }
+    }
+
     @Test func aMissingAppIsAnErrorWithItsOwnCode() {
         for requireSaved in [false, true] {
             let report = CurrentDocumentReport(for: .notRunning, requireSaved: requireSaved)

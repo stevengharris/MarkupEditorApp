@@ -95,28 +95,43 @@ struct RunShortcutModelTests {
         #expect(m.state == before)
     }
 
-    @Test func aRunEndingAfterTheDialogIsGoneDoesNotCrash() async {
+    @Test func theRunKeepsTheModelAliveAfterTheDialogIsGoneAndReleasesItWhenDone() async {
         let gate = Gate()
-        var m: RunShortcutModel? = model(gate)
-        m?.run()
-        m = nil
+        let finished = Counter()
+        weak var weakModel: RunShortcutModel?
+        do {
+            let m = RunShortcutModel(shortcut: "A", documentName: nil) { _ in
+                await gate.wait()
+                finished.count += 1
+                return ShortcutRunReport(outcome: .succeeded(""), summary: "done", level: .info, output: nil, fileURL: nil)
+            }
+            weakModel = m
+            m.run()
+        }
+        await Task.yield()
+        #expect(weakModel != nil)
         gate.open()
-        for _ in 0..<50 { await Task.yield() }
-        // Nothing holds the model but the run; ending it must not crash.
-        #expect(m == nil)
+        let deadline = Date().addingTimeInterval(2)
+        while (finished.count == 0 || weakModel != nil) && Date() < deadline { try? await Task.sleep(for: .milliseconds(5)) }
+        #expect(finished.count == 1)
+        #expect(weakModel == nil)
     }
 
-    @Test func cancellingARunningShortcutFinishesItAsCancelled() async {
+    @Test func cancellingARunningShortcutCancelsTheTaskThatIsRunningIt() async {
         let m = RunShortcutModel(shortcut: "A", documentName: nil) { _ in
-            do { try await Task.sleep(for: .seconds(3600)) } catch {}
-            return ShortcutRunReport(outcome: .cancelled, summary: "cancelled", level: .info, output: nil, fileURL: nil)
+            do {
+                try await Task.sleep(for: .seconds(3))
+                return ShortcutRunReport(outcome: .succeeded(""), summary: "slept to the end", level: .info, output: nil, fileURL: nil)
+            } catch {
+                return ShortcutRunReport(outcome: .cancelled, summary: "saw the cancellation", level: .info, output: nil, fileURL: nil)
+            }
         }
         m.run()
         await Task.yield()
         m.cancel()
         await m.finished()
         guard case .finished(let report) = m.state else { Issue.record("expected finished"); return }
-        #expect(report.outcome == .cancelled)
+        #expect(report.summary == "saw the cancellation")
     }
 
     @Test func cancellingWhenNotRunningDoesNothing() {

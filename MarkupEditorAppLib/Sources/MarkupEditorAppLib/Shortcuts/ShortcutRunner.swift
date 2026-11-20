@@ -33,7 +33,7 @@ public final class ShortcutRunner {
     /// Runs the Shortcut called `name` and reports how it ended. When `documentPath` is given, the Shortcut
     /// receives it as text input, so a script reads it as `$1` and needs no other way to find the document.
     /// Opens nothing and
-    /// reports `.cancelled` when any Shortcut is running, since Shortcuts drops the callbacks of a run
+    /// reports `.refused` when any Shortcut is running, since Shortcuts drops the callbacks of a run
     /// when another starts.
     public func runShortcut(named name: String, documentPath: String? = nil) async -> ShortcutRunReport {
         if let missing = await missingReport(for: name) { return missing }
@@ -45,7 +45,7 @@ public final class ShortcutRunner {
             let same = runStore.isRunning(name)
             let message = same ? "\"\(name)\" is already running." : "\"\(name)\" was not run because another Shortcut is running."
             log.warning(message, category: Self.category)
-            return ShortcutRunReport(outcome: .cancelled, summary: same ? "already running" : "another Shortcut is running",
+            return ShortcutRunReport(outcome: .refused, summary: same ? "already running" : "another Shortcut is running",
                                    level: .warning, output: nil, fileURL: nil)
         }
         log.info("Running Shortcut \"\(name)\"", category: Self.category)
@@ -77,7 +77,17 @@ public final class ShortcutRunner {
     /// an unknown name and the run would wait out the timeout. Nil when the Shortcut exists or the library
     /// could not be read.
     private func missingReport(for name: String) async -> ShortcutRunReport? {
-        guard let reader, let library = try? await reader.read(), !library.contains(name: name) else { return nil }
+        guard let reader else { return nil }
+        let library: ShortcutLibrary
+        do {
+            library = try await reader.read()
+        } catch {
+            if !(error is CancellationError) {
+                log.warning("The Shortcuts library could not be checked before running \"\(name)\": \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)", category: Self.category)
+            }
+            return nil
+        }
+        guard !library.contains(name: name) else { return nil }
         let summary = "not found in Shortcuts; check its name"
         log.error("\"\(name)\": \(summary)", category: Self.category)
         return ShortcutRunReport(outcome: .shortcutError(summary), summary: summary, level: .error, output: nil, fileURL: nil)
@@ -113,6 +123,9 @@ public final class ShortcutRunner {
         case .cancelled:
             text = "cancelled"
             level = .info
+        case .refused:
+            text = "not started because a Shortcut is already running"
+            level = .warning
         case .shortcutError(let message):
             if let code = ShortcutStatus.exitCode(forShortcutError: message) {
                 text = "failed (exit=\(code)); Shortcuts keeps no output from a script that exits non-zero. To see it, print exit=<n> as the last line, then exit 0"
