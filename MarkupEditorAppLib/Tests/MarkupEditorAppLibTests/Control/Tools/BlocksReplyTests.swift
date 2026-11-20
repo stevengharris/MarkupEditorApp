@@ -183,14 +183,14 @@ struct SuggestedEditLiteralTests {
         SuggestedEdit(block: 3, expected: "h", find: "emoji \u{1F600} and \u{0}nul", replace: "`${1+1}` $&", note: ""),
     ]
 
-    @Test func theLiteralIsOneLineOfValidJSON() throws {
+    @Test @MainActor func theLiteralIsOneLineOfValidJSON() throws {
         let literal = MarkupWKWebView.jsLiteral(Self.nasty)
         #expect(!literal.contains("\n"))
         #expect(!literal.contains("\r"))
         #expect(try JSONDecoder().decode([SuggestedEdit].self, from: Data(literal.utf8)) == Self.nasty)
     }
 
-    @Test func aJavaScriptEngineReadsTheLiteralBackToTheSameEdits() throws {
+    @Test @MainActor func aJavaScriptEngineReadsTheLiteralBackToTheSameEdits() throws {
         let literal = MarkupWKWebView.jsLiteral(Self.nasty)
         let context = try #require(JSContext())
         var thrown: String?
@@ -208,7 +208,7 @@ struct SuggestedEditLiteralTests {
         #expect(replace.toString() == "a\u{2028}b\u{2029}c")
     }
 
-    @Test func aMissingNoteIsAbsentFromTheLiteralNotNull() {
+    @Test @MainActor func aMissingNoteIsAbsentFromTheLiteralNotNull() {
         let literal = MarkupWKWebView.jsLiteral([SuggestedEdit(block: 0, expected: "h", find: "x", replace: "y")])
         #expect(!literal.contains("note"))
         #expect(!literal.contains("null"))
