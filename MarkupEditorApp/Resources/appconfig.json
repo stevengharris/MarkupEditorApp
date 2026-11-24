@@ -5,6 +5,7 @@
     "codeViews": [],
     "spellcheck": true,
     "inlinePredictions": true,
+    "writingTools": true,
     "autocorrect": true,
     "columnWidth": 760
 }

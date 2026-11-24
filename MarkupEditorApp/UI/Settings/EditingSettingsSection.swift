@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// The editing preferences: spelling, predictive text, and document width. Shared by the
+/// The editing preferences: spelling, predictive text, Writing Tools, and document width. Shared by the
 /// Settings window and the Welcome flow, each of which supplies the surrounding `Form`.
 struct EditingSettingsSection: View {
 
@@ -21,6 +21,12 @@ struct EditingSettingsSection: View {
                 Toggle("Inline while typing", isOn: inlinePredictionsBinding())
             }
             Text("Present light text predictions inline while typing.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            LabeledContent("Writing Tools:") {
+                Toggle("Offer Apple Intelligence", isOn: writingToolsBinding())
+            }
+            Text("Show the Proofread, Rewrite, and Compose popup on selected text.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             LabeledContent("Document width:") {
@@ -62,6 +68,13 @@ struct EditingSettingsSection: View {
                 let clamped = min(max(newValue, AppConfig.columnWidthRange.lowerBound), AppConfig.columnWidthRange.upperBound)
                 AppConfig.update { $0.columnWidth = clamped }
             }
+        )
+    }
+
+    private func writingToolsBinding() -> Binding<Bool> {
+        Binding(
+            get: { AppConfig.shared.writingTools },
+            set: { newValue in AppConfig.update { $0.writingTools = newValue } }
         )
     }
 

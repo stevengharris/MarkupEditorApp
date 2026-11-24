@@ -48,6 +48,7 @@ public final class AppConfig: JSONConfigurable {
     public var codeViews: [Plugin]
     public var spellcheck: Bool
     public var inlinePredictions: Bool
+    public var writingTools: Bool
     public var autocorrect: Bool
     /// Width in points of the centered text column in the document view.
     public var columnWidth: Int
@@ -89,6 +90,7 @@ public final class AppConfig: JSONConfigurable {
         codeViews: [Plugin]? = nil,
         spellcheck: Bool = true,
         inlinePredictions: Bool = true,
+        writingTools: Bool = true,
         autocorrect: Bool = true,
         columnWidth: Int = AppConfig.defaultColumnWidth
     ) {
@@ -98,6 +100,7 @@ public final class AppConfig: JSONConfigurable {
         self.codeViews = codeViews ?? []
         self.spellcheck = spellcheck
         self.inlinePredictions = inlinePredictions
+        self.writingTools = writingTools
         self.autocorrect = autocorrect
         self.columnWidth = columnWidth
     }
@@ -110,13 +113,14 @@ public final class AppConfig: JSONConfigurable {
         codeViews = config.codeViews
         spellcheck = config.spellcheck
         inlinePredictions = config.inlinePredictions
+        writingTools = config.writingTools
         autocorrect = config.autocorrect
         columnWidth = config.columnWidth
     }
 
     public init(from decoder: any Decoder) throws {
         enum Keys: String, CodingKey {
-            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect, columnWidth, pluginVersions, filePlugins
+            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, writingTools, autocorrect, columnWidth, pluginVersions, filePlugins
         }
         let c = try decoder.container(keyedBy: Keys.self)
         toolbarVisibility = try c.decode(String.self, forKey: .toolbarVisibility)
@@ -125,6 +129,7 @@ public final class AppConfig: JSONConfigurable {
         codeViews = try c.decode([Plugin].self, forKey: .codeViews)
         spellcheck = try c.decodeIfPresent(Bool.self, forKey: .spellcheck) ?? true
         inlinePredictions = try c.decodeIfPresent(Bool.self, forKey: .inlinePredictions) ?? true
+        writingTools = try c.decodeIfPresent(Bool.self, forKey: .writingTools) ?? true
         autocorrect = try c.decodeIfPresent(Bool.self, forKey: .autocorrect) ?? true
         columnWidth = try c.decodeIfPresent(Int.self, forKey: .columnWidth) ?? Self.defaultColumnWidth
         pluginVersions = try c.decodeIfPresent([String: String].self, forKey: .pluginVersions) ?? [:]
@@ -137,7 +142,7 @@ public final class AppConfig: JSONConfigurable {
     /// producing JSON that `init(from:)` can't decode back.
     public func encode(to encoder: Encoder) throws {
         enum Keys: String, CodingKey {
-            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, autocorrect, columnWidth, pluginVersions, filePlugins
+            case toolbarVisibility, toggledState, exporters, codeViews, spellcheck, inlinePredictions, writingTools, autocorrect, columnWidth, pluginVersions, filePlugins
         }
         var c = encoder.container(keyedBy: Keys.self)
         try c.encode(toolbarVisibility, forKey: .toolbarVisibility)
@@ -146,6 +151,7 @@ public final class AppConfig: JSONConfigurable {
         try c.encode(codeViews, forKey: .codeViews)
         try c.encode(spellcheck, forKey: .spellcheck)
         try c.encode(inlinePredictions, forKey: .inlinePredictions)
+        try c.encode(writingTools, forKey: .writingTools)
         try c.encode(autocorrect, forKey: .autocorrect)
         try c.encode(columnWidth, forKey: .columnWidth)
         try c.encode(pluginVersions, forKey: .pluginVersions)

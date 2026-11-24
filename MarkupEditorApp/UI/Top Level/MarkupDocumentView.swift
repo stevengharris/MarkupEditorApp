@@ -154,8 +154,10 @@ struct MarkupDocumentView: View {
         .onChange(of: AppConfig.shared.columnWidth) { _, _ in
             MarkupEditor.selectedWebView?.applyColumnWidth()
         }
-        .onChange(of: AppConfig.shared.inlinePredictions) { _, _ in
+        // Both are fixed when the web view is created, so a change recreates it. One observer keeps the body cheap to type-check.
+        .onChange(of: [AppConfig.shared.inlinePredictions, AppConfig.shared.writingTools]) { _, _ in
             markupConfiguration.allowsInlinePredictions = AppConfig.shared.inlinePredictions
+            markupConfiguration.allowsWritingTools = AppConfig.shared.writingTools
             reloadEditorForConfigChange()
         }
         .popover(isPresented: $showImageDialog, attachmentAnchor: popupAnchor) {
@@ -360,6 +362,7 @@ struct MarkupDocumentView: View {
         config.delegate = "MarkupEditorDelegate"
         config.topLevelAttributes = AppConfig.shared.topLevelAttributes()
         config.allowsInlinePredictions = AppConfig.shared.inlinePredictions
+        config.allowsWritingTools = AppConfig.shared.writingTools
         config.userScriptFile = "markupeditor-app.js"
         config.userCssFile = "markupeditor-app.css"
         config.pluginFiles = AppConfig.shared.pluginFilenames()
