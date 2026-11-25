@@ -12,6 +12,7 @@ const TAB_CLASS = 'metadata-mode-toggle'
 const TAB_ACTIVE_CLASS = 'metadata-mode-toggle-active'
 const TABS_HIDDEN_CLASS = 'metadata-tabs-hidden'
 const HIDDEN_CODE_CLASS = 'metadata-hidden-code'
+const BLOCK_CLASS = 'metadata-block'
 const TABLE_CLASS = 'metadata-table'
 const TABLE_EMPTY_CLASS = 'metadata-table-empty'
 const SELECTED_CLASS = 'metadata-selected'
@@ -86,10 +87,14 @@ export class MetadataView extends MU.CodeView {
         // contentDOM starts as a child of dom (base CodeView constructor);
         // appendChild here moves it into content, as a sibling of
         // tableContainer, so Table and Source share the same padding.
-        this.dom.appendChild(this.bar)
+        // The bar follows content in the DOM and is shown first by CSS. WebKit cannot start a
+        // selection (Select All, for one) ahead of a non-editable element that is the first
+        // thing in the first block, so editable text has to come first.
+        this.dom.classList.add(BLOCK_CLASS)
         this.dom.appendChild(this.content)
-        this.content.appendChild(this.tableContainer)
+        this.dom.appendChild(this.bar)
         this.content.appendChild(this.contentDOM)
+        this.content.appendChild(this.tableContainer)
 
         this.setMode(true) // Table default
         this.syncCollapsedFromPluginState()
@@ -182,6 +187,7 @@ export class MetadataView extends MU.CodeView {
         this.dom.appendChild(this.contentDOM) // re-parent back under dom directly -- it currently lives inside content, which is about to be removed
         if (this.dom.contains(this.bar)) this.dom.removeChild(this.bar)
         if (this.dom.contains(this.content)) this.dom.removeChild(this.content)
+        this.dom.classList.remove(BLOCK_CLASS)
         this.contentDOM.classList.remove(HIDDEN_CODE_CLASS)
     }
 
