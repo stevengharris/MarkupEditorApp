@@ -36,14 +36,16 @@ public enum ShortcutsProcess {
         let launch = Launch()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                // The worker blocks on semaphores that the process's termination and read handlers signal from
-                // default-priority threads, so it runs at that priority to avoid a priority inversion.
-                DispatchQueue.global(qos: .default).async {
+                // The worker blocks on a semaphore and a group that the process's termination and read handlers
+                // signal from default-priority threads. A dispatched block takes the caller's higher priority unless
+                // it is enforced, and would then wait on lower-priority threads.
+                let work = DispatchWorkItem(qos: .default, flags: .enforceQoS) {
                     continuation.resume(with: Result {
                         try runBlocking(launch: launch, executable: executable, arguments: arguments,
                                         timeout: timeout, killGrace: killGrace, drainGrace: drainGrace)
                     })
                 }
+                DispatchQueue.global(qos: .default).async(execute: work)
             }
         } onCancel: {
             launch.markCancelled()
