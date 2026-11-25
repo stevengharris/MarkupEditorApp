@@ -283,6 +283,8 @@ export class MetadataPlugin {
             // cannot give this guarantee.
             appendTransaction(transactions, oldState, newState) {
                 if (!transactions.some(tr => tr.docChanged)) return null
+                // A document load replaces the whole content, so its first block is not a language change.
+                if (transactions.some(tr => tr.getMeta('addToHistory') === false)) return null
                 const oldFirst = oldState.doc.firstChild
                 const wasMetadata = oldFirst && oldFirst.type.name === 'code_block' && isMetadataLanguage(oldFirst.attrs.language)
                 if (!wasMetadata) return null
