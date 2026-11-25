@@ -128,6 +128,18 @@ describe('appendTransaction active guard', () => {
     teardown()
   })
 
+  it('leaves the first block of a newly loaded document alone, even when it is not metadata', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const loaded = schema.node('doc', null, [
+      schema.node('code_block', { language: 'html' }, schema.text('<img src="x">')),
+      schema.node('paragraph', null, schema.text('body'))
+    ])
+    // A document load replaces the whole content and is kept out of the undo history.
+    view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, loaded.content).setMeta('addToHistory', false))
+    expect(view.state.doc.firstChild.attrs.language).toBe('html')
+    teardown()
+  })
+
   it('reverts even a "Language: none" conversion (null language)', () => {
     const { view, teardown } = mountView(metadataDoc())
     const tr = view.state.tr.setNodeMarkup(0, undefined, { language: null })

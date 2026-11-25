@@ -5,7 +5,13 @@
   display: none;
 }
 
+.metadata-block {
+  display: flex;
+  flex-direction: column;
+}
+
 .metadata-bar {
+  order: -1;
   display: flex;
   align-items: center;
   gap: 6px;

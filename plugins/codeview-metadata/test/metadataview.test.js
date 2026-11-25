@@ -213,6 +213,22 @@ describe('MetadataView collapse/expand', () => {
   })
 })
 
+describe('MetadataView DOM order', () => {
+  // WebKit cannot start a selection (Select All) ahead of a non-editable element that is the
+  // first thing in the first block, so the editable content must precede the bar in the DOM.
+  it('places the editable content before the non-editable bar', () => {
+    const { view, teardown } = mountView(metadataDoc())
+    const instance = view.nodeDOM(0).codeView
+
+    expect(instance.dom.firstElementChild).toBe(instance.content)
+    expect(instance.content.firstElementChild).toBe(instance.contentDOM)
+    expect(instance.dom.contains(instance.bar)).toBe(true)
+    expect(instance.content.compareDocumentPosition(instance.bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    teardown()
+  })
+
+})
+
 describe('MetadataView position-0 enforcement', () => {
   it('renders as an ordinary code block (no bar, no Table/Source) once no longer at position 0', () => {
     const { view, teardown } = mountView(metadataDoc())
